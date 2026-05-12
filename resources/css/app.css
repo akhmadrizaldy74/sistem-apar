@@ -1,0 +1,217 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body.admin-surface {
+        font-family: 'Outfit', 'Figtree', sans-serif;
+    }
+
+    [x-cloak] {
+        display: none !important;
+    }
+}
+
+@layer utilities {
+    .page-enter {
+        animation: page-enter 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    [data-reveal] {
+        opacity: 1;
+        transform: none;
+    }
+
+    .js [data-reveal] {
+        opacity: 0;
+        transform: translateY(18px);
+        transition: opacity 700ms cubic-bezier(0.2, 0.8, 0.2, 1), transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+        will-change: opacity, transform;
+    }
+
+    .js [data-reveal].reveal-visible {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .progress-bar {
+        width: 0%;
+        transition: width 1000ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .wa-bounce {
+        animation: wa-bounce 2600ms cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+    }
+
+    @keyframes wa-bounce {
+        0%,
+        100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-8px);
+        }
+    }
+
+    @keyframes page-enter {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+}
+
+/*
+ * TailAdmin-inspired visual layer.
+ * Existing Blade content and business flows stay intact; this layer only
+ * aligns the surface, cards, tables, forms, and controls with TailAdmin.
+ */
+.tailadmin-admin,
+.tailadmin-public {
+    --ta-brand: 70 95 255;
+    --ta-brand-soft: 236 243 255;
+    --ta-border: 228 231 236;
+    --ta-muted: 102 112 133;
+    --ta-ink: 16 24 40;
+    --ta-panel: 255 255 255;
+}
+
+.tailadmin-admin,
+.tailadmin-public {
+    background-color: #f9fafb;
+}
+
+.tailadmin-admin main .bg-white,
+.tailadmin-public main .bg-white,
+.tailadmin-admin section.bg-white,
+.tailadmin-public section.bg-white,
+.tailadmin-admin .rounded-\[2rem\],
+.tailadmin-public .rounded-\[2rem\],
+.tailadmin-admin .rounded-\[2\.5rem\],
+.tailadmin-public .rounded-\[2\.5rem\] {
+    border-color: rgb(var(--ta-border)) !important;
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04) !important;
+}
+
+.tailadmin-admin main .bg-white,
+.tailadmin-public main .bg-white,
+.tailadmin-admin section.bg-white,
+.tailadmin-public section.bg-white {
+    background-color: rgb(var(--ta-panel)) !important;
+}
+
+.tailadmin-admin table,
+.tailadmin-public table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.tailadmin-admin thead,
+.tailadmin-public thead {
+    background-color: #f9fafb !important;
+}
+
+.tailadmin-admin th,
+.tailadmin-public th {
+    color: #667085 !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0 !important;
+}
+
+.tailadmin-admin tbody tr,
+.tailadmin-public tbody tr {
+    transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.tailadmin-admin tbody tr:hover,
+.tailadmin-public tbody tr:hover {
+    background-color: #f9fafb !important;
+}
+
+.tailadmin-admin input:not([type='checkbox']):not([type='radio']),
+.tailadmin-admin select,
+.tailadmin-admin textarea,
+.tailadmin-public input:not([type='checkbox']):not([type='radio']),
+.tailadmin-public select,
+.tailadmin-public textarea {
+    border: 1px solid rgb(var(--ta-border)) !important;
+    background-color: #fff !important;
+    color: rgb(var(--ta-ink)) !important;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05) !important;
+}
+
+.tailadmin-admin input:focus,
+.tailadmin-admin select:focus,
+.tailadmin-admin textarea:focus,
+.tailadmin-public input:focus,
+.tailadmin-public select:focus,
+.tailadmin-public textarea:focus {
+    border-color: rgb(var(--ta-brand)) !important;
+    box-shadow: 0 0 0 4px rgba(70, 95, 255, 0.12) !important;
+}
+
+.tailadmin-admin input[type='checkbox'],
+.tailadmin-public input[type='checkbox'],
+.tailadmin-admin input[type='radio'],
+.tailadmin-public input[type='radio'] {
+    color: rgb(var(--ta-brand)) !important;
+}
+
+.tailadmin-admin .bg-red-700,
+.tailadmin-public .bg-red-700 {
+    background-color: rgb(var(--ta-brand)) !important;
+}
+
+.tailadmin-admin .hover\:bg-red-800:hover,
+.tailadmin-public .hover\:bg-red-800:hover {
+    background-color: #3641f5 !important;
+}
+
+.tailadmin-admin .shadow-red-700\/20,
+.tailadmin-public .shadow-red-700\/20,
+.tailadmin-admin .shadow-red-700\/30,
+.tailadmin-public .shadow-red-700\/30,
+.tailadmin-admin .shadow-red-700\/35,
+.tailadmin-public .shadow-red-700\/35 {
+    --tw-shadow-color: rgba(70, 95, 255, 0.18) !important;
+}
+
+.tailadmin-admin .maplibregl-ctrl-group,
+.tailadmin-public .maplibregl-ctrl-group {
+    border-radius: 0.5rem !important;
+    border: 1px solid rgb(var(--ta-border)) !important;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08) !important;
+    overflow: hidden;
+}
+
+@layer utilities {
+    @media print {
+        aside, nav, header, .no-print, button, form {
+            display: none !important;
+        }
+        main {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        .bg-white {
+            background-color: white !important;
+        }
+        .shadow-sm, .shadow-xl, .shadow-2xl {
+            box-shadow: none !important;
+        }
+        .rounded-\[2\.5rem\],
+        .rounded-2xl {
+            border-radius: 0 !important;
+        }
+        .border {
+            border: 1px solid #eee !important;
+        }
+    }
+}

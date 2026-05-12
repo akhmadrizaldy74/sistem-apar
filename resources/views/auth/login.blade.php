@@ -1,0 +1,66 @@
+<x-guest-layout>
+    <div class="mb-8" data-reveal>
+        <h2 class="text-2xl font-black text-gray-900 tracking-tight">Masuk ke Akun Anda</h2>
+        <p class="text-sm text-gray-500 font-medium">Masuk untuk mulai berbelanja, kelola pesanan, atau akses panel kerja.</p>
+    </div>
+
+    <!-- Session Status -->
+    <x-auth-session-status class="mb-6" :status="session('status')" />
+
+    <form method="POST" action="{{ route('login') }}" class="space-y-6" data-reveal>
+        @csrf
+
+        <!-- Email Address -->
+        <!-- Login Field -->
+        <div>
+            <label for="login" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Identifier (Email / No. WA)</label>
+            <x-text-input id="login" class="block w-full pl-6 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-red-600/20 focus:bg-white font-bold text-gray-900 placeholder:text-gray-300 transition shadow-sm focus:shadow-md" type="text" name="login" :value="old('login')" required autofocus autocomplete="username" placeholder="Email / Nomor WhatsApp" />
+            <x-input-error :messages="$errors->get('login')" class="mt-2" />
+            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+            <x-input-error :messages="$errors->get('no_telpon')" class="mt-2" />
+        </div>
+
+        <!-- Password -->
+        <div>
+            <div class="flex justify-between items-center mb-2">
+                <label for="password" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block">Access Key</label>
+                @if (Route::has('password.request'))
+                    <a class="text-[10px] font-black text-red-700 uppercase tracking-widest hover:underline" href="{{ route('password.request') }}">
+                        Recovery
+                    </a>
+                @endif
+            </div>
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none text-gray-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                </div>
+                <input id="password" type="password" name="password" required autocomplete="current-password"
+                    class="w-full pl-14 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-red-600/20 focus:bg-white font-bold text-gray-900 placeholder:text-gray-300 transition shadow-sm focus:shadow-md"
+                    placeholder="••••••••••••">
+            </div>
+            <x-input-error :messages="$errors->get('password')" class="mt-2" />
+        </div>
+
+        <!-- Remember Me -->
+        <div class="flex items-center">
+            <input id="remember_me" type="checkbox" name="remember" class="w-5 h-5 rounded-lg border-gray-200 text-red-700 focus:ring-red-600/20 shadow-sm transition cursor-pointer">
+            <label for="remember_me" class="ms-3 text-[10px] font-black text-gray-400 uppercase tracking-widest cursor-pointer select-none">
+                Maintain Session
+            </label>
+        </div>
+
+        <div class="pt-4">
+            <button type="submit" class="w-full py-5 bg-red-700 text-white font-black rounded-2xl hover:bg-red-800 transition shadow-xl shadow-red-900/35 hover:shadow-red-900/50 uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:-translate-y-0.5 transform">
+                Masuk
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+            </button>
+        </div>
+        
+        <div class="mt-6 text-center">
+            <p class="text-sm text-gray-600 font-medium">Belum punya akun pelanggan?</p>
+            <a href="{{ route('register') }}" class="mt-2 inline-block text-sm font-black text-red-700 hover:text-red-800 transition uppercase tracking-widest">
+                Daftar Sekarang
+            </a>
+        </div>
+    </form>
+</x-guest-layout>

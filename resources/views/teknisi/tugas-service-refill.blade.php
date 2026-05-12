@@ -1,0 +1,20 @@
+<x-app-layout>
+    <x-slot name="header">
+        <div>
+            <h2 class="text-3xl font-black text-slate-900 tracking-tight">Tugas Layanan APAR</h2>
+            <p class="text-sm font-semibold text-slate-500 mt-1">Daftar tugas aktif perawatan, service, atau refill yang ditugaskan admin.</p>
+        </div>
+    </x-slot>
+
+    <div class="space-y-4">
+        <div class="bg-blue-50 border border-blue-200 rounded-2xl px-5 py-4">
+            <p class="text-xs font-black uppercase tracking-widest text-blue-700">Catatan</p>
+            <p class="text-sm font-semibold text-blue-900 mt-1">Komunikasi ke pelanggan dilakukan oleh admin. Teknisi fokus pengerjaan dan catatan hasil lapangan.</p>
+        </div>
+
+        @include('teknisi.partials.active-tasks-table', [
+            'tasks' => $tasks,
+            'emptyMessage' => 'Belum ada tugas layanan aktif untuk Anda.'
+        ])
+    </div>
+</x-app-layout>

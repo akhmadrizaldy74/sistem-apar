@@ -1,0 +1,174 @@
+<?php
+
+use App\Http\Controllers\Admin\LaporanController;
+use App\Http\Controllers\Admin\JenisAparController;
+use App\Http\Controllers\Admin\JenisRefillController;
+use App\Http\Controllers\Admin\PelangganController;
+use App\Http\Controllers\Admin\PesananController;
+use App\Http\Controllers\Admin\ProdukController;
+use App\Http\Controllers\Admin\RefillController;
+use App\Http\Controllers\Admin\ServiceController;
+use App\Http\Controllers\Admin\StokController;
+use App\Http\Controllers\Admin\PeralatanController;
+use App\Http\Controllers\Admin\PengeluaranController;
+use App\Http\Controllers\Admin\UnitAparController;
+use App\Http\Controllers\Admin\ComplainController;
+use App\Http\Controllers\Admin\TestimoniController;
+use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\KeranjangController;
+use App\Http\Controllers\LandingPageController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PublicController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\TeknisiController;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
+
+Route::get('/', [LandingPageController::class, 'index'])->name('home');
+
+Route::get('/cek-apar', [LandingPageController::class, 'cekAparForm'])->name('cek-apar');
+Route::post('/cek-apar', [LandingPageController::class, 'cekApar'])->name('cek-apar.check');
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/riwayat-apar', [LandingPageController::class, 'riwayatApar'])->name('riwayat-apar');
+    Route::get('/riwayat-apar/status', [LandingPageController::class, 'riwayatAparStatus'])->name('riwayat-apar.status');
+});
+
+Route::get('/produk', [LandingPageController::class, 'produkIndex'])->name('produk.index');
+Route::get('/produk/{produk}', [LandingPageController::class, 'produkShow'])->name('produk.show');
+
+Route::get('/order', [PublicController::class, 'orderCreate'])->name('order.create');
+Route::post('/order', [PublicController::class, 'orderStore'])->name('order.store');
+Route::post('/order/ask-whatsapp', [PublicController::class, 'orderAskWhatsapp'])->name('order.ask-whatsapp');
+Route::post('/order/shipping/quote', [PublicController::class, 'orderShippingQuote'])->name('order.shipping.quote');
+Route::get('/order/address/suggest', [PublicController::class, 'orderAddressSuggest'])->name('order.address.suggest');
+Route::get('/order/{pesanan}/payment', [PublicController::class, 'orderPayment'])->name('order.payment');
+Route::post('/order/{pesanan}/payment', [PublicController::class, 'orderPaymentStore'])
+    ->withoutMiddleware([
+        \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
+    ])  
+    ->name('order.payment.store');
+Route::match(['get', 'post'], '/order/check-nego-code', [PublicController::class, 'checkNegoCode'])->name('order.check-nego-code');
+Route::get('/complain', [PublicController::class, 'complainCreate'])->name('complain.create');
+Route::post('/complain', [PublicController::class, 'complainStore'])->name('complain.store');
+Route::get('/testimoni', [PublicController::class, 'testimoniCreate'])->name('testimoni.create');
+Route::post('/testimoni', [PublicController::class, 'testimoniStore'])->name('testimoni.store');
+
+Route::get('/dashboard', function () {
+    /** @var \App\Models\User */
+    $user = Auth::user();
+
+    if ($user->isTeknisi()) {
+        return redirect()->route('teknisi.dashboard');
+    }
+
+    if ($user->isAdmin()) {
+        return view('dashboard');
+    }
+
+    return redirect()->route('home');
+})->middleware(['auth'])->name('dashboard');
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+});
+
+Route::middleware(['auth', 'teknisi'])->prefix('teknisi')->name('teknisi.')->group(function () {
+    Route::get('/dashboard', [TeknisiController::class, 'dashboard'])->name('dashboard');
+    Route::get('/tugas-produk', [TeknisiController::class, 'tugasProduk'])->name('tugas-produk');
+    Route::get('/tugas-service-refill', [TeknisiController::class, 'tugasServiceRefill'])->name('tugas-service-refill');
+    Route::get('/riwayat-tugas', [TeknisiController::class, 'riwayatTugas'])->name('riwayat-tugas');
+    Route::post('/tugas/{pesanan}/mulai', [TeknisiController::class, 'tugasMulai'])->name('tugas.mulai');
+    Route::post('/tugas/{pesanan}/selesai', [TeknisiController::class, 'tugasSelesai'])->name('tugas.selesai');
+    Route::post('/tugas/{pesanan}/ajukan-tambahan', [TeknisiController::class, 'ajukanTambahan'])->name('tugas.ajukan-tambahan');
+    
+    // Refill Stock Internal
+    Route::get('/refill-stock', [TeknisiController::class, 'refillStock'])->name('refill-stock.index');
+    Route::post('/refill-stock/{tugasRefill}/mulai', [TeknisiController::class, 'mulaiRefill'])->name('refill-stock.mulai');
+    Route::post('/refill-stock/{tugasRefill}/selesai', [TeknisiController::class, 'selesaiRefill'])->name('refill-stock.selesai');
+
+    // Service Log — Teknisi Report
+    Route::get('/service-log', [TeknisiController::class, 'serviceLog'])->name('service-log');
+    Route::post('/service-log/{service}/laporan', [TeknisiController::class, 'submitServiceReport'])->name('service-log.laporan');
+});
+
+Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');
+    Route::get('/laporan/apar', [LaporanController::class, 'apar'])->name('laporan.apar');
+    Route::get('/laporan/pesanan', [LaporanController::class, 'pesanan'])->name('laporan.pesanan');
+    Route::get('/laporan/service', [LaporanController::class, 'service'])->name('laporan.service');
+    Route::get('/laporan/keuangan', [LaporanController::class, 'keuangan'])->name('laporan.keuangan');
+    Route::get('/laporan/apar/pdf', [LaporanController::class, 'aparPdf'])->name('laporan.apar.pdf');
+    Route::get('/laporan/pesanan/pdf', [LaporanController::class, 'pesananPdf'])->name('laporan.pesanan.pdf');
+    Route::get('/laporan/service/pdf', [LaporanController::class, 'servicePdf'])->name('laporan.service.pdf');
+    Route::get('/laporan/keuangan/pdf', [LaporanController::class, 'keuanganPdf'])->name('laporan.keuangan.pdf');
+    Route::get('/stok', [StokController::class, 'index'])->name('stok.index');
+    Route::post('/stok/batch', [StokController::class, 'storeBatch'])->name('stok.batch.store');
+    Route::post('/stok/batch/{stokBatch}/refill', [StokController::class, 'refillBatch'])->name('stok.batch.refill');
+    // CRUD Peralatan di halaman Stok
+    Route::post('/stok/peralatan', [StokController::class, 'storePeralatan'])->name('stok.peralatan.store');
+    Route::put('/stok/peralatan/{peralatan}', [StokController::class, 'updatePeralatan'])->name('stok.peralatan.update');
+    Route::delete('/stok/peralatan/{peralatan}', [StokController::class, 'destroyPeralatan'])->name('stok.peralatan.destroy');
+    Route::resource('pelanggan', PelangganController::class);
+    Route::get('/pesanan/{pesanan}/invoice/pdf', [PesananController::class, 'invoicePdf'])->name('pesanan.invoice.pdf');
+    Route::post('/pesanan/{pesanan}/nego-action', [PesananController::class, 'negoAction'])->name('pesanan.nego-action');
+    Route::get('/pesanan/notifikasi/pembayaran', [PesananController::class, 'paymentNotifications'])->name('pesanan.payment-notifications');
+    Route::post('/pesanan/{pesanan}/kirim-link-pembayaran', [PesananController::class, 'kirimLinkPembayaran'])->name('pesanan.kirim-link-pembayaran');
+    Route::post('/pesanan/{pesanan}/input-bukti-pembayaran-manual', [PesananController::class, 'inputBuktiPembayaranManual'])->name('pesanan.input-bukti-pembayaran-manual');
+    Route::post('/pesanan/{pesanan}/konfirmasi-pembayaran-manual', [PesananController::class, 'konfirmasiPembayaranManual'])->name('pesanan.konfirmasi-pembayaran-manual');
+    Route::post('/pesanan/{pesanan}/assign-teknisi', [PesananController::class, 'assignTeknisi'])->name('pesanan.assign-teknisi');
+    Route::post('/pesanan/{pesanan}/konfirmasi-pelanggan', [PesananController::class, 'konfirmasiKePelanggan'])->name('pesanan.konfirmasi-pelanggan');
+    Route::post('/pesanan/{pesanan}/selesai-final', [PesananController::class, 'selesaiFinal'])->name('pesanan.selesai-final');
+    Route::resource('pesanan', PesananController::class);
+    Route::resource('jenis-apar', JenisAparController::class)->except(['show']);
+    Route::resource('jenis-refill', JenisRefillController::class);
+    Route::resource('produk', ProdukController::class);
+    Route::resource('unit-apar', UnitAparController::class);
+    Route::post('/service/request/{pesanan}/status', [ServiceController::class, 'updateRequestStatus'])->name('service.request.status');
+    Route::post('/service/{service}/konfirmasi-selesai', [ServiceController::class, 'konfirmasiSelesai'])->name('service.konfirmasi-selesai');
+    Route::post('/service/{service}/tolak', [ServiceController::class, 'tolakService'])->name('service.tolak');
+    Route::resource('service', ServiceController::class);
+    Route::resource('refill', RefillController::class);
+    Route::resource('peralatan', PeralatanController::class);
+    Route::resource('pengeluaran', PengeluaranController::class);
+    // Complain
+    Route::get('/complain', [ComplainController::class, 'index'])->name('complain.index');
+    Route::put('/complain/{complain}', [ComplainController::class, 'update'])->name('complain.update');
+    Route::delete('/complain/{complain}', [ComplainController::class, 'destroy'])->name('complain.destroy');
+    // Testimoni
+    Route::get('/testimoni', [TestimoniController::class, 'index'])->name('testimoni.index');
+    Route::post('/testimoni', [TestimoniController::class, 'store'])->name('testimoni.store');
+    Route::put('/testimoni/{testimoni}', [TestimoniController::class, 'update'])->name('testimoni.update');
+    Route::post('/testimoni/{testimoni}/approve', [TestimoniController::class, 'approve'])->name('testimoni.approve');
+    Route::post('/testimoni/{testimoni}/reject', [TestimoniController::class, 'reject'])->name('testimoni.reject');
+    Route::post('/testimoni/{testimoni}/pending', [TestimoniController::class, 'pending'])->name('testimoni.pending');
+    Route::delete('/testimoni/{testimoni}', [TestimoniController::class, 'destroy'])->name('testimoni.destroy');
+    // Export CSV
+    Route::get('/laporan/apar/csv', [LaporanController::class, 'aparCsv'])->name('laporan.apar.csv');
+    Route::get('/laporan/pesanan/csv', [LaporanController::class, 'pesananCsv'])->name('laporan.pesanan.csv');
+    Route::get('/laporan/service/csv', [LaporanController::class, 'serviceCsv'])->name('laporan.service.csv');
+    Route::get('/laporan/keuangan/csv', [LaporanController::class, 'keuanganCsv'])->name('laporan.keuangan.csv');
+});
+
+Route::middleware('auth')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+
+// ==============================
+// KERANJANG BELANJA & CHECKOUT
+// ==============================
+Route::middleware('auth')->group(function () {
+    Route::get('/keranjang', [KeranjangController::class, 'index'])->name('keranjang.index');
+    Route::post('/keranjang', [KeranjangController::class, 'store'])->name('keranjang.store');
+    Route::patch('/keranjang/{keranjang}', [KeranjangController::class, 'update'])->name('keranjang.update');
+    Route::delete('/keranjang/{keranjang}', [KeranjangController::class, 'destroy'])->name('keranjang.destroy');
+    Route::get('/keranjang/count', [KeranjangController::class, 'count'])->name('keranjang.count');
+
+    Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
+    Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
+});
+
+require __DIR__.'/auth.php';

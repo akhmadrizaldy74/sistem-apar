@@ -1,0 +1,245 @@
+{{-- Detail Section Partial for Transaction --}}
+
+@php
+    $totalHarga = $pesanan->payableTotal();
+    $ongkir = (float) ($pesanan->ongkir ?: 0);
+    $subtotal = $totalHarga - $ongkir;
+@endphp
+
+<div class="grid md:grid-cols-2 gap-6">
+    {{-- Left Column: Order Info --}}
+    <div class="space-y-4">
+        <h4 class="font-bold text-slate-700 flex items-center gap-2">
+            <i class="fa-solid fa-circle-info text-red-500"></i>
+            Informasi Pesanan
+        </h4>
+
+        <div class="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+            {{-- Payment Method --}}
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-slate-500 flex items-center gap-2">
+                    <i class="fa-solid fa-credit-card w-4 text-slate-400"></i>
+                    Metode Pembayaran
+                </span>
+                <span class="text-sm font-semibold text-slate-700">
+                    {{ ucfirst($pesanan->metode_pembayaran ?? '-') }}
+                </span>
+            </div>
+
+            {{-- Payment Status --}}
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-slate-500 flex items-center gap-2">
+                    <i class="fa-solid fa-check-circle w-4 text-slate-400"></i>
+                    Status Pembayaran
+                </span>
+                <span class="text-sm font-semibold {{ $pesanan->isPaymentConfirmed() ? 'text-emerald-600' : 'text-amber-600' }}">
+                    {{ $pesanan->isPaymentConfirmed() ? 'Sudah Bayar' : 'Belum Bayar' }}
+                </span>
+            </div>
+
+            {{-- Delivery Method --}}
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-slate-500 flex items-center gap-2">
+                    <i class="fa-solid fa-truck w-4 text-slate-400"></i>
+                    Metode Pengiriman
+                </span>
+                <span class="text-sm font-semibold text-slate-700">
+                    {{ $pesanan->trackingMethodLabel() }}
+                </span>
+            </div>
+
+            {{-- Recipient (if available) --}}
+            @if($pesanan->nama_penerima)
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-slate-500 flex items-center gap-2">
+                    <i class="fa-solid fa-user w-4 text-slate-400"></i>
+                    Penerima
+                </span>
+                <span class="text-sm font-semibold text-slate-700">
+                    {{ $pesanan->nama_penerima }}
+                </span>
+            </div>
+            @endif
+
+            {{-- Assigned Technician --}}
+            @if($pesanan->teknisi)
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-slate-500 flex items-center gap-2">
+                    <i class="fa-solid fa-wrench w-4 text-slate-400"></i>
+                    Teknisi
+                </span>
+                <span class="text-sm font-semibold text-slate-700">
+                    {{ $pesanan->teknisi->name }}
+                </span>
+            </div>
+            @endif
+
+            {{-- Technician Completion --}}
+            @if($pesanan->teknisi_selesai_at)
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-slate-500 flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-check w-4 text-slate-400"></i>
+                    Selesai Teknisi
+                </span>
+                <span class="text-sm font-semibold text-slate-700">
+                    {{ \Carbon\Carbon::parse($pesanan->teknisi_selesai_at)->format('d M Y, H:i') }}
+                </span>
+            </div>
+            @endif
+        </div>
+
+        {{-- Service specific info --}}
+        @if($pesanan->tipe === 'service' && $pesanan->service_keluhan)
+        <div class="bg-amber-50 rounded-xl border border-amber-200 p-4">
+            <p class="text-xs font-bold text-amber-600 uppercase tracking-widest mb-2 flex items-center gap-1">
+                <i class="fa-solid fa-exclamation-triangle"></i>
+                Keluhan Pelanggan
+            </p>
+            <p class="text-sm text-slate-700 leading-relaxed">{{ $pesanan->service_keluhan }}</p>
+        </div>
+        @endif
+
+        {{-- Technician Notes --}}
+        @if($pesanan->teknisi_catatan)
+        <div class="bg-blue-50 rounded-xl border border-blue-200 p-4">
+            <p class="text-xs font-bold text-blue-600 uppercase tracking-widest mb-2 flex items-center gap-1">
+                <i class="fa-solid fa-clipboard"></i>
+                Catatan Teknisi
+            </p>
+            <p class="text-sm text-slate-700 leading-relaxed">{{ $pesanan->teknisi_catatan }}</p>
+        </div>
+        @endif
+
+        {{-- Admin Notes --}}
+        @if($pesanan->catatan_admin)
+        <div class="bg-purple-50 rounded-xl border border-purple-200 p-4">
+            <p class="text-xs font-bold text-purple-600 uppercase tracking-widest mb-2 flex items-center gap-1">
+                <i class="fa-solid fa-sticky-note"></i>
+                Catatan Admin
+            </p>
+            <p class="text-sm text-slate-700 leading-relaxed">{{ $pesanan->catatan_admin }}</p>
+        </div>
+        @endif
+    </div>
+
+    {{-- Right Column: Items & Summary --}}
+    <div class="space-y-4">
+        <h4 class="font-bold text-slate-700 flex items-center gap-2">
+            <i class="fa-solid fa-box text-red-500"></i>
+            Rincian Pesanan
+        </h4>
+
+        <div class="bg-white rounded-xl border border-slate-200 p-4">
+            @if($pesanan->tipe === 'service')
+                {{-- Service Item --}}
+                <div class="space-y-3">
+                    <div class="flex justify-between items-start pb-3 border-b border-slate-100">
+                        <div>
+                            <p class="text-sm font-semibold text-slate-700">
+                                {{ $pesanan->servicePaket?->nama ?? 'Paket Service' }}
+                            </p>
+                            <p class="text-xs text-slate-400 mt-1">
+                                {{ $pesanan->servicePaket ? ucfirst($pesanan->servicePaket->jenis_layanan) : '-' }}
+                            </p>
+                        </div>
+                        <span class="text-sm font-semibold text-slate-700">
+                            {{ (int) ($pesanan->service_jumlah_unit ?? 0) }} unit
+                        </span>
+                    </div>
+
+                    @if($pesanan->service_total_kg)
+                    <div class="flex justify-between items-center py-2 border-b border-slate-100">
+                        <span class="text-sm text-slate-500">Total Berat Refill</span>
+                        <span class="text-sm font-semibold text-slate-700">
+                            {{ rtrim(rtrim(number_format((float) $pesanan->service_total_kg, 2, ',', '.'), '0'), ',') }} kg
+                        </span>
+                    </div>
+                    @endif
+
+                    @if($pesanan->service_jenis_refill_id)
+                    <div class="flex justify-between items-center py-2 border-b border-slate-100">
+                        <span class="text-sm text-slate-500">Jenis Refill</span>
+                        <span class="text-sm font-semibold text-slate-700">
+                            {{ $pesanan->serviceJenisRefill?->nama ?? '-' }}
+                        </span>
+                    </div>
+                    @endif
+
+                    @if($pesanan->service_estimasi_biaya)
+                    <div class="flex justify-between items-center py-2 border-b border-slate-100">
+                        <span class="text-sm text-slate-500">Estimasi Biaya</span>
+                        <span class="text-sm font-semibold text-amber-600">
+                            Rp {{ number_format((float) $pesanan->service_estimasi_biaya, 0, ',', '.') }}
+                        </span>
+                    </div>
+                    @endif
+                </div>
+
+            @else
+                {{-- Product Items --}}
+                @forelse($pesanan->details as $detail)
+                <div class="flex justify-between items-start py-3 {{ !$loop->last ? 'border-b border-slate-100' : '' }}">
+                    <div>
+                        <p class="text-sm font-semibold text-slate-700">{{ $detail->produk?->nama ?? 'Produk' }}</p>
+                        <p class="text-xs text-slate-400 mt-0.5">
+                            {{ $detail->produk?->jenisApar?->nama ?? '' }} {{ $detail->produk?->kapasitas ? '• ' . $detail->produk->kapasitas : '' }}
+                        </p>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-sm font-semibold text-slate-700">x{{ $detail->jumlah }}</span>
+                        <p class="text-xs text-slate-400 mt-0.5">
+                            Rp {{ number_format((float) ($detail->harga ?? 0), 0, ',', '.') }}
+                        </p>
+                    </div>
+                </div>
+                @empty
+                <p class="text-sm text-slate-500 text-center py-4">Tidak ada item</p>
+                @endforelse
+            @endif
+        </div>
+
+        {{-- Price Summary --}}
+        <div class="bg-slate-50 rounded-xl border border-slate-200 p-4">
+            @if($pesanan->tipe !== 'service')
+            <div class="flex justify-between items-center py-2">
+                <span class="text-sm text-slate-500">Subtotal</span>
+                <span class="text-sm font-semibold text-slate-700">
+                    Rp {{ number_format($subtotal, 0, ',', '.') }}
+                </span>
+            </div>
+            @if($ongkir > 0)
+            <div class="flex justify-between items-center py-2 border-t border-slate-200">
+                <span class="text-sm text-slate-500">Ongkir</span>
+                <span class="text-sm font-semibold text-slate-700">
+                    Rp {{ number_format($ongkir, 0, ',', '.') }}
+                </span>
+            </div>
+            @endif
+            @endif
+
+            @if($pesanan->service_estimasi_biaya)
+            <div class="flex justify-between items-center py-2 border-t border-slate-200">
+                <span class="text-sm text-slate-500">Estimasi Biaya Service</span>
+                <span class="text-sm font-semibold text-slate-700">
+                    Rp {{ number_format((float) $pesanan->service_estimasi_biaya, 0, ',', '.') }}
+                </span>
+            </div>
+            @endif
+
+            <div class="flex justify-between items-center py-3 border-t border-slate-200 mt-2">
+                <span class="text-base font-bold text-slate-900">Total</span>
+                <span class="text-lg font-black text-red-600">
+                    Rp {{ number_format($totalHarga, 0, ',', '.') }}
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- Additional Notes --}}
+@if($pesanan->keterangan && $pesanan->tipe !== 'service')
+<div class="mt-6 pt-6 border-t border-slate-200">
+    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Keterangan Tambahan</p>
+    <p class="text-sm text-slate-600 leading-relaxed bg-slate-50 rounded-lg p-3">{{ $pesanan->keterangan }}</p>
+</div>
+@endif
