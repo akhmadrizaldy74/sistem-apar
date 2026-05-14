@@ -2,16 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLog;
 use App\Models\JenisApar;
 use App\Models\Pelanggan;
 use App\Models\Pesanan;
 use App\Models\Produk;
+use App\Models\Testimoni;
 use App\Models\UnitApar;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class LandingPageController extends Controller
 {
+    private function feedbackLinkDescription(Pelanggan $pelanggan, Pesanan $pesanan): string
+    {
+        return 'testimoni-order:' . $pesanan->id . ':pelanggan:' . $pelanggan->id;
+    }
+
     private function normalizePhone(string $phone): string
     {
         $digits = preg_replace('/\D+/', '', $phone);
@@ -60,7 +67,7 @@ class LandingPageController extends Controller
             ->take(4)
             ->get();
 
-        $testimonis = \App\Models\Testimoni::with('pelanggan')
+        $testimonis = Testimoni::with('pelanggan')
             ->where('status', 'approved')
             ->latest('tanggal')
             ->take(6)
@@ -172,6 +179,9 @@ class LandingPageController extends Controller
             'pesanan.serviceJenisRefill',
             'pesanan.teknisi',
             'pesanan.unitApars',
+            'pesanan.complain',
+            'testimonis',
+            'complains.pesanan',
         ]);
 
         $totalTransaksi = $pelanggan->pesanan->count();
@@ -183,6 +193,38 @@ class LandingPageController extends Controller
             ->filter(fn($p) => $p->isActiveOrder() && !$p->isPaymentConfirmed())
             ->sortByDesc(fn($p) => $p->created_at)
             ->first();
+
+        $feedbackDescriptions = $pelanggan->pesanan
+            ->map(fn (Pesanan $pesanan) => $this->feedbackLinkDescription($pelanggan, $pesanan))
+            ->all();
+
+        $feedbackLinks = ActivityLog::query()
+            ->where('log_name', 'feedback')
+            ->where('event', 'linked_to_order')
+            ->where('subject_type', Testimoni::class)
+            ->whereIn('description', $feedbackDescriptions)
+            ->get()
+            ->keyBy('description');
+
+        $linkedTestimoniIds = $feedbackLinks
+            ->pluck('subject_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        $linkedTestimonis = Testimoni::query()
+            ->whereIn('id', $linkedTestimoniIds)
+            ->get()
+            ->keyBy('id');
+
+        $pelanggan->pesanan->each(function (Pesanan $pesanan) use ($feedbackLinks, $linkedTestimonis, $pelanggan) {
+            $description = $this->feedbackLinkDescription($pelanggan, $pesanan);
+            $feedbackLink = $feedbackLinks->get($description);
+            $linkedTestimoni = $feedbackLink ? $linkedTestimonis->get($feedbackLink->subject_id) : null;
+
+            $pesanan->setAttribute('linked_testimoni_id', $linkedTestimoni?->id);
+            $pesanan->setRelation('linkedTestimoni', $linkedTestimoni);
+        });
 
         $recentExpiries = $pelanggan->units
             ->filter(fn($u) => $u->tgl_expired && $u->tgl_expired->diffInDays(now()) <= 60)

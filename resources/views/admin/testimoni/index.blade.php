@@ -57,7 +57,9 @@
                             <td class="px-8 py-5">
                                 <p class="text-sm text-gray-600 max-w-xs line-clamp-2">{{ $t->review }}</p>
                                 @if($t->admin_note)
-                                    <p class="text-[10px] text-red-500 mt-1 italic">Catatan: {{ $t->admin_note }}</p>
+                                    <p class="text-[10px] text-blue-600 mt-1 italic">
+                                        {{ $t->status === 'rejected' ? 'Catatan Admin' : 'Balasan Admin' }}: {{ $t->admin_note }}
+                                    </p>
                                 @endif
                             </td>
                             <td class="px-8 py-5">
@@ -97,7 +99,7 @@
                                             </button>
                                         </form>
                                     @endif
-                                    <button onclick="openEdit({{ $t->id }}, {{ $t->rating }}, '{{ addslashes($t->review) }}')"
+                                    <button onclick="openEdit({{ $t->id }}, {{ $t->rating }}, '{{ addslashes($t->review) }}', '{{ addslashes($t->admin_note ?? '') }}')"
                                         class="px-3 py-2 text-xs font-bold text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition">
                                         <i class="fa-solid fa-pen-to-square"></i>
                                     </button>
@@ -182,6 +184,11 @@
                     <label class="block text-sm font-bold text-gray-700 mb-2">Review</label>
                     <textarea name="review" id="editReview" required rows="3" class="w-full rounded-xl border-gray-200"></textarea>
                 </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Balasan Admin</label>
+                    <textarea name="admin_note" id="editAdminNote" rows="3" class="w-full rounded-xl border-gray-200" placeholder="Balasan singkat untuk pelanggan..."></textarea>
+                    <p class="mt-2 text-xs text-gray-500">Balasan ini juga bisa dipakai sebagai catatan saat review ditolak.</p>
+                </div>
                 <div class="flex gap-3 justify-end pt-2">
                     <button type="button" onclick="closeModals()" class="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold text-sm">Batal</button>
                     <button type="submit" class="px-6 py-3 bg-gray-900 text-white rounded-xl font-bold text-sm">Simpan</button>
@@ -222,9 +229,10 @@
             document.getElementById(prefix + 'RatingInput').value = value;
         }
 
-        function openEdit(id, rating, review) {
+        function openEdit(id, rating, review, adminNote) {
             document.getElementById('editForm').action = '/admin/testimoni/' + id;
             document.getElementById('editReview').value = review;
+            document.getElementById('editAdminNote').value = adminNote;
             document.getElementById('editRatingInput').value = rating;
             setRating(rating, 'edit');
             document.getElementById('editModal').style.display = 'flex';

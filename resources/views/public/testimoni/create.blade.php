@@ -9,13 +9,32 @@
     <div class="col-md-7">
         <div class="card p-4">
             <h4 class="mb-4 fw-bold">Formulir Testimoni</h4>
+
+            @if(isset($selectedOrder) && $selectedOrder)
+                <div class="alert alert-info border-0 rounded-4">
+                    <div class="fw-bold mb-1">Penilaian untuk transaksi {{ $selectedOrder->orderCode() }}</div>
+                    <div class="small text-muted">{{ $selectedOrder->trackingItemLabel() }} • status {{ $selectedOrder->publicStatusLabel() }}</div>
+                </div>
+            @endif
+
+            @if(isset($existingReview) && $existingReview)
+                <div class="alert alert-warning border-0 rounded-4">
+                    <div class="fw-bold mb-1">Transaksi ini sudah pernah Anda nilai.</div>
+                    <div class="small text-muted">Status review: {{ strtoupper($existingReview->status) }} • Rating {{ $existingReview->rating }}/5</div>
+                </div>
+            @endif
+
             <form action="{{ route('testimoni.store') }}" method="POST">
                 @csrf
+
+                @if(isset($selectedOrder) && $selectedOrder)
+                    <input type="hidden" name="pesanan_id" value="{{ $selectedOrder->id }}">
+                @endif
                 
                 <div class="mb-3">
                     <label class="form-label fw-bold">Nomor WhatsApp Anda <span class="text-danger">*</span></label>
-                    <input type="text" name="no_wa" class="form-control @error('no_wa') is-invalid @enderror" value="{{ old('no_wa') }}" required placeholder="Contoh: 08123456789">
-                    <small class="text-muted">Gunakan nomor WA yang terdaftar di pesanan.</small>
+                    <input type="text" name="no_wa" class="form-control @error('no_wa') is-invalid @enderror" value="{{ old('no_wa', $pelanggan->no_wa ?? '') }}" {{ isset($pelanggan) && $pelanggan ? 'readonly' : 'required' }} placeholder="Contoh: 08123456789">
+                    <small class="text-muted">Admin bisa membalas testimoni Anda seperti model review marketplace.</small>
                     @error('no_wa') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
 
@@ -35,9 +54,13 @@
                     <label class="form-label fw-bold">Ulasan Anda <span class="text-danger">*</span></label>
                     <textarea name="review" class="form-control @error('review') is-invalid @enderror" rows="5" required placeholder="Bagaimana menurut Anda kualitas APAR & pelayanan kami?">{{ old('review') }}</textarea>
                     @error('review') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    <small class="text-muted d-block mt-2">Jika ada kendala serius, tetap gunakan menu komplain agar admin follow up lewat WhatsApp.</small>
                 </div>
 
-                <button type="submit" class="btn btn-primary w-100 btn-lg shadow-sm">Kirim Testimoni <i class="fa-solid fa-paper-plane ms-2"></i></button>
+                <button type="submit" class="btn btn-primary w-100 btn-lg shadow-sm" {{ isset($existingReview) && $existingReview ? 'disabled' : '' }}>
+                    {{ isset($existingReview) && $existingReview ? 'Penilaian Sudah Terkirim' : 'Kirim Testimoni' }}
+                    <i class="fa-solid fa-paper-plane ms-2"></i>
+                </button>
             </form>
         </div>
     </div>
@@ -52,6 +75,10 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const stars = [];
+        const reviewHint = document.createElement('div');
+        reviewHint.className = 'small mt-2';
+        document.querySelector('.rating-stars').parentElement.appendChild(reviewHint);
+
         for(let i=1; i<=5; i++) {
             stars.push(document.getElementById('star'+i));
         }
@@ -65,6 +92,14 @@
                     stars[i].classList.remove('fa-solid');
                     stars[i].classList.add('fa-regular');
                 }
+            }
+
+            if (Number(val) <= 3) {
+                reviewHint.className = 'small mt-2 text-danger';
+                reviewHint.textContent = 'Kalau ada kendala, admin tetap bisa membalas review Anda. Untuk penanganan lebih cepat, gunakan juga fitur komplain.';
+            } else {
+                reviewHint.className = 'small mt-2 text-muted';
+                reviewHint.textContent = 'Review positif Anda akan direview admin terlebih dahulu sebelum tampil ke publik.';
             }
         }
         

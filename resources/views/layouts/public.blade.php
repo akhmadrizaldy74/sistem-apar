@@ -188,6 +188,22 @@
     {{-- MAIN CONTENT --}}
     {{-- ============================================================ --}}
     <main class="pt-16">
+        @if(session('success') || session('error'))
+            <div class="mx-auto max-w-6xl px-4 pt-5 sm:px-6 lg:px-8">
+                @if(session('success'))
+                    <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900">
+                        <i class="fa-solid fa-circle-check me-2 text-emerald-600"></i>{{ session('success') }}
+                    </div>
+                @endif
+
+                @if(session('error'))
+                    <div class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-900">
+                        <i class="fa-solid fa-triangle-exclamation me-2 text-red-600"></i>{{ session('error') }}
+                    </div>
+                @endif
+            </div>
+        @endif
+
         @yield('content')
     </main>
 

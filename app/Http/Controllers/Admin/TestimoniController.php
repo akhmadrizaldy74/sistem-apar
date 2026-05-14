@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Testimoni;
 use App\Models\Pelanggan;
 use Illuminate\Http\Request;
@@ -53,9 +54,10 @@ class TestimoniController extends Controller
         $request->validate([
             'rating' => 'required|integer|min=1|max=5',
             'review' => 'required|string',
+            'admin_note' => 'nullable|string|max:500',
         ]);
 
-        $testimoni->update($request->only('rating', 'review'));
+        $testimoni->update($request->only('rating', 'review', 'admin_note'));
 
         return back()->with('success', 'Testimoni berhasil diperbarui.');
     }
@@ -88,6 +90,12 @@ class TestimoniController extends Controller
 
     public function destroy(Testimoni $testimoni)
     {
+        ActivityLog::query()
+            ->where('log_name', 'feedback')
+            ->where('subject_type', Testimoni::class)
+            ->where('subject_id', $testimoni->id)
+            ->delete();
+
         $testimoni->delete();
         return back()->with('success', 'Testimoni berhasil dihapus.');
     }

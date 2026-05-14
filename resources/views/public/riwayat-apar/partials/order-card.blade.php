@@ -8,6 +8,7 @@
     $progressPercent = $isRejected
         ? 100
         : max(8, min(100, ($currentStep / $totalSteps) * 100));
+    $linkedTestimoni = $pesanan->linkedTestimoni ?? null;
 @endphp
 
 <article
@@ -148,6 +149,69 @@
             </div>
         @endif
 
+        @if($linkedTestimoni)
+            @php
+                $reviewStatusClass = match($linkedTestimoni->status) {
+                    'approved' => 'bg-emerald-50 text-emerald-700',
+                    'rejected' => 'bg-red-50 text-red-700',
+                    default => 'bg-amber-50 text-amber-700',
+                };
+            @endphp
+            <div class="mt-4">
+                <p class="text-xs font-black uppercase tracking-wide text-slate-500">Penilaian Anda</p>
+                <div class="mt-2 rounded-xl border border-slate-100 bg-white px-4 py-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex items-center gap-1 text-amber-400 text-sm">
+                            @for($i = 0; $i < $linkedTestimoni->rating; $i++)
+                                <i class="fa-solid fa-star"></i>
+                            @endfor
+                            @for($i = $linkedTestimoni->rating; $i < 5; $i++)
+                                <i class="fa-regular fa-star text-slate-300"></i>
+                            @endfor
+                        </div>
+                        <span class="rounded-full px-2.5 py-1 text-[11px] font-black uppercase {{ $reviewStatusClass }}">{{ $linkedTestimoni->status }}</span>
+                    </div>
+                    <p class="mt-3 text-sm leading-6 text-slate-700">{{ $linkedTestimoni->review }}</p>
+                    @if($linkedTestimoni->admin_note)
+                        <div class="mt-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-3">
+                            <p class="text-[11px] font-black uppercase tracking-wide text-slate-400">Balasan Admin</p>
+                            <p class="mt-1 text-sm font-semibold leading-6 text-slate-700">{{ $linkedTestimoni->admin_note }}</p>
+                        </div>
+                    @endif
+                </div>
+            </div>
+        @endif
+
+        @if($pesanan->complain)
+            @php
+                $complain = $pesanan->complain;
+                $complainStatusClass = match($complain->status_penyelesaian) {
+                    'selesai' => 'bg-emerald-50 text-emerald-700',
+                    'diproses' => 'bg-amber-50 text-amber-700',
+                    default => 'bg-red-50 text-red-700',
+                };
+                $complainStatusText = match($complain->status_penyelesaian) {
+                    'selesai' => 'Komplain sudah diselesaikan. Jika masih ada kendala, Anda bisa kirim komplain baru lewat admin.',
+                    'diproses' => 'Komplain sedang ditangani. Admin biasanya menindaklanjuti detailnya lewat WhatsApp.',
+                    default => 'Komplain sudah tercatat dan menunggu follow up dari admin via WhatsApp.',
+                };
+            @endphp
+            <div class="mt-4">
+                <p class="text-xs font-black uppercase tracking-wide text-slate-500">Status Komplain</p>
+                <div class="mt-2 rounded-xl border border-slate-100 bg-white px-4 py-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <span class="rounded-full px-2.5 py-1 text-[11px] font-black uppercase {{ $complainStatusClass }}">{{ $complain->status_penyelesaian }}</span>
+                        <span class="text-xs font-bold text-slate-400">{{ optional($complain->tanggal)->format('d M Y') ?? $complain->created_at?->format('d M Y') }}</span>
+                    </div>
+                    <p class="mt-3 text-sm leading-6 text-slate-700">{{ $complain->isi_complain }}</p>
+                    <div class="mt-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-3">
+                        <p class="text-[11px] font-black uppercase tracking-wide text-slate-400">Update</p>
+                        <p class="mt-1 text-sm font-semibold leading-6 text-slate-700">{{ $complainStatusText }}</p>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         <div class="mt-4 flex flex-wrap gap-2">
             @if($pesanan->canPay())
                 <a href="{{ route('order.payment', $pesanan) }}" class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-xs font-black text-white transition hover:bg-red-700">
@@ -163,6 +227,46 @@
                     <i class="fa-brands fa-whatsapp text-emerald-600"></i>
                     Konfirmasi Pengambilan
                 </a>
+            @endif
+
+            @if($pesanan->isCompleted() && !$linkedTestimoni)
+                <a href="{{ route('testimoni.create', ['pesanan' => $pesanan->id]) }}" class="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-700 transition hover:bg-amber-100">
+                    <i class="fa-solid fa-star text-[10px]"></i>
+                    Beri Penilaian
+                </a>
+            @endif
+
+            <a href="{{ route('complain.create', ['pesanan' => $pesanan->id]) }}" class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-50">
+                <i class="fa-solid fa-headset text-[10px] text-red-500"></i>
+                {{ $pesanan->complain ? 'Lihat Komplain' : 'Butuh Bantuan / Komplain' }}
+            </a>
+
+            @if($pesanan->complain)
+                @php
+                    $complainStatusClass = match($pesanan->complain->status_penyelesaian) {
+                        'selesai' => 'bg-emerald-50 text-emerald-700',
+                        'diproses' => 'bg-amber-50 text-amber-700',
+                        default => 'bg-red-50 text-red-700',
+                    };
+                @endphp
+                <span class="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-black {{ $complainStatusClass }}">
+                    <i class="fa-solid fa-life-ring text-[10px]"></i>
+                    Komplain {{ ucfirst($pesanan->complain->status_penyelesaian) }}
+                </span>
+            @endif
+
+            @if($linkedTestimoni)
+                @php
+                    $linkedReviewStatusClass = match($linkedTestimoni->status) {
+                        'approved' => 'bg-emerald-50 text-emerald-700',
+                        'rejected' => 'bg-red-50 text-red-700',
+                        default => 'bg-amber-50 text-amber-700',
+                    };
+                @endphp
+                <span class="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-black {{ $linkedReviewStatusClass }}">
+                    <i class="fa-solid fa-star text-[10px]"></i>
+                    Ulasan {{ ucfirst($linkedTestimoni->status) }}
+                </span>
             @endif
         </div>
     </div>

@@ -47,12 +47,7 @@
                             <td class="px-8 py-5">
                                 <p class="text-sm font-black text-gray-900">{{ $complain->pelanggan->nama }}</p>
                                 <p class="text-xs font-medium text-gray-500">{{ $complain->pelanggan->no_wa }}</p>
-                                @if($complain->pelanggan->no_wa)
-                                <a href="https://wa.me/{{ preg_replace('/^0/', '62', $complain->pelanggan->no_wa) }}?text={{ urlencode('Halo '.$complain->pelanggan->nama.', kami dari PD. Anugrah Utama ingin merespons komplain Anda.') }}"
-                                   target="_blank" class="inline-block mt-1 px-3 py-1 bg-green-50 text-green-700 text-[10px] font-bold rounded-lg hover:bg-green-100 transition">
-                                    <i class="fa-brands fa-whatsapp me-1"></i>Chat WA
-                                </a>
-                                @endif
+                                <p class="mt-1 text-[10px] font-semibold text-gray-400">Follow up utama dilakukan lewat WhatsApp.</p>
                             </td>
                             <td class="px-8 py-5">
                                 @if($complain->pesanan)
@@ -90,6 +85,23 @@
                                         <option value="diproses" {{ $complain->status_penyelesaian == 'diproses' ? 'selected' : '' }}>Diproses</option>
                                         <option value="selesai"  {{ $complain->status_penyelesaian == 'selesai'  ? 'selected' : '' }}>Selesai</option>
                                     </select>
+                                    @if($complain->pelanggan->no_wa)
+                                        @php
+                                            $complainOrderCode = $complain->pesanan?->orderCode();
+                                            $waMessage = 'Halo ' . $complain->pelanggan->nama . ", kami dari PD. Anugrah Utama menindaklanjuti komplain Anda";
+                                            if ($complainOrderCode) {
+                                                $waMessage .= ' untuk transaksi ' . $complainOrderCode;
+                                            }
+                                            $waMessage .= ".\n\nRingkasan keluhan:\n" . $complain->isi_complain . "\n\nSilakan balas chat ini agar tim kami bisa bantu sampai selesai.";
+                                        @endphp
+                                        <button
+                                            type="button"
+                                            onclick="processAndChat(this, {{ $complain->id }}, '{{ preg_replace('/^0/', '62', $complain->pelanggan->no_wa) }}', `{{ str_replace('`', '\`', $waMessage) }}`)"
+                                            class="px-3 py-2 text-xs font-bold text-green-700 bg-green-50 rounded-xl hover:bg-green-100 transition"
+                                        >
+                                            <i class="fa-brands fa-whatsapp"></i> Proses & Chat
+                                        </button>
+                                    @endif
                                     <form action="{{ route('admin.complain.destroy', $complain) }}" method="POST" onsubmit="return confirm('Hapus komplain ini?')">
                                         @csrf @method('DELETE')
                                         <button class="p-2 text-red-500 hover:bg-red-50 rounded-xl transition"><i class="fa-solid fa-trash text-xs"></i></button>
@@ -113,23 +125,51 @@
     </div>
 
     <script>
-        function updateStatus(select, id) {
-            const status = select.value;
-            fetch(`/admin/complain/${id}`, {
+        async function persistStatus(id, status) {
+            const response = await fetch(`/admin/complain/${id}`, {
                 method: 'PUT',
                 headers: {
                     'X-CSRF-TOKEN': '{{ csrf_token() }}',
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ status_penyelesaian: status }),
-            }).then(() => {
-                select.closest('td').previousElementSibling.querySelector('span').textContent = status;
-                // Update badge color
-                const badge = select.closest('td').previousElementSibling.querySelector('span');
-                if (status === 'menunggu') badge.className = 'px-3 py-1 bg-red-50 text-red-700 text-xs font-bold uppercase rounded-lg';
-                if (status === 'diproses') badge.className = 'px-3 py-1 bg-amber-50 text-amber-700 text-xs font-bold uppercase rounded-lg';
-                if (status === 'selesai') badge.className = 'px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold uppercase rounded-lg';
             });
+
+            if (!response.ok) {
+                throw new Error('Gagal memperbarui status komplain.');
+            }
+        }
+
+        function paintStatus(select, status) {
+            select.value = status;
+            const badge = select.closest('td').previousElementSibling.querySelector('span');
+            badge.textContent = status;
+            if (status === 'menunggu') badge.className = 'px-3 py-1 bg-red-50 text-red-700 text-xs font-bold uppercase rounded-lg';
+            if (status === 'diproses') badge.className = 'px-3 py-1 bg-amber-50 text-amber-700 text-xs font-bold uppercase rounded-lg';
+            if (status === 'selesai') badge.className = 'px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold uppercase rounded-lg';
+        }
+
+        async function updateStatus(select, id) {
+            const status = select.value;
+            try {
+                await persistStatus(id, status);
+                paintStatus(select, status);
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        async function processAndChat(button, id, phone, message) {
+            const row = button.closest('td');
+            const select = row.querySelector('select');
+
+            try {
+                await persistStatus(id, 'diproses');
+                paintStatus(select, 'diproses');
+                window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+            } catch (error) {
+                alert(error.message);
+            }
         }
     </script>
 </x-app-layout>

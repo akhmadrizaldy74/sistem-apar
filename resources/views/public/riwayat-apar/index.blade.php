@@ -352,6 +352,93 @@
                 </div>
             </div>
         </section>
+
+        <section class="mt-8 grid gap-4 lg:grid-cols-2">
+            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-base font-black text-slate-950">Review & Balasan Admin</h2>
+                        <p class="text-sm text-slate-500">Modelnya dibuat seperti marketplace: pelanggan kasih nilai, admin tetap bisa merespons.</p>
+                    </div>
+                    <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">{{ $pelanggan->testimonis->count() }}</span>
+                </div>
+
+                <div class="mt-4 space-y-3">
+                    @forelse($pelanggan->testimonis->sortByDesc(fn ($testimoni) => $testimoni->tanggal ?? $testimoni->created_at)->take(3) as $testimoni)
+                        <article class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="flex items-center gap-1 text-amber-400 text-sm">
+                                    @for($i = 0; $i < $testimoni->rating; $i++)
+                                        <i class="fa-solid fa-star"></i>
+                                    @endfor
+                                    @for($i = $testimoni->rating; $i < 5; $i++)
+                                        <i class="fa-regular fa-star text-slate-300"></i>
+                                    @endfor
+                                </div>
+                                @php
+                                    $reviewStatusClass = match($testimoni->status) {
+                                        'approved' => 'bg-emerald-50 text-emerald-700',
+                                        'rejected' => 'bg-red-50 text-red-700',
+                                        default => 'bg-amber-50 text-amber-700',
+                                    };
+                                @endphp
+                                <span class="rounded-full px-2.5 py-1 text-[11px] font-black uppercase {{ $reviewStatusClass }}">{{ $testimoni->status }}</span>
+                            </div>
+
+                            <p class="mt-3 text-sm leading-6 text-slate-700">{{ $testimoni->review }}</p>
+                            <p class="mt-2 text-xs font-bold text-slate-400">{{ optional($testimoni->tanggal)->format('d M Y') ?? $testimoni->created_at?->format('d M Y') }}</p>
+
+                            @if($testimoni->admin_note)
+                                <div class="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-3">
+                                    <p class="text-[11px] font-black uppercase tracking-wide text-slate-400">Balasan Admin</p>
+                                    <p class="mt-1 text-sm font-semibold leading-6 text-slate-700">{{ $testimoni->admin_note }}</p>
+                                </div>
+                            @endif
+                        </article>
+                    @empty
+                        <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
+                            Belum ada review. Setelah transaksi selesai, Anda bisa beri bintang dan ulasan dari kartu transaksi.
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+
+            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-base font-black text-slate-950">Bantuan & Komplain</h2>
+                        <p class="text-sm text-slate-500">Komplain dicatat di sistem, lalu admin menindaklanjuti detailnya melalui WhatsApp.</p>
+                    </div>
+                    <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">{{ $pelanggan->complains->count() }}</span>
+                </div>
+
+                <div class="mt-4 space-y-3">
+                    @forelse($pelanggan->complains->sortByDesc(fn ($complain) => $complain->tanggal ?? $complain->created_at)->take(3) as $complain)
+                        @php
+                            $complainStatusClass = match($complain->status_penyelesaian) {
+                                'selesai' => 'bg-emerald-50 text-emerald-700',
+                                'diproses' => 'bg-amber-50 text-amber-700',
+                                default => 'bg-red-50 text-red-700',
+                            };
+                        @endphp
+                        <article class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <p class="text-sm font-black text-slate-900">{{ $complain->pesanan?->orderCode() ?? 'Komplain Umum' }}</p>
+                                    <p class="mt-1 text-xs font-semibold text-slate-500">{{ optional($complain->tanggal)->format('d M Y') ?? $complain->created_at?->format('d M Y') }}</p>
+                                </div>
+                                <span class="rounded-full px-2.5 py-1 text-[11px] font-black uppercase {{ $complainStatusClass }}">{{ $complain->status_penyelesaian }}</span>
+                            </div>
+                            <p class="mt-3 text-sm leading-6 text-slate-700">{{ $complain->isi_complain }}</p>
+                        </article>
+                    @empty
+                        <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
+                            Belum ada komplain. Jika ada kendala pada transaksi, gunakan tombol bantuan di kartu pesanan.
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+        </section>
     </div>
 
     <script>

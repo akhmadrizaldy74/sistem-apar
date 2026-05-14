@@ -518,33 +518,44 @@
         </div>
 
         <div class="testi-grid">
-            @php
-            $reviews = [
-                ['nama'=>'Budi Santoso',  'in'=>'B', 'rat'=>5, 'waktu'=>'3 minggu lalu',
-                 'text'=>'Pelayanan sangat profesional dan cepat. APAR terpasang sesuai standar SNI. Teknisi datang tepat waktu dan ramah.'],
-                ['nama'=>'Siti Rahayu',    'in'=>'S', 'rat'=>5, 'waktu'=>'1 bulan lalu',
-                 'text'=>'Sudah 2 tahun jadi pelanggan, tidak pernah kecewa. Refill APAR selalu beres dalam 1 hari. Harga kompetitif.'],
-                ['nama'=>'Ahmad Fauzi',   'in'=>'A', 'rat'=>4, 'waktu'=>'2 bulan lalu',
-                 'text'=>'Sistem monitoring online memudahkan pantau masa berlaku APAR. Tidak perlu cek manual lagi. Tim sangat responsif.'],
-            ];
-            @endphp
-            @foreach($reviews as $r)
+            @forelse($testimonis as $t)
             <div class="testi-card">
                 <div class="testi-stars">
-                    @for($i=0;$i<$r['rat'];$i++)<i class="fa-solid fa-star"></i>@endfor
-                    @for($i=$r['rat'];$i<5;$i++)<i class="fa-regular fa-star text-gray-300"></i>@endfor
+                    @for($i=0;$i<$t->rating;$i++)<i class="fa-solid fa-star"></i>@endfor
+                    @for($i=$t->rating;$i<5;$i++)<i class="fa-regular fa-star text-gray-300"></i>@endfor
                 </div>
-                <p class="testi-text">{{ $r['text'] }}</p>
+                <p class="testi-text">{{ $t->review }}</p>
+                @if($t->admin_note)
+                    <div class="mt-3 rounded-2xl bg-gray-50 p-3">
+                        <p class="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-1">Balasan Admin</p>
+                        <p class="text-sm text-gray-600">{{ $t->admin_note }}</p>
+                    </div>
+                @endif
                 <div class="testi-divider"></div>
                 <div class="testi-author">
-                    <div class="testi-avatar">{{ $r['in'] }}</div>
+                    <div class="testi-avatar">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($t->pelanggan->nama ?? 'P', 0, 1)) }}</div>
                     <div>
-                        <p class="testi-name">{{ $r['nama'] }}</p>
-                        <p class="testi-time">{{ $r['waktu'] }}</p>
+                        <p class="testi-name">{{ $t->pelanggan->nama ?? 'Pelanggan' }}</p>
+                        <p class="testi-time">{{ optional($t->tanggal)->diffForHumans() ?? $t->created_at?->diffForHumans() }}</p>
                     </div>
                 </div>
             </div>
-            @endforeach
+            @empty
+            <div class="testi-card">
+                <div class="testi-stars">
+                    @for($i=0;$i<5;$i++)<i class="fa-solid fa-star"></i>@endfor
+                </div>
+                <p class="testi-text">Pelanggan yang sudah selesai transaksi bisa memberi ulasan langsung dari riwayat pesanan, lalu admin dapat membalasnya.</p>
+                <div class="testi-divider"></div>
+                <div class="testi-author">
+                    <div class="testi-avatar">A</div>
+                    <div>
+                        <p class="testi-name">Alur Baru Review</p>
+                        <p class="testi-time">Siap digunakan</p>
+                    </div>
+                </div>
+            </div>
+            @endforelse
         </div>
     </div>
 </section>

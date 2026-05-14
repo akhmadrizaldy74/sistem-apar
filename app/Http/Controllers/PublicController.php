@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Events\PesananBaru;
+use App\Models\ActivityLog;
 use App\Models\JenisRefill;
 use App\Models\JenisApar;
 use App\Models\Keranjang;
@@ -190,6 +191,77 @@ class PublicController extends Controller
         throw ValidationException::withMessages([
             'no_wa' => 'Nomor WhatsApp ini sudah terdaftar atas nama ' . $pelanggan->nama . '. Gunakan nomor lain agar data pelanggan tidak bentrok.',
         ]);
+    }
+
+    private function authenticatedCustomer(): ?Pelanggan
+    {
+        if (!Auth::check()) {
+            return null;
+        }
+
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        if ($user->isAdmin() || $user->isTeknisi()) {
+            return null;
+        }
+
+        $user->loadMissing('pelanggan');
+
+        return $user->pelanggan;
+    }
+
+    private function resolveFeedbackCustomer(Request $request): ?Pelanggan
+    {
+        $authenticatedCustomer = $this->authenticatedCustomer();
+        if ($authenticatedCustomer) {
+            return $authenticatedCustomer;
+        }
+
+        $normalizedNoWa = $this->normalizePhone((string) $request->input('no_wa'));
+
+        return Pelanggan::where('no_wa', $normalizedNoWa)->first();
+    }
+
+    private function feedbackLinkDescription(Pelanggan $pelanggan, Pesanan $pesanan): string
+    {
+        return 'testimoni-order:' . $pesanan->id . ':pelanggan:' . $pelanggan->id;
+    }
+
+    private function resolveFeedbackOrder(Request $request, ?Pelanggan $pelanggan = null): ?Pesanan
+    {
+        $pesananId = $request->input('pesanan_id', $request->query('pesanan'));
+
+        if (blank($pesananId)) {
+            return null;
+        }
+
+        $pesanan = Pesanan::with('complain')->find($pesananId);
+        if (!$pesanan) {
+            return null;
+        }
+
+        if ($pelanggan && (int) $pesanan->pelanggan_id !== (int) $pelanggan->id) {
+            return null;
+        }
+
+        return $pesanan;
+    }
+
+    private function resolveLinkedTestimoniForOrder(Pelanggan $pelanggan, Pesanan $pesanan): ?Testimoni
+    {
+        $link = ActivityLog::query()
+            ->where('log_name', 'feedback')
+            ->where('event', 'linked_to_order')
+            ->where('subject_type', Testimoni::class)
+            ->where('description', $this->feedbackLinkDescription($pelanggan, $pesanan))
+            ->latest('id')
+            ->first();
+
+        if (!$link || !$link->subject_id) {
+            return null;
+        }
+
+        return Testimoni::find($link->subject_id);
     }
 
     private function officeCoordinates(): array
@@ -1826,61 +1898,124 @@ private function fetchPhoton(string $query): array
 
     public function complainCreate()
     {
-        return view('public.complain.create');
+        $pelanggan = $this->authenticatedCustomer();
+        $selectedOrder = $pelanggan && request()->filled('pesanan')
+            ? $this->resolveFeedbackOrder(request(), $pelanggan)
+            : null;
+
+        return view('public.complain.create', [
+            'pelanggan' => $pelanggan,
+            'selectedOrder' => $selectedOrder,
+            'existingComplain' => $selectedOrder?->complain,
+        ]);
     }
 
     public function complainStore(Request $request)
     {
         $request->validate([
-            'no_wa' => 'required|string',
+            'no_wa' => 'nullable|string',
             'pesanan_id' => 'nullable|exists:pesanans,id',
             'isi_complain' => 'required|string',
         ]);
 
-        $normalizedNoWa = $this->normalizePhone((string) $request->no_wa);
-        $pelanggan = Pelanggan::where('no_wa', $normalizedNoWa)->first();
+        $pelanggan = $this->resolveFeedbackCustomer($request);
 
         if (!$pelanggan) {
             return back()->with('error', 'Data pelanggan tidak ditemukan. Pastikan nomor WA sudah pernah transaksi.')->withInput();
         }
 
+        $selectedOrder = $this->resolveFeedbackOrder($request, $pelanggan);
+        if ($request->filled('pesanan_id') && !$selectedOrder) {
+            return back()->with('error', 'Pesanan yang dipilih tidak cocok dengan akun pelanggan ini.')->withInput();
+        }
+
+        if ($selectedOrder?->complain) {
+            return back()->with('error', 'Komplain untuk transaksi ini sudah pernah dikirim. Admin akan menindaklanjuti melalui WhatsApp.')->withInput();
+        }
+
         Complain::create([
             'pelanggan_id' => $pelanggan->id,
-            'pesanan_id' => $request->pesanan_id,
+            'pesanan_id' => $selectedOrder?->id,
+            'service_id' => $selectedOrder?->service?->id,
             'isi_complain' => $request->isi_complain,
             'tanggal' => now(),
         ]);
 
-        return redirect()->route('home')->with('success', 'Komplain Anda telah kami terima dan akan segera kami tindaklanjuti.');
+        $redirectRoute = $this->authenticatedCustomer() ? 'riwayat-apar' : 'home';
+
+        return redirect()->route($redirectRoute)->with('success', 'Komplain Anda sudah kami terima. Tim admin akan follow up melalui WhatsApp.');
     }
 
     public function testimoniCreate()
     {
-        return view('public.testimoni.create');
+        $pelanggan = $this->authenticatedCustomer();
+        $selectedOrder = $pelanggan && request()->filled('pesanan')
+            ? $this->resolveFeedbackOrder(request(), $pelanggan)
+            : null;
+        $existingReview = $pelanggan && $selectedOrder
+            ? $this->resolveLinkedTestimoniForOrder($pelanggan, $selectedOrder)
+            : null;
+
+        return view('public.testimoni.create', [
+            'pelanggan' => $pelanggan,
+            'selectedOrder' => $selectedOrder,
+            'existingReview' => $existingReview,
+        ]);
     }
 
     public function testimoniStore(Request $request)
     {
         $request->validate([
-            'no_wa' => 'required|string',
+            'no_wa' => 'nullable|string',
+            'pesanan_id' => 'nullable|exists:pesanans,id',
             'rating' => 'required|integer|min:1|max:5',
             'review' => 'required|string',
         ]);
 
-        $normalizedNoWa = $this->normalizePhone((string) $request->no_wa);
-        $pelanggan = Pelanggan::where('no_wa', $normalizedNoWa)->first();
+        $pelanggan = $this->resolveFeedbackCustomer($request);
 
         if (!$pelanggan) {
             return back()->with('error', 'Data pelanggan tidak ditemukan. Pastikan nomor WA sudah pernah transaksi.')->withInput();
         }
 
-        Testimoni::create([
+        $selectedOrder = $this->resolveFeedbackOrder($request, $pelanggan);
+        if ($request->filled('pesanan_id') && !$selectedOrder) {
+            return back()->with('error', 'Transaksi yang dipilih tidak cocok dengan akun pelanggan ini.')->withInput();
+        }
+
+        if ($selectedOrder && !$selectedOrder->isCompleted()) {
+            return back()->with('error', 'Testimoni baru bisa diberikan setelah transaksi selesai.')->withInput();
+        }
+
+        if ($selectedOrder && $this->resolveLinkedTestimoniForOrder($pelanggan, $selectedOrder)) {
+            return back()->with('error', 'Transaksi ini sudah pernah diberi penilaian.')->withInput();
+        }
+
+        $testimoni = Testimoni::create([
             'pelanggan_id' => $pelanggan->id,
             'rating' => $request->rating,
             'review' => $request->review,
             'tanggal' => now(),
+            'status' => 'pending',
         ]);
 
-        return redirect()->route('home')->with('success', 'Terima kasih atas testimoni Anda!');
+        if ($selectedOrder) {
+            ActivityLog::log(
+                description: $this->feedbackLinkDescription($pelanggan, $selectedOrder),
+                logName: 'feedback',
+                subjectType: Testimoni::class,
+                subjectId: $testimoni->id,
+                event: 'linked_to_order',
+                properties: [
+                    'pelanggan_id' => $pelanggan->id,
+                    'pesanan_id' => $selectedOrder->id,
+                    'order_code' => $selectedOrder->orderCode(),
+                ],
+            );
+        }
+
+        $redirectRoute = $this->authenticatedCustomer() ? 'riwayat-apar' : 'home';
+
+        return redirect()->route($redirectRoute)->with('success', 'Terima kasih. Testimoni Anda sudah dikirim dan admin bisa membalasnya setelah direview.');
     }
 }

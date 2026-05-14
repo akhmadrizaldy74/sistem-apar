@@ -42,4 +42,14 @@ class Pelanggan extends Model
     {
         return $this->hasMany(Pesanan::class);
     }
+
+    public function testimonis()
+    {
+        return $this->hasMany(Testimoni::class);
+    }
+
+    public function complains()
+    {
+        return $this->hasMany(Complain::class);
+    }
 }
