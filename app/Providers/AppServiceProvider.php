@@ -19,7 +19,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('users')) {
+                \App\Models\User::where('role', 'teknisi')
+                    ->where('name', 'Teknisi Lapangan')
+                    ->update(['name' => 'Teknisi']);
+            }
+        } catch (\Throwable $e) {}
     }
 
     private function prependLaragonMysqlBinToPath(): void

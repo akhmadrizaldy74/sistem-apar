@@ -42,33 +42,33 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        $login = preg_replace('/\D+/', '', (string) $this->input('login')) ?? '';
-        $candidates = array_values(array_unique(array_filter([
-            $login,
-            str_starts_with($login, '62') ? '0'.substr($login, 2) : null,
-            str_starts_with($login, '0') ? '62'.substr($login, 1) : null,
-        ])));
+        $login = (string) $this->input('login');
 
-        foreach ($candidates as $candidate) {
-            if (Auth::attempt(['no_telpon' => $candidate, 'password' => $this->input('password')], $this->boolean('remember'))) {
+        if (str_contains($login, '@')) {
+            if (Auth::attempt(['email' => $login, 'password' => $this->input('password')], $this->boolean('remember'))) {
                 RateLimiter::clear($this->throttleKey());
-
                 return;
             }
-        }
+        } else {
+            $loginPhone = preg_replace('/\D+/', '', $login) ?? '';
+            $candidates = array_values(array_unique(array_filter([
+                $loginPhone,
+                str_starts_with($loginPhone, '62') ? '0'.substr($loginPhone, 2) : null,
+                str_starts_with($loginPhone, '0') ? '62'.substr($loginPhone, 1) : null,
+            ])));
 
-        if ($login === '' || ! $candidates) {
-            RateLimiter::hit($this->throttleKey());
-
-            throw ValidationException::withMessages([
-                'login' => 'Nomor telepon atau kata sandi tidak valid.',
-            ]);
+            foreach ($candidates as $candidate) {
+                if (Auth::attempt(['no_telpon' => $candidate, 'password' => $this->input('password')], $this->boolean('remember'))) {
+                    RateLimiter::clear($this->throttleKey());
+                    return;
+                }
+            }
         }
 
         RateLimiter::hit($this->throttleKey());
 
         throw ValidationException::withMessages([
-            'login' => 'Nomor telepon atau kata sandi tidak valid.',
+            'login' => 'Email/Nomor telepon atau kata sandi tidak valid.',
         ]);
     }
 

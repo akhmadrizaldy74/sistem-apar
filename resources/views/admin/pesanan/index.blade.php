@@ -3,11 +3,11 @@
         <div class="flex flex-col md:flex-row justify-between items-center w-full gap-4">
             <div>
                 <h2 class="text-3xl font-black text-gray-900 tracking-tight">Data Pesanan</h2>
-                <p class="text-sm text-gray-500 font-medium">Pencatatan pesanan manual dan offline agar proses operasional tetap rapi dan terkontrol.</p>
+                <p class="text-sm text-gray-500 font-medium">Kelola pesanan produk APAR dari pelanggan online maupun offline.</p>
             </div>
-            <button type="button" onclick="window.dispatchEvent(new CustomEvent('open-pesanan-modal'))" class="px-8 py-4 bg-red-700 text-white font-black rounded-2xl hover:bg-red-800 transition shadow-xl shadow-red-700/30 flex items-center gap-2 uppercase tracking-widest text-xs">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-                Input Pesanan
+            <button type="button" onclick="window.dispatchEvent(new CustomEvent('open-pesanan-modal'))" class="px-5 py-3 border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-bold rounded-xl transition shadow-sm text-xs flex items-center gap-2 uppercase tracking-wider">
+                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                Input Pesanan Offline
             </button>
         </div>
     </x-slot>
@@ -164,7 +164,7 @@
                                             'website' => 'Website',
                                             'whatsapp' => 'WhatsApp',
                                             'telepon' => 'Telepon',
-                                            'datang_langsung' => 'Datang langsung',
+                                            'datang_langsung', 'offline' => 'Offline',
                                             'data_lama' => 'Data lama',
                                             default => 'Input admin',
                                         };
@@ -329,32 +329,13 @@
                                         @endif
 
                                         @if($canAssignNow)
-                                            <div class="relative">
-                                                <button type="button" @click="showAssign = !showAssign" class="px-3 py-2 bg-red-600 text-white font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-red-700 transition-all flex items-center gap-1 shadow-sm">
+                                            <form action="{{ route('admin.pesanan.assign-teknisi', $pesanan) }}" method="POST" class="inline">
+                                                @csrf
+                                                <button type="submit" class="px-3 py-2 bg-red-600 text-white font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-red-700 transition-all flex items-center gap-1 shadow-sm">
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                                                    Assign
+                                                    Assign ke Teknisi
                                                 </button>
-                                                <div x-show="showAssign" @click.away="showAssign = false" x-cloak
-                                                    class="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 p-4">
-                                                    <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Tugaskan Teknisi</p>
-                                                    @if(isset($teknisis) && $teknisis->count() > 0)
-                                                        <form action="{{ route('admin.pesanan.assign-teknisi', $pesanan) }}" method="POST" class="space-y-3">
-                                                            @csrf
-                                                            <select name="teknisi_id" required class="w-full px-3 py-2 bg-gray-50 border-none rounded-xl text-xs font-bold text-gray-800 focus:ring-2 focus:ring-red-600/20">
-                                                                <option value="">-- Pilih Teknisi --</option>
-                                                                @foreach($teknisis as $tek)
-                                                                    <option value="{{ $tek->id }}">{{ $tek->name }}</option>
-                                                                @endforeach
-                                                            </select>
-                                                            <button type="submit" class="w-full py-2 bg-red-600 text-white font-black text-xs rounded-xl hover:bg-red-700 transition uppercase tracking-widest">
-                                                                Kirim
-                                                            </button>
-                                                        </form>
-                                                    @else
-                                                        <p class="text-xs text-gray-500">Tidak ada teknisi.</p>
-                                                    @endif
-                                                </div>
-                                            </div>
+                                            </form>
                                         @elseif($pesanan->teknisi_id)
                                             <div class="px-3 py-1.5 bg-red-50 rounded-xl border border-red-100 flex flex-col items-end mr-1" title="Selesai pada: {{ $pesanan->teknisi_selesai_at ? $pesanan->teknisi_selesai_at->format('d M Y H:i') : 'Belum selesai' }}">
                                                 <span class="text-[8px] font-black uppercase tracking-widest text-red-400">Assigned</span>
@@ -588,7 +569,7 @@
                                 <div class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
                                     @if($isManualNegoFlow)
                                         <p class="text-[11px] font-bold text-blue-800">
-                                            Ini pesanan manual admin. Saat ACC, harga deal langsung dipakai tanpa kode negosiasi.
+                                            Ini pesanan offline/input admin. Saat ACC, harga deal langsung dipakai tanpa kode negosiasi.
                                         </p>
                                     @else
                                         <p class="text-[11px] font-bold text-blue-800">
@@ -680,7 +661,7 @@
         </div>
         @endforeach
 
-        <div x-show="openModal" x-cloak class="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
+        <div x-show="openModal" x-cloak class="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto p-3 sm:items-center sm:p-6">
             <div class="absolute inset-0 bg-gray-950/50 backdrop-blur-sm" @click="openModal = false"></div>
             <div
                 x-show="openModal"
@@ -690,20 +671,27 @@
                 x-transition:leave="ease-in duration-200"
                 x-transition:leave-start="opacity-100 translate-y-0 scale-100"
                 x-transition:leave-end="opacity-0 translate-y-4 scale-95"
-                class="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-[2rem] bg-white shadow-2xl shadow-gray-900/20 border border-white/60"
+                class="app-modal-shell relative my-3 max-w-5xl sm:my-6"
             >
-                <div class="sticky top-0 z-10 flex items-center justify-between px-8 py-6 bg-white/95 backdrop-blur border-b border-gray-100">
-                    <div>
-                        <h3 class="text-2xl font-black text-gray-900">Input Pesanan Manual</h3>
-                        <p class="text-sm font-medium text-gray-500 mt-1">Catat pesanan dari WhatsApp, telepon, datang langsung, atau input admin dengan alur operasional yang lengkap.</p>
+                {{-- Standard Header --}}
+                <div class="app-modal-header flex items-start justify-between gap-4 bg-gradient-to-r from-slate-800 to-slate-700 px-5 py-4 sm:items-center sm:px-6 lg:px-8">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-2xl bg-red-600/30 border border-red-500/30 text-white flex items-center justify-center shrink-0">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-black text-white tracking-tight leading-tight">Input Pesanan Offline</h3>
+                            <p class="text-sm text-white/70 font-medium mt-0.5">Form ini digunakan untuk mencatat pembelian APAR dari pelanggan yang datang langsung ke toko.</p>
+                        </div>
                     </div>
-                    <button type="button" @click="openModal = false" class="w-11 h-11 rounded-2xl bg-gray-50 text-gray-400 hover:text-red-700 transition flex items-center justify-center">
+                    <button type="button" @click="openModal = false" class="w-10 h-10 rounded-2xl bg-white/10 text-white/60 hover:text-white hover:bg-white/20 transition flex items-center justify-center">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
 
-                <div class="p-8 sm:p-10">
-                    <form action="{{ route('admin.pesanan.store') }}" method="POST">
+                <div class="app-modal-body flex-1 p-5 sm:p-6 lg:p-8">
+
+                                    <form action="{{ route('admin.pesanan.store') }}" method="POST">
                         @csrf
                         <input type="hidden" name="tipe" value="produk">
                         @if($errors->any())
@@ -712,305 +700,183 @@
                             </div>
                         @endif
 
-                        <div class="mb-8 rounded-[1.75rem] border border-red-100 bg-red-50 px-6 py-5">
-                            <p class="text-sm font-black text-red-700">Pesanan manual tetap dianggap transaksi baru dan mengikuti alur pembayaran bertahap.</p>
-                            <p class="text-sm font-semibold text-red-700/80 mt-2">Assign teknisi baru tersedia setelah pembayaran terverifikasi dan status lunas.</p>
-                        </div>
-                        @if(!empty($targetNegoPesanan))
-                            <div class="mb-8 rounded-[1.75rem] border border-amber-200 bg-amber-50 px-6 py-5">
-                                <p class="text-sm font-black text-amber-800">Data pelanggan & item sudah diprefill dari inquiry WhatsApp pesanan #{{ $targetNegoPesanan->id }}.</p>
-                                <p class="text-sm font-semibold text-amber-700 mt-2">Anda bisa langsung input harga deal manual, simpan, lalu ACC + generate kode negosiasi.</p>
-                            </div>
-                        @endif
-
                         <div class="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
                             <div class="xl:col-span-2 space-y-8">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div class="md:col-span-2">
-                                        <div class="flex items-center justify-between gap-4 mb-2">
-                                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block">Data Pelanggan</label>
-                                            <div class="flex gap-2">
-                                                <button type="button" @click="customerMode = 'existing'" :class="customerMode === 'existing' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200'" class="px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition">Pilih Pelanggan</button>
-                                                <button type="button" @click="customerMode = 'new'" :class="customerMode === 'new' ? 'bg-red-700 text-white border-red-700' : 'bg-white text-red-700 border-red-200'" class="px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition">Tambah Pelanggan Baru</button>
-                                            </div>
-                                        </div>
-                                        <input type="hidden" name="pelanggan_mode" :value="customerMode">
-                                        <x-input-error :messages="$errors->get('pelanggan_mode')" class="mt-2" />
+                                
+                                {{-- STEP 1: DATA PELANGGAN --}}
+                                <div class="bg-white border border-gray-100 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
+                                    <div class="flex items-center gap-3 border-b border-gray-100 pb-4">
+                                        <span class="w-7 h-7 rounded-lg bg-red-50 text-red-700 font-black text-sm flex items-center justify-center shrink-0">1</span>
+                                        <h4 class="font-black text-gray-900 uppercase tracking-wider text-xs">Data Pelanggan</h4>
                                     </div>
 
-                                    <div class="md:col-span-2" x-show="customerMode === 'existing'" x-transition>
-                                        <label for="pelanggan_id" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Pilih Pelanggan</label>
-                                        <select name="pelanggan_id" id="pelanggan_id" x-model="selectedPelangganId" :required="customerMode === 'existing'" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 transition">
-                                            <option value="">Pilih pelanggan</option>
-                                            @foreach($pelanggans as $pelanggan)
-                                                <option value="{{ $pelanggan->id }}" @selected(old('pelanggan_id') == $pelanggan->id)>{{ $pelanggan->nama }} - {{ $pelanggan->no_wa }}</option>
-                                            @endforeach
-                                        </select>
-                                        <x-input-error :messages="$errors->get('pelanggan_id')" class="mt-2" />
-                                        
-                                        <div x-show="selectedPelangganId && !pelangganDict[selectedPelangganId]?.alamat_lat" class="mt-4" x-cloak>
-                                            <div class="mb-3 px-4 py-3 bg-amber-50 rounded-xl border border-amber-200">
-                                                <p class="text-xs font-bold text-amber-800">Pelanggan ini belum memiliki data koordinat lokasi.</p>
-                                                <p class="text-[10px] font-semibold text-amber-700 mt-1">Silakan cari alamatnya segera via peta agar ongkir "Diantar" bisa dikalkulasi.</p>
-                                            </div>
-                                            <div class="relative">
-                                                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Ketik Alamat (OpenStreetMap)</label>
-                                                <input type="text" name="fallback_alamat_maps" x-model="fallbackCustomerMaps" @input="scheduleFallbackSuggest()" @focus="scheduleFallbackSuggest()" class="w-full px-6 py-4 bg-white border border-gray-100 rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900" placeholder="Ketik area atau alamat rinci...">
-                                                <div x-show="fallbackAddressSuggestions.length > 0" x-cloak class="absolute z-20 mt-2 w-full max-h-56 overflow-auto rounded-xl border border-gray-200 bg-white shadow-lg">
-                                                    <template x-for="(item, idx) in fallbackAddressSuggestions" :key="idx">
-                                                        <button type="button" @click="selectFallbackAddress(item)" class="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-red-50 transition border-b last:border-b-0 border-gray-100" x-text="item.display_name"></button>
-                                                    </template>
-                                                </div>
-                                                <p class="text-[10px] font-semibold text-gray-500 mt-2" x-text="fallbackAddressHelper"></p>
-                                                <input type="hidden" name="fallback_alamat_lat" x-model="fallbackCustomerLat">
-                                                <input type="hidden" name="fallback_alamat_lng" x-model="fallbackCustomerLng">
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="md:col-span-2 space-y-4" x-show="customerMode === 'new'" x-transition>
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div>
-                                                <label for="new_pelanggan_nama" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Nama Lengkap <span class="text-red-500">*</span></label>
-                                                <input type="text" name="new_pelanggan_nama" id="new_pelanggan_nama" x-model="newCustomer.nama" :required="customerMode === 'new'" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900" placeholder="Contoh: Budi Santoso">
-                                                <x-input-error :messages="$errors->get('new_pelanggan_nama')" class="mt-2" />
-                                            </div>
-                                            <div>
-                                                <label for="new_pelanggan_perusahaan" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Nama Perusahaan <span class="text-gray-300">(Opsional)</span></label>
-                                                <input type="text" name="new_pelanggan_perusahaan" id="new_pelanggan_perusahaan" x-model="newCustomer.perusahaan" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900" placeholder="PT / CV / Instansi">
-                                                <x-input-error :messages="$errors->get('new_pelanggan_perusahaan')" class="mt-2" />
-                                            </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label for="new_pelanggan_nama" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Nama Pelanggan <span class="text-red-500">*</span></label>
+                                            <input type="text" name="new_pelanggan_nama" id="new_pelanggan_nama" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900" placeholder="Contoh: Budi Santoso" value="{{ old('new_pelanggan_nama') }}">
+                                            <x-input-error :messages="$errors->get('new_pelanggan_nama')" class="mt-2" />
                                         </div>
                                         <div>
-                                            <label for="new_pelanggan_no_wa" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Nomor WhatsApp <span class="text-red-500">*</span></label>
-                                            <input type="text" name="new_pelanggan_no_wa" id="new_pelanggan_no_wa" x-model="newCustomer.no_wa" :required="customerMode === 'new'" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900" placeholder="081234567890">
+                                            <label for="new_pelanggan_no_wa" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Nomor Telepon <span class="text-red-500">*</span></label>
+                                            <input type="text" name="new_pelanggan_no_wa" id="new_pelanggan_no_wa" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900" placeholder="081234567890" value="{{ old('new_pelanggan_no_wa') }}">
+                                            <p class="text-[9px] font-semibold text-gray-400 mt-1.5">Jika nomor sudah terdaftar, data pelanggan akan otomatis terhubung.</p>
                                             <x-input-error :messages="$errors->get('new_pelanggan_no_wa')" class="mt-2" />
                                         </div>
-                                        <div class="relative">
-                                            <label for="new_pelanggan_alamat_maps" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Alamat via OpenStreetMap <span class="text-red-500">*</span></label>
-                                            <input type="text" name="new_pelanggan_alamat_maps" id="new_pelanggan_alamat_maps" x-model="newCustomer.alamat_maps" @input="scheduleCustomerAddressSuggest()" @focus="scheduleCustomerAddressSuggest()" :required="customerMode === 'new'" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900" placeholder="Cari alamat (OpenStreetMap)...">
-                                            <div x-show="customerAddressSuggestions.length > 0" x-cloak class="absolute z-20 mt-2 w-full max-h-56 overflow-auto rounded-xl border border-gray-200 bg-white shadow-lg">
-                                                <template x-for="(item, idx) in customerAddressSuggestions" :key="idx">
-                                                    <button type="button" @click="selectCustomerAddress(item)" class="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-red-50 transition border-b last:border-b-0 border-gray-100" x-text="item.display_name"></button>
-                                                </template>
-                                            </div>
-                                            <p class="text-[10px] font-semibold text-gray-500 mt-2" x-text="customerAddressHelper">Ketik minimal 3 huruf, lalu pilih saran alamat OpenStreetMap agar titik koordinat terkunci.</p>
-                                            <x-input-error :messages="$errors->get('new_pelanggan_alamat_maps')" class="mt-2" />
-                                        </div>
-                                        <div>
-                                            <label for="new_pelanggan_alamat_detail" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Detail Alamat <span class="text-red-500">*</span></label>
-                                            <textarea name="new_pelanggan_alamat_detail" id="new_pelanggan_alamat_detail" x-model="newCustomer.alamat_detail" :required="customerMode === 'new'" rows="2" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900" placeholder="Contoh: Blok A2 No.10, patokan dekat minimarket, lantai 2."></textarea>
-                                            <p class="text-[10px] font-semibold text-gray-500 mt-2">Isi patokan lokasi, blok, lantai, atau keterangan tambahan.</p>
-                                            <x-input-error :messages="$errors->get('new_pelanggan_alamat_detail')" class="mt-2" />
-                                        </div>
-                                        <input type="hidden" name="new_pelanggan_alamat_lat" x-model="newCustomer.alamat_lat">
-                                        <input type="hidden" name="new_pelanggan_alamat_lng" x-model="newCustomer.alamat_lng">
-                                        <x-input-error :messages="$errors->get('new_pelanggan_alamat_lat')" class="mt-2" />
-                                        <x-input-error :messages="$errors->get('new_pelanggan_alamat_lng')" class="mt-2" />
                                     </div>
-
                                     <div>
-                                        <label for="tanggal" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Tanggal Pesanan</label>
-                                        <input type="date" name="tanggal" id="tanggal" value="{{ old('tanggal', now()->format('Y-m-d')) }}" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900">
-                                        <p class="text-[10px] font-semibold text-gray-500 mt-2">Gunakan tanggal saat pesanan diterima admin.</p>
-                                        <x-input-error :messages="$errors->get('tanggal')" class="mt-2" />
-                                    </div>
-
-                                    <div>
-                                        <label for="sumber_pesanan" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Sumber Pesanan</label>
-                                        <select name="sumber_pesanan" id="sumber_pesanan" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 transition">
-                                            <option value="whatsapp" @selected(old('sumber_pesanan') === 'whatsapp')>WhatsApp</option>
-                                            <option value="telepon" @selected(old('sumber_pesanan') === 'telepon')>Telepon</option>
-                                            <option value="datang_langsung" @selected(old('sumber_pesanan') === 'datang_langsung')>Datang langsung</option>
-                                            <option value="input_admin" @selected(old('sumber_pesanan', 'input_admin') === 'input_admin')>Input admin</option>
-                                        </select>
-                                        <x-input-error :messages="$errors->get('sumber_pesanan')" class="mt-2" />
+                                        <label for="new_pelanggan_alamat" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Alamat <span class="text-gray-300">(Opsional)</span></label>
+                                        <input type="text" name="new_pelanggan_alamat" id="new_pelanggan_alamat" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900" placeholder="Jl. Contoh No.10, Kota" value="{{ old('new_pelanggan_alamat') }}">
                                     </div>
                                 </div>
 
-                                <div>
-                                    <label for="harga_deal_manual" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Harga Deal Manual <span class="text-gray-300">(Opsional)</span></label>
-                                    <div class="relative">
-                                        <span class="absolute left-5 top-1/2 -translate-y-1/2 text-xs font-black text-gray-400">Rp</span>
-                                        <input type="text" inputmode="numeric" data-money-input="1" name="harga_deal_manual" id="harga_deal_manual" value="{{ old('harga_deal_manual') }}"
-                                            placeholder="Kosongkan jika pesanan normal"
-                                            class="w-full pl-12 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900">
-                                    </div>
-                                    <p class="text-[10px] font-semibold text-gray-500 mt-2">Jika diisi, pesanan masuk antrian persetujuan harga (negosiasi).</p>
-                                    <x-input-error :messages="$errors->get('harga_deal_manual')" class="mt-2" />
-                                </div>
-
-                                <div>
-                                    <label for="catatan_admin" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Catatan Admin <span class="text-gray-300">(Opsional)</span></label>
-                                    <textarea name="catatan_admin" id="catatan_admin" rows="3"
-                                        class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 placeholder:text-gray-300 transition"
-                                        placeholder="Contoh: pesanan dipindahkan dari catatan manual toko">{{ old('catatan_admin') }}</textarea>
-                                    <p class="text-[10px] font-semibold text-gray-500 mt-2">Catatan ini untuk kebutuhan internal tim.</p>
-                                    <x-input-error :messages="$errors->get('catatan_admin')" class="mt-2" />
-                                </div>
-
-                                <div class="space-y-6">
-                                    <div>
-                                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Metode Pengiriman</label>
-                                        <div class="grid grid-cols-2 gap-3 p-1.5 bg-gray-50 rounded-2xl">
-                                            <button type="button" @click="shippingMethod = 'pickup'; updateOngkirFromDistance()" 
-                                                :class="shippingMethod === 'pickup' ? 'bg-white text-gray-900 shadow-sm border border-gray-100' : 'text-gray-500 hover:text-gray-700'"
-                                                class="px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition duration-200">
-                                                Ambil Sendiri
-                                            </button>
-                                            <button type="button" @click="shippingMethod = 'diantar_internal'; updateOngkirFromDistance()" 
-                                                :class="shippingMethod === 'diantar_internal' ? 'bg-white text-emerald-700 shadow-sm border border-emerald-100' : 'text-gray-500 hover:text-gray-700'"
-                                                class="px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition duration-200">
-                                                Diantar Internal
-                                            </button>
+                                {{-- STEP 2: PILIH PRODUK & JUMLAH UNIT --}}
+                                <div class="bg-white border border-gray-100 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
+                                    <div class="flex items-center justify-between gap-4 border-b border-gray-100 pb-4">
+                                        <div class="flex items-center gap-3">
+                                            <span class="w-7 h-7 rounded-lg bg-red-50 text-red-700 font-black text-sm flex items-center justify-center shrink-0">2</span>
+                                            <h4 class="font-black text-gray-900 uppercase tracking-wider text-xs">Pilih Produk &amp; Jumlah Unit</h4>
                                         </div>
-                                        <input type="hidden" name="metode_pengiriman" :value="shippingMethod">
-                                        <x-input-error :messages="$errors->get('metode_pengiriman')" class="mt-2" />
-                                    </div>
-
-                                    <div x-show="shippingMethod === 'diantar_internal'" x-transition>
-                                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">
-                                            Estimasi Ongkir 
-                                            <span x-show="distanceKm > 0" class="text-emerald-600 font-bold ml-1" x-text="'- Jarak: ' + distanceKm.toFixed(1) + ' km'"></span>
-                                        </label>
-                                        <div class="relative">
-                                            <span class="absolute left-5 top-1/2 -translate-y-1/2 text-xs font-black text-gray-400">Rp</span>
-                                            <input type="text" name="ongkir" :value="ongkir" readonly class="w-full pl-12 pr-6 py-4 bg-gray-100 border-none rounded-2xl font-bold text-gray-900 focus:ring-0 cursor-not-allowed">
-                                        </div>
-                                        <div x-show="distanceKm === 0" class="mt-2 px-4 py-3 bg-red-50 border border-red-100 rounded-xl">
-                                            <p class="text-[10px] font-bold text-red-700">Titik lokasi pelanggan belum ditemukan. Mohon lengkapi Data Pelanggan via OpenStreetMap, atau pastikan data Existing Pelanggan memiliki lokasi valid.</p>
-                                        </div>
-                                        <div x-show="distanceKm > 0" class="mt-2">
-                                            <p class="text-[10px] font-semibold text-emerald-700">Dihitung otomatis dari jarak Maps toko ke pelanggan (<span x-text="currency(shippingRate)"></span> / km dengan minimum <span x-text="currency(shippingMin)"></span>).</p>
-                                        </div>
-                                        <x-input-error :messages="$errors->get('ongkir')" class="mt-2" />
-                                    </div>
-                                    <div x-show="shippingMethod === 'pickup'" x-cloak>
-                                        <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-center gap-3">
-                                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                            <div>
-                                                <p class="text-sm font-bold text-blue-900">Pelanggan mengambil sendiri</p>
-                                                <p class="text-xs font-semibold text-blue-700 mt-0.5">Ongkir Rp 0 (gratis)</p>
-                                            </div>
-                                        </div>
-                                        <input type="hidden" name="ongkir" value="0">
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <div class="flex items-center justify-between gap-4">
-                                        <div>
-                                            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Item Produk</p>
-                                            <h4 class="text-xl font-black text-gray-900 mt-2">Multi Produk</h4>
-                                        </div>
-                                        <button type="button" @click="addRow()" class="px-5 py-3 bg-white border border-gray-100 rounded-2xl text-xs font-black text-red-700 uppercase tracking-widest hover:shadow-lg transition">
-                                            Tambah Produk
+                                        <button type="button" @click="addRow()" class="px-4 py-2.5 bg-red-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-red-800 transition">
+                                            Tambah Item Produk
                                         </button>
                                     </div>
 
-                                    <div class="space-y-4 mt-6">
+                                    <div class="space-y-6">
                                         <template x-for="(row, index) in rows" :key="row.uid">
-                                            <div x-transition class="rounded-[2rem] border border-gray-100 bg-gray-50/70 p-6">
-                                                <div class="flex items-center justify-between gap-4">
-                                                    <div>
-                                                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest" x-text="'Produk ' + (index + 1)"></p>
-                                                        <p class="text-sm font-semibold text-gray-500 mt-2">Pilih produk, kapasitas, merek, lalu jumlah item.</p>
-                                                    </div>
-                                                    <button type="button" @click="removeRow(index)" x-show="rows.length > 1" class="w-11 h-11 rounded-2xl bg-white text-gray-400 hover:text-red-700 border border-gray-100 transition flex items-center justify-center">
-                                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                                            <div x-transition class="rounded-2xl border border-gray-200 bg-gray-50/50 p-5 space-y-4">
+                                                <div class="flex items-center justify-between gap-4 border-b border-gray-200/50 pb-2">
+                                                    <span class="text-[10px] font-black text-gray-500 uppercase tracking-wider" x-text="'Item #' + (index + 1)"></span>
+                                                    <button type="button" @click="removeRow(index)" x-show="rows.length > 1" class="w-8 h-8 rounded-xl bg-white border border-gray-200 text-gray-400 hover:text-red-700 transition flex items-center justify-center">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                                                     </button>
                                                 </div>
 
                                                 <input type="hidden" :name="'items[' + index + '][produk_id]'" x-model="row.produk_id">
 
-                                                <div class="mt-6">
-                                                    <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Pilih Produk</label>
-                                                    <select x-model="row.nama" @change="syncRow(index)" class="w-full px-5 py-4 bg-white border border-gray-100 rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-red-600/20">
-                                                        <option value="">Pilih produk</option>
-                                                        <template x-for="nama in productNames()" :key="nama">
-                                                            <option :value="nama" x-text="nama"></option>
-                                                        </template>
-                                                    </select>
-                                                </div>
-
-                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                                                     <div>
-                                                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Kapasitas</label>
-                                                        <select :name="'items[' + index + '][kapasitas]'" x-model="row.kapasitas" @change="syncRow(index)" class="w-full px-5 py-4 bg-white border border-gray-100 rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-red-600/20">
-                                                            <option value="">Pilih kapasitas</option>
-                                                            <template x-for="kapasitas in capacityOptions(row.nama)" :key="kapasitas">
+                                                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Jenis APAR <span class="text-red-500">*</span></label>
+                                                        <select x-model="row.jenis" @change="syncRow(index)" class="w-full px-5 py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-900 focus:ring-2 focus:ring-red-600/20 text-sm">
+                                                            <option value="">-- Pilih Jenis --</option>
+                                                            <template x-for="jenis in jenisOptions()" :key="jenis">
+                                                                <option :value="jenis" x-text="jenis"></option>
+                                                            </template>
+                                                        </select>
+                                                    </div>
+
+                                                    <div>
+                                                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Kapasitas <span class="text-red-500">*</span></label>
+                                                        <select :name="'items[' + index + '][kapasitas]'" x-model="row.kapasitas" @change="syncRow(index)" class="w-full px-5 py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-900 focus:ring-2 focus:ring-red-600/20 text-sm">
+                                                            <option value="">-- Pilih Kapasitas --</option>
+                                                            <template x-for="kapasitas in capacityOptions(row.jenis)" :key="kapasitas">
                                                                 <option :value="kapasitas" x-text="kapasitas"></option>
                                                             </template>
                                                         </select>
                                                     </div>
+
                                                     <div>
-                                                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Merek</label>
-                                                        <select :name="'items[' + index + '][merek]'" x-model="row.merek" @change="syncRow(index)" class="w-full px-5 py-4 bg-white border border-gray-100 rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-red-600/20">
-                                                            <option value="">Pilih merek</option>
-                                                            <template x-for="merek in brandOptions(row.nama, row.kapasitas)" :key="merek">
+                                                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Merek <span class="text-red-500">*</span></label>
+                                                        <select :name="'items[' + index + '][merek]'" x-model="row.merek" @change="syncRow(index)" class="w-full px-5 py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-900 focus:ring-2 focus:ring-red-600/20 text-sm">
+                                                            <option value="">-- Pilih Merek --</option>
+                                                            <template x-for="merek in brandOptions(row.jenis, row.kapasitas)" :key="merek">
                                                                 <option :value="merek" x-text="merek"></option>
+                                                            </template>
+                                                        </select>
+                                                    </div>
+
+                                                    <div>
+                                                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Produk <span class="text-red-500">*</span></label>
+                                                        <select x-model="row.produk_id" @change="syncRowFromProduct(index)" class="w-full px-5 py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-900 focus:ring-2 focus:ring-red-600/20 text-sm">
+                                                            <option value="">-- Pilih Produk --</option>
+                                                            <template x-for="product in productOptions(row.jenis, row.kapasitas, row.merek)" :key="product.id">
+                                                                <option :value="String(product.id)" x-text="productLabel(product)"></option>
                                                             </template>
                                                         </select>
                                                     </div>
                                                 </div>
 
-                                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     <div>
-                                                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Jumlah</label>
-                                                        <input :name="'items[' + index + '][jumlah]'" type="number" min="1" x-model="row.jumlah" @input="syncTotals()" class="w-full px-5 py-4 bg-white border border-gray-100 rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-red-600/20">
+                                                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Jumlah <span class="text-red-500">*</span></label>
+                                                        <input :name="'items[' + index + '][jumlah]'" type="number" min="1" :max="row.stok || null" x-model.number="row.jumlah" @input="syncTotals()" class="w-full px-5 py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-900 focus:ring-2 focus:ring-red-600/20 text-sm">
+                                                        <p x-show="hasStockIssue(row)" x-cloak class="mt-2 text-[10px] font-bold text-red-600">Jumlah melebihi stok tersedia.</p>
                                                     </div>
-                                                    <div class="bg-white border border-gray-100 rounded-2xl p-5">
-                                                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Harga</p>
-                                                        <p class="text-lg font-black text-gray-900 mt-2" x-text="currency(row.harga)"></p>
+                                                    <div class="rounded-2xl border border-dashed border-gray-200 bg-white px-5 py-4">
+                                                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Produk Terpilih</p>
+                                                        <p class="mt-2 text-sm font-black text-gray-900" x-text="row.nama || 'Belum ada produk yang dipilih'"></p>
+                                                        <div class="mt-3 flex flex-wrap gap-2">
+                                                            <span class="inline-flex px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-[10px] font-black uppercase tracking-widest" x-text="row.jenis || 'Jenis -'"></span>
+                                                            <span class="inline-flex px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-[10px] font-black uppercase tracking-widest" x-text="row.kapasitas || 'Ukuran -'"></span>
+                                                            <span class="inline-flex px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-[10px] font-black uppercase tracking-widest" x-text="row.merek || 'Merek -'"></span>
+                                                        </div>
                                                     </div>
-                                                    <div class="bg-red-700 border border-red-700 rounded-2xl p-5 text-white">
-                                                        <p class="text-[10px] font-black uppercase tracking-widest text-red-100">Subtotal</p>
-                                                        <p class="text-lg font-black mt-2" x-text="currency(row.subtotal)"></p>
-                                                    </div>
+                                                </div>
+
+                                                <div class="flex items-center justify-between pt-3 border-t border-gray-200/50 text-xs">
+                                                    <span class="font-bold text-gray-400">Harga Satuan: <span class="text-gray-700 ml-1" x-text="currency(row.harga)"></span></span>
+                                                    <span class="font-bold text-gray-400">Stok Tersedia: <span class="text-gray-700 ml-1" x-text="(row.stok ?? 0) + ' unit'"></span></span>
+                                                    <span class="font-black text-red-700">Subtotal: <span class="ml-1" x-text="currency(row.subtotal)"></span></span>
                                                 </div>
                                             </div>
                                         </template>
                                     </div>
                                 </div>
+
+                                {{-- STEP 3: TANGGAL & CATATAN --}}
+                                <div class="bg-white border border-gray-100 rounded-3xl p-6 md:p-8 shadow-sm space-y-4">
+                                    <div class="flex items-center gap-3 border-b border-gray-100 pb-4">
+                                        <span class="w-7 h-7 rounded-lg bg-red-50 text-red-700 font-black text-sm flex items-center justify-center shrink-0">3</span>
+                                        <h4 class="font-black text-gray-900 uppercase tracking-wider text-xs">Tanggal & Catatan</h4>
+                                    </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label for="tanggal" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Tanggal Pesanan</label>
+                                            <input type="date" name="tanggal" id="tanggal" value="{{ old('tanggal', now()->format('Y-m-d')) }}" class="w-full px-5 py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-900 text-sm">
+                                        </div>
+                                        <div>
+                                            <label for="catatan_admin" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Catatan <span class="text-gray-300">(Opsional)</span></label>
+                                            <input type="text" name="catatan_admin" id="catatan_admin" class="w-full px-5 py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-900 text-sm" placeholder="Catatan tambahan..." value="{{ old('catatan_admin') }}">
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 px-4 py-3 bg-emerald-50 rounded-xl border border-emerald-200">
+                                        <p class="text-xs font-bold text-emerald-800">✓ Pesanan offline langsung dianggap <span class="font-black">LUNAS</span> dan stok otomatis berkurang.</p>
+                                    </div>
+                                </div>
                             </div>
 
+                            {{-- INVOICE SUMMARY PANEL --}}
                             <div class="space-y-6">
-                                <div class="rounded-[2rem] border border-gray-100 bg-gray-50 p-6">
-                                    <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Ringkasan Invoice</p>
+                                <div class="sticky-summary-xl rounded-3xl border border-gray-100 bg-gray-50 p-5 shadow-sm sm:p-6">
+                                    <div class="flex items-center gap-2 border-b border-gray-200/60 pb-3">
+                                        <span class="w-6 h-6 rounded-md bg-red-50 text-red-700 font-black text-xs flex items-center justify-center shrink-0">3</span>
+                                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Ringkasan Invoice</p>
+                                    </div>
                                     <div class="mt-6 space-y-4">
-                                        <div class="flex items-center justify-between text-sm font-semibold text-gray-600">
-                                            <span>Tipe</span>
-                                            <span>Pesanan Produk</span>
+                                        <div class="flex items-center justify-between text-xs font-semibold text-gray-600">
+                                            <span>Tipe Pesanan</span>
+                                            <span class="font-bold text-red-700">Pesanan Offline</span>
                                         </div>
-                                        <div class="flex items-center justify-between text-sm font-semibold text-gray-600">
+                                        <div class="flex items-center justify-between text-xs font-semibold text-gray-600">
                                             <span>Total Varian</span>
-                                            <span x-text="rows.length + ' item'"></span>
+                                            <span class="font-bold text-gray-900" x-text="rows.length + ' item'"></span>
                                         </div>
-                                        <div class="flex items-center justify-between text-sm font-semibold text-gray-600">
+                                        <div class="flex items-center justify-between text-xs font-semibold text-gray-600">
                                             <span>Total Unit</span>
-                                            <span x-text="totalUnit + ' unit'"></span>
-                                        </div>
-                                        <div class="flex items-center justify-between text-sm font-semibold text-gray-600">
-                                            <span>Subtotal</span>
-                                            <span x-text="currency(grandTotal)"></span>
-                                        </div>
-                                        <div class="flex items-center justify-between text-sm font-semibold text-gray-600">
-                                            <span>Ongkir</span>
-                                            <span x-text="currency(ongkir)"></span>
+                                            <span class="font-bold text-gray-900" x-text="totalUnit + ' unit'"></span>
                                         </div>
                                         <div class="pt-4 border-t border-gray-200 flex items-center justify-between">
-                                            <span class="text-sm font-black text-gray-900 uppercase tracking-widest">Total Akhir</span>
-                                            <span class="text-2xl font-black text-red-700" x-text="currency(invoiceTotal())"></span>
+                                            <span class="text-xs font-black text-gray-900 uppercase tracking-widest">Total Akhir</span>
+                                            <span class="text-xl font-black text-red-700" x-text="currency(grandTotal)"></span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="mt-8 flex justify-end gap-4">
-                            <button type="button" @click="openModal = false" class="px-8 py-4 text-xs font-black text-gray-400 uppercase tracking-widest hover:text-gray-900 transition">Batal</button>
-                            <button type="submit" class="px-10 py-4 bg-red-700 text-white font-black rounded-2xl hover:bg-red-800 transition shadow-xl shadow-red-700/30 uppercase tracking-widest text-xs">
-                                Simpan Pesanan
+                        <div class="app-modal-footer mt-8 flex flex-col-reverse gap-3 border-t border-gray-100 pt-6 sm:flex-row sm:justify-end">
+                            <button type="button" @click="openModal = false" class="w-full px-8 py-4 text-xs font-black uppercase tracking-widest text-gray-400 transition hover:text-gray-900 sm:w-auto">Batal</button>
+                            <button type="submit" class="w-full rounded-2xl bg-red-700 px-10 py-4 text-xs font-black uppercase tracking-widest text-white shadow-xl shadow-red-700/30 transition hover:bg-red-800 sm:w-auto">
+                                Simpan Pesanan Offline
                             </button>
                         </div>
                     </form>
@@ -1063,7 +929,7 @@
                             this.selectedPelangganId = ''
                         }
                         this.rows = (oldItems.length ? oldItems : [{}]).map((item, index) => this.makeRow(item, index))
-                        this.rows.forEach((row, index) => this.syncRow(index))
+                        this.rows.forEach((row, index) => this.syncRow(index, true))
                         this.syncTotals()
                         this.updateOngkirFromDistance()
                         
@@ -1117,47 +983,71 @@
                         }
                     },
                     makeRow(item, index) {
+                        const variant = this.findProductVariant(item.produk_id)
                         return {
                             uid: Date.now() + index + Math.floor(Math.random() * 1000),
-                            nama: this.findProductName(item.produk_id) ?? '',
-                            produk_id: item.produk_id ?? '',
-                            kapasitas: item.kapasitas ?? '',
-                            merek: item.merek ?? '',
+                            jenis: variant?.jenis ?? '',
+                            nama: variant?.nama ?? '',
+                            produk_id: item.produk_id ? String(item.produk_id) : '',
+                            kapasitas: item.kapasitas ?? variant?.kapasitas ?? '',
+                            merek: item.merek ?? variant?.merek ?? '',
                             jumlah: Number(item.jumlah ?? 1),
-                            harga: 0,
+                            harga: Number(variant?.harga ?? 0),
+                            stok: Number(variant?.stok ?? 0),
                             subtotal: 0,
                         }
                     },
-                    findProductName(produkId) {
-                        const variant = this.catalog.find((item) => Number(item.id) === Number(produkId))
-                        return variant ? variant.nama : null
+                    findProductVariant(produkId) {
+                        return this.catalog.find((item) => Number(item.id) === Number(produkId)) || null
                     },
-                    productNames() {
-                        return [...new Set(this.catalog.map((item) => item.nama))]
+                    jenisOptions() {
+                        return [...new Set(this.catalog.map((item) => item.jenis).filter(Boolean))]
                     },
-                    capacityOptions(nama) {
-                        return [...new Set(this.catalog.filter((item) => item.nama === nama).map((item) => item.kapasitas))]
+                    capacityOptions(jenis) {
+                        return [...new Set(this.catalog.filter((item) => item.jenis === jenis).map((item) => item.kapasitas))]
                     },
-                    brandOptions(nama, kapasitas) {
-                        return [...new Set(this.catalog.filter((item) => item.nama === nama && item.kapasitas === kapasitas).map((item) => item.merek))]
+                    brandOptions(jenis, kapasitas) {
+                        return [...new Set(this.catalog.filter((item) => item.jenis === jenis && item.kapasitas === kapasitas).map((item) => item.merek))]
                     },
-                    syncRow(index) {
+                    productOptions(jenis, kapasitas, merek) {
+                        return this.catalog.filter((item) => item.jenis === jenis && item.kapasitas === kapasitas && item.merek === merek)
+                    },
+                    productLabel(product) {
+                        return `${product.jenis || '-'} - ${product.kapasitas || '-'} - ${product.merek || '-'} - ${this.currency(product.harga)} - Stok ${Number(product.stok || 0)}`
+                    },
+                    syncRow(index, preserveProduct = false) {
                         const row = this.rows[index]
-                        const kapasitasList = this.capacityOptions(row.nama)
+                        const kapasitasList = this.capacityOptions(row.jenis)
                         if (kapasitasList.length && !kapasitasList.includes(row.kapasitas)) {
                             row.kapasitas = kapasitasList[0]
+                        } else if (!kapasitasList.length) {
+                            row.kapasitas = ''
                         }
 
-                        const merekList = this.brandOptions(row.nama, row.kapasitas)
+                        const merekList = this.brandOptions(row.jenis, row.kapasitas)
                         if (merekList.length && !merekList.includes(row.merek)) {
                             row.merek = merekList[0]
+                        } else if (!merekList.length) {
+                            row.merek = ''
                         }
 
-                        const variant = this.catalog.find((item) => item.nama === row.nama && item.kapasitas === row.kapasitas && item.merek === row.merek)
-                        row.produk_id = variant ? variant.id : ''
+                        const productList = this.productOptions(row.jenis, row.kapasitas, row.merek)
+                        if (!preserveProduct || !productList.some((item) => String(item.id) === String(row.produk_id))) {
+                            row.produk_id = productList.length ? String(productList[0].id) : ''
+                        }
+                        this.syncRowFromProduct(index)
+                    },
+                    syncRowFromProduct(index) {
+                        const row = this.rows[index]
+                        const variant = this.findProductVariant(row.produk_id)
+                        row.nama = variant ? variant.nama : ''
                         row.harga = variant ? Number(variant.harga) : 0
+                        row.stok = variant ? Number(variant.stok || 0) : 0
                         row.subtotal = row.harga * Number(row.jumlah || 0)
                         this.syncTotals()
+                    },
+                    hasStockIssue(row) {
+                        return !!row.produk_id && Number(row.jumlah || 0) > Number(row.stok || 0)
                     },
                     syncTotals() {
                         this.rows.forEach((row) => {

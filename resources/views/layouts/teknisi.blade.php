@@ -10,15 +10,15 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="antialiased bg-slate-100 text-slate-900">
+<body class="antialiased bg-slate-100 text-slate-900 tailadmin-admin overflow-x-hidden">
     <div class="min-h-screen">
         <header class="bg-white border-b border-slate-200 sticky top-0 z-20">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <p class="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Panel Teknisi</p>
                     <h1 class="text-xl sm:text-2xl font-black text-slate-900">Tugas Lapangan</h1>
                 </div>
-                <div class="flex items-center gap-3">
+                <div class="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
                     <div class="hidden sm:block text-right">
                         <p class="text-sm font-black text-slate-900">{{ auth()->user()->name }}</p>
                         <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Akses Teknisi</p>
@@ -33,7 +33,7 @@
             </div>
         </header>
 
-        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
             @if (session('success'))
                 <div class="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
                     {{ session('success') }}
@@ -50,4 +50,3 @@
     </div>
 </body>
 </html>
-

@@ -81,32 +81,32 @@
                                     @if($t->status !== 'approved')
                                         <form action="{{ route('admin.testimoni.approve', $t) }}" method="POST">
                                             @csrf
-                                            <button class="px-3 py-2 text-xs font-bold text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition" title="Setujui">
-                                                <i class="fa-solid fa-check"></i>
+                                            <button class="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition shadow-sm border border-emerald-200">
+                                                Setujui
                                             </button>
                                         </form>
                                     @endif
                                     @if($t->status !== 'rejected')
-                                        <button onclick="openReject({{ $t->id }})" class="px-3 py-2 text-xs font-bold text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition" title="Tolak">
-                                            <i class="fa-solid fa-xmark"></i>
+                                        <button onclick="openReject({{ $t->id }})" class="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition shadow-sm border border-red-200">
+                                            Tolak
                                         </button>
                                     @endif
                                     @if($t->status !== 'pending')
                                         <form action="{{ route('admin.testimoni.pending', $t) }}" method="POST">
                                             @csrf
-                                            <button class="px-3 py-2 text-xs font-bold text-amber-600 bg-amber-50 rounded-xl hover:bg-amber-100 transition" title="Kembalikan ke Menunggu">
-                                                <i class="fa-solid fa-rotate-left"></i>
+                                            <button class="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 rounded-xl hover:bg-amber-100 transition shadow-sm border border-amber-200">
+                                                Menunggu
                                             </button>
                                         </form>
                                     @endif
                                     <button onclick="openEdit({{ $t->id }}, {{ $t->rating }}, '{{ addslashes($t->review) }}', '{{ addslashes($t->admin_note ?? '') }}')"
-                                        class="px-3 py-2 text-xs font-bold text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition">
-                                        <i class="fa-solid fa-pen-to-square"></i>
+                                        class="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition shadow-sm border border-blue-200">
+                                        Edit
                                     </button>
                                     <form action="{{ route('admin.testimoni.destroy', $t) }}" method="POST" onsubmit="return confirm('Hapus testimoni ini?')">
                                         @csrf @method('DELETE')
-                                        <button class="px-3 py-2 text-xs font-bold text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition">
-                                            <i class="fa-solid fa-trash"></i>
+                                        <button class="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition shadow-sm border border-red-200">
+                                            Hapus
                                         </button>
                                     </form>
                                 </div>

@@ -901,26 +901,14 @@ class PublicController extends Controller
 
     private function registeredUnitAparPurchaseKey(UnitApar $unitApar): string
     {
-        if ($unitApar->pesanan_id) {
-            return 'pesanan:' . $unitApar->pesanan_id;
-        }
-
-        $tanggal = $unitApar->tgl_beli?->toDateString();
-
-        return 'tanggal:' . ($tanggal ?: 'tanpa-tanggal');
+        return $unitApar->tgl_beli ? $unitApar->tgl_beli->toDateString() : 'tanpa-tanggal';
     }
 
     private function registeredUnitAparPurchaseLabel(UnitApar $unitApar): string
     {
-        $tanggal = $unitApar->tgl_beli
+        return $unitApar->tgl_beli
             ? $unitApar->tgl_beli->translatedFormat('d F Y')
             : 'Tanpa tanggal pembelian';
-
-        if ($unitApar->pesanan_id) {
-            return "Pembelian #{$unitApar->pesanan_id} - {$tanggal}";
-        }
-
-        return "Pembelian {$tanggal}";
     }
 
     private function selectedRegisteredUnitsNote(

@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div>
             <h2 class="text-3xl font-black text-slate-900 tracking-tight">Dashboard Teknisi</h2>
-            <p class="text-sm font-semibold text-slate-500 mt-1">Daftar tugas service atau refil APAR dari admin.</p>
+            <p class="text-sm font-semibold text-slate-500 mt-1">Daftar tugas pengerjaan produk, service, dan refil APAR dari admin.</p>
         </div>
     </x-slot>
 
@@ -24,7 +24,15 @@
 
         @include('teknisi.partials.active-tasks-table', [
             'tasks' => $tasks,
-            'emptyMessage' => 'Belum ada tugas service atau refil dari admin.'
+            'emptyMessage' => 'Belum ada tugas yang diberikan oleh admin.'
         ])
+
+        <div class="pt-6 border-t border-slate-200">
+            <h3 class="text-xl font-black text-slate-900 tracking-tight mb-4">Riwayat Pekerjaan Anda</h3>
+            @include('teknisi.partials.history-tasks-table', [
+                'tasks' => $historyTasks,
+                'emptyMessage' => 'Belum ada riwayat pengerjaan.'
+            ])
+        </div>
     </div>
 </x-app-layout>

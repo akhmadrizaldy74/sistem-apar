@@ -65,23 +65,26 @@ class TeknisiController extends Controller
     public function dashboard()
     {
         $teknisiId = (int) Auth::id();
-        $tasks = $this->activeTasksByType($teknisiId, 'service');
-
-        $aktifService = $this->taskBaseQuery($teknisiId)
-            ->where('tipe', 'service')
+        $tasks = $this->taskBaseQuery($teknisiId)
+            ->with(['pelanggan', 'details.produk'])
             ->whereIn('status', $this->activeTaskStatuses())
             ->whereNull('teknisi_selesai_at')
-            ->count();
+            ->latest('tanggal')
+            ->get();
+
+        $aktifService = $tasks->count();
 
         $selesaiBulanIni = $this->taskBaseQuery($teknisiId)
-            ->where('tipe', 'service')
             ->whereIn('status', $this->historyTaskStatuses())
             ->whereMonth('teknisi_selesai_at', now()->month)
             ->whereYear('teknisi_selesai_at', now()->year)
             ->count();
 
+        $historyTasks = $this->historyTasks($teknisiId);
+
         return view('teknisi.dashboard', [
             'tasks' => $tasks,
+            'historyTasks' => $historyTasks,
             'summary' => [
                 'aktif_service' => $aktifService,
                 'total' => $aktifService,
@@ -93,7 +96,13 @@ class TeknisiController extends Controller
     public function tugasProduk()
     {
         $teknisiId = (int) Auth::id();
-        $tasks = $this->activeTasksByType($teknisiId, 'produk');
+        $tasks = $this->taskBaseQuery($teknisiId)
+            ->with(['pelanggan', 'details.produk'])
+            ->where('tipe', 'produk')
+            ->whereIn('status', $this->activeTaskStatuses())
+            ->whereNull('teknisi_selesai_at')
+            ->latest('tanggal')
+            ->get();
 
         return view('teknisi.tugas-produk', compact('tasks'));
     }
@@ -101,7 +110,12 @@ class TeknisiController extends Controller
     public function tugasServiceRefill()
     {
         $teknisiId = (int) Auth::id();
-        $tasks = $this->activeTasksByType($teknisiId, 'service');
+        $tasks = $this->taskBaseQuery($teknisiId)
+            ->with(['pelanggan', 'details.produk'])
+            ->whereIn('status', $this->activeTaskStatuses())
+            ->whereNull('teknisi_selesai_at')
+            ->latest('tanggal')
+            ->get();
 
         return view('teknisi.tugas-service-refill', compact('tasks'));
     }
@@ -116,7 +130,7 @@ class TeknisiController extends Controller
 
     public function tugasMulai(Pesanan $pesanan)
     {
-        if ($pesanan->teknisi_id !== Auth::id() || $pesanan->tipe !== 'service') {
+        if ($pesanan->teknisi_id !== Auth::id()) {
             return back()->with('error', 'Anda tidak memiliki akses ke tugas ini.');
         }
 

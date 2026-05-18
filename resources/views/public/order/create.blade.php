@@ -168,9 +168,9 @@
         $ukuran = (string) ($unitApar->ukuran ?: $produk?->kapasitas ?: '');
         $kode = (string) ($unitApar->no_seri ?: 'UNIT-' . $unitApar->id);
         $produkNama = (string) ($produk?->nama ?: 'Produk APAR');
-        $purchaseDate = $unitApar->tgl_beli ? $unitApar->tgl_beli->translatedFormat('d F Y') : 'Tanpa tanggal pembelian';
-        $purchaseKey = $unitApar->pesanan_id ? 'pesanan:' . $unitApar->pesanan_id : 'tanggal:' . ($unitApar->tgl_beli?->toDateString() ?: 'tanpa-tanggal');
-        $purchaseLabel = $unitApar->pesanan_id ? 'Pembelian #' . $unitApar->pesanan_id . ' - ' . $purchaseDate : 'Pembelian ' . $purchaseDate;
+        $purchaseDate = $unitApar->tgl_beli ? $unitApar->tgl_beli->translatedFormat('d F Y') : 'Tanpa tanggal';
+        $purchaseKey = $unitApar->tgl_beli ? $unitApar->tgl_beli->toDateString() : 'tanpa-tanggal';
+        $purchaseLabel = $purchaseDate;
         $label = collect([$kode, $produkNama, $jenisApar, $ukuran])
             ->map(fn ($part) => trim((string) $part))
             ->filter()
@@ -182,6 +182,7 @@
             'produk_nama' => $produkNama,
             'jenis_apar' => $jenisApar,
             'ukuran' => $ukuran,
+            'tgl_beli' => $purchaseDate,
             'masa_berlaku' => $unitApar->tgl_expired ? $unitApar->tgl_expired->translatedFormat('d F Y') : '-',
             'status_unit' => (string) ($unitApar->kondisi_awal ?: '-'),
             'label' => $label,
@@ -674,17 +675,16 @@
                 </div>
 
                 <div id="service-registered-unit-fields" class="hidden md:col-span-2">
-                    <label class="order-label">Pilih Riwayat Pembelian APAR <span>*</span></label>
+                    <label class="order-label">Pilih Tanggal Pembelian APAR <span>*</span></label>
                     <select name="service_purchase_group" id="service-purchase-group" class="order-input">
-                        <option value="">-- Pilih Riwayat / Tanggal Pembelian APAR --</option>
-                        @foreach($registeredUnitApars->groupBy(fn ($unitApar) => $unitApar->pesanan_id ? 'pesanan:' . $unitApar->pesanan_id : 'tanggal:' . ($unitApar->tgl_beli?->toDateString() ?: 'tanpa-tanggal')) as $purchaseKey => $units)
+                        <option value="">-- Pilih Tanggal Pembelian APAR --</option>
+                        @foreach($registeredUnitApars->groupBy(fn ($unitApar) => $unitApar->tgl_beli ? $unitApar->tgl_beli->toDateString() : 'tanpa-tanggal') as $purchaseKey => $units)
                             @php
                                 $firstUnit = $units->first();
                                 $purchaseDate = $firstUnit?->tgl_beli ? $firstUnit->tgl_beli->translatedFormat('d F Y') : 'Tanpa tanggal pembelian';
-                                $purchaseLabel = $firstUnit?->pesanan_id ? 'Pembelian #' . $firstUnit->pesanan_id . ' - ' . $purchaseDate : 'Pembelian ' . $purchaseDate;
                             @endphp
                             <option value="{{ $purchaseKey }}" {{ old('service_purchase_group') === $purchaseKey ? 'selected' : '' }}>
-                                {{ $purchaseLabel }} - {{ $units->count() }} Unit APAR
+                                {{ $purchaseDate }} - {{ $units->count() }} Unit APAR
                             </option>
                         @endforeach
                     </select>
@@ -694,10 +694,10 @@
                         </p>
                     @endif
                     <p class="mt-2 text-xs font-semibold leading-relaxed text-slate-500">
-                        Setelah riwayat dipilih, centang Unit APAR yang ingin diproses. Unit yang tidak diproses cukup hapus centangnya.
+                        Setelah tanggal pembelian dipilih, centang Unit APAR yang ingin diproses. Unit yang tidak diproses cukup hapus centangnya.
                     </p>
                     <div id="service-registered-empty-note" class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-500">
-                        Pilih riwayat pembelian terlebih dahulu untuk melihat daftar Unit APAR.
+                        Pilih tanggal pembelian terlebih dahulu untuk melihat daftar Unit APAR.
                     </div>
                     <div id="service-registered-unit-list" class="mt-4 space-y-3"></div>
                     <p id="service-registered-count-note" class="hidden mt-3 text-xs font-black uppercase tracking-[0.18em] text-blue-600"></p>
@@ -1895,8 +1895,8 @@
             if (serviceRegisteredEmptyNote) {
                 serviceRegisteredEmptyNote.classList.remove('hidden');
                 serviceRegisteredEmptyNote.textContent = groupKey
-                    ? 'Tidak ada Unit APAR pada riwayat pembelian ini.'
-                    : 'Pilih riwayat pembelian terlebih dahulu untuk melihat daftar Unit APAR.';
+                    ? 'Tidak ada Unit APAR pada tanggal pembelian ini.'
+                    : 'Pilih tanggal pembelian terlebih dahulu untuk melihat daftar Unit APAR.';
             }
             if (serviceRegisteredCountNote) serviceRegisteredCountNote.classList.add('hidden');
             return;
@@ -1921,6 +1921,7 @@
             const produkNama = escapeHtml(unit.produk_nama || '-');
             const jenisApar = escapeHtml(unit.jenis_apar || '-');
             const ukuran = escapeHtml(unit.ukuran || '-');
+            const tglBeli = escapeHtml(unit.tgl_beli || '-');
             const masaBerlaku = escapeHtml(unit.masa_berlaku || '-');
             const statusUnit = escapeHtml(unit.status_unit || '-');
 
@@ -1936,7 +1937,8 @@
                         <div class="mt-3 grid grid-cols-1 gap-2 text-xs font-semibold text-slate-500 sm:grid-cols-2">
                             <p><span class="font-black text-slate-400 uppercase tracking-wider">Jenis APAR:</span> ${jenisApar}</p>
                             <p><span class="font-black text-slate-400 uppercase tracking-wider">Ukuran:</span> ${ukuran}</p>
-                            <p><span class="font-black text-slate-400 uppercase tracking-wider">Masa Berlaku:</span> ${masaBerlaku}</p>
+                            <p><span class="font-black text-slate-400 uppercase tracking-wider">Tanggal Beli:</span> ${tglBeli}</p>
+                            <p><span class="font-black text-slate-400 uppercase tracking-wider">Tanggal Expired:</span> ${masaBerlaku}</p>
                             <p><span class="font-black text-slate-400 uppercase tracking-wider">Status:</span> ${statusUnit}</p>
                         </div>
                     </div>
@@ -2249,7 +2251,7 @@
         const isRefill = !serviceJenisLayanan || serviceJenisLayanan.value !== 'service';
         const unitStatus = getServiceUnitStatus();
         const isRegisteredService = !isBeli && unitStatus === 'terdaftar';
-        const showRefillFields = !isBeli && isRefill && !isRegisteredService;
+        const showRefillFields = !isBeli && isRefill;
         const showServiceFields = !isBeli && !isRefill;
 
         if (serviceRefillFields) {
@@ -2691,7 +2693,7 @@ Mohon informasinya. Terima kasih.`;
             document.getElementById('inp-use-cart-checkout').value = '0';
 
             if (serviceState.unitStatus === 'terdaftar' && !servicePurchaseGroup?.value) {
-                alert('Pilih Riwayat Pembelian APAR terlebih dahulu.');
+                alert('Pilih Tanggal Pembelian APAR terlebih dahulu.');
                 event.preventDefault();
                 return;
             }

@@ -82,13 +82,13 @@
             @endforelse
 
             <!-- Selesai Modal -->
-            <div x-show="openModal" style="display: none" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-                <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+            <div x-show="openModal" style="display: none" class="fixed inset-0 z-50 overflow-y-auto p-3 sm:p-4" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+                <div class="flex min-h-full items-start justify-center text-center sm:items-center">
                     <div x-show="openModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 transition-opacity bg-slate-900/60 backdrop-blur-sm" aria-hidden="true" @click="openModal = false"></div>
 
-                    <div x-show="openModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" class="relative inline-block w-full max-w-lg overflow-hidden text-left align-middle transition-all transform bg-white rounded-3xl shadow-2xl">
+                    <div x-show="openModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" class="app-modal-shell relative my-3 max-w-lg text-left align-middle transition-all transform sm:my-6">
                         
-                        <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+                        <div class="app-modal-header flex items-start justify-between border-b border-slate-100 bg-white/95 p-5 backdrop-blur sm:items-center sm:p-6">
                             <h3 class="text-lg font-black text-slate-900" id="modal-title">Selesaikan Refill</h3>
                             <button type="button" @click="openModal = false" class="text-slate-400 hover:text-red-600 transition">
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -97,7 +97,7 @@
 
                         <form :action="task ? '/teknisi/refill-stock/' + task.id + '/selesai' : ''" method="POST" enctype="multipart/form-data">
                             @csrf
-                            <div class="p-6 space-y-5 bg-slate-50/50">
+                            <div class="app-modal-body space-y-5 bg-slate-50/50 p-5 sm:p-6">
                                 <div>
                                     <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Tanggal Selesai Refill</label>
                                     <input type="date" name="tanggal_refill" required :value="new Date().toISOString().split('T')[0]" class="w-full px-5 py-3.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-600/20 focus:border-red-600 font-bold text-slate-900 text-sm transition">
@@ -112,9 +112,9 @@
                                 </div>
                             </div>
                             
-                            <div class="p-6 border-t border-slate-100 flex justify-end gap-3">
-                                <button type="button" @click="openModal = false" class="px-6 py-3.5 text-xs font-black text-slate-500 uppercase tracking-widest hover:text-slate-900 transition rounded-xl">Batal</button>
-                                <button type="submit" class="px-6 py-3.5 bg-red-600 text-white font-black rounded-xl hover:bg-red-700 transition shadow-lg shadow-red-600/30 uppercase tracking-widest text-xs flex items-center gap-2">
+                            <div class="app-modal-footer flex flex-col-reverse gap-3 border-t border-slate-100 p-5 sm:flex-row sm:justify-end sm:p-6">
+                                <button type="button" @click="openModal = false" class="w-full px-6 py-3.5 text-xs font-black text-slate-500 uppercase tracking-widest hover:text-slate-900 transition rounded-xl sm:w-auto">Batal</button>
+                                <button type="submit" class="w-full px-6 py-3.5 bg-red-600 text-white font-black rounded-xl hover:bg-red-700 transition shadow-lg shadow-red-600/30 uppercase tracking-widest text-xs flex items-center justify-center gap-2 sm:w-auto">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                                     Konfirmasi Selesai
                                 </button>

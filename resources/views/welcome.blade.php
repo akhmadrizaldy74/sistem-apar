@@ -468,7 +468,7 @@
     <div class="container">
         <div style="display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:50px; gap:20px; flex-wrap:wrap;">
             <div>
-                <p class="section-tag" style="text-align:left;">Katalog Produk</p>
+                <p class="section-tag" style="text-align:left;">Produk Pilihan</p>
                 <h2 class="section-title" style="text-align:left; margin-bottom:0;">Produk APAR Kami</h2>
             </div>
             <a href="{{ route('produk.index') }}" class="btn-outline" style="border-color:#DC2626; color:#DC2626; padding:10px 22px; font-size:13px;">
@@ -536,7 +536,6 @@
                     <div class="testi-avatar">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($t->pelanggan->nama ?? 'P', 0, 1)) }}</div>
                     <div>
                         <p class="testi-name">{{ $t->pelanggan->nama ?? 'Pelanggan' }}</p>
-                        <p class="testi-time">{{ optional($t->tanggal)->diffForHumans() ?? $t->created_at?->diffForHumans() }}</p>
                     </div>
                 </div>
             </div>
@@ -551,7 +550,6 @@
                     <div class="testi-avatar">A</div>
                     <div>
                         <p class="testi-name">Alur Baru Review</p>
-                        <p class="testi-time">Siap digunakan</p>
                     </div>
                 </div>
             </div>

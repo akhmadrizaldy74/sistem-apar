@@ -18,25 +18,40 @@
     <h1>Laporan Keuangan Service</h1>
     <p>Total pemasukan: Rp {{ number_format($totals['total_pemasukan'], 0, ',', '.') }}</p>
     <p>Total transaksi: {{ $totals['total_transaksi'] }}</p>
-    <p>Rata-rata: Rp {{ number_format($totals['rata_rata'], 0, ',', '.') }}</p>
+    <p>Total pengeluaran: Rp {{ number_format($totals['total_pengeluaran'], 0, ',', '.') }}</p>
+    <p>Laba bersih: Rp {{ number_format($totals['laba_bersih'], 0, ',', '.') }}</p>
     <table>
         <thead>
             <tr>
                 <th>Tanggal</th>
-                <th>Pelanggan</th>
-                <th>Jenis Service</th>
-                <th>Unit</th>
+                <th>Jenis</th>
+                <th>Keterangan</th>
                 <th>Nominal</th>
             </tr>
         </thead>
         <tbody>
+            @foreach($pesanans as $pesanan)
+                <tr>
+                    <td>{{ $pesanan->tanggal->format('d-m-Y') }}</td>
+                    <td>Penjualan</td>
+                    <td>Pesanan #{{ $pesanan->id }} - {{ $pesanan->pelanggan->nama ?? '-' }}</td>
+                    <td style="color: green;">Rp {{ number_format($pesanan->total, 0, ',', '.') }}</td>
+                </tr>
+            @endforeach
             @foreach($services as $service)
                 <tr>
-                    <td>{{ $service->tgl_service->format('d-m-Y') }}</td>
-                    <td>{{ $service->unitApar->pelanggan->nama }}</td>
-                    <td>{{ $service->jenis_service }}</td>
-                    <td>{{ $service->unitApar->no_seri }}</td>
-                    <td>Rp {{ number_format($service->biaya, 0, ',', '.') }}</td>
+                    <td>{{ \Carbon\Carbon::parse($service->tgl_service)->format('d-m-Y') }}</td>
+                    <td>Service</td>
+                    <td>{{ $service->jenis_service }} - {{ $service->unitApar->pelanggan->nama ?? '-' }}</td>
+                    <td style="color: green;">Rp {{ number_format($service->biaya, 0, ',', '.') }}</td>
+                </tr>
+            @endforeach
+            @foreach($pengeluarans as $pengeluaran)
+                <tr>
+                    <td>{{ $pengeluaran->tanggal->format('d-m-Y') }}</td>
+                    <td>Pengeluaran</td>
+                    <td>{{ $pengeluaran->keterangan }}</td>
+                    <td style="color: red;">- Rp {{ number_format($pengeluaran->nominal, 0, ',', '.') }}</td>
                 </tr>
             @endforeach
         </tbody>

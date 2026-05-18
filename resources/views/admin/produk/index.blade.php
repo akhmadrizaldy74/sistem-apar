@@ -118,7 +118,7 @@
             </div>
         </div>
 
-        <div x-show="openModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
+        <div x-show="openModal" class="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto p-3 sm:items-center sm:p-6">
             <div class="absolute inset-0 bg-gray-950/50 backdrop-blur-sm" @click="openModal = false"></div>
             <div
                 x-show="openModal"
@@ -128,9 +128,9 @@
                 x-transition:leave="ease-in duration-200"
                 x-transition:leave-start="opacity-100 translate-y-0 scale-100"
                 x-transition:leave-end="opacity-0 translate-y-4 scale-95"
-                class="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-[2rem] bg-white shadow-2xl shadow-gray-900/20 border border-white/60"
+                class="app-modal-shell relative my-3 max-w-5xl sm:my-6"
             >
-                <div class="sticky top-0 z-10 flex items-center justify-between px-8 py-6 bg-white/95 backdrop-blur border-b border-gray-100">
+                <div class="app-modal-header flex items-start justify-between px-5 py-4 bg-white/95 backdrop-blur border-b border-gray-100 sm:items-center sm:px-6 lg:px-8 lg:py-6">
                     <div>
                         <h3 class="text-2xl font-black text-gray-900">Tambah Produk</h3>
                         <p class="text-sm font-medium text-gray-500 mt-1">Input data produk langsung dari halaman ini.</p>
@@ -140,9 +140,9 @@
                     </button>
                 </div>
 
-                <form action="{{ route('admin.produk.store') }}" method="POST" enctype="multipart/form-data" class="p-8 sm:p-10">
+                <form action="{{ route('admin.produk.store') }}" method="POST" enctype="multipart/form-data" class="flex min-h-0 flex-1 flex-col">
                     @csrf
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="app-modal-body grid grid-cols-1 gap-8 p-5 sm:grid-cols-2 sm:p-6 lg:p-8">
                         <div class="space-y-6">
                             <div>
                                 <label for="nama" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Nama Produk</label>
@@ -211,9 +211,9 @@
                         </div>
                     </div>
 
-                    <div class="mt-8 flex justify-end gap-4">
-                        <button type="button" @click="openModal = false" class="px-8 py-4 text-xs font-black text-gray-400 uppercase tracking-widest hover:text-gray-900 transition">Batal</button>
-                        <button type="submit" class="px-10 py-4 bg-red-700 text-white font-black rounded-2xl hover:bg-red-800 transition shadow-xl shadow-red-700/30 uppercase tracking-widest text-xs">
+                    <div class="app-modal-footer flex flex-col-reverse gap-3 border-t border-gray-100 px-5 py-4 sm:flex-row sm:justify-end sm:px-6 lg:px-8">
+                        <button type="button" @click="openModal = false" class="w-full px-8 py-4 text-xs font-black uppercase tracking-widest text-gray-400 transition hover:text-gray-900 sm:w-auto">Batal</button>
+                        <button type="submit" class="w-full rounded-2xl bg-red-700 px-10 py-4 text-xs font-black uppercase tracking-widest text-white shadow-xl shadow-red-700/30 transition hover:bg-red-800 sm:w-auto">
                             Simpan Produk
                         </button>
                     </div>

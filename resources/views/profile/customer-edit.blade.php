@@ -1,6 +1,6 @@
 @extends('layouts.public')
 
-@section('title', 'Profil Pelanggan')
+@section('title', 'Profil Saya')
 
 @section('content')
     <section class="min-h-screen bg-gradient-to-b from-gray-50 to-white py-10 sm:py-14">

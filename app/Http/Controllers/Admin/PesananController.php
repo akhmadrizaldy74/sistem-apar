@@ -220,6 +220,17 @@ class PesananController extends Controller
             ->values()
             ->all();
 
+        if (!empty($existingService?->stok_kurang_history)) {
+            $this->syncServiceLogForPackageOrder($pesanan, [
+                'actual_peralatan_json' => $existingService?->actual_peralatan_json ?: json_encode($normalizedItems),
+                'status_konfirmasi' => 'confirmed',
+                'tgl_selesai_admin' => $existingService?->tgl_selesai_admin ?: now(),
+                'stok_kurang_history_json' => $existingService?->stok_kurang_history_json,
+            ]);
+
+            return;
+        }
+
         $history = [];
 
         foreach ($normalizedItems as $item) {
@@ -259,7 +270,7 @@ class PesananController extends Controller
 
     private function isManualOrder(Pesanan $pesanan): bool
     {
-        return in_array((string) $pesanan->sumber_pesanan, ['whatsapp', 'telepon', 'datang_langsung', 'input_admin'], true);
+        return in_array((string) $pesanan->sumber_pesanan, ['whatsapp', 'telepon', 'datang_langsung', 'input_admin', 'offline'], true);
     }
 
     private function isPaymentConfirmed(Pesanan $pesanan): bool
@@ -352,7 +363,8 @@ class PesananController extends Controller
             'kapasitas' => $produk->kapasitas,
             'merek' => $produk->merek,
             'harga' => (int) $produk->harga,
-            'jenis' => $produk->jenisApar?->nama,
+            'jenis' => $produk->jenisApar?->nama ?: 'Tanpa Jenis',
+            'stok' => (int) $produk->stok_tersedia,
         ])->values();
 
         $teknisis = \App\Models\User::where('role', 'teknisi')->orderBy('name')->get();
@@ -431,34 +443,17 @@ class PesananController extends Controller
                 ->filter(fn ($item) => collect($item)->filter(fn ($value) => $value !== null && $value !== '')->isNotEmpty())
                 ->values()
                 ->all(),
-            'harga_deal_manual' => $this->normalizeMoneyInput($request->input('harga_deal_manual')),
-            'ongkir' => $this->normalizeMoneyInput($request->input('ongkir')) ?? '0',
-            'pelanggan_mode' => $request->input('pelanggan_mode', 'existing'),
-            'metode_pengiriman' => $this->normalizeMetodePengiriman($request->input('metode_pengiriman', 'pickup')),
             'new_pelanggan_nama' => trim((string) $request->input('new_pelanggan_nama')) ?: null,
-            'new_pelanggan_perusahaan' => trim((string) $request->input('new_pelanggan_perusahaan')) ?: null,
             'new_pelanggan_no_wa' => $this->normalizeCustomerPhone($request->input('new_pelanggan_no_wa')),
-            'new_pelanggan_alamat_maps' => trim((string) $request->input('new_pelanggan_alamat_maps')) ?: null,
-            'new_pelanggan_alamat_detail' => trim((string) $request->input('new_pelanggan_alamat_detail')) ?: null,
             'catatan_admin' => trim((string) $request->input('catatan_admin')) ?: null,
         ]);
 
         $validated = $request->validate([
             'tipe' => 'required|in:produk',
-            'pelanggan_mode' => 'required|in:existing,new',
-            'pelanggan_id' => 'required_if:pelanggan_mode,existing|nullable|exists:pelanggans,id',
-            'new_pelanggan_nama' => 'exclude_unless:pelanggan_mode,new|required|string|max:255',
-            'new_pelanggan_perusahaan' => 'exclude_unless:pelanggan_mode,new|nullable|string|max:255',
-            'new_pelanggan_no_wa' => 'exclude_unless:pelanggan_mode,new|required|string|max:20',
-            'new_pelanggan_alamat_maps' => 'exclude_unless:pelanggan_mode,new|required|string|max:255',
-            'new_pelanggan_alamat_detail' => 'exclude_unless:pelanggan_mode,new|required|string|max:1000',
-            'new_pelanggan_alamat_lat' => 'exclude_unless:pelanggan_mode,new|required|numeric|between:-90,90',
-            'new_pelanggan_alamat_lng' => 'exclude_unless:pelanggan_mode,new|required|numeric|between:-180,180',
+            'new_pelanggan_nama' => 'required|string|max:255',
+            'new_pelanggan_no_wa' => 'required|string|max:20',
+            'new_pelanggan_alamat' => 'nullable|string|max:1000',
             'tanggal' => 'required|date',
-            'sumber_pesanan' => 'nullable|in:website,whatsapp,telepon,datang_langsung,input_admin',
-            'metode_pengiriman' => 'required|in:pickup,diantar_internal',
-            'ongkir' => 'nullable|numeric|min:0',
-            'harga_deal_manual' => 'nullable|numeric|min:0',
             'catatan_admin' => 'nullable|string|max:1000',
             'items' => 'required|array|min:1',
             'items.*.produk_id' => 'required|exists:produks,id',
@@ -472,85 +467,52 @@ class PesananController extends Controller
             'items.*.kapasitas.required' => 'Kapasitas pada item produk belum dipilih.',
             'items.*.merek.required' => 'Merek pada item produk belum dipilih.',
             'items.*.jumlah.required' => 'Jumlah pada item produk belum diisi.',
+            'new_pelanggan_nama.required' => 'Nama pelanggan wajib diisi.',
+            'new_pelanggan_no_wa.required' => 'Nomor telepon pelanggan wajib diisi.',
         ]);
 
-        DB::transaction(function () use ($validated, $request) {
-            $hargaDealManual = isset($validated['harga_deal_manual']) && $validated['harga_deal_manual'] !== null
-                ? (float) $validated['harga_deal_manual']
-                : null;
-            $ongkir = isset($validated['ongkir']) ? (float) $validated['ongkir'] : 0;
-            $statusAwal = $hargaDealManual ? 'menunggu persetujuan' : 'pending';
+        DB::transaction(function () use ($validated) {
+            // --- Resolve pelanggan: find by phone or create new ---
+            $normalizedNoWa = (string) ($validated['new_pelanggan_no_wa'] ?? '');
+            $existingPelanggan = Pelanggan::where('no_wa', $normalizedNoWa)->first();
 
-            $pelangganId = (int) ($validated['pelanggan_id'] ?? 0);
-            if (($validated['pelanggan_mode'] ?? 'existing') === 'new') {
-                $alamatMaps = (string) ($validated['new_pelanggan_alamat_maps'] ?? '');
-                $alamatDetail = (string) ($validated['new_pelanggan_alamat_detail'] ?? '');
-                $alamatGabungan = $this->combineAddress($alamatMaps, $alamatDetail);
-                $normalizedNoWa = (string) ($validated['new_pelanggan_no_wa'] ?? '');
-
-                $existingPelanggan = Pelanggan::query()
-                    ->where('no_wa', $normalizedNoWa)
-                    ->first();
-
-                if ($existingPelanggan) {
-                    $existingPelanggan->update([
-                        'nama' => (string) $validated['new_pelanggan_nama'],
-                        'perusahaan' => $validated['new_pelanggan_perusahaan'] ?? null,
-                        'alamat' => $alamatGabungan,
-                        'alamat_maps' => $alamatMaps,
-                        'alamat_detail' => $alamatDetail,
-                        'alamat_lat' => (float) $validated['new_pelanggan_alamat_lat'],
-                        'alamat_lng' => (float) $validated['new_pelanggan_alamat_lng'],
-                        'status' => 'tetap',
-                        'sumber_data' => 'manual',
-                        'kategori_pelanggan' => 'baru_manual',
-                    ]);
-                    $pelangganId = (int) $existingPelanggan->id;
-                } else {
-                    $pelangganBaru = Pelanggan::create([
-                        'nama' => (string) $validated['new_pelanggan_nama'],
-                        'perusahaan' => $validated['new_pelanggan_perusahaan'] ?? null,
-                        'no_wa' => $normalizedNoWa,
-                        'alamat' => $alamatGabungan,
-                        'alamat_maps' => $alamatMaps,
-                        'alamat_detail' => $alamatDetail,
-                        'alamat_lat' => (float) $validated['new_pelanggan_alamat_lat'],
-                        'alamat_lng' => (float) $validated['new_pelanggan_alamat_lng'],
-                        'status' => 'tetap',
-                        'sumber_data' => 'manual',
-                        'kategori_pelanggan' => 'baru_manual',
-                    ]);
-                    $pelangganId = (int) $pelangganBaru->id;
-                }
+            if ($existingPelanggan) {
+                $existingPelanggan->update([
+                    'nama' => (string) $validated['new_pelanggan_nama'],
+                    'alamat' => filled($validated['new_pelanggan_alamat'] ?? null)
+                        ? (string) $validated['new_pelanggan_alamat']
+                        : $existingPelanggan->alamat,
+                    'status' => 'tetap',
+                    'sumber_data' => $existingPelanggan->sumber_data ?: 'manual',
+                ]);
+                $pelangganId = (int) $existingPelanggan->id;
             } else {
-                if ($request->filled(['fallback_alamat_maps', 'fallback_alamat_lat', 'fallback_alamat_lng'])) {
-                    $existingPelanggan = Pelanggan::find($pelangganId);
-                    if ($existingPelanggan && empty($existingPelanggan->alamat_lat)) {
-                        $existingPelanggan->update([
-                            'alamat_maps' => $request->fallback_alamat_maps,
-                            'alamat_lat' => (float) $request->fallback_alamat_lat,
-                            'alamat_lng' => (float) $request->fallback_alamat_lng,
-                        ]);
-                    }
-                }
+                $pelangganBaru = Pelanggan::create([
+                    'nama' => (string) $validated['new_pelanggan_nama'],
+                    'no_wa' => $normalizedNoWa,
+                    'alamat' => $validated['new_pelanggan_alamat'] ?? null,
+                    'status' => 'tetap',
+                    'sumber_data' => 'manual',
+                    'kategori_pelanggan' => 'baru_manual',
+                ]);
+                $pelangganId = (int) $pelangganBaru->id;
             }
 
+            // --- Create pesanan with offline defaults ---
             $pesanan = Pesanan::create([
                 'pelanggan_id' => $pelangganId,
-                'tipe' => $validated['tipe'],
-                'sumber_pesanan' => $validated['sumber_pesanan'] ?? 'input_admin',
+                'tipe' => 'produk',
+                'sumber_pesanan' => 'datang_langsung',
                 'is_pesanan_lama' => false,
                 'tanggal' => $validated['tanggal'],
                 'total' => 0,
-                'status' => $statusAwal,
-                'is_nego' => (bool) $hargaDealManual,
-                'harga_usulan' => $hargaDealManual,
-                'harga_penawaran_pelanggan' => null,
+                'status' => 'diproses', // skip pending, langsung lunas & diproses
+                'is_nego' => false,
                 'tipe_harga' => 'normal',
-                'metode_pengiriman' => $validated['metode_pengiriman'] ?? 'pickup',
-                'ongkir' => $ongkir,
-                'metode_pembayaran' => null,
-                'pembayaran_terkonfirmasi_at' => null,
+                'metode_pengiriman' => 'pickup',
+                'ongkir' => 0,
+                'metode_pembayaran' => 'cash',
+                'pembayaran_terkonfirmasi_at' => now(),
                 'catatan_admin' => $validated['catatan_admin'] ?? null,
             ]);
 
@@ -591,15 +553,16 @@ class PesananController extends Controller
                 $total += $subtotal;
             }
 
-            $totalAkhir = $total + $ongkir;
-
             $pesanan->update([
-                'total' => $totalAkhir,
-                'total_harga' => $totalAkhir,
+                'total' => $total,
+                'total_harga' => $total,
             ]);
+
+            // Langsung kurangi stok karena offline = lunas
+            $pesanan->reduceStock();
         });
 
-        return redirect()->route('admin.pesanan.index')->with('success', 'Pesanan berhasil disimpan.');
+        return redirect()->route('admin.pesanan.index')->with('success', 'Pesanan offline berhasil disimpan. Status: Lunas & Diproses.');
     }
 
     public function show(Pesanan $pesanan)
@@ -689,7 +652,7 @@ class PesananController extends Controller
                     'tipe_harga'  => 'deal',
                 ]);
 
-                return redirect()->back()->with('success', 'Harga deal manual di-ACC. Pesanan tidak membutuhkan kode negosiasi.');
+                return redirect()->back()->with('success', 'Harga deal offline di-ACC. Pesanan tidak membutuhkan kode negosiasi.');
             }
 
             $pesanan->update([
@@ -738,7 +701,7 @@ class PesananController extends Controller
         }
 
         if (!$this->isManualOrder($pesanan)) {
-            return back()->with('error', 'Aksi ini hanya untuk pesanan manual admin.');
+            return back()->with('error', 'Aksi ini hanya untuk pesanan input admin atau offline.');
         }
 
         if ($this->isPaymentConfirmed($pesanan)) {
@@ -790,7 +753,7 @@ class PesananController extends Controller
         }
 
         if (!$this->isManualOrder($pesanan)) {
-            return back()->with('error', 'Aksi ini hanya untuk pesanan manual admin.');
+            return back()->with('error', 'Aksi ini hanya untuk pesanan input admin atau offline.');
         }
 
         if (is_null($pesanan->link_pembayaran_terkirim_at)) {
@@ -819,11 +782,11 @@ class PesananController extends Controller
     public function konfirmasiPembayaranManual(Pesanan $pesanan)
     {
         if ($pesanan->tipe !== 'produk') {
-            return back()->with('error', 'Konfirmasi pembayaran manual hanya untuk pesanan produk.');
+            return back()->with('error', 'Konfirmasi pembayaran offline hanya untuk pesanan produk.');
         }
 
         if (!$this->isManualOrder($pesanan)) {
-            return back()->with('error', 'Aksi ini hanya untuk pesanan manual admin.');
+            return back()->with('error', 'Aksi ini hanya untuk pesanan input admin atau offline.');
         }
 
         if ($this->isPaymentConfirmed($pesanan)) {
@@ -846,7 +809,7 @@ class PesananController extends Controller
         $pesanan->pelanggan?->update(['status' => 'tetap']);
         $this->syncUnitAparsForPesanan($pesanan->fresh(['details.produk.jenisApar', 'unitApars']));
 
-        return back()->with('success', 'Pembayaran manual berhasil dikonfirmasi. Pesanan siap di-assign.');
+        return back()->with('success', 'Pembayaran berhasil dikonfirmasi. Pesanan siap di-assign.');
     }
 
     public function assignTeknisi(Request $request, Pesanan $pesanan)
@@ -855,13 +818,9 @@ class PesananController extends Controller
             return back()->with('error', 'Assign teknisi tersedia setelah pembayaran dikonfirmasi.');
         }
 
-        $request->validate([
-            'teknisi_id' => 'required|exists:users,id',
-        ]);
-
-        $teknisi = User::findOrFail($request->teknisi_id);
-        if (!$teknisi->isTeknisi()) {
-            return back()->with('error', 'User yang dipilih bukan teknisi.');
+        $teknisi = User::where('role', 'teknisi')->first();
+        if (!$teknisi) {
+            return back()->with('error', 'Data teknisi belum tersedia.');
         }
 
         $pesanan->update([

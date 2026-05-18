@@ -82,7 +82,7 @@
                     Selesai Teknisi
                 </span>
                 <span class="text-sm font-semibold text-slate-700">
-                    {{ \Carbon\Carbon::parse($pesanan->teknisi_selesai_at)->format('d M Y, H:i') }}
+                    {{ \Carbon\Carbon::parse($pesanan->teknisi_selesai_at)->format('d M Y') }}
                 </span>
             </div>
             @endif

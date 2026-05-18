@@ -145,11 +145,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/testimoni/{testimoni}/reject', [TestimoniController::class, 'reject'])->name('testimoni.reject');
     Route::post('/testimoni/{testimoni}/pending', [TestimoniController::class, 'pending'])->name('testimoni.pending');
     Route::delete('/testimoni/{testimoni}', [TestimoniController::class, 'destroy'])->name('testimoni.destroy');
-    // Export CSV
-    Route::get('/laporan/apar/csv', [LaporanController::class, 'aparCsv'])->name('laporan.apar.csv');
-    Route::get('/laporan/pesanan/csv', [LaporanController::class, 'pesananCsv'])->name('laporan.pesanan.csv');
-    Route::get('/laporan/service/csv', [LaporanController::class, 'serviceCsv'])->name('laporan.service.csv');
-    Route::get('/laporan/keuangan/csv', [LaporanController::class, 'keuanganCsv'])->name('laporan.keuangan.csv');
+
 });
 
 Route::middleware('auth')->group(function () {

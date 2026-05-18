@@ -39,9 +39,7 @@
                 <a href="{{ route('admin.laporan.service.pdf', request()->query()) }}" class="flex-1 px-6 py-4 bg-white text-gray-700 font-black rounded-2xl border border-gray-100 hover:shadow-lg transition uppercase tracking-widest text-xs text-center">
                     PDF
                 </a>
-                <a href="{{ route('admin.laporan.service.csv', request()->query()) }}" class="flex-1 px-6 py-4 bg-emerald-600 text-white font-black rounded-2xl hover:bg-emerald-700 transition uppercase tracking-widest text-xs text-center">
-                    CSV
-                </a>
+
             </div>
         </form>
 

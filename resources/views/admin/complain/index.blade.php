@@ -97,14 +97,16 @@
                                         <button
                                             type="button"
                                             onclick="processAndChat(this, {{ $complain->id }}, '{{ preg_replace('/^0/', '62', $complain->pelanggan->no_wa) }}', `{{ str_replace('`', '\`', $waMessage) }}`)"
-                                            class="px-3 py-2 text-xs font-bold text-green-700 bg-green-50 rounded-xl hover:bg-green-100 transition"
+                                            class="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition shadow-sm border border-emerald-200"
                                         >
-                                            <i class="fa-brands fa-whatsapp"></i> Proses & Chat
+                                            Proses & Chat
                                         </button>
                                     @endif
                                     <form action="{{ route('admin.complain.destroy', $complain) }}" method="POST" onsubmit="return confirm('Hapus komplain ini?')">
                                         @csrf @method('DELETE')
-                                        <button class="p-2 text-red-500 hover:bg-red-50 rounded-xl transition"><i class="fa-solid fa-trash text-xs"></i></button>
+                                        <button class="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition shadow-sm border border-red-200">
+                                            Hapus
+                                        </button>
                                     </form>
                                 </div>
                             </td>

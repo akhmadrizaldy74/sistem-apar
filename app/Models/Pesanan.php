@@ -353,6 +353,32 @@ class Pesanan extends Model
             return 'Ditolak';
         }
 
+        if ($this->tipe === 'service') {
+            if (in_array($status, self::PAYMENT_PENDING_STATUSES, true)) {
+                if (empty($this->bukti_pembayaran) && $this->payableTotal() > 0) {
+                    return 'Menunggu Pembayaran';
+                }
+                if (!empty($this->bukti_pembayaran) && !$this->isPaymentConfirmed()) {
+                    return 'Menunggu Verifikasi Pembayaran';
+                }
+                return 'Menunggu Diproses';
+            }
+
+            return match ($status) {
+                self::STATUS_PENDING => 'Menunggu Pembayaran',
+                self::STATUS_DIPROSES => 'Menunggu Diproses',
+                self::STATUS_MENUNGGU_PENGAMBILAN => 'Menunggu Diproses',
+                self::STATUS_MENUNGGU_KEDATANGAN_UNIT => 'Menunggu Diproses',
+                self::STATUS_DITUGASKAN_KE_TEKNISI => 'Ditugaskan ke Teknisi',
+                self::STATUS_DIKERJAKAN_TEKNISI => 'Sedang Dikerjakan',
+                self::STATUS_SELESAI_OLEH_TEKNISI => 'Selesai oleh Teknisi',
+                self::STATUS_DIKONFIRMASI_ADMIN,
+                self::STATUS_SELESAI,
+                self::STATUS_SELESAI_FINAL => 'Selesai',
+                default => 'Menunggu Diproses',
+            };
+        }
+
         if (in_array($status, self::PAYMENT_PENDING_STATUSES, true)) {
             if (empty($this->bukti_pembayaran) && $this->payableTotal() > 0) {
                 return 'Menunggu Pembayaran';
@@ -361,22 +387,6 @@ class Pesanan extends Model
             if (!empty($this->bukti_pembayaran) && ! $this->isPaymentConfirmed()) {
                 return 'Menunggu Verifikasi Pembayaran';
             }
-        }
-
-        if ($this->tipe === 'service') {
-            return match ($status) {
-                self::STATUS_MENUNGGU_PENGAMBILAN => 'Menunggu Pengambilan',
-                self::STATUS_MENUNGGU_KEDATANGAN_UNIT => 'Menunggu Unit Datang',
-                self::STATUS_DITUGASKAN_KE_TEKNISI => 'Menunggu Proses Teknisi',
-                self::STATUS_DIKERJAKAN_TEKNISI => 'Sedang Dikerjakan',
-                self::STATUS_SELESAI_OLEH_TEKNISI,
-                self::STATUS_DIKONFIRMASI_ADMIN => $this->service_metode_penanganan === 'antar sendiri'
-                    ? 'Siap Diambil'
-                    : 'Sedang Pengiriman',
-                self::STATUS_SELESAI,
-                self::STATUS_SELESAI_FINAL => 'Selesai',
-                default => ucwords($status),
-            };
         }
 
         if ($this->metode_pengiriman === 'diantar_internal') {
@@ -402,10 +412,10 @@ class Pesanan extends Model
 
         return match ($label) {
             'Menunggu Pembayaran', 'Menunggu Verifikasi Pembayaran' => 'bg-amber-100 text-amber-800 border border-amber-200',
-            'Menunggu Pengambilan', 'Menunggu Unit Datang', 'Menunggu Proses Teknisi' => 'bg-blue-100 text-blue-800 border border-blue-200',
-            'Sedang Dikerjakan', 'Sedang Pengiriman' => 'bg-indigo-100 text-indigo-800 border border-indigo-200',
-            'Siap Diambil' => 'bg-emerald-100 text-emerald-800 border border-emerald-200',
-            'Selesai' => 'bg-emerald-100 text-emerald-800 border border-emerald-200',
+            'Menunggu Diproses', 'Ditugaskan ke Teknisi' => 'bg-blue-100 text-blue-800 border border-blue-200',
+            'Sedang Dikerjakan' => 'bg-indigo-100 text-indigo-800 border border-indigo-200',
+            'Selesai oleh Teknisi' => 'bg-purple-100 text-purple-800 border border-purple-200',
+            'Siap Diambil', 'Selesai' => 'bg-emerald-100 text-emerald-800 border border-emerald-200',
             'Ditolak' => 'bg-red-100 text-red-800 border border-red-200',
             default => 'bg-slate-100 text-slate-700 border border-slate-200',
         };

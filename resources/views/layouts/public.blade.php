@@ -66,7 +66,7 @@
         }
     </style>
 </head>
-<body class="antialiased bg-white text-gray-900">
+<body class="antialiased bg-white text-gray-900 tailadmin-public overflow-x-hidden">
     @php
         $orderEntryUrl = auth()->check() ? route('order.create') : route('login');
     @endphp
@@ -77,6 +77,7 @@
     <header id="public-nav"
             class="fixed top-0 inset-x-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 transition-all duration-300"
             x-data="{ open: false, scrolled: false }"
+            @keydown.escape.window="open = false"
             x-init="window.addEventListener('scroll', () => { scrolled = window.scrollY > 20; document.getElementById('public-nav').classList.toggle('nav-scrolled', scrolled); })">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16 sm:h-18">
@@ -84,16 +85,16 @@
                 {{-- Brand --}}
                 <a href="{{ url('/') }}" class="flex items-center gap-3 group">
                     <img src="{{ asset('images/logo-anugrah.png') }}" alt="Logo PD. Anugrah Utama" class="h-10 w-10 rounded-xl object-cover shadow-sm ring-1 ring-red-100 transition-transform group-hover:scale-105">
-                    <div>
-                        <p class="text-sm font-black text-gray-900 tracking-tight leading-none">PD. ANUGRAH UTAMA</p>
-                        <p class="text-[9px] font-bold text-red-600 uppercase tracking-widest mt-0.5">Sistem APAR</p>
+                    <div class="min-w-0">
+                        <p class="truncate text-xs font-black tracking-tight leading-none text-gray-900 sm:text-sm">PD. ANUGRAH UTAMA</p>
+                        <p class="mt-0.5 hidden text-[9px] font-bold uppercase tracking-widest text-red-600 sm:block">Sistem APAR</p>
                     </div>
                 </a>
 
                 {{-- Desktop Nav --}}
                 <nav class="hidden md:flex items-center gap-1">
                     <a href="{{ url('/') }}" class="px-4 py-2 text-sm font-semibold text-gray-700 hover:text-red-700 rounded-xl hover:bg-red-50 transition">Beranda</a>
-                    <a href="{{ route('produk.index') }}" class="px-4 py-2 text-sm font-semibold text-gray-700 hover:text-red-700 rounded-xl hover:bg-red-50 transition">Katalog</a>
+                    <a href="{{ route('produk.index') }}" class="px-4 py-2 text-sm font-semibold text-gray-700 hover:text-red-700 rounded-xl hover:bg-red-50 transition">Produk</a>
                     <a href="{{ route('riwayat-apar') }}" class="px-4 py-2 text-sm font-semibold text-gray-700 hover:text-red-700 rounded-xl hover:bg-red-50 transition">Riwayat & Status APAR</a>
                 </nav>
 
@@ -125,11 +126,6 @@
                     </a>
 
                     @auth
-                        <a href="{{ route('profile.edit') }}" class="px-5 py-2.5 bg-gray-100 text-gray-700 text-sm font-black rounded-xl hover:bg-gray-200 transition shadow-sm hover:-translate-y-0.5 transform flex items-center gap-2">
-                            <i class="fa-solid fa-user"></i> Profil Pelanggan
-                        </a>
-                    @endauth
-                @auth
                         <form method="POST" action="{{ route('logout') }}" class="inline">
                             @csrf
                             <button type="submit" class="px-4 py-2 text-sm font-bold text-red-600 hover:text-red-800 hover:bg-red-50 rounded-xl transition">
@@ -153,9 +149,9 @@
 
         {{-- Mobile Menu --}}
         <div x-show="open" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
-             class="md:hidden border-t border-gray-100 bg-white px-4 pb-4 space-y-1 pt-2">
+             class="md:hidden border-t border-gray-100 bg-white px-4 pb-4 pt-2 space-y-2">
             <a href="{{ url('/') }}" class="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:text-red-700 hover:bg-red-50 rounded-xl transition">Beranda</a>
-            <a href="{{ route('produk.index') }}" class="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:text-red-700 hover:bg-red-50 rounded-xl transition">Katalog</a>
+            <a href="{{ route('produk.index') }}" class="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:text-red-700 hover:bg-red-50 rounded-xl transition">Produk</a>
             <a href="{{ route('riwayat-apar') }}" class="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:text-red-700 hover:bg-red-50 rounded-xl transition">Riwayat & Status APAR</a>
             <div class="pt-2 flex flex-col gap-2">
                 @auth
@@ -198,7 +194,7 @@
     {{-- ============================================================ --}}
     {{-- MAIN CONTENT --}}
     {{-- ============================================================ --}}
-    <main class="pt-16">
+    <main class="pt-16 overflow-x-hidden">
         @if(session('success') || session('error'))
             <div class="mx-auto max-w-6xl px-4 pt-5 sm:px-6 lg:px-8">
                 @if(session('success'))
@@ -244,7 +240,7 @@
                     <h6 class="text-white font-black text-xs uppercase tracking-widest mb-5">Navigasi</h6>
                     <ul class="space-y-3">
                         <li><a href="{{ url('/') }}" class="text-sm hover:text-white transition">Beranda</a></li>
-                        <li><a href="{{ route('produk.index') }}" class="text-sm hover:text-white transition">Katalog Produk</a></li>
+                        <li><a href="{{ route('produk.index') }}" class="text-sm hover:text-white transition">Produk APAR</a></li>
                         <li><a href="{{ route('riwayat-apar') }}" class="text-sm hover:text-white transition">Riwayat & Status APAR</a></li>
                         <li><a href="{{ $orderEntryUrl }}" class="text-sm hover:text-white transition">Pesan / Service</a></li>
                     </ul>
@@ -276,9 +272,9 @@
     {{-- WhatsApp Float Button --}}
     <a href="https://wa.me/{{ env('WHATSAPP_CONTACT', '6285128008030') }}?text={{ urlencode('Halo, saya ingin konsultasi tentang APAR.') }}"
        target="_blank" rel="noopener noreferrer"
-       class="fixed bottom-8 right-8 w-14 h-14 bg-[#25D366] rounded-2xl shadow-2xl shadow-[#25D366]/30 flex items-center justify-center text-white border border-white/10 z-50 hover:scale-110 transition-transform"
+       class="fixed bottom-4 right-4 z-50 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-[#25D366] text-white shadow-2xl shadow-[#25D366]/30 transition-transform hover:scale-110 sm:bottom-8 sm:right-8 sm:h-14 sm:w-14"
        aria-label="Chat WhatsApp">
-        <svg class="w-7 h-7" viewBox="0 0 32 32" fill="currentColor">
+        <svg class="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 32 32" fill="currentColor">
             <path d="M19.11 17.35c-.27-.14-1.58-.78-1.83-.87-.24-.09-.43-.14-.61.14-.18.27-.7.87-.86 1.05-.16.18-.32.2-.59.07-.27-.14-1.16-.43-2.21-1.36-.82-.73-1.37-1.64-1.53-1.91-.16-.27-.02-.42.12-.56.12-.12.27-.32.41-.48.14-.16.18-.27.27-.45.09-.18.05-.34-.02-.48-.07-.14-.61-1.47-.84-2.02-.22-.53-.45-.46-.61-.47h-.52c-.18 0-.48.07-.73.34-.24.27-.95.92-.95 2.25 0 1.33.97 2.61 1.11 2.79.14.18 1.91 2.93 4.63 4.11.65.28 1.15.45 1.54.58.65.21 1.24.18 1.71.11.52-.08 1.58-.65 1.8-1.27.22-.62.22-1.15.16-1.27-.07-.12-.24-.2-.5-.34z"/>
             <path d="M16 3C9.38 3 4 8.38 4 15c0 2.11.55 4.17 1.6 5.99L4 29l8.2-1.56A11.9 11.9 0 0016 27c6.62 0 12-5.38 12-12S22.62 3 16 3zm0 21.83c-1.84 0-3.64-.49-5.22-1.42l-.37-.22-4.86.92.93-4.74-.24-.38A9.85 9.85 0 016.17 15c0-5.42 4.41-9.83 9.83-9.83S25.83 9.58 25.83 15 21.42 24.83 16 24.83z"/>
         </svg>

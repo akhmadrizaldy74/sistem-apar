@@ -214,7 +214,7 @@
             .dark .hover\:bg-red-100:hover   { background-color: #1c0202 !important; }
         </style>
     </head>
-    <body class="antialiased text-slate-900 bg-slate-50 font-sans h-full"
+    <body class="antialiased text-slate-900 bg-slate-50 font-sans h-full admin-surface tailadmin-admin overflow-x-hidden"
           x-data
           x-init="const checkMobile = () => {
               if (window.innerWidth < 1280) {
@@ -234,7 +234,7 @@
             $currentUserId = auth()->id();
         @endphp
 
-        <div class="min-h-screen xl:flex">
+        <div class="min-h-screen overflow-x-clip xl:flex">
 
             <!-- Mobile Overlay -->
             <div x-show="$store.sidebar.isMobileOpen" @click="$store.sidebar.setMobileOpen(false)"
@@ -286,6 +286,23 @@
                             <span class="sidebar-label truncate">TUGAS SERVICE / REFIL</span>
                         </x-nav-link-sidebar>
                     @else
+                        {{-- Group: LAYANAN APAR --}}
+                        <div class="sidebar-group-wrap px-4 pt-4 pb-1">
+                            <p class="sidebar-group-label text-[9px] font-black text-slate-600 uppercase tracking-widest">Layanan APAR</p>
+                        </div>
+                        <x-nav-link-sidebar :href="route('admin.pesanan.index')" :active="request()->routeIs('admin.pesanan.*')" class="sidebar-nav-link">
+                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                            <span class="sidebar-label truncate">PESANAN</span>
+                        </x-nav-link-sidebar>
+                        <x-nav-link-sidebar :href="route('admin.service.index')" :active="request()->routeIs('admin.service.*')" class="sidebar-nav-link">
+                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a4 4 0 00-5.656-5.656l-8.486 8.485A2 2 0 108.114 21l8.485-8.486a4 4 0 00-5.656-5.656L4.458 13.343" /></svg>
+                            <span class="sidebar-label truncate">SERVICE APAR</span>
+                        </x-nav-link-sidebar>
+                        <x-nav-link-sidebar :href="route('admin.refill.index')" :active="request()->routeIs('admin.refill.*')" class="sidebar-nav-link">
+                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                            <span class="sidebar-label truncate">REFILL APAR</span>
+                        </x-nav-link-sidebar>
+
                         {{-- Group: MANAJEMEN --}}
                         <div class="sidebar-group-wrap px-4 pt-4 pb-1">
                             <p class="sidebar-group-label text-[9px] font-black text-slate-600 uppercase tracking-widest">Manajemen</p>
@@ -323,14 +340,7 @@
                             <span class="sidebar-label truncate">STOK</span>
                         </x-nav-link-sidebar>
 
-                        {{-- Group: TRANSAKSI --}}
-                        <div class="sidebar-group-wrap px-4 pt-4 pb-1">
-                            <p class="sidebar-group-label text-[9px] font-black text-slate-600 uppercase tracking-widest">Transaksi</p>
-                        </div>
-                        <x-nav-link-sidebar :href="route('admin.pesanan.index')" :active="request()->routeIs('admin.pesanan.*')" class="sidebar-nav-link">
-                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l2 2 4-4m5 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                            <span class="sidebar-label truncate">PESANAN</span>
-                        </x-nav-link-sidebar>
+                        {{-- PENGELUARAN --}}
                         <x-nav-link-sidebar :href="route('admin.pengeluaran.index')" :active="request()->routeIs('admin.pengeluaran.*')" class="sidebar-nav-link">
                             <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                             <span class="sidebar-label truncate">PENGELUARAN</span>
@@ -343,19 +353,6 @@
                         <x-nav-link-sidebar :href="route('admin.unit-apar.index')" :active="request()->routeIs('admin.unit-apar.*')" class="sidebar-nav-link">
                             <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                             <span class="sidebar-label truncate">UNIT APAR</span>
-                        </x-nav-link-sidebar>
-
-                        {{-- Group: LAYANAN APAR --}}
-                        <div class="sidebar-group-wrap px-4 pt-4 pb-1">
-                            <p class="sidebar-group-label text-[9px] font-black text-slate-600 uppercase tracking-widest">Layanan APAR</p>
-                        </div>
-                        <x-nav-link-sidebar :href="route('admin.service.index')" :active="request()->routeIs('admin.service.*')" class="sidebar-nav-link">
-                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a4 4 0 00-5.656-5.656l-8.486 8.485A2 2 0 108.114 21l8.485-8.486a4 4 0 00-5.656-5.656L4.458 13.343" /></svg>
-                            <span class="sidebar-label truncate">SERVICE APAR</span>
-                        </x-nav-link-sidebar>
-                        <x-nav-link-sidebar :href="route('admin.refill.index')" :active="request()->routeIs('admin.refill.*')" class="sidebar-nav-link">
-                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                            <span class="sidebar-label truncate">REFIL APAR</span>
                         </x-nav-link-sidebar>
 
                         {{-- Group: FEEDBACK --}}
@@ -392,7 +389,7 @@
             </aside>
 
             <!-- Main Content Area -->
-            <div class="flex-1 transition-all duration-300 ease-in-out"
+            <div class="flex-1 min-w-0 max-w-full transition-all duration-300 ease-in-out"
                 :class="{
                     'xl:ml-[280px]': $store.sidebar.isExpanded || $store.sidebar.isHovered,
                     'xl:ml-[90px]': !$store.sidebar.isExpanded && !$store.sidebar.isHovered,
@@ -400,9 +397,9 @@
                 }">
 
                 <!-- Header / Topbar -->
-                <header class="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-200/70 h-20 flex items-center px-6 justify-between shadow-sm shadow-slate-200/30">
+                <header class="sticky top-0 z-40 flex min-h-20 items-center justify-between border-b border-slate-200/70 bg-white/80 px-4 shadow-sm shadow-slate-200/30 backdrop-blur-xl sm:px-6 lg:px-8">
                     <!-- Toggle buttons & Search -->
-                    <div class="flex items-center gap-4 flex-1">
+                    <div class="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
                         <!-- Desktop Toggle -->
                         <button class="hidden xl:flex items-center justify-center w-10 h-10 text-slate-500 hover:bg-slate-100 border border-slate-200 rounded-xl transition"
                                 @click="$store.sidebar.toggleExpanded()">
@@ -420,7 +417,7 @@
                         </div>
 
                         <!-- Search Bar like TailAdmin -->
-                        <div class="relative w-full max-w-xs hidden md:block">
+                        <div class="relative hidden w-full max-w-xs lg:block xl:max-w-sm">
                             <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                                 <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                             </span>
@@ -429,7 +426,7 @@
                     </div>
 
                     <!-- Right Side Header Content -->
-                    <div class="flex items-center gap-3">
+                    <div class="flex shrink-0 items-center gap-2 sm:gap-3">
 
                         <!-- Dark Mode Toggle -->
                         <button
@@ -444,100 +441,11 @@
                             <svg x-show="$store.darkMode.on" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
                         </button>
 
-                        <!-- Notification Bell -->
-                        <div class="relative" x-data="{ open: false }">
-                            @php
-                                $notifStats = [
-                                    'order_hari_ini' => \App\Models\Pesanan::whereNotIn('status', ['selesai final','ditolak'])->whereDate('created_at', now()->toDateString())->count(),
-                                    'expiring_soon' => \App\Models\UnitApar::whereBetween('tgl_expired', [now()->toDateString(), now()->addDays(30)->toDateString()])->count(),
-                                    'already_expired' => \App\Models\UnitApar::whereDate('tgl_expired', '<', now()->toDateString())->count(),
-                                ];
-                                $totalBadge = $notifStats['order_hari_ini'] + $notifStats['expiring_soon'];
-                                $initOrders = \App\Models\Pesanan::with('pelanggan')
-                                    ->whereNotIn('status', ['selesai final', 'ditolak'])
-                                    ->whereDate('created_at', now()->toDateString())
-                                    ->orderBy('created_at', 'desc')->limit(5)->get();
-                                $initExpiring = \App\Models\UnitApar::with('pelanggan')
-                                    ->whereBetween('tgl_expired', [now()->toDateString(), now()->addDays(30)->toDateString()])
-                                    ->orderBy('tgl_expired', 'asc')->limit(5)->get();
-                                $initExpired = \App\Models\UnitApar::with('pelanggan')
-                                    ->whereDate('tgl_expired', '<', now()->toDateString())
-                                    ->orderBy('tgl_expired', 'asc')->limit(5)->get();
-                            @endphp
 
-                            <button @click="open = !open" class="relative flex items-center justify-center w-10 h-10 text-slate-500 hover:bg-slate-100 border border-slate-200 rounded-xl transition shadow-sm">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-                                @if($totalBadge > 0)
-                                    <span class="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white text-[9px] font-black rounded-full flex items-center justify-center">{{ $totalBadge > 9 ? '9+' : $totalBadge }}</span>
-                                @endif
-                                @if($notifStats['already_expired'] > 0)
-                                    <span class="absolute top-2.5 right-2.5 w-2 h-2 bg-red-600 rounded-full"></span>
-                                @endif
-                            </button>
-
-                            <div x-show="open" @click.outside="open = false" x-transition class="absolute right-0 mt-3 w-80 bg-white border border-slate-200 shadow-xl rounded-2xl overflow-hidden z-50">
-                                <div class="px-4 py-3 bg-gradient-to-r from-slate-800 to-slate-700 text-white flex items-center justify-between">
-                                    <p class="text-[10px] font-black uppercase tracking-widest">Notifikasi</p>
-                                    <div class="flex items-center gap-2">
-                                        <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 text-[9px] font-black rounded-full">{{ $notifStats['order_hari_ini'] }} pesanan</span>
-                                        @if($notifStats['expiring_soon'] > 0)
-                                            <span class="px-2 py-0.5 bg-amber-500/20 text-amber-300 text-[9px] font-black rounded-full">{{ $notifStats['expiring_soon'] }} hampir exp</span>
-                                        @endif
-                                        @if($notifStats['already_expired'] > 0)
-                                            <span class="px-2 py-0.5 bg-red-500/20 text-red-300 text-[9px] font-black rounded-full">{{ $notifStats['already_expired'] }} exp</span>
-                                        @endif
-                                    </div>
-                                </div>
-
-                                <div class="p-3 space-y-2 max-h-80 overflow-y-auto">
-                                    @foreach($initOrders as $order)
-                                    <a href="{{ route('admin.pesanan.show', $order->id) }}" class="block p-3 bg-emerald-50 border border-emerald-100 rounded-xl hover:bg-emerald-100 transition">
-                                        <div class="flex items-center gap-2 mb-1">
-                                            <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
-                                            <p class="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Pesanan Baru</p>
-                                        </div>
-                                        <p class="text-xs font-black text-slate-900">{{ $order->pelanggan?->nama ?? '-' }}</p>
-                                        <p class="text-[10px] text-slate-500 mt-0.5">#{{ $order->id }}</p>
-                                        <p class="text-xs font-black text-emerald-700 mt-1">Rp {{ number_format((float) ($order->total_harga ?: $order->total), 0, ',', '.') }}</p>
-                                    </a>
-                                    @endforeach
-
-                                    @foreach($initExpiring as $apar)
-                                    <a href="{{ route('admin.unit-apar.show', $apar->id) }}" class="block p-3 bg-amber-50 border border-amber-100 rounded-xl hover:bg-amber-100 transition">
-                                        <div class="flex items-center gap-2 mb-1">
-                                            <span class="w-2 h-2 bg-amber-500 rounded-full"></span>
-                                            <p class="text-[10px] font-black text-amber-700 uppercase tracking-widest">APAR Akan Expired</p>
-                                        </div>
-                                        <p class="text-xs font-black text-slate-900">{{ $apar->no_seri }}</p>
-                                        <p class="text-[10px] text-slate-500 mt-0.5">{{ $apar->pelanggan?->nama ?? '-' }}</p>
-                                        <p class="text-xs font-black text-amber-700 mt-1">Exp: {{ $apar->tgl_expired->format('d M Y') }} ({{ now()->diffInDays($apar->tgl_expired) }} hari)</p>
-                                    </a>
-                                    @endforeach
-
-                                    @foreach($initExpired as $apar)
-                                    <a href="{{ route('admin.unit-apar.show', $apar->id) }}" class="block p-3 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 transition">
-                                        <div class="flex items-center gap-2 mb-1">
-                                            <span class="w-2 h-2 bg-red-500 rounded-full"></span>
-                                            <p class="text-[10px] font-black text-red-700 uppercase tracking-widest">APAR Expired</p>
-                                        </div>
-                                        <p class="text-xs font-black text-slate-900">{{ $apar->no_seri }}</p>
-                                        <p class="text-[10px] text-slate-500 mt-0.5">{{ $apar->pelanggan?->nama ?? '-' }}</p>
-                                        <p class="text-xs font-black text-red-700 mt-1">Expired: {{ $apar->tgl_expired->format('d M Y') }} ({{ now()->diffInDays($apar->tgl_expired) }} hari lalu)</p>
-                                    </a>
-                                    @endforeach
-
-                                    @if($initOrders->isEmpty() && $initExpiring->isEmpty() && $initExpired->isEmpty())
-                                        <div class="p-4 text-center">
-                                            <p class="text-xs font-semibold text-slate-400">Tidak ada notifikasi saat ini.</p>
-                                        </div>
-                                    @endif
-                                </div>
-                            </div>
-                        </div>
 
                         <!-- User Profile Dropdown -->
                         <div class="relative" x-data="{ open: false }">
-                            <button @click="open = !open" class="flex items-center gap-3 hover:bg-slate-100 p-1.5 border border-slate-200 rounded-2xl transition shadow-sm">
+                            <button @click="open = !open" class="flex items-center gap-2 rounded-2xl border border-slate-200 p-1.5 shadow-sm transition hover:bg-slate-100 sm:gap-3">
                                 <div class="w-10 h-10 rounded-xl overflow-hidden bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center shrink-0 shadow-inner">
                                     <span class="text-white font-black text-sm">{{ strtoupper(substr(auth()->user()->name, 0, 1)) }}</span>
                                 </div>
@@ -583,7 +491,7 @@
                         x-transition:leave="transform ease-in duration-200"
                         x-transition:leave-start="opacity-100 sm:translate-x-0"
                         x-transition:leave-end="opacity-0 sm:translate-x-8"
-                        class="fixed top-24 right-6 z-[70] w-[calc(100%-3rem)] max-w-md"
+                        class="fixed top-24 right-4 z-[70] w-[calc(100%-2rem)] max-w-md sm:right-6 sm:w-[calc(100%-3rem)]"
                     >
                         <div class="rounded-2xl border border-emerald-100 bg-white/95 backdrop-blur px-5 py-4 shadow-xl">
                             <div class="flex items-start gap-4">
@@ -613,7 +521,7 @@
                         x-transition:leave="transform ease-in duration-200"
                         x-transition:leave-start="opacity-100 sm:translate-x-0"
                         x-transition:leave-end="opacity-0 sm:translate-x-8"
-                        class="fixed top-24 right-6 z-[70] w-[calc(100%-3rem)] max-w-md"
+                        class="fixed top-24 right-4 z-[70] w-[calc(100%-2rem)] max-w-md sm:right-6 sm:w-[calc(100%-3rem)]"
                     >
                         <div class="rounded-2xl border border-red-100 bg-white/95 backdrop-blur px-5 py-4 shadow-xl">
                             <div class="flex items-start gap-4">
@@ -633,7 +541,7 @@
                 @endif
 
                 @isset($header)
-                    <header class="px-6 lg:px-10 pt-8 pb-4 flex justify-between items-start">
+                    <header class="flex items-start justify-between px-4 pb-4 pt-6 sm:px-6 lg:px-10 lg:pt-8">
                         <div>
                             {{ $header }}
                             @isset($description)
@@ -646,13 +554,13 @@
                     </header>
                 @endisset
 
-                <main class="px-6 lg:px-10 pb-16 pt-4">
-                    <div class="max-w-[1600px]">
+                <main class="overflow-x-hidden px-4 pb-10 pt-4 sm:px-6 sm:pb-12 lg:px-10 lg:pb-16">
+                    <div class="w-full max-w-[1600px]">
                         {{ $slot }}
                     </div>
                 </main>
 
-                <footer class="border-t border-slate-200 bg-white px-6 lg:px-10 py-6 mt-auto">
+                <footer class="mt-auto border-t border-slate-200 bg-white px-4 py-6 sm:px-6 lg:px-10">
                     <div class="flex flex-col md:flex-row justify-between items-center gap-4">
                         <div>
                             <p class="text-xl font-black text-slate-900 tracking-tight">PD. Anugrah Utama</p>

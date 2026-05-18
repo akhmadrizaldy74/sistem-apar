@@ -101,7 +101,7 @@
             </div>
             <div class="rounded-lg border border-slate-100 bg-white px-3 py-2">
                 <dt class="font-bold uppercase tracking-wide text-slate-400">Dibuat</dt>
-                <dd class="mt-1 font-black text-slate-900">{{ $pesanan->created_at?->format('d M Y H:i') ?? '-' }}</dd>
+                <dd class="mt-1 font-black text-slate-900">{{ $pesanan->created_at?->format('d M Y') ?? '-' }}</dd>
             </div>
         </dl>
 

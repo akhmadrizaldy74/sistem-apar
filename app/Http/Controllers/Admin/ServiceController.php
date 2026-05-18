@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Pelanggan;
 use App\Models\Pesanan;
+use App\Models\Produk;
 use App\Models\Service;
 use App\Models\ServicePaket;
 use App\Models\UnitApar;
@@ -34,6 +35,7 @@ class ServiceController extends Controller
             ->get();
 
         $units = UnitApar::with(['pelanggan', 'produk.jenisApar'])->get();
+        $ukuranAparOptions = $this->buildUkuranAparOptions();
         $pelanggans = Pelanggan::with(['units.produk.jenisApar'])->orderBy('nama')->get();
 
         $requestServices = Pesanan::with(['pelanggan', 'teknisi', 'servicePaket', 'serviceJenisRefill'])
@@ -78,6 +80,7 @@ class ServiceController extends Controller
         return view('admin.service.index', compact(
             'serviceLogs',
             'units',
+            'ukuranAparOptions',
             'pelanggans',
             'servicePakets',
             'requestServices',
@@ -127,70 +130,174 @@ class ServiceController extends Controller
         return redirect()->route('admin.service.index');
     }
 
-    public function store(Request $request)
+    public function store(Request $request, InventoryService $inventoryService)
     {
-        $request->validate([
-            'unit_apar_id' => 'required|exists:unit_apars,id',
-            'service_paket_id' => 'nullable|exists:service_pakets,id',
-            'jenis_service' => 'nullable|required_without:service_paket_id|string|max:255',
-            'addons' => 'nullable|array',
-            'addons.*' => 'exists:jenis_refills,id',
-            'tgl_service' => 'required|date',
-            'keterangan' => 'nullable|string|max:1000',
-            'biaya' => 'nullable|required_without:service_paket_id|numeric|min:0',
+        $request->merge([
+            'new_pelanggan_no_wa' => $this->normalizePhone($request->input('new_pelanggan_no_wa')),
         ]);
 
-        if (! $request->filled('service_paket_id')) {
-            Service::create([
-                'unit_apar_id' => $request->unit_apar_id,
-                'service_paket_id' => null,
-                'jenis_service' => $request->jenis_service,
-                'rincian_layanan' => $request->keterangan,
-                'tgl_service' => $request->tgl_service,
-                'keterangan' => $request->keterangan,
-                'biaya' => $request->biaya,
-                'status_konfirmasi' => 'pending',
-            ]);
-
-            return redirect()->route('admin.service.index')->with('success', 'Data service APAR berhasil disimpan.');
-        }
+        $request->validate([
+            'new_pelanggan_nama'  => 'required|string|max:255',
+            'new_pelanggan_no_wa' => 'required|string|max:20',
+            'new_pelanggan_alamat' => 'nullable|string|max:1000',
+            'service_paket_id'    => 'required|exists:service_pakets,id',
+            'ukuran_apar'         => 'required|string|max:50',
+            'jumlah_unit'         => 'required|integer|min:1',
+            'tgl_service'         => 'required|date',
+            'catatan_admin'       => 'nullable|string|max:1000',
+        ], [
+            'new_pelanggan_nama.required'  => 'Nama pelanggan wajib diisi.',
+            'new_pelanggan_no_wa.required' => 'Nomor telepon pelanggan wajib diisi.',
+            'service_paket_id.required'    => 'Pilih paket service terlebih dahulu.',
+        ]);
 
         $paket = ServicePaket::with('peralatans')->findOrFail($request->service_paket_id);
+        $jumlahUnit = max(1, (int) $request->jumlah_unit);
+        $totalBiaya = (float) $paket->harga * $jumlahUnit;
+        $teknisi = \App\Models\User::where('role', 'teknisi')->first();
+        $peralatanPaket = [];
 
-        $estimasiPeralatan = [];
         foreach ($paket->peralatans as $peralatan) {
-            $estimasiPeralatan[] = [
-                'peralatan_id' => $peralatan->id,
-                'nama' => $peralatan->nama,
-                'jumlah' => $peralatan->pivot->jumlah_estimasi,
+            $jumlahPakai = ((int) $peralatan->pivot->jumlah_estimasi) * $jumlahUnit;
+
+            if ($jumlahPakai <= 0) {
+                continue;
+            }
+
+            if ((float) $peralatan->stok < $jumlahPakai) {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'service_paket_id' => "Stok peralatan {$peralatan->nama} tidak cukup. Dibutuhkan {$jumlahPakai} unit, tersedia {$peralatan->stok} unit.",
+                    ]);
+            }
+
+            $peralatanPaket[] = [
+                'peralatan_id' => (int) $peralatan->id,
+                'nama' => (string) $peralatan->nama,
+                'jumlah' => $jumlahPakai,
+                'jumlah_per_unit' => (int) $peralatan->pivot->jumlah_estimasi,
             ];
         }
 
-        $addons = [];
-        if ($request->addons) {
-            $jenisRefills = \App\Models\JenisRefill::whereIn('id', $request->addons)->get();
-            foreach ($jenisRefills as $jr) {
-                $addons[] = [
-                    'jenis_refill_id' => $jr->id,
-                    'nama' => $jr->nama,
-                    'harga' => $jr->harga,
+        try {
+            DB::transaction(function () use ($request, $paket, $totalBiaya, $jumlahUnit, $teknisi, $inventoryService, $peralatanPaket) {
+            // --- Resolve pelanggan ---
+            $normalizedNoWa = (string) $request->new_pelanggan_no_wa;
+            $existingPelanggan = Pelanggan::where('no_wa', $normalizedNoWa)->first();
+
+            if ($existingPelanggan) {
+                $existingPelanggan->update([
+                    'nama' => (string) $request->new_pelanggan_nama,
+                    'alamat' => filled($request->new_pelanggan_alamat)
+                        ? (string) $request->new_pelanggan_alamat
+                        : $existingPelanggan->alamat,
+                    'status' => 'tetap',
+                    'sumber_data' => $existingPelanggan->sumber_data ?: 'manual',
+                ]);
+                $pelangganId = (int) $existingPelanggan->id;
+            } else {
+                $pelangganBaru = Pelanggan::create([
+                    'nama' => (string) $request->new_pelanggan_nama,
+                    'no_wa' => $normalizedNoWa,
+                    'alamat' => $request->new_pelanggan_alamat,
+                    'status' => 'tetap',
+                    'sumber_data' => 'manual',
+                    'kategori_pelanggan' => 'baru_manual',
+                ]);
+                $pelangganId = (int) $pelangganBaru->id;
+            }
+
+            // --- Create Pesanan record for tracking ---
+            $pesanan = Pesanan::create([
+                'pelanggan_id' => $pelangganId,
+                'tipe' => 'service',
+                'service_jenis_layanan' => 'service',
+                'service_paket_id' => $paket->id,
+                'service_jenis_apar' => 'APAR ' . $request->ukuran_apar,
+                'service_ukuran_apar' => $request->ukuran_apar,
+                'service_jumlah_unit' => $jumlahUnit,
+                'service_metode_penanganan' => 'antar sendiri',
+                'sumber_pesanan' => 'datang_langsung',
+                'tanggal' => $request->tgl_service,
+                'total' => $totalBiaya,
+                'total_harga' => $totalBiaya,
+                'service_estimasi_biaya' => $totalBiaya,
+                'status' => $teknisi
+                    ? Pesanan::STATUS_DITUGASKAN_KE_TEKNISI
+                    : Pesanan::STATUS_DIPROSES,
+                'teknisi_id' => $teknisi?->id,
+                'metode_pembayaran' => 'cash',
+                'metode_pengiriman' => 'pickup',
+                'ongkir' => 0,
+                'pembayaran_terkonfirmasi_at' => now(),
+                'catatan_admin' => $request->catatan_admin,
+            ]);
+
+            $history = [];
+
+            foreach ($peralatanPaket as $item) {
+                $peralatan = Peralatan::find($item['peralatan_id']);
+                if (!$peralatan) {
+                    continue;
+                }
+
+                $stokSebelum = (float) $peralatan->stok;
+
+                $inventoryService->decreasePeralatanStock(
+                    peralatan: $peralatan,
+                    qty: (float) $item['jumlah'],
+                    sourceType: StockMovement::SOURCE_SERVICE_PELANGGAN,
+                    reference: $pesanan,
+                    keterangan: "Service offline {$paket->nama} - {$item['nama']} ({$item['jumlah']} unit)",
+                    tanggal: $request->tgl_service,
+                );
+
+                $history[] = [
+                    'peralatan_id' => $peralatan->id,
+                    'nama' => $peralatan->nama,
+                    'jumlah' => (int) $item['jumlah'],
+                    'stok_sebelum' => $stokSebelum,
+                    'stok_sesudah' => (float) $peralatan->fresh()->stok,
                 ];
             }
+
+            Service::create([
+                'pesanan_id' => $pesanan->id,
+                'service_paket_id' => $paket->id,
+                'jenis_service' => $paket->nama,
+                'rincian_layanan' => $paket->rincian_layanan,
+                'tgl_service' => $request->tgl_service,
+                'keterangan' => $request->catatan_admin,
+                'biaya' => $totalBiaya,
+                'estimasi_peralatan_json' => json_encode($peralatanPaket),
+                'actual_peralatan_json' => json_encode($peralatanPaket),
+                'status_konfirmasi' => 'pending',
+                'stok_kurang_history_json' => json_encode($history),
+            ]);
+            });
+        } catch (\RuntimeException $exception) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'service_paket_id' => $exception->getMessage(),
+                ]);
         }
 
-        $service = Service::create([
-            'unit_apar_id' => $request->unit_apar_id,
-            'service_paket_id' => $paket->id,
-            'jenis_service' => $paket->nama,
-            'rincian_layanan' => $paket->rincian_layanan,
-            'tgl_service' => $request->tgl_service,
-            'keterangan' => $request->keterangan,
-            'biaya' => $paket->harga + collect($addons)->sum('harga'),
-            'estimasi_peralatan_json' => json_encode($estimasiPeralatan),
-            'status_konfirmasi' => 'pending',
-        ]);
+        $statusLabel = $teknisi ? 'Ditugaskan ke Teknisi' : 'Diproses';
 
-        return redirect()->route('admin.service.index')->with('success', 'Data service APAR berhasil disimpan.');
+        return redirect()
+            ->route('admin.service.index')
+            ->with('success', "Service offline berhasil disimpan. Status: Lunas & {$statusLabel}.");
+    }
+
+    private function normalizePhone(?string $value): string
+    {
+        $digits = preg_replace('/\D+/', '', (string) $value);
+        if ($digits === '') return '';
+        if (str_starts_with($digits, '62')) return '0' . substr($digits, 2);
+        if (str_starts_with($digits, '8')) return '0' . $digits;
+        return $digits;
     }
 
     public function edit(Service $service)
@@ -275,6 +382,19 @@ class ServiceController extends Controller
             return back()->with('error', 'Service ini sudah dikonfirmasi.');
         }
 
+        if (!empty($service->stok_kurang_history)) {
+            $service->update([
+                'tgl_selesai_admin' => now(),
+                'status_konfirmasi' => 'confirmed',
+            ]);
+
+            if ($service->unitApar) {
+                $service->unitApar->update(['tgl_service_terakhir' => now()->toDateString()]);
+            }
+
+            return back()->with('success', 'Service dikonfirmasi selesai. Stok peralatan sudah dikurangi saat transaksi offline disimpan.');
+        }
+
         $actualPeralatan = $service->actual_peralatan;
         $history = [];
 
@@ -341,5 +461,34 @@ class ServiceController extends Controller
         ]);
 
         return back()->with('success', 'Data service ditolak.');
+    }
+
+    protected function buildUkuranAparOptions(): array
+    {
+        $ukuranList = Produk::query()
+            ->whereNotNull('kapasitas')
+            ->pluck('kapasitas')
+            ->merge(
+                UnitApar::query()
+                    ->whereNotNull('ukuran')
+                    ->pluck('ukuran')
+            )
+            ->map(fn ($ukuran) => trim((string) $ukuran))
+            ->filter()
+            ->unique(fn ($ukuran) => mb_strtolower($ukuran))
+            ->values()
+            ->all();
+
+        usort($ukuranList, function (string $a, string $b) {
+            preg_match('/(\d+(?:[.,]\d+)?)/', $a, $matchA);
+            preg_match('/(\d+(?:[.,]\d+)?)/', $b, $matchB);
+
+            $numberA = isset($matchA[1]) ? (float) str_replace(',', '.', $matchA[1]) : INF;
+            $numberB = isset($matchB[1]) ? (float) str_replace(',', '.', $matchB[1]) : INF;
+
+            return $numberA <=> $numberB ?: strnatcasecmp($a, $b);
+        });
+
+        return $ukuranList;
     }
 }

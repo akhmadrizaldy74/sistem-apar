@@ -39,9 +39,7 @@
                 <a href="{{ route('admin.laporan.keuangan.pdf', request()->query()) }}" class="flex-1 px-6 py-4 bg-white text-gray-700 font-black rounded-2xl border border-gray-100 hover:shadow-lg transition uppercase tracking-widest text-xs text-center">
                     PDF
                 </a>
-                <a href="{{ route('admin.laporan.keuangan.csv', request()->query()) }}" class="flex-1 px-6 py-4 bg-emerald-600 text-white font-black rounded-2xl hover:bg-emerald-700 transition uppercase tracking-widest text-xs text-center">
-                    CSV
-                </a>
+
             </div>
         </form>
 
@@ -125,33 +123,48 @@
 
         <div class="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
             <div class="px-8 py-6 border-b border-gray-100">
-                <h3 class="text-xl font-black text-gray-900">Detail Transaksi Service</h3>
+                <h3 class="text-xl font-black text-gray-900">Detail Laporan Keuangan</h3>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
                     <thead class="bg-gray-50/50">
                         <tr>
                             <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Tanggal</th>
-                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Pelanggan</th>
-                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Jenis Service</th>
-                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Unit</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Jenis</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Keterangan</th>
                             <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Nominal</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-50">
-                        @forelse($services as $service)
+                        @foreach($pesanans as $pesanan)
                             <tr>
-                                <td class="px-8 py-5 text-sm font-bold text-gray-900">{{ $service->tgl_service->format('d M Y') }}</td>
-                                <td class="px-8 py-5 text-sm font-semibold text-gray-700">{{ $service->unitApar?->pelanggan?->nama ?? '-' }}</td>
-                                <td class="px-8 py-5 text-sm font-bold text-red-700">{{ $service->jenis_service }}</td>
-                                <td class="px-8 py-5 text-sm font-semibold text-gray-700">{{ $service->unitApar?->no_seri ?? '-' }}</td>
-                                <td class="px-8 py-5 text-sm font-black text-emerald-700">Rp {{ number_format($service->biaya, 0, ',', '.') }}</td>
+                                <td class="px-8 py-5 text-sm font-bold text-gray-900">{{ $pesanan->tanggal->format('d M Y') }}</td>
+                                <td class="px-8 py-5"><span class="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold uppercase tracking-wider">Penjualan</span></td>
+                                <td class="px-8 py-5 text-sm font-semibold text-gray-700">Pesanan #{{ $pesanan->id }} - {{ $pesanan->pelanggan->nama ?? '-' }}</td>
+                                <td class="px-8 py-5 text-sm font-black text-emerald-700">Rp {{ number_format($pesanan->total, 0, ',', '.') }}</td>
                             </tr>
-                        @empty
+                        @endforeach
+                        @foreach($services as $service)
                             <tr>
-                                <td colspan="5" class="px-8 py-12 text-center text-sm font-medium text-gray-500">Belum ada transaksi service sesuai filter.</td>
+                                <td class="px-8 py-5 text-sm font-bold text-gray-900">{{ \Carbon\Carbon::parse($service->tgl_service)->format('d M Y') }}</td>
+                                <td class="px-8 py-5"><span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-bold uppercase tracking-wider">Service</span></td>
+                                <td class="px-8 py-5 text-sm font-semibold text-gray-700">{{ $service->jenis_service }} - {{ $service->unitApar?->pelanggan?->nama ?? '-' }}</td>
+                                <td class="px-8 py-5 text-sm font-black text-blue-700">Rp {{ number_format($service->biaya, 0, ',', '.') }}</td>
                             </tr>
-                        @endforelse
+                        @endforeach
+                        @foreach($pengeluarans as $pengeluaran)
+                            <tr>
+                                <td class="px-8 py-5 text-sm font-bold text-gray-900">{{ $pengeluaran->tanggal->format('d M Y') }}</td>
+                                <td class="px-8 py-5"><span class="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-bold uppercase tracking-wider">Pengeluaran</span></td>
+                                <td class="px-8 py-5 text-sm font-semibold text-gray-700">{{ $pengeluaran->keterangan }}</td>
+                                <td class="px-8 py-5 text-sm font-black text-red-700">- Rp {{ number_format($pengeluaran->nominal, 0, ',', '.') }}</td>
+                            </tr>
+                        @endforeach
+                        @if($pesanans->isEmpty() && $services->isEmpty() && $pengeluarans->isEmpty())
+                            <tr>
+                                <td colspan="4" class="px-8 py-12 text-center text-sm font-medium text-gray-500">Belum ada transaksi sesuai filter.</td>
+                            </tr>
+                        @endif
                     </tbody>
                 </table>
             </div>
