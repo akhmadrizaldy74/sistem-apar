@@ -142,9 +142,9 @@
                         @forelse($services as $service)
                             <tr>
                                 <td class="px-8 py-5 text-sm font-bold text-gray-900">{{ $service->tgl_service->format('d M Y') }}</td>
-                                <td class="px-8 py-5 text-sm font-semibold text-gray-700">{{ $service->unitApar->pelanggan->nama }}</td>
+                                <td class="px-8 py-5 text-sm font-semibold text-gray-700">{{ $service->unitApar?->pelanggan?->nama ?? '-' }}</td>
                                 <td class="px-8 py-5 text-sm font-bold text-red-700">{{ $service->jenis_service }}</td>
-                                <td class="px-8 py-5 text-sm font-semibold text-gray-700">{{ $service->unitApar->no_seri }}</td>
+                                <td class="px-8 py-5 text-sm font-semibold text-gray-700">{{ $service->unitApar?->no_seri ?? '-' }}</td>
                                 <td class="px-8 py-5 text-sm font-black text-emerald-700">Rp {{ number_format($service->biaya, 0, ',', '.') }}</td>
                             </tr>
                         @empty

@@ -22,7 +22,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Collection;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class PublicController extends Controller
@@ -865,8 +864,115 @@ class PublicController extends Controller
             ->all();
     }
 
+    private function registeredUnitAparLabel(UnitApar $unitApar): string
+    {
+        $unitApar->loadMissing('produk.jenisApar');
+
+        $parts = [
+            $unitApar->no_seri ?: 'UNIT-' . $unitApar->id,
+            $unitApar->produk?->nama ?: 'Produk APAR',
+            $unitApar->produk?->jenisApar?->nama ?: $unitApar->bahan,
+            $unitApar->ukuran ?: $unitApar->produk?->kapasitas,
+        ];
+
+        return collect($parts)
+            ->map(fn ($part) => trim((string) $part))
+            ->filter()
+            ->implode(' - ');
+    }
+
+    private function registeredUnitAparExpiryLabel(UnitApar $unitApar): string
+    {
+        return $unitApar->tgl_expired
+            ? $unitApar->tgl_expired->translatedFormat('d F Y')
+            : '-';
+    }
+
+    private function registeredUnitAparTypeLabel(UnitApar $unitApar): string
+    {
+        $unitApar->loadMissing('produk.jenisApar');
+
+        return trim((string) (
+            $unitApar->produk?->jenisApar?->nama
+            ?: $unitApar->bahan
+            ?: 'APAR'
+        ));
+    }
+
+    private function registeredUnitAparPurchaseKey(UnitApar $unitApar): string
+    {
+        if ($unitApar->pesanan_id) {
+            return 'pesanan:' . $unitApar->pesanan_id;
+        }
+
+        $tanggal = $unitApar->tgl_beli?->toDateString();
+
+        return 'tanggal:' . ($tanggal ?: 'tanpa-tanggal');
+    }
+
+    private function registeredUnitAparPurchaseLabel(UnitApar $unitApar): string
+    {
+        $tanggal = $unitApar->tgl_beli
+            ? $unitApar->tgl_beli->translatedFormat('d F Y')
+            : 'Tanpa tanggal pembelian';
+
+        if ($unitApar->pesanan_id) {
+            return "Pembelian #{$unitApar->pesanan_id} - {$tanggal}";
+        }
+
+        return "Pembelian {$tanggal}";
+    }
+
+    private function selectedRegisteredUnitsNote(
+        Collection $unitApars,
+        string $purchaseLabel,
+        string $totalLabel,
+        float $total,
+        string $metode,
+        string $customerNote,
+        array $lineAmounts = []
+    ): string {
+        $lines = ["Unit APAR Terdaftar dari {$purchaseLabel}:"];
+
+        foreach ($unitApars->values() as $index => $unitApar) {
+            $amount = $lineAmounts[$unitApar->id] ?? null;
+            $amountLabel = is_numeric($amount)
+                ? ' - Rp' . number_format((float) $amount, 0, ',', '.')
+                : '';
+
+            $lines[] = ($index + 1) . '. '
+                . $this->registeredUnitAparLabel($unitApar)
+                . ' - Masa berlaku: '
+                . $this->registeredUnitAparExpiryLabel($unitApar)
+                . $amountLabel;
+        }
+
+        $lines[] = "{$totalLabel}: Rp" . number_format($total, 0, ',', '.');
+        $lines[] = 'Metode Penanganan: ' . ($metode === 'antar sendiri' ? 'Antar Sendiri' : 'Dijemput');
+
+        $customerNote = trim($customerNote);
+        $lines[] = 'Catatan Pelanggan: ' . ($customerNote !== '' ? $customerNote : '-');
+
+        return implode("\n", $lines);
+    }
+
     public function orderCreate()
     {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        if ($user && ($user->isAdmin() || $user->isTeknisi())) {
+            return redirect()
+                ->route('dashboard')
+                ->with('error', 'Pemesanan pelanggan hanya tersedia untuk akun pelanggan.');
+        }
+
+        $requestedProductId = max(0, (int) request()->integer('produk'));
+        $requestedQty = max(1, (int) request()->integer('qty', 1));
+
+        if (!Auth::check() && $requestedProductId > 0) {
+            return redirect()->guest(route('login'));
+        }
+
         if ($this->pendingPaymentOrderForAuthenticatedCustomer()) {
             return redirect()
                 ->route('riwayat-apar')
@@ -890,15 +996,55 @@ class PublicController extends Controller
         $serviceUkuranOptions = $this->serviceUkuranOptions();
         $customerProfile = $this->authenticatedCustomerProfile();
         $useAuthenticatedCustomer = !is_null($customerProfile);
+        $selectedOrderProduct = null;
+        $prefilledOrderItems = collect();
+        $prefillFromProduct = false;
         $cartItems = collect();
         $cartTotal = 0;
         $cartItemCount = 0;
         $canUseCartCheckout = Auth::check() && $useAuthenticatedCustomer;
 
+        if ($requestedProductId > 0) {
+            $selectedOrderProduct = Produk::with(['jenisApar', 'stokBatches'])->find($requestedProductId);
+
+            if ($selectedOrderProduct) {
+                $stokTersedia = (int) ($selectedOrderProduct->stok_tersedia ?? 0);
+                if ($stokTersedia <= 0) {
+                    return redirect()
+                        ->route('produk.show', $selectedOrderProduct)
+                        ->with('error', 'Stok produk tidak tersedia untuk dipesan.');
+                }
+
+                $prefillQty = min($requestedQty, $stokTersedia);
+                $prefilledOrderItems = collect([[
+                    'produk_id' => (int) $selectedOrderProduct->id,
+                    'jumlah' => $prefillQty,
+                    'harga' => (float) $selectedOrderProduct->harga,
+                    'nama' => (string) $selectedOrderProduct->nama,
+                    'jenis' => (string) ($selectedOrderProduct->jenisApar?->nama ?? 'APAR'),
+                    'kapasitas' => (string) ($selectedOrderProduct->kapasitas ?? '-'),
+                    'merek' => (string) ($selectedOrderProduct->merek ?? 'SAFETY'),
+                    'gambar' => (string) ($selectedOrderProduct->gambar ?? ''),
+                ]]);
+                $prefillFromProduct = true;
+                $canUseCartCheckout = false;
+            }
+        }
+
         if ($canUseCartCheckout) {
             $cartItems = $this->authenticatedCartItems();
             $cartTotal = $cartItems->sum(fn ($item) => $item->harga * $item->qty);
             $cartItemCount = (int) $cartItems->sum('qty');
+        }
+
+        $registeredUnitApars = collect();
+        $authenticatedCustomer = $this->authenticatedCustomer();
+        if ($authenticatedCustomer) {
+            $registeredUnitApars = UnitApar::with(['produk.jenisApar'])
+                ->where('pelanggan_id', $authenticatedCustomer->id)
+                ->orderByDesc('tgl_beli')
+                ->orderBy('no_seri')
+                ->get();
         }
 
         return view('public.order.create', compact(
@@ -913,11 +1059,27 @@ class PublicController extends Controller
             'cartTotal',
             'cartItemCount',
             'canUseCartCheckout',
+            'prefilledOrderItems',
+            'prefillFromProduct',
+            'selectedOrderProduct',
+            'registeredUnitApars',
         ));
     }
 
     public function orderStore(Request $request, InventoryService $inventoryService)
     {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        if ($user && ($user->isAdmin() || $user->isTeknisi())) {
+            return redirect()
+                ->route('dashboard')
+                ->with('error', 'Pemesanan pelanggan hanya tersedia untuk akun pelanggan.');
+        }
+
+        if ($request->input('tipe_layanan') === 'beli' && !Auth::check()) {
+            return redirect()->guest(route('login'));
+        }
+
         if ($this->pendingPaymentOrderForAuthenticatedCustomer()) {
             return redirect()
                 ->route('riwayat-apar')
@@ -960,7 +1122,12 @@ class PublicController extends Controller
             'service_metode_penanganan' => 'nullable|required_if:tipe_layanan,service|in:dijemput,antar sendiri',
             'service_jenis_refill_id' => 'nullable|exists:jenis_refills,id',
             'service_paket_id' => 'nullable|exists:service_pakets,id',
-            'service_ukuran_apar' => ['nullable', Rule::in($serviceUkuranOptions)],
+            'service_ukuran_apar' => 'nullable|string|max:120',
+            'service_unit_status' => 'nullable|in:terdaftar,belum_terdaftar',
+            'service_unit_apar_id' => 'nullable|integer|exists:unit_apars,id',
+            'service_purchase_group' => 'nullable|string|max:120',
+            'service_unit_apar_ids' => 'nullable|array',
+            'service_unit_apar_ids.*' => 'integer|exists:unit_apars,id',
         ];
 
         if ($isCartCheckout) {
@@ -1118,9 +1285,17 @@ class PublicController extends Controller
                 if (!in_array($serviceJenisLayanan, ['service', 'refill'], true)) {
                     $serviceJenisLayanan = 'service';
                 }
+                $serviceUnitStatus = strtolower(trim((string) $request->input('service_unit_status', 'belum_terdaftar')));
+                if (!in_array($serviceUnitStatus, ['terdaftar', 'belum_terdaftar'], true)) {
+                    $serviceUnitStatus = 'belum_terdaftar';
+                }
+
+                $selectedUnitApars = collect();
+                $servicePurchaseGroup = trim((string) $request->input('service_purchase_group', ''));
                 $serviceUkuranApar = trim((string) $request->input('service_ukuran_apar', ''));
                 $serviceJumlahUnit = max(1, (int) $request->input('service_jumlah_unit', 1));
-                $serviceKeluhan = trim((string) $request->input('service_keluhan', (string) $request->input('keterangan_service', '-')));
+                $originalServiceKeluhan = trim((string) $request->input('service_keluhan', (string) $request->input('keterangan_service', '-')));
+                $serviceKeluhan = $originalServiceKeluhan;
                 $serviceMetode = strtolower(trim((string) $request->input('service_metode_penanganan', 'dijemput')));
                 if (!in_array($serviceMetode, ['dijemput', 'antar sendiri'], true)) {
                     $serviceMetode = 'dijemput';
@@ -1128,13 +1303,94 @@ class PublicController extends Controller
                 $serviceFotoPath = $request->hasFile('service_foto')
                     ? $request->file('service_foto')->store('service-request', 'public')
                     : null;
-                $serviceUkuranKg = $this->extractAparCapacityKg($serviceUkuranApar);
 
-                if ($serviceUkuranApar === '' || !in_array($serviceUkuranApar, $serviceUkuranOptions, true)) {
+                if ($serviceUnitStatus === 'terdaftar') {
+                    $authenticatedCustomer = $this->authenticatedCustomer();
+                    if (!$authenticatedCustomer || (int) $authenticatedCustomer->id !== (int) $pelanggan->id) {
+                        throw ValidationException::withMessages([
+                            'service_unit_apar_id' => 'APAR Terdaftar hanya bisa dipilih oleh pelanggan yang sedang login.',
+                        ]);
+                    }
+
+                    if ($servicePurchaseGroup === '') {
+                        throw ValidationException::withMessages([
+                            'service_purchase_group' => 'Pilih Riwayat Pembelian APAR terlebih dahulu.',
+                        ]);
+                    }
+
+                    $selectedUnitAparIds = collect((array) $request->input('service_unit_apar_ids', []))
+                        ->map(fn ($id) => (int) $id)
+                        ->filter(fn ($id) => $id > 0)
+                        ->unique()
+                        ->values();
+
+                    if ($selectedUnitAparIds->isEmpty() && (int) $request->input('service_unit_apar_id') > 0) {
+                        $selectedUnitAparIds = collect([(int) $request->input('service_unit_apar_id')]);
+                    }
+
+                    if ($selectedUnitAparIds->isEmpty()) {
+                        throw ValidationException::withMessages([
+                            'service_unit_apar_ids' => 'Minimal satu Unit APAR wajib dicentang.',
+                        ]);
+                    }
+
+                    $selectedUnitApars = UnitApar::with(['produk.jenisApar'])
+                        ->where('pelanggan_id', $pelanggan->id)
+                        ->whereIn('id', $selectedUnitAparIds->all())
+                        ->get()
+                        ->sortBy(fn (UnitApar $unitApar) => $selectedUnitAparIds->search((int) $unitApar->id))
+                        ->values();
+
+                    if ($selectedUnitApars->count() !== $selectedUnitAparIds->count()) {
+                        throw ValidationException::withMessages([
+                            'service_unit_apar_ids' => 'Ada Unit APAR yang tidak valid atau bukan milik akun pelanggan ini.',
+                        ]);
+                    }
+
+                    $mismatchedGroup = $selectedUnitApars
+                        ->first(fn (UnitApar $unitApar) => $this->registeredUnitAparPurchaseKey($unitApar) !== $servicePurchaseGroup);
+
+                    if ($mismatchedGroup) {
+                        throw ValidationException::withMessages([
+                            'service_unit_apar_ids' => 'Unit APAR yang dipilih harus berasal dari riwayat pembelian yang sama.',
+                        ]);
+                    }
+
+                    $missingSize = $selectedUnitApars->first(function (UnitApar $unitApar) {
+                        return trim((string) ($unitApar->ukuran ?: $unitApar->produk?->kapasitas ?: '')) === '';
+                    });
+
+                    if ($missingSize) {
+                        throw ValidationException::withMessages([
+                            'service_unit_apar_ids' => 'Ada Unit APAR terdaftar yang belum memiliki data ukuran. Hubungi admin atau hapus centang unit tersebut.',
+                        ]);
+                    }
+
+                    $serviceJumlahUnit = $selectedUnitApars->count();
+                    $serviceUkuranApar = $selectedUnitApars
+                        ->map(fn (UnitApar $unitApar) => trim((string) ($unitApar->ukuran ?: $unitApar->produk?->kapasitas ?: '')))
+                        ->filter()
+                        ->unique(fn ($ukuran) => mb_strtolower($ukuran))
+                        ->implode(', ');
+                } elseif ($serviceUkuranApar === '' || !in_array($serviceUkuranApar, $serviceUkuranOptions, true)) {
                     throw ValidationException::withMessages([
                         'service_ukuran_apar' => 'Ukuran APAR wajib dipilih dari daftar yang tersedia.',
                     ]);
                 }
+
+                $serviceUkuranKg = $selectedUnitApars->isNotEmpty()
+                    ? $selectedUnitApars->sum(fn (UnitApar $unitApar) => (float) ($this->extractAparCapacityKg($unitApar->ukuran ?: $unitApar->produk?->kapasitas) ?? 0))
+                    : $this->extractAparCapacityKg($serviceUkuranApar);
+                $serviceJenisAparLabel = $selectedUnitApars->isNotEmpty()
+                    ? $selectedUnitApars
+                        ->map(fn (UnitApar $unitApar) => $this->registeredUnitAparTypeLabel($unitApar))
+                        ->filter()
+                        ->unique(fn ($jenis) => mb_strtolower($jenis))
+                        ->implode(', ')
+                    : 'APAR ' . $serviceUkuranApar;
+                $servicePurchaseLabel = $selectedUnitApars->isNotEmpty()
+                    ? $this->registeredUnitAparPurchaseLabel($selectedUnitApars->first())
+                    : '';
 
                 $pesanan->tipe = 'service';
                 $pesanan->sumber_pesanan = 'website';
@@ -1149,7 +1405,7 @@ class PublicController extends Controller
                 $pesanan->alamat_lat = $this->sanitizeCoordinate($request->input('alamat_lat'));
                 $pesanan->alamat_lng = $this->sanitizeCoordinate($request->input('alamat_lng'));
                 $pesanan->service_jenis_layanan = $serviceJenisLayanan;
-                $pesanan->service_jenis_apar = 'APAR ' . $serviceUkuranApar;
+                $pesanan->service_jenis_apar = $serviceJenisAparLabel;
                 $pesanan->service_ukuran_apar = $serviceUkuranApar;
                 $pesanan->service_jumlah_unit = $serviceJumlahUnit;
                 $pesanan->service_keluhan = $serviceKeluhan !== '' ? $serviceKeluhan : '-';
@@ -1173,21 +1429,47 @@ class PublicController extends Controller
                         ]);
                     }
 
-                    $hargaSatuan = $jenisRefill->resolveServicePrice($serviceUkuranApar);
-                    if (is_null($hargaSatuan) || $hargaSatuan <= 0) {
+                    $hargaStandar = (float) $jenisRefill->harga;
+                    if ($hargaStandar <= 0) {
                         throw ValidationException::withMessages([
-                            'service_ukuran_apar' => 'Harga refill standar untuk ukuran APAR ini belum tersedia.',
+                            'service_jenis_refill_id' => 'Harga standar jenis refil belum tersedia. Silakan hubungi admin untuk mengisi harga standar di Master Data Jenis Refil.',
                         ]);
                     }
 
-                    $totalKebutuhanKg = round($serviceUkuranKg * $serviceJumlahUnit, 2);
+                    $totalKebutuhanKg = $selectedUnitApars->isNotEmpty()
+                        ? round((float) $serviceUkuranKg, 2)
+                        : round($serviceUkuranKg * $serviceJumlahUnit, 2);
                     if ((float) $jenisRefill->stok < $totalKebutuhanKg) {
                         throw ValidationException::withMessages([
                             'service_jenis_refill_id' => 'Stok refill ' . $jenisRefill->nama_label . ' tidak mencukupi.',
                         ]);
                     }
 
-                    $estimasiBiaya = $hargaSatuan * $serviceJumlahUnit;
+                    $registeredLineAmounts = [];
+                    if ($selectedUnitApars->isNotEmpty()) {
+                        foreach ($selectedUnitApars as $unitApar) {
+                            $unitKg = (float) ($this->extractAparCapacityKg($unitApar->ukuran ?: $unitApar->produk?->kapasitas) ?? 0);
+                            $registeredLineAmounts[$unitApar->id] = $unitKg * $hargaStandar;
+                        }
+                    }
+
+                    $estimasiBiaya = $selectedUnitApars->isNotEmpty()
+                        ? array_sum($registeredLineAmounts)
+                        : $totalKebutuhanKg * $hargaStandar;
+
+                    if ($selectedUnitApars->isNotEmpty()) {
+                        $pesanan->service_keluhan = $this->selectedRegisteredUnitsNote(
+                            unitApars: $selectedUnitApars,
+                            purchaseLabel: $servicePurchaseLabel,
+                            totalLabel: 'Total Refil',
+                            total: $estimasiBiaya,
+                            metode: $serviceMetode,
+                            customerNote: $originalServiceKeluhan,
+                            lineAmounts: $registeredLineAmounts,
+                        );
+                    }
+
+                    $serviceKeluhanForText = str_replace(["\r\n", "\r", "\n"], ' | ', $pesanan->service_keluhan ?: '-');
 
                     $pesanan->service_jenis_refill_id = $jenisRefill->id;
                     $pesanan->service_paket_id = null;
@@ -1196,11 +1478,13 @@ class PublicController extends Controller
                     $pesanan->total = $estimasiBiaya;
                     $pesanan->total_harga = $estimasiBiaya;
                     $pesanan->keterangan = "Permintaan REFILL {$jenisRefill->nama_label}"
+                        . " | Status Unit: " . ($serviceUnitStatus === 'terdaftar' ? 'APAR Terdaftar' : 'APAR Belum Terdaftar')
+                        . ($selectedUnitApars->isNotEmpty() ? " | Riwayat: {$servicePurchaseLabel}" : '')
                         . " | Ukuran: {$serviceUkuranApar}"
                         . " | Jumlah: {$serviceJumlahUnit} unit"
                         . " | Kebutuhan: {$totalKebutuhanKg} {$jenisRefill->satuan_label}"
                         . " | Metode: {$serviceMetode}"
-                        . " | Catatan: " . ($pesanan->service_keluhan ?: '-');
+                        . " | Catatan: " . $serviceKeluhanForText;
                     $pesanan->save();
                     $successMessage = 'Pesanan refill berhasil dibuat dengan estimasi ' . number_format($estimasiBiaya, 0, ',', '.')
                         . '. Silakan lanjutkan pembayaran untuk mengaktifkan proses pengerjaan.';
@@ -1216,7 +1500,26 @@ class PublicController extends Controller
                     $estimasiBiaya = $paket->harga * $serviceJumlahUnit;
                     $estimasiRefillKg = null;
                     if ($serviceUkuranKg && $serviceUkuranKg > 0 && $paket->refill_ratio && $paket->refill_ratio > 0) {
-                        $estimasiRefillKg = round($serviceUkuranKg * $serviceJumlahUnit * $paket->refill_ratio, 2);
+                        $estimasiRefillKg = $selectedUnitApars->isNotEmpty()
+                            ? round($serviceUkuranKg * $paket->refill_ratio, 2)
+                            : round($serviceUkuranKg * $serviceJumlahUnit * $paket->refill_ratio, 2);
+                    }
+
+                    if ($selectedUnitApars->isNotEmpty()) {
+                        $serviceLineAmounts = [];
+                        foreach ($selectedUnitApars as $unitApar) {
+                            $serviceLineAmounts[$unitApar->id] = (float) $paket->harga;
+                        }
+
+                        $pesanan->service_keluhan = $this->selectedRegisteredUnitsNote(
+                            unitApars: $selectedUnitApars,
+                            purchaseLabel: $servicePurchaseLabel,
+                            totalLabel: 'Total Service',
+                            total: $estimasiBiaya,
+                            metode: $serviceMetode,
+                            customerNote: $originalServiceKeluhan,
+                            lineAmounts: $serviceLineAmounts,
+                        );
                     }
 
                     $pesanan->service_paket_id = $paket->id;
@@ -1226,10 +1529,12 @@ class PublicController extends Controller
                     $pesanan->total = $estimasiBiaya;
                     $pesanan->total_harga = $estimasiBiaya;
                     $pesanan->keterangan = "Permintaan SERVICE {$paket->nama}"
+                        . " | Status Unit: " . ($serviceUnitStatus === 'terdaftar' ? 'APAR Terdaftar' : 'APAR Belum Terdaftar')
+                        . ($selectedUnitApars->isNotEmpty() ? " | Riwayat: {$servicePurchaseLabel}" : '')
                         . " | Ukuran: {$serviceUkuranApar}"
                         . " | Jumlah: {$serviceJumlahUnit} unit"
                         . " | Metode: {$serviceMetode}"
-                        . " | Catatan: " . ($pesanan->service_keluhan ?: '-');
+                        . " | Catatan: " . str_replace(["\r\n", "\r", "\n"], ' | ', $pesanan->service_keluhan ?: '-');
                     $pesanan->save();
 
                     $successMessage = 'Pesanan service berhasil dibuat dengan estimasi ' . number_format($estimasiBiaya, 0, ',', '.')

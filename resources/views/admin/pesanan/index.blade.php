@@ -363,18 +363,16 @@
                                         @endif
 
                                         @if(in_array($pesanan->status, ['selesai oleh teknisi', 'dikonfirmasi admin'], true))
-                                            <form action="{{ route('admin.pesanan.konfirmasi-pelanggan', $pesanan) }}" method="POST" class="inline">
-                                                @csrf
-                                                <button type="submit" class="px-3 py-2 bg-[#25D366] text-white font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-[#1ebe5e] transition-all">
-                                                    Konfirmasi
-                                                </button>
-                                            </form>
-                                            <form action="{{ route('admin.pesanan.selesai-final', $pesanan) }}" method="POST" class="inline" onsubmit="return confirm('Selesaikan final pesanan ini?')">
-                                                @csrf
-                                                <button type="submit" class="px-3 py-2 bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-emerald-800 transition-all">
-                                                    Final
-                                                </button>
-                                            </form>
+                                            <div class="flex flex-col items-end gap-2">
+                                                <p class="text-[10px] font-bold text-emerald-600 mb-1">Teknisi sudah selesai</p>
+                                                <form action="{{ route('admin.pesanan.selesai-final', $pesanan) }}" method="POST" class="inline" onsubmit="return confirm('Selesaikan final pesanan ini?')">
+                                                    @csrf
+                                                    <button type="submit" class="px-4 py-2.5 bg-emerald-600 text-white font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-emerald-700 transition shadow-sm flex items-center gap-2">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                                        Final
+                                                    </button>
+                                                </form>
+                                            </div>
                                         @endif
 
                                         @php

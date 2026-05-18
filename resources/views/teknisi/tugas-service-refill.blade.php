@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div>
             <h2 class="text-3xl font-black text-slate-900 tracking-tight">Tugas Layanan APAR</h2>
-            <p class="text-sm font-semibold text-slate-500 mt-1">Daftar tugas aktif perawatan, service, atau refill yang ditugaskan admin.</p>
+            <p class="text-sm font-semibold text-slate-500 mt-1">Daftar tugas service atau refil APAR dari admin yang siap dikerjakan teknisi.</p>
         </div>
     </x-slot>
 

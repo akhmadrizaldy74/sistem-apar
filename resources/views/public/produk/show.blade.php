@@ -63,9 +63,12 @@
 
                     <div class="mt-8 space-y-4">
                         @auth
-                            <form action="{{ route('keranjang.store') }}" method="POST" class="bg-white rounded-[1.75rem] border border-gray-100 shadow-lg shadow-gray-200/50 p-6">
-                                @csrf
-                                <input type="hidden" name="produk_id" value="{{ $produk->id }}">
+                            @php
+                                $canCustomerOrder = !auth()->user()->isAdmin() && !auth()->user()->isTeknisi();
+                            @endphp
+                            @if($canCustomerOrder)
+                            <form action="{{ route('order.create') }}" method="GET" class="bg-white rounded-[1.75rem] border border-gray-100 shadow-lg shadow-gray-200/50 p-6">
+                                <input type="hidden" name="produk" value="{{ $produk->id }}">
                                 <div class="flex items-center gap-4 mb-4">
                                     <label for="qty" class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Jumlah</label>
                                     <div class="flex items-center gap-2">
@@ -77,14 +80,20 @@
                                 </div>
                                 <button type="submit" @disabled($isHabis) class="w-full px-6 py-4 {{ $isHabis ? 'bg-gray-300 cursor-not-allowed text-white' : 'bg-red-700 hover:bg-red-800 text-white shadow-xl shadow-red-700/25' }} font-black rounded-2xl transition text-center flex items-center justify-center gap-2">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                                    {{ $isHabis ? 'Stok Habis' : 'Tambah ke Keranjang' }}
+                                    {{ $isHabis ? 'Stok Habis' : 'Pesan' }}
                                 </button>
                             </form>
+                            @else
+                            <div class="bg-white rounded-[1.75rem] border border-amber-200 bg-amber-50/60 shadow-lg shadow-gray-200/50 p-6">
+                                <p class="text-sm font-black text-amber-900">Pemesanan pelanggan hanya tersedia untuk akun pelanggan.</p>
+                                <p class="mt-2 text-xs font-semibold text-amber-800">Admin dan teknisi tetap melihat katalog, tetapi tidak dapat membuat pesanan pelanggan dari halaman ini.</p>
+                            </div>
+                            @endif
                         @else
                             <div class="grid sm:grid-cols-2 gap-4">
-                                <a href="{{ $isHabis ? '#' : route('login') }}" class="px-6 py-4 {{ $isHabis ? 'bg-gray-300 cursor-not-allowed pointer-events-none' : 'bg-red-700 hover:bg-red-800 shadow-xl shadow-red-700/25' }} text-white font-black rounded-2xl transition text-center flex items-center justify-center gap-2">
+                                <a href="{{ $isHabis ? '#' : route('order.create', ['produk' => $produk->id, 'qty' => 1]) }}" class="px-6 py-4 {{ $isHabis ? 'bg-gray-300 cursor-not-allowed pointer-events-none' : 'bg-red-700 hover:bg-red-800 shadow-xl shadow-red-700/25' }} text-white font-black rounded-2xl transition text-center flex items-center justify-center gap-2">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                                    {{ $isHabis ? 'Stok Habis' : 'Masuk untuk Belanja' }}
+                                    {{ $isHabis ? 'Stok Habis' : 'Login untuk Pesan' }}
                                 </a>
                                 <a href="https://wa.me/{{ env('WHATSAPP_CONTACT', '6285128008030') }}" target="_blank" rel="noopener noreferrer" class="px-6 py-4 bg-[#25D366] text-white font-black rounded-2xl hover:brightness-110 transition shadow-lg shadow-[#25D366]/25 text-center flex items-center justify-center gap-2">
                                     <i class="fa-brands fa-whatsapp text-lg"></i>

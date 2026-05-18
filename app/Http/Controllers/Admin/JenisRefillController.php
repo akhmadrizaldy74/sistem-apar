@@ -26,15 +26,18 @@ class JenisRefillController extends Controller
     {
         $request->validate([
             'nama' => 'required|string|max:255|unique:jenis_refills,nama',
-            'stok' => 'required|numeric|min:0',
             'satuan' => 'required|string|max:20',
             'harga' => 'required|numeric|min:0',
-            'stok_minimum' => 'required|numeric|min:0',
         ]);
 
-        JenisRefill::create($request->only('nama', 'stok', 'satuan', 'harga', 'stok_minimum'));
+        JenisRefill::create([
+            'nama' => $request->nama,
+            'stok' => 0,
+            'satuan' => $request->satuan,
+            'harga' => $request->harga,
+        ]);
 
-        return redirect()->route('admin.jenis-refill.index')->with('success', 'Jenis refill berhasil ditambahkan.');
+        return redirect()->route('admin.jenis-refill.index')->with('success', 'Jenis refil berhasil ditambahkan.');
     }
 
     public function show(JenisRefill $jenisRefill)
@@ -51,21 +54,19 @@ class JenisRefillController extends Controller
     {
         $request->validate([
             'nama' => 'required|string|max:255|unique:jenis_refills,nama,'.$jenisRefill->id,
-            'stok' => 'required|numeric|min:0',
             'satuan' => 'required|string|max:20',
             'harga' => 'required|numeric|min:0',
-            'stok_minimum' => 'required|numeric|min:0',
         ]);
 
-        $jenisRefill->update($request->only('nama', 'stok', 'satuan', 'harga', 'stok_minimum'));
+        $jenisRefill->update($request->only('nama', 'satuan', 'harga'));
 
-        return redirect()->route('admin.jenis-refill.index')->with('success', 'Jenis refill berhasil diperbarui.');
+        return redirect()->route('admin.jenis-refill.index')->with('success', 'Jenis refil berhasil diperbarui.');
     }
 
     public function destroy(JenisRefill $jenisRefill)
     {
         $jenisRefill->delete();
 
-        return redirect()->route('admin.jenis-refill.index')->with('success', 'Jenis refill berhasil dihapus.');
+        return redirect()->route('admin.jenis-refill.index')->with('success', 'Jenis refil berhasil dihapus.');
     }
 }

@@ -8,6 +8,7 @@ use App\Models\Pelanggan;
 use App\Models\Pesanan;
 use App\Models\Produk;
 use App\Models\Service;
+use App\Models\StokBatch;
 use App\Models\UnitApar;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -22,7 +23,7 @@ class SystemFlowTest extends TestCase
         $response = $this->get(route('cek-apar'));
 
         $response->assertOk();
-        $response->assertSee('Cek Status APAR Anda');
+        $response->assertSee('Status & Riwayat APAR');
     }
 
     public function test_public_produk_page_can_be_rendered(): void
@@ -191,7 +192,7 @@ class SystemFlowTest extends TestCase
         ]);
 
         $response->assertOk();
-        $response->assertSee('Riwayat Pembelian');
+        $response->assertSee('Riwayat Transaksi');
         $response->assertSee('APAR 3 KG');
     }
 
@@ -221,6 +222,14 @@ class SystemFlowTest extends TestCase
             'harga' => 950000,
             'deskripsi' => 'Produk demo',
         ]);
+        StokBatch::create([
+            'produk_id' => $produkPertama->id,
+            'jumlah_masuk' => 5,
+            'sisa_qty' => 5,
+            'tgl_produksi' => now()->subMonth()->toDateString(),
+            'tgl_expired' => now()->addYear()->toDateString(),
+            'keterangan' => 'Stok test',
+        ]);
 
         $produkKedua = Produk::create([
             'nama' => 'APAR CO2',
@@ -230,6 +239,14 @@ class SystemFlowTest extends TestCase
             'penggunaan' => 'Ruang server',
             'harga' => 1200000,
             'deskripsi' => 'Produk demo',
+        ]);
+        StokBatch::create([
+            'produk_id' => $produkKedua->id,
+            'jumlah_masuk' => 5,
+            'sisa_qty' => 5,
+            'tgl_produksi' => now()->subMonth()->toDateString(),
+            'tgl_expired' => now()->addYear()->toDateString(),
+            'keterangan' => 'Stok test',
         ]);
 
         $storeResponse = $this->actingAs($admin)->post(route('admin.pesanan.store'), [
@@ -294,6 +311,14 @@ class SystemFlowTest extends TestCase
             'penggunaan' => 'Gudang',
             'harga' => 500000,
             'deskripsi' => 'Produk demo',
+        ]);
+        StokBatch::create([
+            'produk_id' => $produk->id,
+            'jumlah_masuk' => 5,
+            'sisa_qty' => 5,
+            'tgl_produksi' => now()->subMonth()->toDateString(),
+            'tgl_expired' => now()->addYear()->toDateString(),
+            'keterangan' => 'Stok test',
         ]);
 
         $response = $this->actingAs($admin)->post(route('admin.pesanan.store'), [
@@ -449,6 +474,8 @@ class SystemFlowTest extends TestCase
 
         $jenisRefill = JenisRefill::create([
             'nama' => 'CO2',
+            'stok' => 10,
+            'satuan' => 'kg',
         ]);
 
         $produk = Produk::create([
@@ -561,7 +588,7 @@ class SystemFlowTest extends TestCase
         $response->assertDontSee('Ganti Segel');
     }
 
-    public function test_old_product_orders_are_auto_synced_into_unit_apar_when_opening_pesanan_page(): void
+    public function test_old_product_orders_are_not_auto_synced_into_unit_apar_when_opening_pesanan_page(): void
     {
         $admin = User::factory()->create([
             'role' => 'admin',
@@ -609,11 +636,54 @@ class SystemFlowTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.pesanan.index'));
 
         $response->assertOk();
-        $this->assertDatabaseCount('unit_apars', 2);
-        $this->assertDatabaseHas('unit_apars', [
-            'pesanan_id' => $pesanan->id,
+        $this->assertDatabaseCount('unit_apars', 0);
+    }
+
+    public function test_teknisi_completion_flow_matches_activity_diagram(): void
+    {
+        $teknisi = User::factory()->create([
+            'role' => 'teknisi',
+        ]);
+
+        $admin = User::factory()->create([
+            'role' => 'admin',
+        ]);
+
+        $pelanggan = Pelanggan::create([
+            'nama' => 'PT Diagram Flow',
+            'no_wa' => '628123450001',
+            'alamat' => 'Jl Diagram',
+        ]);
+
+        $pesanan = Pesanan::create([
             'pelanggan_id' => $pelanggan->id,
-            'produk_id' => $produk->id,
+            'teknisi_id' => $teknisi->id,
+            'tipe' => 'service',
+            'status' => Pesanan::STATUS_DIKERJAKAN_TEKNISI,
+            'tanggal' => now()->toDateString(),
+            'total' => 250000,
+            'service_jenis_layanan' => 'service',
+            'service_estimasi_biaya' => 250000,
+            'total_harga' => 250000,
+        ]);
+
+        $teknisiResponse = $this->actingAs($teknisi)->post(route('teknisi.tugas.selesai', $pesanan), [
+            'catatan' => 'Pekerjaan selesai sesuai laporan teknisi.',
+        ]);
+
+        $teknisiResponse->assertRedirect();
+        $this->assertDatabaseHas('pesanans', [
+            'id' => $pesanan->id,
+            'status' => Pesanan::STATUS_SELESAI_OLEH_TEKNISI,
+            'teknisi_catatan' => 'Pekerjaan selesai sesuai laporan teknisi.',
+        ]);
+
+        $adminResponse = $this->actingAs($admin)->post(route('admin.pesanan.konfirmasi-pelanggan', $pesanan));
+
+        $adminResponse->assertRedirect();
+        $this->assertDatabaseHas('pesanans', [
+            'id' => $pesanan->id,
+            'status' => Pesanan::STATUS_DIKONFIRMASI_ADMIN,
         ]);
     }
 }

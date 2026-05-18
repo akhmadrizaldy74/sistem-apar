@@ -1,7 +1,7 @@
 <x-guest-layout>
     <div class="mb-8" data-reveal>
-        <h2 class="text-2xl font-black text-gray-900 tracking-tight">Masuk ke Akun Anda</h2>
-        <p class="text-sm text-gray-500 font-medium">Masuk untuk mulai berbelanja, kelola pesanan, atau akses panel kerja.</p>
+        <h2 class="text-2xl font-black text-gray-900 tracking-tight">Masuk ke Sistem</h2>
+        <p class="text-sm text-gray-500 font-medium">Masukkan nomor telepon dan kata sandi untuk melanjutkan ke sistem sesuai hak akses Anda.</p>
     </div>
 
     <!-- Session Status -->
@@ -13,8 +13,8 @@
         <!-- Email Address -->
         <!-- Login Field -->
         <div>
-            <label for="login" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Identifier (Email / No. WA)</label>
-            <x-text-input id="login" class="block w-full pl-6 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-red-600/20 focus:bg-white font-bold text-gray-900 placeholder:text-gray-300 transition shadow-sm focus:shadow-md" type="text" name="login" :value="old('login')" required autofocus autocomplete="username" placeholder="Email / Nomor WhatsApp" />
+            <label for="login" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Nomor Telepon</label>
+            <x-text-input id="login" class="block w-full pl-6 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-red-600/20 focus:bg-white font-bold text-gray-900 placeholder:text-gray-300 transition shadow-sm focus:shadow-md" type="text" name="login" :value="old('login')" required autofocus autocomplete="username" placeholder="Contoh: 08123456789" />
             <x-input-error :messages="$errors->get('login')" class="mt-2" />
             <x-input-error :messages="$errors->get('email')" class="mt-2" />
             <x-input-error :messages="$errors->get('no_telpon')" class="mt-2" />
@@ -23,10 +23,10 @@
         <!-- Password -->
         <div>
             <div class="flex justify-between items-center mb-2">
-                <label for="password" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block">Access Key</label>
+                <label for="password" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block">Kata Sandi</label>
                 @if (Route::has('password.request'))
                     <a class="text-[10px] font-black text-red-700 uppercase tracking-widest hover:underline" href="{{ route('password.request') }}">
-                        Recovery
+                        Lupa Password
                     </a>
                 @endif
             </div>
@@ -45,7 +45,7 @@
         <div class="flex items-center">
             <input id="remember_me" type="checkbox" name="remember" class="w-5 h-5 rounded-lg border-gray-200 text-red-700 focus:ring-red-600/20 shadow-sm transition cursor-pointer">
             <label for="remember_me" class="ms-3 text-[10px] font-black text-gray-400 uppercase tracking-widest cursor-pointer select-none">
-                Maintain Session
+                Ingat Saya
             </label>
         </div>
 

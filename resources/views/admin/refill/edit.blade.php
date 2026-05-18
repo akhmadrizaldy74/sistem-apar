@@ -5,8 +5,8 @@
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
             </a>
             <div>
-                <h2 class="text-3xl font-black text-gray-900 tracking-tight">Edit Refill Layanan</h2>
-                <p class="text-sm text-gray-500 font-medium">Perbarui layanan refill untuk unit {{ $refill->unitApar->no_seri }}</p>
+                <h2 class="text-3xl font-black text-gray-900 tracking-tight">Edit Data Refil APAR</h2>
+                <p class="text-sm text-gray-500 font-medium">Ubah data refil APAR untuk unit {{ $refill->unitApar->no_seri }}, lalu klik Simpan.</p>
             </div>
         </div>
     </x-slot>
@@ -51,21 +51,21 @@
                     </div>
 
                     <div>
-                        <label for="jenis_refill_id" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Jenis Refill</label>
+                        <label for="jenis_refill_id" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Jenis Refil</label>
                         <select name="jenis_refill_id" id="jenis_refill_id" x-model="jenisId" @change="applyJenis()" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900">
-                            <option value="">Pilih jenis refill</option>
+                            <option value="">Pilih jenis refil</option>
                             @foreach($jenisRefills as $jenisRefill)
                                 <option value="{{ $jenisRefill->id }}" @selected(old('jenis_refill_id', $refill->jenis_refill_id) == $jenisRefill->id)>
                                     {{ $jenisRefill->nama }} - Rp {{ number_format($refillPackages[$jenisRefill->nama] ?? 0, 0, ',', '.') }}
                                 </option>
                             @endforeach
                         </select>
-                        <p class="mt-2 text-[10px] text-gray-400 font-bold uppercase tracking-wider">Jenis refill memiliki harga standar.</p>
+                        <p class="mt-2 text-[10px] text-gray-400 font-bold uppercase tracking-wider">Jenis refil memiliki harga standar.</p>
                         <x-input-error :messages="$errors->get('jenis_refill_id')" class="mt-2" />
                     </div>
 
                     <div>
-                        <label for="tgl_refill" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Tanggal Refill</label>
+                        <label for="tgl_refill" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Tanggal Refil</label>
                         <input type="date" name="tgl_refill" id="tgl_refill" value="{{ old('tgl_refill', $refill->tgl_refill->format('Y-m-d')) }}" required
                             class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900">
                         <x-input-error :messages="$errors->get('tgl_refill')" class="mt-2" />
@@ -80,7 +80,7 @@
                     </div>
 
                     <div class="md:col-span-2 rounded-[2rem] border border-gray-100 bg-gray-50 p-6">
-                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Ringkasan Unit Refill</p>
+                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Ringkasan Unit Refil</p>
                         <template x-if="selectedUnit()">
                             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
                                 <div>
@@ -107,7 +107,7 @@
                 <div class="mt-12 flex justify-end gap-4">
                     <a href="{{ route('admin.refill.index') }}" class="px-8 py-4 text-xs font-black text-gray-400 uppercase tracking-widest hover:text-gray-900 transition">Batal</a>
                     <button type="submit" class="px-10 py-4 bg-red-700 text-white font-black rounded-2xl hover:bg-red-800 transition shadow-xl shadow-red-700/30 uppercase tracking-widest text-xs">
-                        Update Data
+                        Simpan
                     </button>
                 </div>
             </form>

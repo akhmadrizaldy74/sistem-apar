@@ -3,7 +3,7 @@
         <div class="flex flex-col md:flex-row justify-between items-center w-full gap-4">
             <div>
                 <h2 class="text-3xl font-black text-gray-900 tracking-tight">Daftar Produk</h2>
-                <p class="text-sm text-gray-500 font-medium">Kelola inventaris peralatan keselamatan kebakaran Anda</p>
+                <p class="text-sm text-gray-500 font-medium">Kelola data produk APAR yang tampil di katalog pelanggan.</p>
             </div>
             <button type="button" onclick="window.dispatchEvent(new CustomEvent('open-produk-modal'))" class="px-8 py-4 bg-red-700 text-white font-black rounded-2xl hover:bg-red-800 transition shadow-xl shadow-red-700/30 flex items-center gap-2 uppercase tracking-widest text-xs">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
@@ -52,18 +52,12 @@
                             <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Merek</th>
                             <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Jenis</th>
                             <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Kapasitas</th>
-                            <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Stok</th>
                             <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Harga</th>
                             <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-50">
                         @foreach($produks as $p)
-                            @php
-                                $stokSiapJual = (int) ($p->stok_tersedia ?? 0);
-                                $stokBatchTotal = (int) ($p->stok_batch_total ?? ($p->stok ?? 0));
-                                $stokMin = (int) ($p->stok_minimum ?? 5);
-                            @endphp
                             <tr class="hover:bg-gray-50/30 transition-colors group">
                                 <td class="px-8 py-6">
                                     <div class="w-16 h-16 bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 shadow-inner group-hover:scale-110 transition-transform duration-500">
@@ -92,17 +86,6 @@
                                 </td>
                                 <td class="px-8 py-6">
                                     <p class="text-xs font-bold text-gray-700">{{ $p->kapasitas ?? '-' }}</p>
-                                </td>
-                                <td class="px-8 py-6">
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-sm font-black {{ $stokSiapJual <= 0 ? 'text-red-700' : ($stokSiapJual <= $stokMin ? 'text-amber-600' : 'text-gray-900') }}">{{ $stokSiapJual }}</span>
-                                        @if($stokSiapJual <= 0)
-                                            <span class="px-2 py-0.5 bg-red-50 text-red-700 text-[9px] font-black rounded-lg uppercase tracking-widest">Habis</span>
-                                        @elseif($stokSiapJual <= $stokMin)
-                                            <span class="px-2 py-0.5 bg-amber-50 text-amber-700 text-[9px] font-black rounded-lg uppercase tracking-widest">Rendah</span>
-                                        @endif
-                                    </div>
-                                    <p class="text-[9px] text-gray-400 mt-1">Siap jual {{ $stokSiapJual }} dari total batch {{ $stokBatchTotal }}</p>
                                 </td>
                                 <td class="px-8 py-6">
                                     <p class="text-sm font-bold text-gray-900">Rp {{ number_format($p->harga, 0, ',', '.') }}</p>

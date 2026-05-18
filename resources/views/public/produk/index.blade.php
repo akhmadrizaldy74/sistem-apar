@@ -10,7 +10,7 @@
                     <p class="text-[10px] font-black text-red-600 uppercase tracking-[0.3em] mb-4">Katalog</p>
                     <h1 class="text-4xl sm:text-5xl font-black tracking-tight">Produk APAR</h1>
                     <p class="text-gray-600 font-medium leading-relaxed mt-5">
-                        Semua produk APAR dan perlengkapan terkait yang tersedia di sistem.
+                        Semua produk APAR yang tersedia dapat dilihat dan dipilih oleh pelanggan dari katalog ini.
                     </p>
                 </div>
                 <a href="{{ route('cek-apar') }}" class="px-6 py-3 bg-gray-50 border border-gray-100 text-gray-900 font-bold rounded-2xl hover:shadow-md transition">
@@ -100,22 +100,10 @@
                             </p>
                             <p class="text-2xl font-black text-red-600 tracking-tight mt-4">Rp {{ number_format($produk->harga, 0, ',', '.') }}</p>
                             <div class="mt-6 flex flex-col sm:flex-row gap-2">
-                                @auth
-                                    <form action="{{ route('keranjang.store') }}" method="POST" class="flex-1">
-                                        @csrf
-                                        <input type="hidden" name="produk_id" value="{{ $produk->id }}">
-                                        <input type="hidden" name="qty" value="1">
-                                        <button type="submit" @disabled($isHabis) class="w-full py-4 {{ $isHabis ? 'bg-gray-300 cursor-not-allowed text-white' : 'bg-red-700 hover:bg-red-800 text-white shadow-lg shadow-red-700/20' }} font-black text-[10px] uppercase tracking-widest rounded-xl transition flex items-center justify-center gap-1">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                                            {{ $isHabis ? 'Stok Habis' : '+ Keranjang' }}
-                                        </button>
-                                    </form>
-                                @else
-                                    <a href="{{ $isHabis ? '#' : route('login') }}" class="flex-1 py-4 {{ $isHabis ? 'bg-gray-300 cursor-not-allowed pointer-events-none' : 'bg-red-700 hover:bg-red-800 shadow-lg shadow-red-700/20' }} text-white font-black text-[10px] uppercase tracking-widest rounded-xl transition text-center flex items-center justify-center gap-1">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                                        {{ $isHabis ? 'Stok Habis' : '+ Keranjang' }}
-                                    </a>
-                                @endauth
+                                <a href="{{ route('produk.show', $produk) }}" class="flex-1 py-4 {{ $isHabis ? 'bg-gray-300 cursor-not-allowed pointer-events-none text-white' : 'bg-red-700 hover:bg-red-800 shadow-lg shadow-red-700/20 text-white' }} font-black text-[10px] uppercase tracking-widest rounded-xl transition text-center flex items-center justify-center gap-1">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12H9m0 0l3-3m-3 3l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    {{ $isHabis ? 'Stok Habis' : 'Pilih Produk' }}
+                                </a>
                                 <a href="{{ route('produk.show', $produk) }}" class="px-5 py-4 bg-gray-50 border border-gray-100 text-gray-500 font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-gray-200 hover:text-gray-800 transition text-center" title="Detail">
                                     Detail
                                 </a>

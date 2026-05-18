@@ -387,8 +387,8 @@
                                         <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-red-50 text-red-700 border border-red-100 text-[10px] font-black uppercase tracking-wider shadow-sm">Service</span>
                                     </td>
                                     <td class="px-6 py-3 text-sm font-bold text-slate-700">{{ $service->tgl_service->format('d M Y') }}</td>
-                                    <td class="px-6 py-3 text-sm font-black text-slate-900">{{ $service->unitApar->no_seri }}</td>
-                                    <td class="px-6 py-3 text-sm font-semibold text-slate-700">{{ $service->unitApar->pelanggan->nama }}</td>
+                                    <td class="px-6 py-3 text-sm font-black text-slate-900">{{ $service->unitApar?->no_seri ?? '-' }}</td>
+                                    <td class="px-6 py-3 text-sm font-semibold text-slate-700">{{ $service->unitApar?->pelanggan?->nama ?? '-' }}</td>
                                     <td class="px-6 py-3 text-sm font-medium text-slate-500">{{ $service->jenis_service }}</td>
                                 </tr>
                             @empty
@@ -403,8 +403,8 @@
                                         <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-100 text-[10px] font-black uppercase tracking-wider shadow-sm">Refill</span>
                                     </td>
                                     <td class="px-6 py-3 text-sm font-bold text-slate-700">{{ $refill->tgl_refill->format('d M Y') }}</td>
-                                    <td class="px-6 py-3 text-sm font-black text-slate-900">{{ $refill->unitApar->no_seri }}</td>
-                                    <td class="px-6 py-3 text-sm font-semibold text-slate-700">{{ $refill->unitApar->pelanggan->nama }}</td>
+                                    <td class="px-6 py-3 text-sm font-black text-slate-900">{{ $refill->unitApar?->no_seri ?? '-' }}</td>
+                                    <td class="px-6 py-3 text-sm font-semibold text-slate-700">{{ $refill->unitApar?->pelanggan?->nama ?? '-' }}</td>
                                     <td class="px-6 py-3 text-sm font-medium text-slate-500">{{ $refill->jenisRefill->nama }}</td>
                                 </tr>
                             @empty

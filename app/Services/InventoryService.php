@@ -15,6 +15,48 @@ class InventoryService
 {
     public function applyPurchaseExpense(Pengeluaran $pengeluaran): void
     {
+        if ($pengeluaran->jenis_pengeluaran === Pengeluaran::JENIS_PEMBELIAN_APAR) {
+            $produk = Produk::findOrFail($pengeluaran->produk_id);
+            $tanggalMasuk = $this->resolveMovementDate($pengeluaran->tanggal);
+            $qty = (int) round((float) $pengeluaran->qty);
+            $stokSebelum = (float) $produk->fresh()->stok_tersedia;
+
+            $produk->stokBatches()->create([
+                'jumlah_masuk' => $qty,
+                'sisa_qty' => $qty,
+                'tgl_produksi' => $tanggalMasuk->toDateString(),
+                'tgl_expired' => $this->resolveAparExpiredDate($produk, $tanggalMasuk)->toDateString(),
+                'keterangan' => $pengeluaran->keterangan,
+            ]);
+
+            $produk->forceFill([
+                'stok' => (int) ($produk->stok ?? 0) + $qty,
+            ])->save();
+
+            $stokSesudah = (float) $produk->fresh('stokBatches')->stok_tersedia;
+
+            $this->logProductMovement(
+                produk: $produk->fresh(),
+                qty: $qty,
+                movementType: StockMovement::MOVE_IN,
+                sourceType: StockMovement::SOURCE_PEMBELIAN_PENGELUARAN,
+                stokSebelum: $stokSebelum,
+                stokSesudah: $stokSesudah,
+                reference: $pengeluaran,
+                keterangan: $pengeluaran->keterangan,
+                tanggal: $tanggalMasuk,
+            );
+
+            $pengeluaran->forceFill([
+                'kategori' => 'lainnya',
+                'nama_item' => $produk->nama,
+                'satuan' => 'Unit',
+                'total' => $pengeluaran->nominal,
+            ])->saveQuietly();
+
+            return;
+        }
+
         if ($pengeluaran->jenis_pengeluaran === Pengeluaran::JENIS_PEMBELIAN_REFILL) {
             $jenisRefill = JenisRefill::findOrFail($pengeluaran->jenis_refill_id);
 
@@ -244,5 +286,15 @@ class InventoryService
         return $decimals > 0
             ? rtrim(rtrim(number_format($qty, $decimals, ',', '.'), '0'), ',')
             : number_format($qty, 0, ',', '.');
+    }
+
+    protected function resolveAparExpiredDate(Produk $produk, Carbon $tanggalMasuk): Carbon
+    {
+        $baseDate = $tanggalMasuk->copy();
+        $ukuranAngka = (float) filter_var((string) $produk->kapasitas, FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+
+        return $ukuranAngka === 1.0
+            ? $baseDate->addMonths(6)
+            : $baseDate->addYear();
     }
 }

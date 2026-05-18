@@ -25,8 +25,11 @@ class ServiceController extends Controller
             ->values();
         $peralatans = Peralatan::orderBy('nama')->get();
 
-        $serviceLogs = Service::with(['unitApar.pelanggan', 'pesanan.pelanggan', 'servicePaket'])
-            ->whereNotNull('service_paket_id')
+        $serviceLogs = Service::with(['unitApar.pelanggan', 'unitApar.produk', 'pesanan.pelanggan', 'servicePaket'])
+            ->where(function ($query) {
+                $query->whereNull('jenis_service')
+                    ->orWhere('jenis_service', '!=', 'Refill');
+            })
             ->latest('tgl_service')
             ->get();
 
@@ -35,23 +38,20 @@ class ServiceController extends Controller
 
         $requestServices = Pesanan::with(['pelanggan', 'teknisi', 'servicePaket', 'serviceJenisRefill'])
             ->where('tipe', 'service')
-            ->whereIn('status', [
-                Pesanan::STATUS_PENDING,
-                Pesanan::STATUS_PERMINTAAN_MASUK,
-                Pesanan::STATUS_DIREVIEW_ADMIN,
-                Pesanan::STATUS_MENUNGGU_PENJADWALAN,
-                Pesanan::STATUS_MENUNGGU_PERSETUJUAN_BIAYA,
-                Pesanan::STATUS_DISETUJUI,
-                Pesanan::STATUS_MENUNGGU_PENGAMBILAN,
-                Pesanan::STATUS_MENUNGGU_KEDATANGAN_UNIT,
-                Pesanan::STATUS_DITUGASKAN_KE_TEKNISI,
-                Pesanan::STATUS_DIKERJAKAN_TEKNISI,
-            ])
+            ->where(function ($query) {
+                $query->whereNull('service_jenis_layanan')
+                    ->orWhere('service_jenis_layanan', 'service');
+            })
+            ->whereNotIn('status', ['selesai final', 'ditolak'])
             ->latest()
             ->get();
 
         $selesaiTeknisi = Pesanan::with(['pelanggan', 'teknisi'])
             ->where('tipe', 'service')
+            ->where(function ($query) {
+                $query->whereNull('service_jenis_layanan')
+                    ->orWhere('service_jenis_layanan', 'service');
+            })
             ->whereIn('status', ['selesai oleh teknisi', 'dikonfirmasi admin'])
             ->latest('teknisi_selesai_at')
             ->get();
@@ -91,7 +91,7 @@ class ServiceController extends Controller
     public function updateRequestStatus(Request $request, Pesanan $pesanan)
     {
         if ($pesanan->tipe !== 'service') {
-            return back()->with('error', 'Pesanan ini bukan request service/refill.');
+            return back()->with('error', 'Data ini bukan service APAR.');
         }
 
         $validated = $request->validate([
@@ -119,7 +119,7 @@ class ServiceController extends Controller
 
         $pesanan->update($payload);
 
-        return back()->with('success', 'Status request service/refill berhasil diperbarui.');
+        return back()->with('success', 'Status service APAR berhasil diperbarui.');
     }
 
     public function create()
@@ -131,12 +131,29 @@ class ServiceController extends Controller
     {
         $request->validate([
             'unit_apar_id' => 'required|exists:unit_apars,id',
-            'service_paket_id' => 'required|exists:service_pakets,id',
+            'service_paket_id' => 'nullable|exists:service_pakets,id',
+            'jenis_service' => 'nullable|required_without:service_paket_id|string|max:255',
             'addons' => 'nullable|array',
             'addons.*' => 'exists:jenis_refills,id',
             'tgl_service' => 'required|date',
             'keterangan' => 'nullable|string|max:1000',
+            'biaya' => 'nullable|required_without:service_paket_id|numeric|min:0',
         ]);
+
+        if (! $request->filled('service_paket_id')) {
+            Service::create([
+                'unit_apar_id' => $request->unit_apar_id,
+                'service_paket_id' => null,
+                'jenis_service' => $request->jenis_service,
+                'rincian_layanan' => $request->keterangan,
+                'tgl_service' => $request->tgl_service,
+                'keterangan' => $request->keterangan,
+                'biaya' => $request->biaya,
+                'status_konfirmasi' => 'pending',
+            ]);
+
+            return redirect()->route('admin.service.index')->with('success', 'Data service APAR berhasil disimpan.');
+        }
 
         $paket = ServicePaket::with('peralatans')->findOrFail($request->service_paket_id);
 
@@ -173,13 +190,13 @@ class ServiceController extends Controller
             'status_konfirmasi' => 'pending',
         ]);
 
-        return redirect()->route('admin.service.index')->with('success', 'Service berhasil diinput. Stok belum dikurangi.');
+        return redirect()->route('admin.service.index')->with('success', 'Data service APAR berhasil disimpan.');
     }
 
     public function edit(Service $service)
     {
         if ($service->jenis_service === 'Refill') {
-            return redirect()->route('admin.refill.index')->with('success', 'Data refill dikelola dari menu refill.');
+            return redirect()->route('admin.refill.index')->with('success', 'Data refil dikelola dari menu Refil APAR.');
         }
 
         $units = UnitApar::with(['pelanggan', 'produk.jenisApar'])->get();
@@ -196,10 +213,26 @@ class ServiceController extends Controller
     {
         $request->validate([
             'unit_apar_id' => 'required|exists:unit_apars,id',
-            'service_paket_id' => 'required|exists:service_pakets,id',
+            'service_paket_id' => 'nullable|exists:service_pakets,id',
+            'jenis_service' => 'nullable|required_without:service_paket_id|string|max:255',
             'tgl_service' => 'required|date',
             'keterangan' => 'nullable|string|max:1000',
+            'biaya' => 'nullable|required_without:service_paket_id|numeric|min:0',
         ]);
+
+        if (! $request->filled('service_paket_id')) {
+            $service->update([
+                'unit_apar_id' => $request->unit_apar_id,
+                'service_paket_id' => null,
+                'jenis_service' => $request->jenis_service,
+                'rincian_layanan' => $request->keterangan,
+                'tgl_service' => $request->tgl_service,
+                'keterangan' => $request->keterangan,
+                'biaya' => $request->biaya,
+            ]);
+
+            return redirect()->route('admin.service.index')->with('success', 'Data service berhasil diperbarui.');
+        }
 
         $paket = ServicePaket::with('peralatans')->findOrFail($request->service_paket_id);
 
@@ -293,7 +326,7 @@ class ServiceController extends Controller
             return back()->with('error', $exception->getMessage());
         }
 
-        return back()->with('success', 'Service dikonfirmasi selesai. Stok peralatan telah dikurangi dan tercatat di riwayat stok.');
+        return back()->with('success', 'Data service dikonfirmasi selesai. Stok peralatan telah diperbarui.');
     }
 
     public function tolakService(Service $service)
@@ -307,6 +340,6 @@ class ServiceController extends Controller
             'tgl_selesai_admin' => now(),
         ]);
 
-        return back()->with('success', 'Service ditolak.');
+        return back()->with('success', 'Data service ditolak.');
     }
 }

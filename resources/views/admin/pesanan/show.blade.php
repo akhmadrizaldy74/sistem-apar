@@ -89,7 +89,7 @@
 
                 @if($pesanan->keterangan)
                 <div class="mt-6 p-4 bg-gray-50 rounded-2xl border border-gray-100 text-sm text-gray-700">
-                    <p class="font-bold text-gray-900 mb-1">Keterangan / Request:</p>
+                    <p class="font-bold text-gray-900 mb-1">Keterangan / Catatan:</p>
                     {{ $pesanan->keterangan }}
                 </div>
                 @endif
@@ -143,11 +143,30 @@
                             <select name="status" class="w-full rounded-xl border-gray-200 focus:border-red-500 focus:ring-red-500 text-sm">
                                 <option value="menunggu" {{ $pesanan->status == 'menunggu' ? 'selected' : '' }}>Menunggu</option>
                                 <option value="menunggu persetujuan" {{ $pesanan->status == 'menunggu persetujuan' ? 'selected' : '' }}>Menunggu Persetujuan Nego</option>
-                                <option value="diproses" {{ $pesanan->status == 'diproses' ? 'selected' : '' }}>Diproses (Disetujui)</option>
+                                <option value="pending" {{ $pesanan->status == 'pending' ? 'selected' : '' }}>Pending</option>
+                                <option value="diproses" {{ $pesanan->status == 'diproses' ? 'selected' : '' }}>Diproses</option>
+                                <option value="ditugaskan ke teknisi" {{ $pesanan->status == 'ditugaskan ke teknisi' ? 'selected' : '' }}>Ditugaskan ke Teknisi</option>
+                                <option value="dikerjakan teknisi" {{ $pesanan->status == 'dikerjakan teknisi' ? 'selected' : '' }}>Dikerjakan Teknisi</option>
+                                <option value="selesai oleh teknisi" {{ $pesanan->status == 'selesai oleh teknisi' ? 'selected' : '' }}>Selesai oleh Teknisi</option>
+                                <option value="dikonfirmasi admin" {{ $pesanan->status == 'dikonfirmasi admin' ? 'selected' : '' }}>Dikonfirmasi Admin</option>
+                                <option value="selesai final" {{ $pesanan->status == 'selesai final' ? 'selected' : '' }}>Selesai Final</option>
                                 <option value="selesai" {{ $pesanan->status == 'selesai' ? 'selected' : '' }}>Selesai</option>
                                 <option value="ditolak" {{ $pesanan->status == 'ditolak' ? 'selected' : '' }}>Ditolak / Batal</option>
                             </select>
                         </div>
+
+                        @if(in_array($pesanan->status, ['selesai oleh teknisi', 'dikonfirmasi admin']))
+                        <div class="bg-emerald-50 p-4 rounded-2xl border border-emerald-200">
+                            <p class="text-xs font-bold text-emerald-800 mb-3">Pengerjaan selesai oleh teknisi. Klik tombol di bawah untuk menyelesaikan final.</p>
+                            <form action="{{ route('admin.pesanan.selesai-final', $pesanan) }}" method="POST" onsubmit="return confirm('Selesaikan final pesanan ini?')">
+                                @csrf
+                                <button type="submit" class="w-full py-3 bg-emerald-600 text-white font-black text-sm rounded-xl hover:bg-emerald-700 transition shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                    Selesaikan Final
+                                </button>
+                            </form>
+                        </div>
+                        @endif
 
                         @if($pesanan->status === 'menunggu persetujuan' && ($pesanan->harga_penawaran_pelanggan || $pesanan->harga_usulan))
                         <div class="bg-amber-50 p-4 rounded-2xl border border-amber-200">

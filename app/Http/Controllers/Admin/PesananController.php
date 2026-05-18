@@ -10,6 +10,7 @@ use App\Models\Peralatan;
 use App\Models\Pesanan;
 use App\Models\Produk;
 use App\Models\Service;
+use App\Models\Refill;
 use App\Models\StockMovement;
 use App\Models\UnitApar;
 use App\Models\User;
@@ -911,8 +912,70 @@ class PesananController extends Controller
 
         try {
             DB::transaction(function () use ($pesanan) {
+                $inventoryService = app(InventoryService::class);
+
                 if ($pesanan->tipe === 'service') {
-                    $this->confirmServicePackageInventory($pesanan, app(InventoryService::class));
+                    // Untuk service paket (bukan refill), konfirmasi inventory
+                    if ($pesanan->isPackageServiceOrder()) {
+                        $this->confirmServicePackageInventory($pesanan, $inventoryService);
+                    }
+
+                    // Untuk refill, buat record Refill di tabel refills
+                    if ($pesanan->service_jenis_layanan === 'refill' && $pesanan->service_jenis_refill_id) {
+                        $unitAparId = null;
+
+                        // Cek apakah ada unit APAR yang dipilih untuk service ini
+                        $firstUnit = $pesanan->unitApars()->first();
+                        if ($firstUnit) {
+                            $unitAparId = $firstUnit->id;
+                        } else {
+                            // Fallback: cari unit APAR dari riwayat pembelian pelanggan
+                            // berdasarkan ukuran dan jenis APAR
+                            $unitApar = UnitApar::where('pelanggan_id', $pesanan->pelanggan_id)
+                                ->where(function ($q) use ($pesanan) {
+                                    $q->where('ukuran', $pesanan->service_ukuran_apar)
+                                        ->orWhereRaw("CONCAT(ukuran, '') LIKE ?", ['%' . ($pesanan->service_ukuran_apar ?? '') . '%']);
+                                })
+                                ->orderByDesc('tgl_beli')
+                                ->first();
+
+                            if (!$unitApar) {
+                                // Buat unit APAR baru jika tidak ada yang cocok
+                                $produkKecil = Produk::where('kapasitas', $pesanan->service_ukuran_apar)->first();
+                                if ($produkKecil) {
+                                    $unitApar = UnitApar::create([
+                                        'pelanggan_id' => $pesanan->pelanggan_id,
+                                        'pesanan_id' => $pesanan->id,
+                                        'produk_id' => $produkKecil->id,
+                                        'no_seri' => 'AUTO-' . $pesanan->id . '-' . time(),
+                                        'tgl_beli' => $pesanan->tanggal,
+                                        'tgl_produksi' => $pesanan->tanggal,
+                                        'ukuran' => $pesanan->service_ukuran_apar,
+                                        'bahan' => $pesanan->service_jenis_apar ?? 'APAR',
+                                        'tgl_expired' => now()->addYear(),
+                                    ]);
+                                }
+                            }
+
+                            $unitAparId = $unitApar?->id;
+                        }
+
+                        if ($unitAparId) {
+                            Refill::create([
+                                'pesanan_id' => $pesanan->id,
+                                'unit_apar_id' => $unitAparId,
+                                'jenis_refill_id' => $pesanan->service_jenis_refill_id,
+                                'tgl_refill' => $pesanan->tanggal,
+                                'biaya' => (float) ($pesanan->service_estimasi_biaya ?? $pesanan->total_harga ?? $pesanan->total ?? 0),
+                            ]);
+
+                            // Update tanggal expired unit APAR
+                            $unitApar = UnitApar::find($unitAparId);
+                            if ($unitApar && ($unitApar->tgl_expired === null || $unitApar->tgl_expired->isPast())) {
+                                $unitApar->update(['tgl_expired' => now()->addYear()]);
+                            }
+                        }
+                    }
                 }
 
                 $pesanan->update([

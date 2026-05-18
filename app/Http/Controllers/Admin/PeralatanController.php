@@ -15,19 +15,22 @@ class PeralatanController extends Controller
         return view('admin.peralatan.index', compact('peralatans'));
     }
 
+    public function create()
+    {
+        return view('admin.peralatan.create');
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
             'harga_standar' => 'required|numeric|min:0',
-            'stok_minimum' => 'nullable|integer|min:0',
         ]);
 
         Peralatan::create([
             'nama' => $validated['nama'],
             'stok' => 0,
             'harga_standar' => $validated['harga_standar'],
-            'stok_minimum' => $validated['stok_minimum'] ?? 3,
         ]);
 
         return redirect()
@@ -35,18 +38,21 @@ class PeralatanController extends Controller
             ->with('success', 'Master peralatan berhasil ditambahkan. Tambah stok dilakukan dari menu Pengeluaran.');
     }
 
+    public function edit(Peralatan $peralatan)
+    {
+        return view('admin.peralatan.edit', compact('peralatan'));
+    }
+
     public function update(Request $request, Peralatan $peralatan)
     {
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
             'harga_standar' => 'required|numeric|min:0',
-            'stok_minimum' => 'nullable|integer|min:0',
         ]);
 
         $peralatan->update([
             'nama' => $validated['nama'],
             'harga_standar' => $validated['harga_standar'],
-            'stok_minimum' => $validated['stok_minimum'] ?? $peralatan->stok_minimum,
         ]);
 
         return redirect()

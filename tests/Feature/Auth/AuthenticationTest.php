@@ -29,7 +29,7 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->assertAuthenticatedAs($user);
-        $response->assertRedirect(route('profile.edit', absolute: false));
+        $response->assertRedirect(route('home', absolute: false));
     }
 
     public function test_admin_users_are_redirected_to_admin_dashboard(): void

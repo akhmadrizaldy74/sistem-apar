@@ -281,68 +281,86 @@
                     </x-nav-link-sidebar>
 
                     @if($isTeknisi)
-                        <x-nav-link-sidebar :href="route('teknisi.tugas-produk')" :active="request()->routeIs('teknisi.tugas-produk')" class="sidebar-nav-link">
-                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
-                            <span class="sidebar-label truncate">TUGAS PRODUK</span>
-                        </x-nav-link-sidebar>
                         <x-nav-link-sidebar :href="route('teknisi.tugas-service-refill')" :active="request()->routeIs('teknisi.tugas-service-refill')" class="sidebar-nav-link">
                             <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a4 4 0 00-5.656-5.656l-8.486 8.485A2 2 0 108.114 21l8.485-8.486a4 4 0 00-5.656-5.656L4.458 13.343" /></svg>
-                            <span class="sidebar-label truncate">TUGAS LAYANAN</span>
-                        </x-nav-link-sidebar>
-                        <x-nav-link-sidebar :href="route('teknisi.refill-stock.index')" :active="request()->routeIs('teknisi.refill-stock.*')" class="sidebar-nav-link">
-                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                            <span class="sidebar-label truncate">REFILL STOCK</span>
-                        </x-nav-link-sidebar>
-                        <x-nav-link-sidebar :href="route('teknisi.service-log')" :active="request()->routeIs('teknisi.service-log')" class="sidebar-nav-link">
-                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a4 4 0 00-5.656-5.656l-8.486 8.485A2 2 0 108.114 21l8.485-8.486a4 4 0 00-5.656-5.656L4.458 13.343"/></svg>
-                            <span class="sidebar-label truncate">SERVICE LOG</span>
-                        </x-nav-link-sidebar>
-                        <x-nav-link-sidebar :href="route('teknisi.riwayat-tugas')" :active="request()->routeIs('teknisi.riwayat-tugas')" class="sidebar-nav-link">
-                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-                            <span class="sidebar-label truncate">RIWAYAT TUGAS</span>
+                            <span class="sidebar-label truncate">TUGAS SERVICE / REFIL</span>
                         </x-nav-link-sidebar>
                     @else
                         {{-- Group: MANAJEMEN --}}
                         <div class="sidebar-group-wrap px-4 pt-4 pb-1">
                             <p class="sidebar-group-label text-[9px] font-black text-slate-600 uppercase tracking-widest">Manajemen</p>
                         </div>
-                        <x-nav-link-sidebar :href="route('admin.produk.index')" :active="request()->routeIs('admin.produk.*')" class="sidebar-nav-link">
-                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
-                            <span class="sidebar-label truncate">PRODUK</span>
-                        </x-nav-link-sidebar>
                         <x-nav-link-sidebar :href="route('admin.pelanggan.index')" :active="request()->routeIs('admin.pelanggan.*')" class="sidebar-nav-link">
                             <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                             <span class="sidebar-label truncate">PELANGGAN</span>
                         </x-nav-link-sidebar>
-                        <x-nav-link-sidebar :href="route('admin.pesanan.index')" :active="request()->routeIs('admin.pesanan.*')" class="sidebar-nav-link">
-                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l2 2 4-4m5 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                            <span class="sidebar-label truncate">PESANAN</span>
+                        <x-nav-link-sidebar :href="route('admin.produk.index')" :active="request()->routeIs('admin.produk.*')" class="sidebar-nav-link">
+                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                            <span class="sidebar-label truncate">PRODUK</span>
                         </x-nav-link-sidebar>
-                        <x-nav-link-sidebar :href="route('admin.unit-apar.index')" :active="request()->routeIs('admin.unit-apar.*')" class="sidebar-nav-link">
-                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                            <span class="sidebar-label truncate">UNIT APAR</span>
-                        </x-nav-link-sidebar>
-
-                        {{-- Group: STOK & LAYANAN --}}
-                        <div class="sidebar-group-wrap px-4 pt-4 pb-1">
-                            <p class="sidebar-group-label text-[9px] font-black text-slate-600 uppercase tracking-widest">Stok &amp; Layanan</p>
+                        
+                        <div x-data="{ open: {{ request()->routeIs('admin.jenis-apar.*', 'admin.jenis-refill.*', 'admin.peralatan.*') ? 'true' : 'false' }} }" class="sidebar-group-wrap relative">
+                            <button @click="open = !open" class="sidebar-nav-link flex items-center justify-between w-full px-4 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800 transition">
+                                <div class="flex items-center gap-3">
+                                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                                    <span class="sidebar-label truncate font-semibold text-xs tracking-wider">MASTER DATA</span>
+                                </div>
+                                <svg class="w-4 h-4 sidebar-label transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                            </button>
+                            <div x-show="open" class="flex flex-col pl-12 pr-4 py-1 space-y-1 bg-slate-900/50">
+                                <a href="{{ route('admin.jenis-apar.index') }}" class="text-xs font-semibold py-2 px-3 rounded-lg transition {{ request()->routeIs('admin.jenis-apar.*') ? 'text-red-400 bg-slate-800' : 'text-slate-400 hover:text-white hover:bg-slate-800' }}">Jenis APAR</a>
+                                <a href="{{ route('admin.jenis-refill.index') }}" class="text-xs font-semibold py-2 px-3 rounded-lg transition {{ request()->routeIs('admin.jenis-refill.*') ? 'text-red-400 bg-slate-800' : 'text-slate-400 hover:text-white hover:bg-slate-800' }}">Jenis Refil</a>
+                                <a href="{{ route('admin.peralatan.index') }}" class="text-xs font-semibold py-2 px-3 rounded-lg transition {{ request()->routeIs('admin.peralatan.*') ? 'text-red-400 bg-slate-800' : 'text-slate-400 hover:text-white hover:bg-slate-800' }}">Data Peralatan</a>
+                            </div>
                         </div>
-                        <x-nav-link-sidebar :href="route('admin.service.index')" :active="request()->routeIs('admin.service.*') || request()->routeIs('admin.refill.*')" class="sidebar-nav-link">
-                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a4 4 0 00-5.656-5.656l-8.486 8.485A2 2 0 108.114 21l8.485-8.486a4 4 0 00-5.656-5.656L4.458 13.343" /></svg>
-                            <span class="sidebar-label truncate">LAYANAN</span>
-                        </x-nav-link-sidebar>
+
+                        {{-- Group: STOK / PERSEDIAAN --}}
+                        <div class="sidebar-group-wrap px-4 pt-4 pb-1">
+                            <p class="sidebar-group-label text-[9px] font-black text-slate-600 uppercase tracking-widest">Stok / Persediaan</p>
+                        </div>
                         <x-nav-link-sidebar :href="route('admin.stok.index')" :active="request()->routeIs('admin.stok.*')" class="sidebar-nav-link">
                             <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M3 12h18M3 17h18" /></svg>
                             <span class="sidebar-label truncate">STOK</span>
+                        </x-nav-link-sidebar>
+
+                        {{-- Group: TRANSAKSI --}}
+                        <div class="sidebar-group-wrap px-4 pt-4 pb-1">
+                            <p class="sidebar-group-label text-[9px] font-black text-slate-600 uppercase tracking-widest">Transaksi</p>
+                        </div>
+                        <x-nav-link-sidebar :href="route('admin.pesanan.index')" :active="request()->routeIs('admin.pesanan.*')" class="sidebar-nav-link">
+                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l2 2 4-4m5 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <span class="sidebar-label truncate">PESANAN</span>
                         </x-nav-link-sidebar>
                         <x-nav-link-sidebar :href="route('admin.pengeluaran.index')" :active="request()->routeIs('admin.pengeluaran.*')" class="sidebar-nav-link">
                             <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                             <span class="sidebar-label truncate">PENGELUARAN</span>
                         </x-nav-link-sidebar>
 
-                        {{-- Group: LAINNYA --}}
+                        {{-- Group: UNIT & MASA BERLAKU --}}
                         <div class="sidebar-group-wrap px-4 pt-4 pb-1">
-                            <p class="sidebar-group-label text-[9px] font-black text-slate-600 uppercase tracking-widest">Lainnya</p>
+                            <p class="sidebar-group-label text-[9px] font-black text-slate-600 uppercase tracking-widest">Unit &amp; Masa Berlaku</p>
+                        </div>
+                        <x-nav-link-sidebar :href="route('admin.unit-apar.index')" :active="request()->routeIs('admin.unit-apar.*')" class="sidebar-nav-link">
+                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                            <span class="sidebar-label truncate">UNIT APAR</span>
+                        </x-nav-link-sidebar>
+
+                        {{-- Group: LAYANAN APAR --}}
+                        <div class="sidebar-group-wrap px-4 pt-4 pb-1">
+                            <p class="sidebar-group-label text-[9px] font-black text-slate-600 uppercase tracking-widest">Layanan APAR</p>
+                        </div>
+                        <x-nav-link-sidebar :href="route('admin.service.index')" :active="request()->routeIs('admin.service.*')" class="sidebar-nav-link">
+                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a4 4 0 00-5.656-5.656l-8.486 8.485A2 2 0 108.114 21l8.485-8.486a4 4 0 00-5.656-5.656L4.458 13.343" /></svg>
+                            <span class="sidebar-label truncate">SERVICE APAR</span>
+                        </x-nav-link-sidebar>
+                        <x-nav-link-sidebar :href="route('admin.refill.index')" :active="request()->routeIs('admin.refill.*')" class="sidebar-nav-link">
+                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                            <span class="sidebar-label truncate">REFIL APAR</span>
+                        </x-nav-link-sidebar>
+
+                        {{-- Group: FEEDBACK --}}
+                        <div class="sidebar-group-wrap px-4 pt-4 pb-1">
+                            <p class="sidebar-group-label text-[9px] font-black text-slate-600 uppercase tracking-widest">Feedback</p>
                         </div>
                         <x-nav-link-sidebar :href="route('admin.complain.index')" :active="request()->routeIs('admin.complain.*')" class="sidebar-nav-link">
                             <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
@@ -352,6 +370,11 @@
                             <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
                             <span class="sidebar-label truncate">TESTIMONI</span>
                         </x-nav-link-sidebar>
+
+                        {{-- Group: LAPORAN --}}
+                        <div class="sidebar-group-wrap px-4 pt-4 pb-1">
+                            <p class="sidebar-group-label text-[9px] font-black text-slate-600 uppercase tracking-widest">Laporan</p>
+                        </div>
                         <x-nav-link-sidebar :href="route('admin.laporan.index')" :active="request()->routeIs('admin.laporan.*')" class="sidebar-nav-link">
                             <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-6m4 6V7m4 10v-3M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
                             <span class="sidebar-label truncate">LAPORAN</span>

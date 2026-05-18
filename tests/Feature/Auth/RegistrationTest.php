@@ -17,7 +17,7 @@ class RegistrationTest extends TestCase
         $response->assertOk();
     }
 
-    public function test_new_users_can_register_as_customer_and_are_redirected_to_profile(): void
+    public function test_new_users_can_register_as_customer_and_are_redirected_to_home(): void
     {
         $response = $this->post('/register', [
             'name' => 'Test Pelanggan',
@@ -27,7 +27,7 @@ class RegistrationTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect(route('profile.edit', absolute: false));
+        $response->assertRedirect(route('home', absolute: false));
 
         $user = User::where('no_telpon', '081234567890')->first();
 

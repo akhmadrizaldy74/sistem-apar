@@ -136,10 +136,18 @@
                     <div class="flex justify-between items-start pb-3 border-b border-slate-100">
                         <div>
                             <p class="text-sm font-semibold text-slate-700">
-                                {{ $pesanan->servicePaket?->nama ?? 'Paket Service' }}
+                                @if($pesanan->service_jenis_layanan === 'refill')
+                                    Refill APAR
+                                @else
+                                    {{ $pesanan->servicePaket?->nama ?? 'Paket Service' }}
+                                @endif
                             </p>
                             <p class="text-xs text-slate-400 mt-1">
-                                {{ $pesanan->servicePaket ? ucfirst($pesanan->servicePaket->jenis_layanan) : '-' }}
+                                @if($pesanan->service_jenis_layanan === 'refill')
+                                    Refill {{ $pesanan->serviceJenisRefill?->nama ?? '' }}
+                                @else
+                                    {{ $pesanan->servicePaket ? ucfirst($pesanan->servicePaket->jenis_layanan) : '-' }}
+                                @endif
                             </p>
                         </div>
                         <span class="text-sm font-semibold text-slate-700">

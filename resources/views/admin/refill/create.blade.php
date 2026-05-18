@@ -5,8 +5,8 @@
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
             </a>
             <div>
-                <h2 class="text-3xl font-black text-gray-900 tracking-tight">Input Refill Layanan</h2>
-                <p class="text-sm text-gray-500 font-medium">Catat layanan isi ulang APAR pelanggan</p>
+                <h2 class="text-3xl font-black text-gray-900 tracking-tight">Tambah Data Refil APAR</h2>
+                <p class="text-sm text-gray-500 font-medium">Isi data refil APAR, lalu klik Simpan.</p>
             </div>
         </div>
     </x-slot>
@@ -30,9 +30,9 @@
                     </div>
 
                     <div>
-                        <label for="jenis_refill_id" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Jenis Refill</label>
+                        <label for="jenis_refill_id" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Jenis Refil</label>
                         <select name="jenis_refill_id" id="jenis_refill_id" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900">
-                            <option value="">Pilih jenis refill</option>
+                            <option value="">Pilih jenis refil</option>
                             @foreach($jenisRefills as $jenisRefill)
                                 <option value="{{ $jenisRefill->id }}" @selected(old('jenis_refill_id') == $jenisRefill->id)>
                                     {{ $jenisRefill->nama }}
@@ -43,7 +43,7 @@
                     </div>
 
                     <div>
-                        <label for="tgl_refill" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Tanggal Refill</label>
+                        <label for="tgl_refill" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Tanggal Refil</label>
                         <input type="date" name="tgl_refill" id="tgl_refill" value="{{ old('tgl_refill', now()->format('Y-m-d')) }}" required
                             class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900">
                         <x-input-error :messages="$errors->get('tgl_refill')" class="mt-2" />
@@ -61,7 +61,7 @@
                 <div class="mt-12 flex justify-end gap-4">
                     <a href="{{ route('admin.refill.index') }}" class="px-8 py-4 text-xs font-black text-gray-400 uppercase tracking-widest hover:text-gray-900 transition">Batal</a>
                     <button type="submit" class="px-10 py-4 bg-red-700 text-white font-black rounded-2xl hover:bg-red-800 transition shadow-xl shadow-red-700/30 uppercase tracking-widest text-xs">
-                        Simpan Data
+                        Simpan
                     </button>
                 </div>
             </form>

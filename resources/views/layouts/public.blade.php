@@ -129,6 +129,14 @@
                             <i class="fa-solid fa-user"></i> Profil Pelanggan
                         </a>
                     @endauth
+                @auth
+                        <form method="POST" action="{{ route('logout') }}" class="inline">
+                            @csrf
+                            <button type="submit" class="px-4 py-2 text-sm font-bold text-red-600 hover:text-red-800 hover:bg-red-50 rounded-xl transition">
+                                <i class="fa-solid fa-right-from-bracket me-1"></i> Keluar
+                            </button>
+                        </form>
+                    @endauth
                 </div>
 
                 {{-- Mobile Menu Button --}}
@@ -176,9 +184,12 @@
                 </a>
 
                 @auth
-                    <a href="{{ route('profile.edit') }}" class="w-full text-center px-4 py-2.5 bg-gray-100 text-gray-700 text-sm font-black rounded-xl hover:bg-gray-200 transition">
-                        <i class="fa-solid fa-user me-1.5"></i> Profil Pelanggan
-                    </a>
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button type="submit" class="w-full text-center px-4 py-2.5 text-sm font-bold text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition">
+                            <i class="fa-solid fa-right-from-bracket me-1.5"></i> Keluar
+                        </button>
+                    </form>
                 @endauth
             </div>
         </div>

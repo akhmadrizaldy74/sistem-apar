@@ -259,7 +259,7 @@
                 </div>
                 <a href="{{ route('admin.refill.index') }}"
                    class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition">
-                    + Input Refill
+                    + Input Refil
                 </a>
             </div>
 
@@ -269,7 +269,7 @@
                     <thead class="bg-gray-50/50">
                         <tr>
                             <th class="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Tanggal</th>
-                            <th class="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Jenis Refill</th>
+                            <th class="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Jenis Refil</th>
                             <th class="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Expired Baru</th>
                             <th class="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Biaya</th>
                         </tr>

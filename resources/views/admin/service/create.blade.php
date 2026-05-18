@@ -5,8 +5,8 @@
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
             </a>
             <div>
-                <h2 class="text-3xl font-black text-gray-900 tracking-tight">Input Layanan Service</h2>
-                <p class="text-sm text-gray-500 font-medium">Catat layanan perawatan dan pemeliharaan unit APAR</p>
+                <h2 class="text-3xl font-black text-gray-900 tracking-tight">Tambah Data Service APAR</h2>
+                <p class="text-sm text-gray-500 font-medium">Isi data service APAR, lalu klik Simpan.</p>
             </div>
         </div>
     </x-slot>
@@ -63,14 +63,14 @@
                             <label for="jenis_service" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Jenis Service</label>
                             <select name="jenis_service" id="jenis_service" x-model="paket" @change="applyPaket" required
                                 class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 transition">
-                                <option value="">Pilih paket standar</option>
+                                <option value="">Pilih jenis service</option>
                                 <option value="Inspeksi Rutin">Inspeksi Rutin - Rp 50.000</option>
                                 <option value="Ganti Segel">Ganti Segel - Rp 75.000</option>
                                 <option value="Ganti Selang">Ganti Selang - Rp 150.000</option>
                                 <option value="Ganti Baut / Nozzle">Ganti Baut / Nozzle - Rp 35.000</option>
                                 <option value="Cleaning Tabung">Cleaning Tabung - Rp 100.000</option>
                             </select>
-                            <p class="mt-2 text-[10px] text-gray-400 font-bold uppercase tracking-wider">Pilih paket untuk mengisi biaya dan keterangan otomatis.</p>
+                            <p class="mt-2 text-[10px] text-gray-400 font-bold uppercase tracking-wider">Pilih jenis service untuk mengisi biaya dan keterangan otomatis.</p>
                             <x-input-error :messages="$errors->get('jenis_service')" class="mt-2" />
                         </div>
 
@@ -100,7 +100,7 @@
                 <div class="mt-12 flex justify-end gap-4">
                     <a href="{{ route('admin.service.index') }}" class="px-8 py-4 text-xs font-black text-gray-400 uppercase tracking-widest hover:text-gray-900 transition">Batal</a>
                     <button type="submit" class="px-10 py-4 bg-red-700 text-white font-black rounded-2xl hover:bg-red-800 transition shadow-xl shadow-red-700/30 uppercase tracking-widest text-xs">
-                        Simpan Log
+                        Simpan
                     </button>
                 </div>
             </form>

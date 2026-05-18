@@ -28,7 +28,7 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'login' => ['required', 'string'],
+            'login' => ['required', 'string', 'max:20'],
             'password' => ['required', 'string'],
         ];
     }
@@ -42,18 +42,34 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        $login = $this->input('login');
-        $field = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'email' : 'no_telpon';
+        $login = preg_replace('/\D+/', '', (string) $this->input('login')) ?? '';
+        $candidates = array_values(array_unique(array_filter([
+            $login,
+            str_starts_with($login, '62') ? '0'.substr($login, 2) : null,
+            str_starts_with($login, '0') ? '62'.substr($login, 1) : null,
+        ])));
 
-        if (! Auth::attempt([$field => $login, 'password' => $this->input('password')], $this->boolean('remember'))) {
+        foreach ($candidates as $candidate) {
+            if (Auth::attempt(['no_telpon' => $candidate, 'password' => $this->input('password')], $this->boolean('remember'))) {
+                RateLimiter::clear($this->throttleKey());
+
+                return;
+            }
+        }
+
+        if ($login === '' || ! $candidates) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
-                'login' => trans('auth.failed'),
+                'login' => 'Nomor telepon atau kata sandi tidak valid.',
             ]);
         }
 
-        RateLimiter::clear($this->throttleKey());
+        RateLimiter::hit($this->throttleKey());
+
+        throw ValidationException::withMessages([
+            'login' => 'Nomor telepon atau kata sandi tidak valid.',
+        ]);
     }
 
     /**
@@ -72,7 +88,7 @@ class LoginRequest extends FormRequest
         $seconds = RateLimiter::availableIn($this->throttleKey());
 
         throw ValidationException::withMessages([
-            'email' => trans('auth.throttle', [
+            'login' => trans('auth.throttle', [
                 'seconds' => $seconds,
                 'minutes' => ceil($seconds / 60),
             ]),

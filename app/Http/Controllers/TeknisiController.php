@@ -14,7 +14,7 @@ class TeknisiController extends Controller
 {
     private function activeTaskStatuses(): array
     {
-        return ['ditugaskan ke teknisi', 'dikerjakan teknisi', 'diproses'];
+        return ['ditugaskan ke teknisi', 'dikerjakan teknisi'];
     }
 
     private function historyTaskStatuses(): array
@@ -52,33 +52,25 @@ class TeknisiController extends Controller
             ->get();
     }
 
+    private function broadcastTaskUpdate(Pesanan $pesanan): void
+    {
+        try {
+            $broadcast = broadcast(new TugasTeknisiDiperbarui($pesanan->fresh()))->toOthers();
+            unset($broadcast);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+    }
+
     public function dashboard()
     {
         $teknisiId = (int) Auth::id();
-
-        $aktifProduk = $this->taskBaseQuery($teknisiId)
-            ->where('tipe', 'produk')
-            ->whereIn('status', $this->activeTaskStatuses())
-            ->whereNull('teknisi_selesai_at')
-            ->count();
+        $tasks = $this->activeTasksByType($teknisiId, 'service');
 
         $aktifService = $this->taskBaseQuery($teknisiId)
             ->where('tipe', 'service')
             ->whereIn('status', $this->activeTaskStatuses())
             ->whereNull('teknisi_selesai_at')
-            ->count();
-
-        $riwayat = $this->taskBaseQuery($teknisiId)
-            ->where(function ($query) {
-                $query->whereIn('status', $this->historyTaskStatuses())
-                    ->orWhereNotNull('teknisi_selesai_at');
-            })
-            ->count();
-
-        $aktifRefillStock = \App\Models\TugasRefill::where(function($query) use ($teknisiId) {
-                $query->whereNull('teknisi_id')->orWhere('teknisi_id', $teknisiId);
-            })
-            ->whereIn('status', ['menunggu', 'diproses'])
             ->count();
 
         $selesaiBulanIni = $this->taskBaseQuery($teknisiId)
@@ -88,36 +80,13 @@ class TeknisiController extends Controller
             ->whereYear('teknisi_selesai_at', now()->year)
             ->count();
 
-        $avgWaktuSelesai = \App\Models\Pesanan::selectRaw('AVG(TIMESTAMPDIFF(HOUR, created_at, teknisi_selesai_at)) as avg_hours')
-            ->where('teknisi_id', $teknisiId)
-            ->whereNotNull('teknisi_selesai_at')
-            ->whereMonth('teknisi_selesai_at', now()->month)
-            ->whereYear('teknisi_selesai_at', now()->year)
-            ->value('avg_hours');
-
-        $recentCompleted = $this->taskBaseQuery($teknisiId)
-            ->with(['pelanggan'])
-            ->whereNotNull('teknisi_selesai_at')
-            ->whereMonth('teknisi_selesai_at', now()->month)
-            ->whereYear('teknisi_selesai_at', now()->year)
-            ->orderByDesc('teknisi_selesai_at')
-            ->take(5)
-            ->get();
-
-        $serviceLogCount = \App\Models\Service::where('status_konfirmasi', 'pending')->count();
-
         return view('teknisi.dashboard', [
+            'tasks' => $tasks,
             'summary' => [
-                'aktif_produk' => $aktifProduk,
                 'aktif_service' => $aktifService,
-                'aktif_refill_stock' => $aktifRefillStock,
-                'riwayat' => $riwayat,
-                'total' => $aktifProduk + $aktifService + $riwayat + $aktifRefillStock,
+                'total' => $aktifService,
                 'selesai_bulan_ini' => $selesaiBulanIni,
-                'avg_waktu' => $avgWaktuSelesai ? round($avgWaktuSelesai, 1) : 0,
-                'service_log_count' => $serviceLogCount,
             ],
-            'recentCompleted' => $recentCompleted,
         ]);
     }
 
@@ -147,7 +116,7 @@ class TeknisiController extends Controller
 
     public function tugasMulai(Pesanan $pesanan)
     {
-        if ($pesanan->teknisi_id !== Auth::id()) {
+        if ($pesanan->teknisi_id !== Auth::id() || $pesanan->tipe !== 'service') {
             return back()->with('error', 'Anda tidak memiliki akses ke tugas ini.');
         }
 
@@ -155,9 +124,9 @@ class TeknisiController extends Controller
             'status' => 'dikerjakan teknisi',
         ]);
 
-        broadcast(new \App\Events\TugasTeknisiDiperbarui($pesanan->fresh()))->toOthers();
+        $this->broadcastTaskUpdate($pesanan);
 
-        return back()->with('success', 'Status tugas diperbarui menjadi Dikerjakan Teknisi.');
+        return back()->with('success', 'Tugas berhasil diterima dan status diperbarui menjadi dikerjakan teknisi.');
     }
 
     public function ajukanTambahan(Request $request, Pesanan $pesanan)
@@ -167,7 +136,7 @@ class TeknisiController extends Controller
             'service_tambahan_biaya' => 'required|numeric|min:0',
         ]);
 
-        if ($pesanan->teknisi_id !== Auth::id()) {
+        if ($pesanan->teknisi_id !== Auth::id() || $pesanan->tipe !== 'service') {
             return back()->with('error', 'Anda tidak memiliki akses ke tugas ini.');
         }
 
@@ -177,7 +146,7 @@ class TeknisiController extends Controller
             'service_tambahan_biaya' => $request->service_tambahan_biaya,
         ]);
 
-        broadcast(new \App\Events\TugasTeknisiDiperbarui($pesanan->fresh()))->toOthers();
+        $this->broadcastTaskUpdate($pesanan);
 
         return back()->with('success', 'Pengajuan tambahan biaya berhasil diajukan. Menunggu persetujuan admin.');
     }
@@ -207,17 +176,16 @@ class TeknisiController extends Controller
         ];
 
         $pesanan->update([
-            'status' => 'dikonfirmasi admin',
+            'status' => 'selesai oleh teknisi',
             'teknisi_selesai_at' => now(),
             'teknisi_catatan' => $request->input('catatan'),
             'final_total' => $grandTotal,
             'invoice_snapshot' => json_encode($snapshot),
         ]);
 
-        // Broadcast ke admin bahwa tugas selesai dikerjakan teknisi
-        broadcast(new TugasTeknisiDiperbarui($pesanan->fresh()))->toOthers();
+        $this->broadcastTaskUpdate($pesanan);
 
-        return back()->with('success', 'Pekerjaan selesai dikerjakan. Total final telah dihitung.');
+        return back()->with('success', 'Laporan pekerjaan berhasil disimpan dan sudah diteruskan ke admin untuk konfirmasi.');
     }
 
     public function refillStock()
