@@ -920,13 +920,26 @@ class PesananController extends Controller
                         }
 
                         if ($unitAparId) {
-                            Refill::create([
-                                'pesanan_id' => $pesanan->id,
-                                'unit_apar_id' => $unitAparId,
-                                'jenis_refill_id' => $pesanan->service_jenis_refill_id,
-                                'tgl_refill' => $pesanan->tanggal,
-                                'biaya' => (float) ($pesanan->service_estimasi_biaya ?? $pesanan->total_harga ?? $pesanan->total ?? 0),
-                            ]);
+                            $service = Service::updateOrCreate(
+                                ['pesanan_id' => $pesanan->id],
+                                [
+                                    'unit_apar_id' => $unitAparId,
+                                    'jenis_service' => 'Refill APAR',
+                                    'tgl_service' => $pesanan->tanggal,
+                                    'biaya' => (float) ($pesanan->service_estimasi_biaya ?? $pesanan->total_harga ?? $pesanan->total ?? 0),
+                                    'status_konfirmasi' => 'confirmed',
+                                ]
+                            );
+
+                            Refill::updateOrCreate(
+                                ['service_id' => $service->id],
+                                [
+                                    'unit_apar_id' => $unitAparId,
+                                    'jenis_refill_id' => $pesanan->service_jenis_refill_id,
+                                    'tgl_refill' => $pesanan->tanggal,
+                                    'biaya' => (float) ($pesanan->service_estimasi_biaya ?? $pesanan->total_harga ?? $pesanan->total ?? 0),
+                                ]
+                            );
 
                             // Update tanggal expired unit APAR
                             $unitApar = UnitApar::find($unitAparId);

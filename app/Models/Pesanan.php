@@ -297,6 +297,21 @@ class Pesanan extends Model
             : 'Ambil Sendiri';
     }
 
+    public function isProductOrder(): bool
+    {
+        return $this->tipe === 'produk';
+    }
+
+    public function isRefillOrder(): bool
+    {
+        return $this->tipe === 'service' && $this->service_jenis_layanan === 'refill';
+    }
+
+    public function isServiceOrder(): bool
+    {
+        return $this->tipe === 'service' && ($this->service_jenis_layanan === 'service' || empty($this->service_jenis_layanan));
+    }
+
     public function isPackageServiceOrder(): bool
     {
         return $this->tipe === 'service'

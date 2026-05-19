@@ -10,7 +10,8 @@
         <script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
 
         <title>{{ config('app.name', 'Sistem APAR') }}</title>
-        <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>" />
+        <link rel="icon" type="image/svg+xml" href="{{ asset('favicon-apar.svg') }}" />
+        <link rel="shortcut icon" href="{{ asset('favicon-apar.svg') }}" />
 
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
@@ -23,7 +24,7 @@
         <script>
             document.addEventListener('alpine:init', () => {
                 Alpine.store('sidebar', {
-                    isExpanded: window.innerWidth >= 1280,
+                    isExpanded: window.innerWidth >= 1024,
                     isMobileOpen: false,
                     isHovered: false,
 
@@ -38,7 +39,7 @@
                         this.isMobileOpen = val;
                     },
                     setHovered(val) {
-                        if (window.innerWidth >= 1280 && !this.isExpanded) {
+                        if (window.innerWidth >= 1024 && !this.isExpanded) {
                             this.isHovered = val;
                         }
                     }
@@ -216,8 +217,9 @@
     </head>
     <body class="antialiased text-slate-900 bg-slate-50 font-sans h-full admin-surface tailadmin-admin overflow-x-hidden"
           x-data
+          x-effect="document.body.classList.toggle('overflow-hidden', $store.sidebar.isMobileOpen && window.innerWidth < 1024); document.documentElement.classList.toggle('overflow-hidden', $store.sidebar.isMobileOpen && window.innerWidth < 1024)"
           x-init="const checkMobile = () => {
-              if (window.innerWidth < 1280) {
+              if (window.innerWidth < 1024) {
                   $store.sidebar.setMobileOpen(false);
                   $store.sidebar.isExpanded = false;
               } else {
@@ -234,21 +236,24 @@
             $currentUserId = auth()->id();
         @endphp
 
-        <div class="min-h-screen overflow-x-clip xl:flex">
+        <div class="min-h-screen overflow-x-clip lg:flex">
 
             <!-- Mobile Overlay -->
-            <div x-show="$store.sidebar.isMobileOpen" @click="$store.sidebar.setMobileOpen(false)"
-                 class="fixed inset-0 bg-slate-900/50 z-40 xl:hidden" x-cloak></div>
+            <div x-show="$store.sidebar.isMobileOpen"
+                 @click="$store.sidebar.setMobileOpen(false)"
+                 x-transition.opacity
+                 class="fixed inset-0 z-[70] bg-slate-950/70 backdrop-blur-[2px] lg:hidden"
+                 x-cloak></div>
 
             <!-- Sidebar -->
             <aside id="sidebar"
-                class="fixed flex flex-col mt-0 top-0 left-0 h-screen overflow-hidden transition-all duration-300 ease-in-out z-50 px-4"
+                class="fixed inset-y-0 left-0 z-[80] mt-0 flex h-screen w-full max-w-full flex-col overflow-hidden px-0 transition-all duration-300 ease-in-out sm:w-[340px] sm:max-w-[88vw] lg:px-4"
                 :class="{
-                    'w-[280px]': $store.sidebar.isExpanded || $store.sidebar.isMobileOpen || $store.sidebar.isHovered,
-                    'w-[90px]': !$store.sidebar.isExpanded && !$store.sidebar.isHovered,
+                    'lg:w-[280px] lg:max-w-[280px]': $store.sidebar.isExpanded || $store.sidebar.isMobileOpen || $store.sidebar.isHovered,
+                    'lg:w-[90px] lg:max-w-[90px]': !$store.sidebar.isExpanded && !$store.sidebar.isHovered,
                     'sidebar-collapsed': !$store.sidebar.isExpanded && !$store.sidebar.isHovered && !$store.sidebar.isMobileOpen,
                     'translate-x-0': $store.sidebar.isMobileOpen,
-                    '-translate-x-full xl:translate-x-0': !$store.sidebar.isMobileOpen
+                    '-translate-x-full lg:translate-x-0': !$store.sidebar.isMobileOpen
                 }"
                 @mouseenter="if (!$store.sidebar.isExpanded) $store.sidebar.setHovered(true)"
                 @mouseleave="$store.sidebar.setHovered(false)">
@@ -260,10 +265,10 @@
                 <!-- Bottom fade -->
                 <div class="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-slate-900 to-transparent"></div>
 
-                <div class="relative z-10 flex flex-col h-full">
+                <div class="relative z-10 flex h-full flex-col">
                 <!-- Brand Section -->
-                <div class="pt-8 pb-7 flex items-center gap-3"
-                    :class="(!$store.sidebar.isExpanded && !$store.sidebar.isHovered && !$store.sidebar.isMobileOpen) ? 'justify-center xl:justify-center' : 'xl:justify-start justify-between'">
+                <div class="flex items-center gap-3 px-4 pb-5 pt-6 sm:px-5 lg:px-0 lg:pb-7 lg:pt-8"
+                    :class="(!$store.sidebar.isExpanded && !$store.sidebar.isHovered && !$store.sidebar.isMobileOpen) ? 'justify-center lg:justify-center' : 'lg:justify-start justify-between'">
 
                     <a href="{{ $dashboardRoute }}" class="sidebar-brand-link flex items-center gap-3 min-w-0 overflow-hidden">
                         <img src="{{ asset('images/logo-anugrah.png') }}" alt="Logo" class="w-10 h-10 rounded-full shrink-0 object-cover border-2 border-red-500/50 shadow-lg shadow-red-900/30">
@@ -271,10 +276,18 @@
                             PD. ANUGRAH UTAMA
                         </span>
                     </a>
+
+                    <button type="button"
+                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-900/40 text-slate-200 transition hover:bg-slate-800 lg:hidden"
+                            @click="$store.sidebar.setMobileOpen(false)">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
                 </div>
 
                 <!-- Navigation Items -->
-                <nav class="flex-grow space-y-1 overflow-y-auto no-scrollbar py-4">
+                <nav class="flex-grow space-y-1 overflow-y-auto no-scrollbar px-2 py-4 sm:px-3 lg:px-0">
                     <x-nav-link-sidebar :href="$dashboardRoute" :active="request()->routeIs('dashboard') || request()->routeIs('teknisi.dashboard')" class="sidebar-nav-link">
                         <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
                         <span class="sidebar-label truncate">DASHBOARD</span>
@@ -380,7 +393,7 @@
                 </nav>
 
                 <!-- Sidebar Footer -->
-                <div class="sidebar-footer-wrap pb-6 border-t border-slate-700/50 pt-4 px-2">
+                <div class="sidebar-footer-wrap border-t border-slate-700/50 px-4 pb-6 pt-4 sm:px-5 lg:px-2">
                     <div class="text-center">
                         <p class="sidebar-footer-text text-[10px] font-bold text-slate-500 uppercase tracking-widest">&copy; {{ date('Y') }} PD. Anugrah Utama</p>
                     </div>
@@ -391,9 +404,8 @@
             <!-- Main Content Area -->
             <div class="flex-1 min-w-0 max-w-full transition-all duration-300 ease-in-out"
                 :class="{
-                    'xl:ml-[280px]': $store.sidebar.isExpanded || $store.sidebar.isHovered,
-                    'xl:ml-[90px]': !$store.sidebar.isExpanded && !$store.sidebar.isHovered,
-                    'ml-0': $store.sidebar.isMobileOpen
+                    'lg:ml-[280px]': $store.sidebar.isExpanded || $store.sidebar.isHovered,
+                    'lg:ml-[90px]': !$store.sidebar.isExpanded && !$store.sidebar.isHovered
                 }">
 
                 <!-- Header / Topbar -->
@@ -401,18 +413,18 @@
                     <!-- Toggle buttons & Search -->
                     <div class="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
                         <!-- Desktop Toggle -->
-                        <button class="hidden xl:flex items-center justify-center w-10 h-10 text-slate-500 hover:bg-slate-100 border border-slate-200 rounded-xl transition"
+                        <button class="hidden lg:flex items-center justify-center w-10 h-10 text-slate-500 hover:bg-slate-100 border border-slate-200 rounded-xl transition"
                                 @click="$store.sidebar.toggleExpanded()">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
                         </button>
                         <!-- Mobile Toggle -->
-                        <button class="xl:hidden flex items-center justify-center w-10 h-10 text-slate-500 hover:bg-slate-100 border border-slate-200 rounded-xl transition"
+                        <button class="lg:hidden flex items-center justify-center w-10 h-10 text-slate-500 hover:bg-slate-100 border border-slate-200 rounded-xl transition"
                                 @click="$store.sidebar.toggleMobileOpen()">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
                         </button>
 
                         <!-- Mobile Logo -->
-                        <div class="xl:hidden flex items-center gap-2">
+                        <div class="lg:hidden flex items-center gap-2">
                             <img src="{{ asset('images/logo-anugrah.png') }}" alt="Logo" class="w-8 h-8 rounded-full shrink-0 object-cover">
                         </div>
 

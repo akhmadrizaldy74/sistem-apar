@@ -64,8 +64,8 @@
     .btn-primary-action.submit.deal:hover{background:#047857}
     .btn-primary-action.submit.nego{background:#d97706;color:#fff;box-shadow:0 4px 14px rgba(217,119,6,0.4)}
     .btn-primary-action.submit.nego:hover{background:#b45309}
-    .btn-primary-action.submit.service{background:#2563eb;color:#fff;box-shadow:0 4px 14px rgba(37,99,235,0.35)}
-    .btn-primary-action.submit.service:hover{background:#1d4ed8}
+    .btn-primary-action.submit.service{background:#dc2626;color:#fff;box-shadow:0 4px 14px rgba(220,38,38,0.35)}
+    .btn-primary-action.submit.service:hover{background:#b91c1c}
     .btn-add-item{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1rem;background:#fef2f2;border:1.5px solid #fecaca;border-radius:.75rem;color:#dc2626;font-size:.8rem;font-weight:800;cursor:pointer;transition:all .2s ease}
     .btn-add-item:hover{background:#dc2626;color:#fff;border-color:#dc2626}
     .invoice-header{display:grid;grid-template-columns:3fr 2fr 2fr 2fr 1fr 2fr;gap:.5rem;padding:.5rem .75rem;background:#f8fafc;border-radius:.75rem;margin-bottom:.5rem}
@@ -702,7 +702,7 @@
                     <div id="service-registered-unit-list" class="mt-4 space-y-3"></div>
                     <p id="service-registered-count-note" class="hidden mt-3 text-xs font-black uppercase tracking-[0.18em] text-blue-600"></p>
                     <div class="mt-3 flex flex-col gap-2 sm:flex-row">
-                        <button type="button" id="btn-select-all-units" class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-blue-700 hover:bg-blue-100 transition">
+                        <button type="button" id="btn-select-all-units" class="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-red-700 hover:bg-red-100 transition">
                             Centang Semua
                         </button>
                         <button type="button" id="btn-clear-all-units" class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-600 hover:bg-slate-100 transition">

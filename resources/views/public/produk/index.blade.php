@@ -7,10 +7,10 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-16">
             <div class="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6" data-reveal>
                 <div class="max-w-3xl">
-                    <p class="text-[10px] font-black text-red-600 uppercase tracking-[0.3em] mb-4">Katalog</p>
+                    <p class="text-[10px] font-black text-red-600 uppercase tracking-[0.3em] mb-4">Produk</p>
                     <h1 class="text-4xl sm:text-5xl font-black tracking-tight">Produk APAR</h1>
                     <p class="text-gray-600 font-medium leading-relaxed mt-5">
-                        Semua produk APAR yang tersedia dapat dilihat dan dipilih oleh pelanggan dari katalog ini.
+                        Semua produk APAR yang tersedia dapat dilihat dan dipilih pelanggan dari halaman produk ini.
                     </p>
                 </div>
                 <a href="{{ route('cek-apar') }}" class="px-6 py-3 bg-gray-50 border border-gray-100 text-gray-900 font-bold rounded-2xl hover:shadow-md transition">
@@ -99,12 +99,30 @@
                                 {{ $isHabis ? 'Stok habis' : 'Stok siap jual: ' . $stokSiapJual . ' unit' }}
                             </p>
                             <p class="text-2xl font-black text-red-600 tracking-tight mt-4">Rp {{ number_format($produk->harga, 0, ',', '.') }}</p>
-                            <div class="mt-6 flex flex-col sm:flex-row gap-2">
-                                <a href="{{ route('produk.show', $produk) }}" class="flex-1 py-4 {{ $isHabis ? 'bg-gray-300 cursor-not-allowed pointer-events-none text-white' : 'bg-red-700 hover:bg-red-800 shadow-lg shadow-red-700/20 text-white' }} font-black text-[10px] uppercase tracking-widest rounded-xl transition text-center flex items-center justify-center gap-1">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12H9m0 0l3-3m-3 3l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                    {{ $isHabis ? 'Stok Habis' : 'Pilih Produk' }}
-                                </a>
-                                <a href="{{ route('produk.show', $produk) }}" class="px-5 py-4 bg-gray-50 border border-gray-100 text-gray-500 font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-gray-200 hover:text-gray-800 transition text-center" title="Detail">
+                            <div class="mt-6 flex gap-2">
+                                @if($isHabis)
+                                    <button type="button" disabled class="flex-1 py-3 px-4 bg-gray-100 border border-gray-200 cursor-not-allowed text-gray-400 font-bold text-xs uppercase tracking-wider rounded-xl text-center flex items-center justify-center gap-1">
+                                        Stok Habis
+                                    </button>
+                                @else
+                                    @auth
+                                        <form action="{{ route('keranjang.store') }}" method="POST" class="flex-1">
+                                            @csrf
+                                            <input type="hidden" name="produk_id" value="{{ $produk->id }}">
+                                            <input type="hidden" name="qty" value="1">
+                                            <button type="submit" class="w-full py-3 px-4 bg-red-700 hover:bg-red-800 hover:shadow-md text-white font-black text-xs uppercase tracking-wider rounded-xl transition text-center flex items-center justify-center gap-1">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                                                Keranjang
+                                            </button>
+                                        </form>
+                                    @else
+                                        <a href="{{ route('login') }}" class="flex-1 py-3 px-4 bg-red-700 hover:bg-red-800 hover:shadow-md text-white font-black text-xs uppercase tracking-wider rounded-xl transition text-center flex items-center justify-center gap-1">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                                            Keranjang
+                                        </a>
+                                    @endauth
+                                @endif
+                                <a href="{{ route('produk.show', $produk) }}" class="py-3 px-4 bg-white border border-slate-200 text-slate-700 font-black text-xs uppercase tracking-wider rounded-xl hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 transition text-center flex items-center justify-center" title="Detail">
                                     Detail
                                 </a>
                             </div>

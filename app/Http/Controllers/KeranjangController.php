@@ -74,6 +74,9 @@ class KeranjangController extends Controller
     public function update(Request $request, Keranjang $keranjang)
     {
         if ($keranjang->user_id !== Auth::id()) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'Aksi tidak diizinkan.'], 403);
+            }
             abort(403);
         }
 
@@ -85,10 +88,37 @@ class KeranjangController extends Controller
         $stokTersedia = (int) $produk->stok_tersedia;
 
         if ($request->qty > $stokTersedia) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Stok tidak mencukupi. Stok ' . $produk->nama . ' tersedia: ' . $stokTersedia . ' unit.'
+                ], 422);
+            }
             return back()->with('error', 'Qty melebihi stok siap jual (' . $stokTersedia . ').');
         }
 
         $keranjang->update(['qty' => $request->qty]);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            $allCart = Keranjang::where('user_id', Auth::id())->get();
+            $cartTotal = $allCart->sum(fn ($item) => $item->harga * $item->qty);
+            $cartCount = $allCart->sum('qty');
+            $negotiationEligible = $cartCount >= 10;
+            $remainingToNego = max(0, 10 - $cartCount);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Qty berhasil diubah.',
+                'item_qty' => $keranjang->qty,
+                'item_subtotal' => $keranjang->qty * $keranjang->harga,
+                'item_subtotal_formatted' => 'Rp ' . number_format($keranjang->qty * $keranjang->harga, 0, ',', '.'),
+                'cart_total' => $cartTotal,
+                'cart_total_formatted' => 'Rp ' . number_format($cartTotal, 0, ',', '.'),
+                'cart_count' => $cartCount,
+                'negotiation_eligible' => $negotiationEligible,
+                'remaining_to_nego' => $remainingToNego
+            ]);
+        }
 
         return back()->with('success', 'Qty berhasil diubah.');
     }

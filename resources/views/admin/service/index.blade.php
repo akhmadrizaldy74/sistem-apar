@@ -38,7 +38,24 @@
                 'status' => $service->status,
                 'is_paid' => $service->isPaymentConfirmed(),
             ];
-        })->values();
+        })->concat($serviceLogs->map(function ($s) {
+            $pesanan = $s->pesanan;
+            return [
+                'id' => 'log-' . $s->id,
+                'pelanggan' => $s->unitApar?->pelanggan?->nama ?? $pesanan?->pelanggan?->nama ?? '-',
+                'no_wa' => $s->unitApar?->pelanggan?->no_wa ?? $pesanan?->pelanggan?->no_wa ?? '-',
+                'alamat' => $s->unitApar?->pelanggan?->alamat ?? $pesanan?->pelanggan?->alamat ?? '-',
+                'jenis' => $s->servicePaket?->nama ?? $pesanan?->servicePaket?->nama ?? $s->jenis_service ?? 'Service APAR',
+                'estimasi' => number_format((float) ($s->biaya ?? $pesanan?->payableTotal() ?? 0), 0, ',', '.'),
+                'ukuran' => $s->unitApar?->produk?->kapasitas ?? $pesanan?->service_ukuran_apar ?? '-',
+                'unit' => 1,
+                'source' => $pesanan ? (in_array((string) $pesanan->sumber_pesanan, ['datang_langsung', 'offline'], true) ? 'Offline' : 'Online') : 'Offline',
+                'teknisi' => $pesanan?->teknisi?->name ?? 'Selesai',
+                'catatan' => $s->keterangan ?: $pesanan?->catatan_admin ?: $pesanan?->service_keluhan ?: $pesanan?->keterangan ?: '-',
+                'status' => $pesanan?->status ?? 'selesai final',
+                'is_paid' => $pesanan ? $pesanan->isPaymentConfirmed() : true,
+            ];
+        }))->values();
     @endphp
 
     <div class="space-y-8" x-data="{ openModal: {{ $errors->any() ? 'true' : 'false' }} }" @open-service-modal.window="openModal = true">
@@ -103,13 +120,18 @@
                                 </td>
                                 <td class="px-8 py-5">
                                     <div class="flex items-center justify-end gap-2">
-                                        <a href="{{ route('admin.service.edit', $service) }}" class="px-3 py-2 rounded-xl border border-blue-100 bg-blue-50 text-blue-700 text-[10px] font-black uppercase tracking-widest hover:bg-blue-100 transition">Edit</a>
-                                        @if($service->status_konfirmasi !== 'confirmed')
-                                            <form action="{{ route('admin.service.destroy', $service) }}" method="POST" onsubmit="return confirm('Hapus data service ini?')" class="inline">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="px-3 py-2 rounded-xl border border-red-100 bg-red-50 text-red-700 text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition">Hapus</button>
-                                            </form>
+                                        <button type="button" onclick="openServiceDetailModal('log-{{ $service->id }}')" class="px-3 py-2 bg-white text-gray-600 border border-gray-200 rounded-xl text-[10px] font-black uppercase hover:bg-gray-50 transition shadow-sm" title="Detail">
+                                            Detail
+                                        </button>
+                                        
+                                        @if($service->pesanan)
+                                            <a href="{{ route('invoice.show', $service->pesanan) }}" class="px-3 py-2 bg-red-600 text-white hover:bg-red-700 rounded-xl hover:shadow-lg transition-all text-[10px] font-black uppercase tracking-widest" title="Lihat Invoice">
+                                                Lihat Invoice
+                                            </a>
+                                        @else
+                                            <button type="button" disabled class="px-3 py-2 bg-gray-100 text-gray-400 rounded-xl text-[10px] font-black uppercase tracking-widest cursor-not-allowed" title="Invoice tidak tersedia">
+                                                Lihat Invoice
+                                            </button>
                                         @endif
                                     </div>
                                 </td>
@@ -205,16 +227,23 @@
                                                 <button type="submit" class="px-3 py-2 bg-red-600 text-white font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-red-700 transition shadow-sm">Assign Teknisi</button>
                                             </form>
                                         @endif
-                                        <button type="button" onclick="openServiceDetailModal({{ $service->id }})" class="px-3 py-2 bg-white text-gray-600 border border-gray-200 rounded-xl text-[10px] font-black uppercase hover:bg-gray-50 transition shadow-sm">
+                                                                                <button type="button" onclick="openServiceDetailModal({{ $service->id }})" class="px-3 py-2 bg-white text-gray-600 border border-gray-200 rounded-xl text-[10px] font-black uppercase hover:bg-gray-50 transition shadow-sm">
                                             Detail
                                         </button>
-                                        <form action="{{ route('admin.pesanan.destroy', $service) }}" method="POST" class="inline">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" onclick="return confirm('Yakin ingin menghapus data service ini?')" class="p-2.5 bg-white text-gray-400 hover:text-red-600 rounded-xl border border-gray-100 hover:border-red-100 hover:shadow-lg transition-all" title="Hapus">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                            </button>
-                                        </form>
+                                        
+                                        <a href="{{ route('invoice.show', $service) }}" class="px-3 py-2 bg-red-600 text-white hover:bg-red-700 rounded-xl hover:shadow-lg transition-all text-[10px] font-black uppercase tracking-widest" title="Lihat Invoice">
+                                            Lihat Invoice
+                                        </a>
+
+                                        @if($service->status !== 'selesai' && $service->status !== 'selesai final')
+                                            <form action="{{ route('admin.pesanan.destroy', $service) }}" method="POST" class="inline">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" onclick="return confirm('Yakin ingin menghapus data service ini?')" class="p-2 bg-white text-gray-400 hover:text-red-600 rounded-xl border border-gray-100 hover:border-red-100 hover:shadow-lg transition-all" title="Hapus">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                </button>
+                                            </form>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>

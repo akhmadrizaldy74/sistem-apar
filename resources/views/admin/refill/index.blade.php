@@ -41,7 +41,24 @@
                 'status' => $refill->status,
                 'is_paid' => $refill->isPaymentConfirmed(),
             ];
-        })->values();
+        })->concat($refills->map(function ($r) {
+            $pesanan = $r->service?->pesanan;
+            return [
+                'id' => 'log-' . $r->id,
+                'pelanggan' => $r->unitApar?->pelanggan?->nama ?? $pesanan?->pelanggan?->nama ?? '-',
+                'no_wa' => $r->unitApar?->pelanggan?->no_wa ?? $pesanan?->pelanggan?->no_wa ?? '-',
+                'alamat' => $r->unitApar?->pelanggan?->alamat ?? $pesanan?->pelanggan?->alamat ?? '-',
+                'jenis' => $r->jenisRefill?->nama_label ?? $pesanan?->serviceJenisRefill?->nama_label ?? 'Refill APAR',
+                'estimasi' => number_format((float) ($r->biaya ?? $pesanan?->payableTotal() ?? 0), 0, ',', '.'),
+                'ukuran' => $r->unitApar?->produk?->kapasitas ?? $pesanan?->service_ukuran_apar ?? '-',
+                'unit' => 1,
+                'source' => $pesanan ? (in_array((string) $pesanan->sumber_pesanan, ['datang_langsung', 'offline'], true) ? 'Offline' : 'Online') : 'Offline',
+                'teknisi' => $pesanan?->teknisi?->name ?? 'Selesai',
+                'catatan' => $pesanan?->catatan_admin ?: $pesanan?->service_keluhan ?: $pesanan?->keterangan ?: '-',
+                'status' => $pesanan?->status ?? 'selesai final',
+                'is_paid' => $pesanan ? $pesanan->isPaymentConfirmed() : true,
+            ];
+        }))->values();
     @endphp
 
     <div class="space-y-8" x-data="{ openModal: {{ $errors->any() ? 'true' : 'false' }} }" @open-refill-modal.window="openModal = true">
@@ -97,12 +114,19 @@
                                 <td class="px-8 py-5 text-sm font-black text-gray-900">Rp {{ number_format((float) ($refill->biaya ?? 0), 0, ',', '.') }}</td>
                                 <td class="px-8 py-5">
                                     <div class="flex items-center justify-end gap-2">
-                                        <a href="{{ route('admin.refill.edit', $refill) }}" class="px-3 py-2 rounded-xl border border-blue-100 bg-blue-50 text-blue-700 text-[10px] font-black uppercase tracking-widest hover:bg-blue-100 transition">Edit</a>
-                                        <form action="{{ route('admin.refill.destroy', $refill) }}" method="POST" onsubmit="return confirm('Hapus data refill ini?')" class="inline">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="px-3 py-2 rounded-xl border border-red-100 bg-red-50 text-red-700 text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition">Hapus</button>
-                                        </form>
+                                        <button type="button" onclick="openRefillDetailModal('log-{{ $refill->id }}')" class="px-3 py-2 bg-white text-gray-600 border border-gray-200 rounded-xl text-[10px] font-black uppercase hover:bg-gray-50 transition shadow-sm" title="Detail">
+                                            Detail
+                                        </button>
+                                        
+                                        @if($refill->service?->pesanan)
+                                            <a href="{{ route('invoice.show', $refill->service->pesanan) }}" class="px-3 py-2 bg-red-600 text-white hover:bg-red-700 rounded-xl hover:shadow-lg transition-all text-[10px] font-black uppercase tracking-widest" title="Lihat Invoice">
+                                                Lihat Invoice
+                                            </a>
+                                        @else
+                                            <button type="button" disabled class="px-3 py-2 bg-gray-100 text-gray-400 rounded-xl text-[10px] font-black uppercase tracking-widest cursor-not-allowed" title="Invoice tidak tersedia">
+                                                Lihat Invoice
+                                            </button>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>
@@ -200,16 +224,23 @@
                                                 <button type="submit" class="px-3 py-2 bg-red-600 text-white font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-red-700 transition shadow-sm">Assign Teknisi</button>
                                             </form>
                                         @endif
-                                        <button type="button" onclick="openRefillDetailModal({{ $refill->id }})" class="px-3 py-2 bg-white text-gray-600 border border-gray-200 rounded-xl text-[10px] font-black uppercase hover:bg-gray-50 transition shadow-sm">
+                                                                                <button type="button" onclick="openRefillDetailModal({{ $refill->id }})" class="px-3 py-2 bg-white text-gray-600 border border-gray-200 rounded-xl text-[10px] font-black uppercase hover:bg-gray-50 transition shadow-sm">
                                             Detail
                                         </button>
-                                        <form action="{{ route('admin.pesanan.destroy', $refill) }}" method="POST" class="inline">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" onclick="return confirm('Yakin ingin menghapus data refill ini?')" class="p-2.5 bg-white text-gray-400 hover:text-red-600 rounded-xl border border-gray-100 hover:border-red-100 hover:shadow-lg transition-all" title="Hapus">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                            </button>
-                                        </form>
+                                        
+                                        <a href="{{ route('invoice.show', $refill) }}" class="px-3 py-2 bg-red-600 text-white hover:bg-red-700 rounded-xl hover:shadow-lg transition-all text-[10px] font-black uppercase tracking-widest" title="Lihat Invoice">
+                                            Lihat Invoice
+                                        </a>
+
+                                        @if($refill->status !== 'selesai' && $refill->status !== 'selesai final')
+                                            <form action="{{ route('admin.pesanan.destroy', $refill) }}" method="POST" class="inline">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" onclick="return confirm('Yakin ingin menghapus data refill ini?')" class="p-2 bg-white text-gray-400 hover:text-red-600 rounded-xl border border-gray-100 hover:border-red-100 hover:shadow-lg transition-all" title="Hapus">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                </button>
+                                            </form>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>

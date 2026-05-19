@@ -8,7 +8,8 @@
     <title>@yield('title', config('app.name', 'Sistem APAR'))</title>
 
     {{-- SEO Meta --}}
-    <link rel="icon" type="image/png" href="{{ asset('images/logo-anugrah.png') }}" />
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon-apar.svg') }}" />
+    <link rel="shortcut icon" href="{{ asset('favicon-apar.svg') }}" />
     <meta name="description" content="PD. Anugrah Utama - Sistem Monitoring APAR (Alat Pemadam Api Ringan). Penyedia layanan penjualan, isi ulang, dan service APAR terpercaya di Bogor." />
     <meta name="keywords" content="APAR, Alat Pemadam Api Ringan, service APAR, refill APAR, monitoring APAR, fire extinguisher, PD. Anugrah Utama, Bogor" />
     <meta property="og:title" content="PD. Anugrah Utama - Sistem Monitoring APAR" />
@@ -64,6 +65,48 @@
             width: 0%;
             transition: width 1.2s ease;
         }
+
+        /* Solid High-Contrast Footer */
+        footer.public-footer {
+            background-color: #0b1220 !important;
+            color: #e2e8f0 !important; /* text-slate-200 */
+            opacity: 1 !important;
+            filter: none !important;
+            border-top: 1px solid #334155 !important; /* border-slate-700 */
+        }
+        footer.public-footer a {
+            color: #cbd5e1 !important; /* text-slate-300 */
+            opacity: 1 !important;
+            transition: color 0.15s ease-in-out;
+        }
+        footer.public-footer a:hover {
+            color: #f87171 !important; /* text-red-400 on hover */
+        }
+        footer.public-footer h6,
+        footer.public-footer p.font-bold,
+        footer.public-footer .text-white {
+            color: #ffffff !important;
+            opacity: 1 !important;
+        }
+        footer.public-footer p,
+        footer.public-footer span,
+        footer.public-footer li {
+            color: #e2e8f0 !important; /* text-slate-200 */
+            opacity: 1 !important;
+        }
+        footer.public-footer .border-slate-800 {
+            border-color: #334155 !important; /* border-slate-700 */
+        }
+        footer.public-footer .bg-slate-900 {
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+        }
+        footer.public-footer .text-red-300 {
+            color: #fca5a5 !important;
+        }
+        footer.public-footer .text-slate-400 {
+            color: #94a3b8 !important;
+        }
     </style>
 </head>
 <body class="antialiased bg-white text-gray-900 tailadmin-public overflow-x-hidden">
@@ -100,30 +143,34 @@
 
                 {{-- Desktop CTA --}}
                 <div class="hidden md:flex items-center gap-3">
-                    @auth
-                        @php
-                            $user = auth()->user();
+                    @php
+                        $cartCount = auth()->check() ? \App\Models\Keranjang::where('user_id', auth()->id())->sum('qty') : 0;
+                        $user = auth()->user();
+                        $dashRoute = '';
+                        $dashLabel = 'Masuk';
+                        if ($user) {
                             $dashRoute = $user->isTeknisi()
                                 ? route('teknisi.dashboard')
                                 : ($user->isAdmin() ? route('dashboard') : route('profile.edit'));
                             $dashLabel = $user->isAdmin() || $user->isTeknisi() ? 'Dashboard' : 'Profil Saya';
-                            $cartCount = \App\Models\Keranjang::where('user_id', auth()->id())->sum('qty');
-                        @endphp
-                        <a href="{{ $dashRoute }}" class="px-4 py-2 text-sm font-bold text-gray-700 hover:text-red-700 rounded-xl border border-gray-200 hover:border-red-200 transition">
-                            {{ $dashLabel }}
-                        </a>
-                    @else
-                        @php $cartCount = 0; @endphp
-                        <a href="{{ route('login') }}" class="px-4 py-2 text-sm font-bold text-gray-600 hover:text-gray-900 transition">Masuk</a>
-                    @endauth
+                        }
+                    @endphp
 
                     {{-- Cart Icon with Badge (Always Visible) --}}
                     <a href="{{ auth()->check() ? route('keranjang.index') : route('login') }}" class="relative p-2.5 text-gray-600 hover:text-red-700 rounded-xl hover:bg-red-50 transition" title="Keranjang">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                        @if(isset($cartCount) && $cartCount > 0)
+                        @if($cartCount > 0)
                             <span class="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-600 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-md">{{ $cartCount > 99 ? '99+' : $cartCount }}</span>
                         @endif
                     </a>
+
+                    @auth
+                        <a href="{{ $dashRoute }}" class="px-4 py-2 text-sm font-bold text-gray-700 hover:text-red-700 rounded-xl border border-gray-200 hover:border-red-200 transition">
+                            {{ $dashLabel }}
+                        </a>
+                    @else
+                        <a href="{{ route('login') }}" class="px-4 py-2 text-sm font-bold text-gray-600 hover:text-gray-900 transition">Masuk</a>
+                    @endauth
 
                     @auth
                         <form method="POST" action="{{ route('logout') }}" class="inline">
@@ -154,6 +201,18 @@
             <a href="{{ route('produk.index') }}" class="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:text-red-700 hover:bg-red-50 rounded-xl transition">Produk</a>
             <a href="{{ route('riwayat-apar') }}" class="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:text-red-700 hover:bg-red-50 rounded-xl transition">Riwayat & Status APAR</a>
             <div class="pt-2 flex flex-col gap-2">
+                {{-- Mobile Cart Menu (Always Visible) --}}
+                <a href="{{ auth()->check() ? route('keranjang.index') : route('login') }}" class="w-full text-center px-4 py-2.5 text-sm font-bold text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                    Keranjang
+                    @auth
+                        @php $mCartCount = \App\Models\Keranjang::where('user_id', auth()->id())->sum('qty'); @endphp
+                        @if($mCartCount > 0)
+                            <span class="w-5 h-5 bg-red-600 text-white text-[10px] font-black rounded-full flex items-center justify-center">{{ $mCartCount > 99 ? '99+' : $mCartCount }}</span>
+                        @endif
+                    @endauth
+                </a>
+
                 @auth
                     @php
                         $mobileUser = auth()->user();
@@ -166,18 +225,6 @@
                 @else
                     <a href="{{ route('login') }}" class="w-full text-center px-4 py-2.5 text-sm font-bold text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition">Masuk</a>
                 @endauth
-
-                {{-- Mobile Cart Menu (Always Visible) --}}
-                <a href="{{ auth()->check() ? route('keranjang.index') : route('login') }}" class="w-full text-center px-4 py-2.5 text-sm font-bold text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition flex items-center justify-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                    Keranjang
-                    @auth
-                        @php $mCartCount = \App\Models\Keranjang::where('user_id', auth()->id())->sum('qty'); @endphp
-                        @if($mCartCount > 0)
-                            <span class="w-5 h-5 bg-red-600 text-white text-[10px] font-black rounded-full flex items-center justify-center">{{ $mCartCount > 99 ? '99+' : $mCartCount }}</span>
-                        @endif
-                    @endauth
-                </a>
 
                 @auth
                     <form method="POST" action="{{ route('logout') }}">
@@ -195,76 +242,94 @@
     {{-- MAIN CONTENT --}}
     {{-- ============================================================ --}}
     <main class="pt-16 overflow-x-hidden">
-        @if(session('success') || session('error'))
-            <div class="mx-auto max-w-6xl px-4 pt-5 sm:px-6 lg:px-8">
-                @if(session('success'))
-                    <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900">
-                        <i class="fa-solid fa-circle-check me-2 text-emerald-600"></i>{{ session('success') }}
-                    </div>
-                @endif
-
-                @if(session('error'))
-                    <div class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-900">
-                        <i class="fa-solid fa-triangle-exclamation me-2 text-red-600"></i>{{ session('error') }}
-                    </div>
-                @endif
-            </div>
-        @endif
-
         @yield('content')
     </main>
 
     {{-- ============================================================ --}}
     {{-- PUBLIC FOOTER --}}
     {{-- ============================================================ --}}
-    <footer class="bg-gray-950 text-gray-400">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
+    <footer class="public-footer border-t border-slate-800 bg-slate-950 text-slate-200">
+        <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 gap-10 md:grid-cols-2 xl:grid-cols-4">
                 {{-- Brand --}}
-                <div>
-                    <div class="flex items-center gap-2.5 mb-4">
-                        <img src="{{ asset('images/logo-anugrah.png') }}" alt="Logo PD. Anugrah Utama" class="h-10 w-10 rounded-xl object-cover ring-1 ring-white/10">
-                        <p class="text-white font-black text-sm tracking-tight">PD. ANUGRAH UTAMA</p>
+                <div class="xl:pr-6">
+                    <div class="mb-4 flex items-center gap-3">
+                        <img src="{{ asset('images/logo-anugrah.png') }}" alt="Logo PD. Anugrah Utama" class="h-11 w-11 rounded-2xl object-cover ring-1 ring-white/10">
+                        <div>
+                            <p class="text-sm font-black tracking-tight text-white">PD. ANUGRAH UTAMA</p>
+                            <p class="mt-0.5 text-[10px] font-black uppercase tracking-[0.28em] text-red-300">Sistem APAR</p>
+                        </div>
                     </div>
-                    <p class="text-sm leading-relaxed">Penyedia layanan APAR terpercaya di Bogor — penjualan, refill, dan service.</p>
-                    <div class="flex items-center gap-3 mt-5">
+                    <p class="text-sm leading-7 text-slate-300">Penyedia layanan APAR untuk penjualan produk, refill, service, inspeksi, dan monitoring riwayat unit APAR pelanggan.</p>
+                    <div class="mt-5 flex items-center gap-3">
                         <a href="https://wa.me/{{ env('WHATSAPP_CONTACT', '6285128008030') }}" target="_blank" rel="noopener noreferrer"
-                           class="w-9 h-9 rounded-xl bg-[#25D366]/10 border border-[#25D366]/20 text-[#25D366] flex items-center justify-center hover:bg-[#25D366] hover:text-white transition">
+                           class="flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-500/10 text-emerald-300 transition hover:bg-emerald-500 hover:text-white">
                             <i class="fa-brands fa-whatsapp text-lg"></i>
                         </a>
+                        <span class="rounded-2xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-300">Bogor, Jawa Barat</span>
                     </div>
                 </div>
 
                 {{-- Links --}}
                 <div>
-                    <h6 class="text-white font-black text-xs uppercase tracking-widest mb-5">Navigasi</h6>
+                    <h6 class="mb-5 text-xs font-black uppercase tracking-[0.25em] text-white">Navigasi</h6>
                     <ul class="space-y-3">
-                        <li><a href="{{ url('/') }}" class="text-sm hover:text-white transition">Beranda</a></li>
-                        <li><a href="{{ route('produk.index') }}" class="text-sm hover:text-white transition">Produk APAR</a></li>
-                        <li><a href="{{ route('riwayat-apar') }}" class="text-sm hover:text-white transition">Riwayat & Status APAR</a></li>
-                        <li><a href="{{ $orderEntryUrl }}" class="text-sm hover:text-white transition">Pesan / Service</a></li>
+                        <li><a href="{{ url('/') }}" class="text-sm text-slate-300 transition hover:text-white">Beranda</a></li>
+                        <li><a href="{{ route('produk.index') }}" class="text-sm text-slate-300 transition hover:text-white">Produk</a></li>
+                        <li><a href="{{ route('riwayat-apar') }}" class="text-sm text-slate-300 transition hover:text-white">Riwayat & Status APAR</a></li>
+                        <li><a href="{{ $orderEntryUrl }}" class="text-sm text-slate-300 transition hover:text-white">Pesan / Checkout</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h6 class="mb-5 text-xs font-black uppercase tracking-[0.25em] text-white">Layanan</h6>
+                    <ul class="space-y-3 text-sm text-slate-300">
+                        <li>Penjualan APAR</li>
+                        <li>Refill APAR</li>
+                        <li>Service APAR</li>
+                        <li>Inspeksi & Testing</li>
+                        <li>Konsultasi APAR</li>
                     </ul>
                 </div>
 
                 {{-- Contact --}}
                 <div>
-                    <h6 class="text-white font-black text-xs uppercase tracking-widest mb-5">Hubungi Kami</h6>
-                    <ul class="space-y-3 text-sm">
-                        <li class="flex items-center gap-2">
-                            <i class="fa-brands fa-whatsapp text-[#25D366]"></i>
-                            <a href="https://wa.me/{{ env('WHATSAPP_CONTACT', '6285128008030') }}" target="_blank" rel="noopener" class="hover:text-white transition">+62 851-2800-8030</a>
+                    <h6 class="mb-5 text-xs font-black uppercase tracking-[0.25em] text-white">Kontak</h6>
+                    <ul class="space-y-4 text-sm text-slate-300">
+                        <li class="flex items-start gap-3">
+                            <span class="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl bg-red-500/10 text-red-300">
+                                <i class="fa-solid fa-location-dot"></i>
+                            </span>
+                            <div>
+                                <p class="font-bold text-white">Lokasi</p>
+                                <p class="mt-1 leading-6 text-slate-300">Bogor, Jawa Barat</p>
+                            </div>
                         </li>
-                        <li class="flex items-center gap-2">
-                            <i class="fa-solid fa-location-dot text-red-500"></i>
-                            <span>Bogor, Jawa Barat</span>
+                        <li class="flex items-start gap-3">
+                            <span class="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-300">
+                                <i class="fa-brands fa-whatsapp"></i>
+                            </span>
+                            <div>
+                                <p class="font-bold text-white">WhatsApp</p>
+                                <a href="https://wa.me/{{ env('WHATSAPP_CONTACT', '6285128008030') }}" target="_blank" rel="noopener noreferrer" class="mt-1 inline-block leading-6 text-slate-300 transition hover:text-white">+62 851-2800-8030</a>
+                            </div>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-300">
+                                <i class="fa-solid fa-clock"></i>
+                            </span>
+                            <div>
+                                <p class="font-bold text-white">Jam Operasional</p>
+                                <p class="mt-1 leading-6 text-slate-300">Senin - Sabtu, 08.00 - 17.00 WIB</p>
+                            </div>
                         </li>
                     </ul>
                 </div>
             </div>
 
-            <div class="border-t border-gray-800 mt-10 pt-8 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs">
+            <div class="mt-10 flex flex-col gap-3 border-t border-slate-800 pt-6 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
                 <p>&copy; {{ date('Y') }} PD. Anugrah Utama. Hak cipta dilindungi.</p>
-                <p>Sistem Monitoring APAR</p>
+                <p>Sistem APAR untuk operasional toko, layanan, dan riwayat unit pelanggan.</p>
             </div>
         </div>
     </footer>

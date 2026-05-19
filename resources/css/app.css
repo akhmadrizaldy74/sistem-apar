@@ -139,15 +139,18 @@
     }
 }
 
-/*
- * TailAdmin-inspired visual layer.
- * Existing Blade content and business flows stay intact; this layer only
- * aligns the surface, cards, tables, forms, and controls with TailAdmin.
- */
-.tailadmin-admin,
-.tailadmin-public {
+.tailadmin-admin {
     --ta-brand: 70 95 255;
     --ta-brand-soft: 236 243 255;
+    --ta-border: 228 231 236;
+    --ta-muted: 102 112 133;
+    --ta-ink: 16 24 40;
+    --ta-panel: 255 255 255;
+}
+
+.tailadmin-public {
+    --ta-brand: 220 38 38;      /* Primary Red #dc2626 */
+    --ta-brand-soft: 254 242 242; /* Soft Red bg-red-50 */
     --ta-border: 228 231 236;
     --ta-muted: 102 112 133;
     --ta-ink: 16 24 40;
@@ -226,7 +229,7 @@
 .tailadmin-public select:focus,
 .tailadmin-public textarea:focus {
     border-color: rgb(var(--ta-brand)) !important;
-    box-shadow: 0 0 0 4px rgba(70, 95, 255, 0.12) !important;
+    box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.12) !important;
 }
 
 .tailadmin-admin input[type='checkbox'],
@@ -236,23 +239,34 @@
     color: rgb(var(--ta-brand)) !important;
 }
 
-.tailadmin-admin .bg-red-700,
-.tailadmin-public .bg-red-700 {
+/* Admin specific background overrides */
+.tailadmin-admin .bg-red-700 {
     background-color: rgb(var(--ta-brand)) !important;
 }
 
-.tailadmin-admin .hover\:bg-red-800:hover,
-.tailadmin-public .hover\:bg-red-800:hover {
+.tailadmin-admin .hover\:bg-red-800:hover {
     background-color: #3641f5 !important;
 }
 
+/* Public specific background overrides - Premium Safety Red */
+.tailadmin-public .bg-red-700 {
+    background-color: #dc2626 !important; /* Pure Red-600 */
+}
+
+.tailadmin-public .hover\:bg-red-800:hover {
+    background-color: #b91c1c !important; /* Darker Red-700 on hover */
+}
+
 .tailadmin-admin .shadow-red-700\/20,
-.tailadmin-public .shadow-red-700\/20,
 .tailadmin-admin .shadow-red-700\/30,
-.tailadmin-public .shadow-red-700\/30,
-.tailadmin-admin .shadow-red-700\/35,
-.tailadmin-public .shadow-red-700\/35 {
+.tailadmin-admin .shadow-red-700\/35 {
     --tw-shadow-color: rgba(70, 95, 255, 0.18) !important;
+}
+
+.tailadmin-public .shadow-red-700\/20,
+.tailadmin-public .shadow-red-700\/30,
+.tailadmin-public .shadow-red-700\/35 {
+    --tw-shadow-color: rgba(220, 38, 38, 0.18) !important;
 }
 
 .tailadmin-admin .maplibregl-ctrl-group,

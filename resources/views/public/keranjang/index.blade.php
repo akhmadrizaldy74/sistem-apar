@@ -4,23 +4,32 @@
 
 @section('styles')
 <style>
-    .cart-page{background:linear-gradient(180deg,#fff 0%,#f8fafc 100%)}
-    .cart-card{background:#fff;border:1px solid #e2e8f0;border-radius:1.5rem;box-shadow:0 10px 30px rgba(15,23,42,.06)}
-    .cart-item{background:#fff;border:1px solid #e2e8f0;border-radius:1.25rem;padding:1rem;transition:border-color .2s ease, box-shadow .2s ease}
-    .cart-item:hover{border-color:#fecaca;box-shadow:0 8px 24px rgba(15,23,42,.06)}
-    .cart-thumb{width:5.5rem;height:5.5rem;border-radius:1rem;overflow:hidden;background:#f8fafc;border:1px solid #e2e8f0;flex-shrink:0}
-    .cart-thumb img{width:100%;height:100%;object-fit:cover}
-    .qty-btn{width:2.25rem;height:2.25rem;border-radius:.85rem;border:1px solid #e2e8f0;background:#f8fafc;color:#334155;display:flex;align-items:center;justify-content:center;transition:all .2s ease}
-    .qty-btn:hover{background:#fff1f2;border-color:#fca5a5;color:#dc2626}
-    .qty-btn:disabled{opacity:.45;cursor:not-allowed}
-    .qty-box{min-width:2.75rem;height:2.25rem;padding:0 .75rem;border-radius:.85rem;border:1px solid #e2e8f0;background:#fff;display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:800;color:#0f172a}
-    .btn-primary-cart{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;width:100%;padding:.95rem 1rem;border-radius:1rem;background:#dc2626;color:#fff;font-size:.82rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;transition:all .2s ease}
-    .btn-primary-cart:hover{background:#b91c1c}
-    .btn-secondary-cart{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;width:100%;padding:.9rem 1rem;border-radius:1rem;border:1px solid #cbd5e1;background:#fff;color:#0f172a;font-size:.8rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;transition:all .2s ease}
-    .btn-secondary-cart:hover{background:#f8fafc}
-    .mini-note{border-radius:1rem;padding:.85rem 1rem;font-size:.78rem;font-weight:700;line-height:1.5}
-    .mini-note.ok{background:#ecfdf5;border:1px solid #bbf7d0;color:#047857}
-    .mini-note.wait{background:#fffbeb;border:1px solid #fde68a;color:#b45309}
+    .cart-page { background: linear-gradient(180deg, #fff 0%, #f8fafc 100%); }
+    .cart-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 1.5rem; box-shadow: 0 10px 30px rgba(15,23,42,.03); overflow: hidden; }
+    .cart-item { background: #fff; border: 1.5px solid #e2e8f0; border-radius: 1.5rem; padding: 1.25rem; transition: all .2s ease; }
+    .cart-item:hover { border-color: #fca5a5; box-shadow: 0 12px 24px rgba(220,38,38,.03); }
+    .cart-thumb { width: 5rem; height: 5rem; border-radius: 1.25rem; overflow: hidden; background: #f8fafc; border: 1px solid #f1f5f9; flex-shrink: 0; }
+    .cart-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .qty-btn { width: 2.25rem; height: 2.25rem; border-radius: .85rem; border: 1.5px solid #e2e8f0; background: #f8fafc; color: #334155; display: flex; align-items: center; justify-content: center; transition: all .2s ease; cursor: pointer; }
+    .qty-btn:hover { background: #fee2e2; border-color: #fca5a5; color: #dc2626; }
+    .qty-btn:disabled { opacity: .4; cursor: not-allowed; }
+    .qty-box { min-width: 2.5rem; height: 2.25rem; border-radius: .85rem; border: 1.5px solid #e2e8f0; background: #fff; display: flex; align-items: center; justify-content: center; font-size: .875rem; font-weight: 800; color: #0f172a; transition: opacity 0.15s ease; }
+    
+    .btn-primary-cart { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; width: 100%; padding: .95rem 1rem; border-radius: 1.25rem; background: #dc2626; color: #fff; font-size: .82rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; transition: all .2s ease; box-shadow: 0 4px 12px rgba(220,38,38,0.15); border: none; }
+    .btn-primary-cart:hover { background: #b91c1c; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(220,38,38,0.25); }
+    
+    .btn-secondary-cart { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; width: 100%; padding: .9rem 1rem; border-radius: 1.25rem; border: 1.5px solid #cbd5e1; background: #fff; color: #334155; font-size: .8rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; transition: all .2s ease; }
+    .btn-secondary-cart:hover { background: #f8fafc; border-color: #94a3b8; color: #0f172a; }
+    
+    .mini-note { border-radius: 1.25rem; padding: 1rem; font-size: .78rem; font-weight: 700; line-height: 1.5; }
+    .mini-note.ok { background: #f0fdf4; border: 1px solid #bbf7d0; color: #16a34a; }
+    .mini-note.wait { background: #fffbeb; border: 1px solid #fde68a; color: #d97706; }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in { animation: fadeIn 0.3s ease forwards; }
 </style>
 @endsection
 
@@ -31,50 +40,62 @@
         $remainingToNego = max(0, 10 - $totalUnit);
     @endphp
 
-    <section class="cart-page min-h-screen">
-        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <section class="cart-page min-h-screen py-10 sm:py-14">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            {{-- Breadcrumb --}}
             <a href="{{ route('produk.index') }}" class="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-red-700 transition">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-                Lanjut Belanja
+                Kembali ke Katalog
             </a>
 
-            <div class="mt-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            {{-- Title Group --}}
+            <div class="mt-6 pb-6 border-b border-slate-100 flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <h1 class="text-3xl font-black tracking-tight text-slate-950">Keranjang Belanja</h1>
-                    <p class="mt-1 text-sm font-medium text-slate-500">{{ $keranjangs->count() }} produk, {{ $totalUnit }} unit</p>
-                </div>
-                <div class="text-left sm:text-right">
-                    <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Total Belanja</p>
-                    <p class="mt-1 text-3xl font-black tracking-tight text-red-600">Rp {{ number_format($totalHarga, 0, ',', '.') }}</p>
+                    <h1 class="text-3xl sm:text-4xl font-black tracking-tight text-slate-900">Keranjang Belanja</h1>
+                    <p class="mt-1 text-sm font-medium text-slate-500">Kumpulkan item APAR pilihan Anda untuk diproses sekaligus.</p>
                 </div>
             </div>
 
+            {{-- Dynamic Alert Notifications --}}
             @if(session('success'))
-                <div class="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+                <div class="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 flex items-center gap-3 animate-fade-in">
+                    <svg class="w-5 h-5 flex-shrink-0 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     {{ session('success') }}
                 </div>
             @endif
 
             @if(session('error'))
-                <div class="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
+                <div class="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800 flex items-center gap-3 animate-fade-in">
+                    <svg class="w-5 h-5 flex-shrink-0 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     {{ session('error') }}
                 </div>
             @endif
 
+            {{-- Inline AJAX Error feedback --}}
+            <div id="ajax-error-container" class="hidden mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3.5 text-sm font-semibold text-red-800 flex items-center gap-3 animate-fade-in">
+                <svg class="w-5 h-5 flex-shrink-0 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span id="ajax-error-text"></span>
+            </div>
+
             @if($keranjangs->isEmpty())
-                <div class="cart-card mt-8 px-8 py-12 text-center">
-                    <h2 class="text-2xl font-black text-slate-900">Keranjang Anda masih kosong</h2>
-                    <p class="mt-3 text-sm font-medium text-slate-500">Pilih produk dulu dari katalog, nanti otomatis muncul di sini.</p>
-                    <a href="{{ route('produk.index') }}" class="btn-primary-cart mt-6 inline-flex w-auto px-6">
-                        Lihat Katalog
+                <div class="cart-card mt-8 px-8 py-16 text-center border border-slate-200">
+                    <div class="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                    </div>
+                    <h2 class="text-2xl font-black text-slate-900">Keranjang masih kosong.</h2>
+                    <p class="mt-3 text-sm font-medium text-slate-500 max-w-md mx-auto">Silakan pilih produk dari katalog untuk menambahkannya ke keranjang belanja Anda.</p>
+                    <a href="{{ route('produk.index') }}" class="btn-primary-cart mt-8 inline-flex w-auto px-8 py-3.5">
+                        Lihat Katalog Produk
                     </a>
                 </div>
             @else
-                <div class="mt-8 grid gap-6 lg:grid-cols-3">
+                <div class="mt-8 grid gap-8 lg:grid-cols-3 items-start">
+                    {{-- Left Column: Cart Items --}}
                     <div class="space-y-4 lg:col-span-2">
                         @foreach($keranjangs as $item)
-                            <div class="cart-item">
-                                <div class="flex flex-col gap-4 sm:flex-row">
+                            <div class="cart-item flex flex-col sm:flex-row gap-5 items-center justify-between" id="cart-item-{{ $item->id }}" data-id="{{ $item->id }}" data-price="{{ $item->harga }}" data-stock="{{ $item->produk->stok_tersedia }}">
+                                {{-- Left Group: Thumbnail and details --}}
+                                <div class="flex items-center gap-4 w-full sm:flex-1 min-w-0">
                                     <div class="cart-thumb">
                                         @if($item->produk->gambar)
                                             <img src="{{ asset('storage/' . $item->produk->gambar) }}" alt="{{ $item->produk->nama }}">
@@ -84,75 +105,69 @@
                                             </div>
                                         @endif
                                     </div>
+                                    <div class="min-w-0 flex-1">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded bg-red-50 text-[10px] font-black text-red-600 uppercase tracking-widest">{{ $item->produk->jenisApar?->nama ?? 'APAR' }}</span>
+                                        <h3 class="text-base font-black text-slate-900 truncate mt-1">{{ $item->produk->nama }}</h3>
+                                        <p class="text-xs font-semibold text-slate-500 mt-0.5">
+                                            Merek: {{ $item->produk->merek ?? 'SAFETY' }} @if($item->produk->kapasitas) • {{ $item->produk->kapasitas }} @endif
+                                        </p>
+                                        <p class="text-xs font-bold text-slate-400 mt-1">Harga Satuan: Rp {{ number_format($item->harga, 0, ',', '.') }}</p>
+                                    </div>
+                                </div>
 
-                                    <div class="flex-1">
-                                        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                            <div>
-                                                <p class="text-xs font-black uppercase tracking-[0.16em] text-red-600">{{ $item->produk->jenisApar?->nama ?? 'APAR' }}</p>
-                                                <h3 class="mt-1 text-lg font-black text-slate-950">{{ $item->produk->nama }}</h3>
-                                                <p class="mt-1 text-sm font-medium text-slate-500">{{ $item->produk->merek ?? '-' }} @if($item->produk->kapasitas) • {{ $item->produk->kapasitas }} @endif</p>
-                                                <p class="mt-2 text-sm font-semibold text-slate-500">Harga/unit: Rp {{ number_format($item->harga, 0, ',', '.') }}</p>
-                                            </div>
-                                            <p class="text-xl font-black text-red-600">Rp {{ number_format($item->harga * $item->qty, 0, ',', '.') }}</p>
+                                {{-- Right Group: Controls & Subtotal --}}
+                                <div class="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto border-t sm:border-t-0 pt-4 sm:pt-0 border-slate-100 flex-shrink-0">
+                                    {{-- Quantity controls --}}
+                                    <div class="flex items-center gap-2">
+                                        <button type="button" class="qty-btn btn-decrease" data-id="{{ $item->id }}" {{ $item->qty <= 1 ? 'disabled' : '' }}>
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20 12H4"/></svg>
+                                        </button>
+                                        <span class="qty-box" id="qty-val-{{ $item->id }}">{{ $item->qty }}</span>
+                                        <button type="button" class="qty-btn btn-increase" data-id="{{ $item->id }}">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                                        </button>
+                                    </div>
+
+                                    {{-- Subtotal and Delete button --}}
+                                    <div class="text-right flex items-center gap-4">
+                                        <div class="min-w-[6.5rem]">
+                                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Subtotal</p>
+                                            <p class="text-base font-black text-red-600 mt-1 item-subtotal" id="subtotal-val-{{ $item->id }}">Rp {{ number_format($item->harga * $item->qty, 0, ',', '.') }}</p>
                                         </div>
-
-                                        <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                            <div class="flex items-center gap-2">
-                                                <form action="{{ route('keranjang.update', $item) }}" method="POST">
-                                                    @csrf
-                                                    @method('PATCH')
-                                                    <input type="hidden" name="qty" value="{{ max(1, $item->qty - 1) }}">
-                                                    <button type="submit" class="qty-btn" {{ $item->qty <= 1 ? 'disabled' : '' }}>
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>
-                                                    </button>
-                                                </form>
-
-                                                <span class="qty-box">{{ $item->qty }}</span>
-
-                                                <form action="{{ route('keranjang.update', $item) }}" method="POST">
-                                                    @csrf
-                                                    @method('PATCH')
-                                                    <input type="hidden" name="qty" value="{{ $item->qty + 1 }}">
-                                                    <button type="submit" class="qty-btn">
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                                                    </button>
-                                                </form>
-                                            </div>
-
-                                            <form action="{{ route('keranjang.destroy', $item) }}" method="POST" onsubmit="return confirm('Hapus item ini dari keranjang?')">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="text-sm font-bold text-red-600 hover:text-red-700 transition">
-                                                    Hapus
-                                                </button>
-                                            </form>
-                                        </div>
+                                        <form action="{{ route('keranjang.destroy', $item) }}" method="POST" onsubmit="return confirm('Hapus item ini dari keranjang?')">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="qty-btn text-red-600 hover:bg-red-50 flex items-center justify-center" title="Hapus Item">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </form>
                                     </div>
                                 </div>
                             </div>
                         @endforeach
                     </div>
 
+                    {{-- Right Column: Summary Panel --}}
                     <div class="lg:col-span-1">
-                        <div class="cart-card p-6 lg:sticky lg:top-24">
-                            <h2 class="text-lg font-black text-slate-950">Ringkasan</h2>
+                        <div class="cart-card p-6 border border-slate-200 lg:sticky lg:top-24">
+                            <h2 class="text-lg font-black text-slate-900 pb-4 border-b border-slate-100">Ringkasan Pesanan</h2>
 
-                            <div class="mt-4 space-y-3">
+                            <div class="mt-4 space-y-3.5">
                                 <div class="flex items-center justify-between text-sm">
-                                    <span class="font-medium text-slate-500">Jumlah produk</span>
-                                    <span class="font-black text-slate-900">{{ $keranjangs->count() }}</span>
+                                    <span class="font-semibold text-slate-500">Jumlah produk</span>
+                                    <span class="font-black text-slate-800" id="summary-total-products">{{ $keranjangs->count() }}</span>
                                 </div>
                                 <div class="flex items-center justify-between text-sm">
-                                    <span class="font-medium text-slate-500">Total unit</span>
-                                    <span class="font-black text-slate-900">{{ $totalUnit }}</span>
+                                    <span class="font-semibold text-slate-500">Total unit</span>
+                                    <span class="font-black text-slate-800" id="summary-total-unit">{{ $totalUnit }}</span>
                                 </div>
-                                <div class="flex items-center justify-between border-t border-slate-200 pt-3">
-                                    <span class="text-sm font-bold text-slate-500">Total</span>
-                                    <span class="text-2xl font-black text-red-600">Rp {{ number_format($totalHarga, 0, ',', '.') }}</span>
+                                <div class="flex items-center justify-between border-t border-slate-100 pt-4 mt-2">
+                                    <span class="text-sm font-black text-slate-500">Total Belanja</span>
+                                    <span class="text-2xl font-black text-red-600" id="summary-total-harga">Rp {{ number_format($totalHarga, 0, ',', '.') }}</span>
                                 </div>
                             </div>
 
-                            <div class="mt-5 {{ $negotiationEligible ? 'mini-note ok' : 'mini-note wait' }}">
+                            <div class="mt-5 {{ $negotiationEligible ? 'mini-note ok' : 'mini-note wait' }}" id="nego-warning-box">
                                 @if($negotiationEligible)
                                     Harga usulan tersedia karena total pembelian sudah minimal 10 unit.
                                 @else
@@ -160,8 +175,8 @@
                                 @endif
                             </div>
 
-                            <p class="mt-4 text-xs font-medium leading-relaxed text-slate-500">
-                                Saat lanjut, barang di keranjang ini otomatis masuk ke halaman pemesanan.
+                            <p class="mt-4 text-xs font-semibold leading-relaxed text-slate-400">
+                                Barang di keranjang ini akan otomatis ditarik ke dalam formulir pemesanan online.
                             </p>
 
                             <a href="{{ route('order.create') }}" class="btn-primary-cart mt-5">
@@ -177,4 +192,183 @@
             @endif
         </div>
     </section>
+
+    {{-- Script for Optimistic UI and AJAX quantity sync --}}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const csrfToken = '{{ csrf_token() }}';
+            const updateUrlPattern = "{{ route('keranjang.update', ':id') }}";
+            const errorAlertContainer = document.getElementById('ajax-error-container');
+            const errorAlertText = document.getElementById('ajax-error-text');
+
+            function showError(message) {
+                if (errorAlertContainer && errorAlertText) {
+                    errorAlertText.textContent = message;
+                    errorAlertContainer.classList.remove('hidden');
+                    errorAlertContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                } else {
+                    alert(message);
+                }
+            }
+
+            function hideError() {
+                if (errorAlertContainer) {
+                    errorAlertContainer.classList.add('hidden');
+                }
+            }
+
+            async function updateQty(itemId, newQty, btnElement) {
+                hideError();
+                
+                const itemElement = document.getElementById(`cart-item-${itemId}`);
+                if (!itemElement) return;
+
+                const unitPrice = parseFloat(itemElement.getAttribute('data-price'));
+                const maxStock = parseInt(itemElement.getAttribute('data-stock'));
+                
+                const qtyBox = document.getElementById(`qty-val-${itemId}`);
+                const subtotalBox = document.getElementById(`subtotal-val-${itemId}`);
+                const decBtn = itemElement.querySelector('.btn-decrease');
+                const incBtn = itemElement.querySelector('.btn-increase');
+                
+                const oldQty = parseInt(qtyBox.textContent);
+                
+                if (newQty < 1) return;
+                if (newQty > maxStock) {
+                    showError(`Stok tidak mencukupi. Tersedia: ${maxStock} unit.`);
+                    return;
+                }
+
+                // 1. OPTIMISTIC UI UPDATE
+                qtyBox.textContent = newQty;
+                const newSubtotal = unitPrice * newQty;
+                subtotalBox.textContent = 'Rp ' + new Intl.NumberFormat('id-ID').format(newSubtotal);
+                decBtn.disabled = (newQty <= 1);
+                
+                // Recalculate and update the grand totals and remaining units to nego immediately
+                const allItems = Array.from(document.querySelectorAll('.cart-item'));
+                let totalUnit = 0;
+                let totalHarga = 0;
+                
+                allItems.forEach(el => {
+                    const elId = el.getAttribute('data-id');
+                    const elPrice = parseFloat(el.getAttribute('data-price'));
+                    const elQty = (elId === String(itemId)) ? newQty : parseInt(document.getElementById(`qty-val-${elId}`).textContent);
+                    totalUnit += elQty;
+                    totalHarga += (elPrice * elQty);
+                });
+                
+                document.getElementById('summary-total-unit').textContent = totalUnit;
+                document.getElementById('summary-total-harga').textContent = 'Rp ' + new Intl.NumberFormat('id-ID').format(totalHarga);
+                
+                // Update negotiation note
+                const negoWarning = document.getElementById('nego-warning-box');
+                if (negoWarning) {
+                    if (totalUnit >= 10) {
+                        negoWarning.className = 'mini-note ok mt-5';
+                        negoWarning.textContent = 'Harga usulan tersedia karena total pembelian sudah minimal 10 unit.';
+                    } else {
+                        negoWarning.className = 'mini-note wait mt-5';
+                        const remaining = 10 - totalUnit;
+                        negoWarning.textContent = `Harga usulan aktif jika total pembelian minimal 10 unit. Tambah ${remaining} unit lagi.`;
+                    }
+                }
+
+                // 2. BACKEND SYNC IN BACKGROUND
+                const url = updateUrlPattern.replace(':id', itemId);
+                qtyBox.classList.add('opacity-50');
+                
+                try {
+                    const response = await fetch(url, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        body: JSON.stringify({ qty: newQty })
+                    });
+                    
+                    const data = await response.json();
+                    qtyBox.classList.remove('opacity-50');
+                    
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.message || 'Gagal mengubah qty.');
+                    }
+                    
+                    // Keep DOM perfectly synced with absolute data returned from backend
+                    qtyBox.textContent = data.item_qty;
+                    subtotalBox.textContent = data.item_subtotal_formatted;
+                    document.getElementById('summary-total-harga').textContent = data.cart_total_formatted;
+                    document.getElementById('summary-total-unit').textContent = data.cart_count;
+                    
+                    // Update badge counts in navbar dynamically (desktop and mobile)
+                    const desktopBadge = document.querySelector('header a[href*="keranjang"] span');
+                    if (desktopBadge) {
+                        if (data.cart_count > 0) {
+                            desktopBadge.textContent = data.cart_count > 99 ? '99+' : data.cart_count;
+                            desktopBadge.classList.remove('hidden');
+                        } else {
+                            desktopBadge.classList.add('hidden');
+                        }
+                    }
+                    
+                    const mobileBadge = document.querySelector('.md\\:hidden a[href*="keranjang"] span');
+                    if (mobileBadge) {
+                        if (data.cart_count > 0) {
+                            mobileBadge.textContent = data.cart_count > 99 ? '99+' : data.cart_count;
+                            mobileBadge.classList.remove('hidden');
+                        } else {
+                            mobileBadge.classList.add('hidden');
+                        }
+                    }
+                    
+                } catch (err) {
+                    // REVERT OPTIMISTIC UI back to old values if request fails
+                    qtyBox.classList.remove('opacity-50');
+                    qtyBox.textContent = oldQty;
+                    const oldSubtotal = unitPrice * oldQty;
+                    subtotalBox.textContent = 'Rp ' + new Intl.NumberFormat('id-ID').format(oldSubtotal);
+                    decBtn.disabled = (oldQty <= 1);
+                    
+                    // Re-calculate totals back
+                    let revertUnit = 0;
+                    let revertHarga = 0;
+                    allItems.forEach(el => {
+                        const elId = el.getAttribute('data-id');
+                        const elPrice = parseFloat(el.getAttribute('data-price'));
+                        const elQty = parseInt(document.getElementById(`qty-val-${elId}`).textContent);
+                        revertUnit += elQty;
+                        revertHarga += (elPrice * elQty);
+                    });
+                    
+                    document.getElementById('summary-total-unit').textContent = revertUnit;
+                    document.getElementById('summary-total-harga').textContent = 'Rp ' + new Intl.NumberFormat('id-ID').format(revertHarga);
+                    
+                    showError(err.message || 'Gagal mengubah qty. Silakan coba lagi.');
+                }
+            }
+
+            // Click Handlers
+            document.querySelectorAll('.btn-decrease').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const itemId = this.getAttribute('data-id');
+                    const qtyBox = document.getElementById(`qty-val-${itemId}`);
+                    const currentQty = parseInt(qtyBox.textContent);
+                    updateQty(itemId, currentQty - 1, this);
+                });
+            });
+
+            document.querySelectorAll('.btn-increase').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const itemId = this.getAttribute('data-id');
+                    const qtyBox = document.getElementById(`qty-val-${itemId}`);
+                    const currentQty = parseInt(qtyBox.textContent);
+                    updateQty(itemId, currentQty + 1, this);
+                });
+            });
+        });
+    </script>
 @endsection

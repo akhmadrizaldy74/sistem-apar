@@ -21,6 +21,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PublicController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TeknisiController;
+use App\Http\Controllers\InvoiceController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -32,6 +33,10 @@ Route::post('/cek-apar', [LandingPageController::class, 'cekApar'])->name('cek-a
 Route::middleware(['auth'])->group(function () {
     Route::get('/riwayat-apar', [LandingPageController::class, 'riwayatApar'])->name('riwayat-apar');
     Route::get('/riwayat-apar/status', [LandingPageController::class, 'riwayatAparStatus'])->name('riwayat-apar.status');
+    
+    // Invoice routes
+    Route::get('/invoice/{pesanan}', [InvoiceController::class, 'show'])->name('invoice.show');
+    Route::get('/invoice/{pesanan}/pdf', [InvoiceController::class, 'pdf'])->name('invoice.pdf');
 });
 
 Route::get('/produk', [LandingPageController::class, 'produkIndex'])->name('produk.index');

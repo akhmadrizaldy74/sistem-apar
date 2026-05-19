@@ -29,7 +29,10 @@ class ServiceController extends Controller
         $serviceLogs = Service::with(['unitApar.pelanggan', 'unitApar.produk', 'pesanan.pelanggan', 'servicePaket'])
             ->where(function ($query) {
                 $query->whereNull('jenis_service')
-                    ->orWhere('jenis_service', '!=', 'Refill');
+                    ->orWhere(function ($q) {
+                        $q->where('jenis_service', 'not like', '%Refill%')
+                          ->where('jenis_service', '!=', 'Refill');
+                    });
             })
             ->latest('tgl_service')
             ->get();

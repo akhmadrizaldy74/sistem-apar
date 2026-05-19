@@ -1,657 +1,1711 @@
 @extends('layouts.public')
 
-@section('title', 'PD. Anugrah Utama — Penjualan & Layanan APAR Profesional')
+@section('title', 'PD. Anugrah Utama - Penjualan & Layanan APAR Profesional')
 
 @section('styles')
 <style>
-    /* ===== UTILITY ===== */
-    .container { max-width: 1140px; margin: 0 auto; padding: 0 15px; }
-    .section-pad { padding: 70px 0; }
-    .section-pad-sm { padding: 50px 0; }
-    .btn-orange {
-        display: inline-flex; align-items: center; gap: 8px;
-        background: #DC2626; color: #fff; font-weight: 700; font-size: 14px;
-        padding: 12px 28px; border-radius: 8px; text-decoration: none;
-        transition: background .3s, transform .2s;
-        border: none; cursor: pointer;
+    :root {
+        --brand-red: #dc2626;
+        --brand-red-dark: #b91c1c;
+        --brand-red-soft: #fee2e2;
+        --brand-red-muted: #fef2f2;
+        --brand-navy: #07111f;
+        --brand-navy-soft: #10213a;
+        --brand-ink: #0f172a;
+        --brand-text: #1f2937;
+        --brand-muted: #64748b;
+        --brand-border: rgba(148, 163, 184, 0.18);
+        --brand-surface: #f8fafc;
+        --brand-surface-strong: #eef2f7;
+        --brand-shadow: 0 24px 60px rgba(15, 23, 42, 0.10);
+        --brand-shadow-soft: 0 18px 42px rgba(15, 23, 42, 0.08);
     }
-    .btn-orange:hover { background: #B91C1C; transform: translateY(-1px); }
-    .btn-outline {
-        display: inline-flex; align-items: center; gap: 8px;
-        background: transparent; color: #DC2626; font-weight: 700; font-size: 14px;
-        padding: 12px 28px; border-radius: 8px; text-decoration: none;
-        border: 2px solid #DC2626;
-        transition: background .3s, color .3s;
-    }
-    .btn-outline:hover { background: #DC2626; color: #fff; }
-    .btn-green {
-        display: inline-flex; align-items: center; gap: 8px;
-        background: #16A34A; color: #fff; font-weight: 700; font-size: 14px;
-        padding: 12px 28px; border-radius: 8px; text-decoration: none;
-        transition: background .3s;
-    }
-    .btn-green:hover { background: #15803D; }
 
-    /* ===== HERO ===== */
-    .hero-section {
-        background: linear-gradient(135deg, rgba(15,23,42,.85) 40%, rgba(220,38,38,.70) 100%),
-            url('https://images.unsplash.com/photo-1581093458791-9f3c3900df4b?w=1600&q=80') center/cover no-repeat;
-        padding: 100px 0 80px;
-        position: relative;
+    .container {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 0 20px;
     }
-    .hero-section::after {
-        content: '';
-        position: absolute;
-        bottom: -1px; left: 0; right: 0;
-        height: 4px;
-        background: linear-gradient(90deg, #DC2626 0%, #F97316 100%);
+
+    .section-pad {
+        padding: 82px 0;
     }
-    .hero-inner { display: flex; align-items: center; justify-content: space-between; gap: 60px; }
-    .hero-badge {
-        display: inline-flex; align-items: center; gap: 8px;
-        background: rgba(255,255,255,.12); backdrop-filter: blur(8px);
-        border: 1px solid rgba(255,255,255,.2);
-        padding: 6px 16px; border-radius: 50px; margin-bottom: 20px;
+
+    .section-soft {
+        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
     }
-    .hero-badge span { font-size: 11px; font-weight: 700; color: #fff; letter-spacing: 2px; text-transform: uppercase; }
-    .hero-title {
-        font-size: 52px; font-weight: 900; color: #fff; line-height: 1.1;
-        margin-bottom: 20px; letter-spacing: -1px;
-    }
-    .hero-title span { color: #FBBF24; }
-    .hero-sub {
-        font-size: 18px; color: rgba(255,255,255,.75); line-height: 1.7;
-        margin-bottom: 35px; max-width: 500px;
-    }
-    .hero-cta { display: flex; gap: 14px; flex-wrap: wrap; }
-    .hero-right { flex-shrink: 0; }
-    .hero-image-card {
-        width: 340px;
+
+    .btn-primary,
+    .btn-secondary,
+    .btn-whatsapp,
+    .btn-inline {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
         border-radius: 16px;
-        overflow: hidden;
-        background: #fff;
-        box-shadow: 0 20px 60px rgba(0,0,0,.30);
-    }
-    .hero-image-card img {
-        width: 100%;
-        height: 420px;
-        object-fit: cover;
-        display: block;
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 800;
+        line-height: 1;
+        transition: transform .25s ease, box-shadow .25s ease, background .25s ease, color .25s ease, border-color .25s ease;
     }
 
-    /* ===== SECTION HEADER ===== */
-    .section-head { text-align: center; margin-bottom: 50px; }
-    .section-tag {
-        display: inline-block; font-size: 11px; font-weight: 700;
-        color: #DC2626; text-transform: uppercase; letter-spacing: 3px; margin-bottom: 10px;
+    .btn-primary,
+    .btn-whatsapp,
+    .btn-secondary {
+        min-height: 50px;
+        padding: 14px 24px;
     }
-    .section-title { font-size: 36px; font-weight: 900; color: #1F2937; margin-bottom: 14px; letter-spacing: -.5px; }
-    .section-sub { font-size: 16px; color: #6B7280; max-width: 600px; margin: 0 auto; line-height: 1.7; }
 
-    /* ===== PROSES (STEPS) ===== */
-    .steps-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; }
-    .step-card {
-        background: #fff; border: 1px solid #E5E7EB; border-radius: 12px;
-        padding: 28px 20px; text-align: center; position: relative;
-        transition: box-shadow .3s, transform .3s;
+    .btn-primary {
+        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+        color: #fff;
+        box-shadow: 0 18px 34px rgba(220, 38, 38, 0.25);
     }
-    .step-card:hover { box-shadow: 0 12px 40px rgba(0,0,0,.08); transform: translateY(-3px); }
-    .step-num {
-        width: 48px; height: 48px; border-radius: 12px;
-        background: #DC2626; color: #fff; font-size: 18px; font-weight: 900;
-        display: flex; align-items: center; justify-content: center;
-        margin: 0 auto 18px;
-    }
-    .step-icon {
-        width: 44px; height: 44px; background: #FEF2F2; color: #DC2626; border-radius: 10px;
-        display: flex; align-items: center; justify-content: center; font-size: 18px;
-        margin: 0 auto 16px;
-        transition: background .3s, color .3s;
-    }
-    .step-card:hover .step-icon { background: #DC2626; color: #fff; }
-    .step-title { font-size: 14px; font-weight: 800; color: #1F2937; margin-bottom: 8px; }
-    .step-desc { font-size: 12px; color: #6B7280; line-height: 1.6; }
 
-    /* ===== KEUNGGULAN ===== */
-    .feat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
-    .feat-card {
-        background: #fff; border: 1px solid #E5E7EB; border-radius: 12px;
-        padding: 28px; text-align: center;
-        transition: box-shadow .3s, transform .3s;
-    }
-    .feat-card:hover { box-shadow: 0 12px 40px rgba(0,0,0,.08); transform: translateY(-3px); }
-    .feat-icon {
-        width: 52px; height: 52px; border-radius: 12px;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 22px; margin: 0 auto 20px;
-    }
-    .feat-title { font-size: 14px; font-weight: 800; color: #1F2937; margin-bottom: 10px; }
-    .feat-desc { font-size: 12px; color: #6B7280; line-height: 1.7; }
-
-    /* ===== KATALOG ===== */
-    .katalog-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
-    .katalog-card {
-        background: #fff; border: 1px solid #E5E7EB; border-radius: 12px;
-        overflow: hidden; transition: box-shadow .3s, transform .3s;
-    }
-    .katalog-card:hover { box-shadow: 0 16px 48px rgba(0,0,0,.10); transform: translateY(-3px); }
-    .katalog-img {
-        height: 200px; background: #F3F4F6; display: flex; align-items: center; justify-content: center;
-        position: relative; overflow: hidden;
-    }
-    .katalog-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s; }
-    .katalog-card:hover .katalog-img img { transform: scale(1.05); }
-    .katalog-badge {
-        position: absolute; top: 12px; left: 12px;
-        background: #fff; color: #DC2626; font-size: 9px; font-weight: 800;
-        padding: 4px 10px; border-radius: 6px; text-transform: uppercase; letter-spacing: 1px;
-    }
-    .katalog-body { padding: 20px; }
-    .katalog-name { font-size: 14px; font-weight: 800; color: #1F2937; margin-bottom: 4px; }
-    .katalog-spec { font-size: 11px; color: #9CA3AF; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #F3F4F6; }
-    .katalog-footer { display: flex; align-items: center; justify-content: space-between; }
-    .katalog-price { font-size: 18px; font-weight: 900; color: #DC2626; }
-    .katalog-order {
-        font-size: 11px; font-weight: 700; color: #9CA3AF; text-decoration: none;
-        display: flex; align-items: center; gap: 4px; transition: color .3s;
-    }
-    .katalog-card:hover .katalog-order { color: #DC2626; }
-
-    /* ===== TESTIMONI ===== */
-    .testi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
-    .testi-card {
-        background: #fff; border: 1px solid #E5E7EB; border-radius: 12px;
-        padding: 28px; transition: box-shadow .3s, transform .3s;
-    }
-    .testi-card:hover { box-shadow: 0 12px 40px rgba(0,0,0,.08); transform: translateY(-3px); }
-    .testi-stars { color: #F59E0B; margin-bottom: 14px; font-size: 14px; }
-    .testi-text { font-size: 13px; color: #4B5563; line-height: 1.7; font-style: italic; margin-bottom: 20px; }
-    .testi-text::before { content: '"'; }
-    .testi-text::after { content: '"'; }
-    .testi-divider { height: 1px; background: #F3F4F6; margin-bottom: 16px; }
-    .testi-author { display: flex; align-items: center; gap: 10px; }
-    .testi-avatar {
-        width: 40px; height: 40px; border-radius: 50%; background: #FEF2F2;
-        color: #DC2626; font-size: 14px; font-weight: 900;
-        display: flex; align-items: center; justify-content: center;
-    }
-    .testi-name { font-size: 13px; font-weight: 800; color: #1F2937; }
-    .testi-time { font-size: 11px; color: #9CA3AF; margin-top: 2px; }
-
-    /* ===== TENTANG KAMI ===== */
-    .about-section { background: #1F2937; }
-    .about-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
-    .about-tag { font-size: 11px; font-weight: 700; color: #DC2626; text-transform: uppercase; letter-spacing: 3px; margin-bottom: 10px; }
-    .about-title { font-size: 36px; font-weight: 900; color: #fff; margin-bottom: 16px; letter-spacing: -.5px; }
-    .about-desc { font-size: 15px; color: #9CA3AF; line-height: 1.8; margin-bottom: 0; }
-    .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-    .about-card {
-        background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
-        border-radius: 12px; padding: 24px; text-align: center;
-        transition: background .3s, border-color .3s;
-    }
-    .about-card:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.2); }
-    .about-icon {
-        width: 48px; height: 48px; border-radius: 12px;
-        display: flex; align-items: center; justify-content: center;
-        margin: 0 auto 16px; font-size: 20px;
-    }
-    .about-card-title { font-size: 14px; font-weight: 800; color: #fff; margin-bottom: 6px; }
-    .about-card-desc { font-size: 12px; color: #9CA3AF; line-height: 1.6; }
-    .about-cta { margin-top: 40px; display: flex; gap: 14px; flex-wrap: wrap; }
-
-    /* ===== LOKASI ===== */
-    .lokasi-grid { display: grid; grid-template-columns: 300px 1fr; gap: 30px; align-items: start; }
-    .lokasi-info { display: flex; flex-direction: column; gap: 16px; }
-    .lokasi-card {
-        background: #fff; border: 1px solid #E5E7EB; border-radius: 10px;
-        padding: 20px; display: flex; align-items: flex-start; gap: 14px;
-        transition: box-shadow .3s;
-    }
-    .lokasi-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.06); }
-    .lokasi-icon {
-        width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
-        display: flex; align-items: center; justify-content: center;
-    }
-    .lokasi-label { font-size: 10px; font-weight: 700; color: #9CA3AF; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-    .lokasi-text { font-size: 13px; font-weight: 700; color: #1F2937; }
-    .lokasi-sub { font-size: 11px; color: #9CA3AF; margin-top: 2px; }
-    .lokasi-map { border-radius: 12px; overflow: hidden; border: 1px solid #E5E7EB; height: 340px; }
-
-    /* ===== SERVICE SECTION (Purple Gradient) ===== */
-    .service-section {
-        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%);
-        padding: 80px 0;
-        position: relative;
-        overflow: hidden;
-    }
-    .service-section::before {
-        content: '';
-        position: absolute;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-    }
-    .service-tag {
-        display: inline-block; font-size: 11px; font-weight: 700;
-        color: #a5b4fc; text-transform: uppercase; letter-spacing: 3px; margin-bottom: 10px;
-    }
-    .service-title { font-size: 36px; font-weight: 900; color: #fff; margin-bottom: 14px; letter-spacing: -.5px; }
-    .service-sub { font-size: 16px; color: #c7d2fe; max-width: 600px; margin: 0 auto; line-height: 1.7; }
-    .service-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; margin-top: 50px; }
-    .service-card {
-        background: rgba(255,255,255,.06);
-        border: 1px solid rgba(255,255,255,.1);
-        border-radius: 16px;
-        padding: 28px 20px;
-        text-align: center;
-        transition: all .4s ease;
-        backdrop-filter: blur(10px);
-    }
-    .service-card:hover {
-        background: rgba(255,255,255,.12);
-        border-color: rgba(167,139,250,.4);
-        transform: translateY(-5px);
-    }
-    .service-icon {
-        width: 64px; height: 64px;
-        border-radius: 16px;
-        background: linear-gradient(135deg, #6366f1, #8b5cf6);
-        display: flex; align-items: center; justify-content: center;
-        margin: 0 auto 20px;
-        transition: all .4s ease;
-    }
-    .service-card:hover .service-icon {
-        background: linear-gradient(135deg, #818cf8, #a78bfa);
-        transform: scale(1.1);
-    }
-    .service-card-title { font-size: 14px; font-weight: 800; color: #fff; margin-bottom: 8px; }
-    .service-card-desc { font-size: 12px; color: #a5b4fc; line-height: 1.6; }
-    .service-cta-section {
-        margin-top: 60px;
-        text-align: center;
-    }
-    .service-cta-title { font-size: 28px; font-weight: 900; color: #fff; margin-bottom: 20px; }
-    .btn-service {
-        display: inline-flex; align-items: center; gap: 10px;
-        background: linear-gradient(135deg, #6366f1, #8b5cf6);
-        color: #fff; font-weight: 700; font-size: 14px;
-        padding: 14px 32px; border-radius: 10px; text-decoration: none;
-        transition: all .3s ease;
-        border: none; cursor: pointer;
-        box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
-    }
-    .btn-service:hover {
-        background: linear-gradient(135deg, #818cf8, #a78bfa);
+    .btn-primary:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 30px rgba(99, 102, 241, 0.5);
+        box-shadow: 0 24px 40px rgba(220, 38, 38, 0.32);
     }
 
-    /* ===== RESPONSIVE ===== */
-    @media (max-width: 991px) {
-        .hero-inner { flex-direction: column; }
-        .hero-right { display: none; }
-        .hero-title { font-size: 38px; }
-        .steps-grid { grid-template-columns: repeat(3, 1fr); }
-        .feat-grid { grid-template-columns: repeat(2, 1fr); }
-        .katalog-grid { grid-template-columns: repeat(2, 1fr); }
-        .testi-grid { grid-template-columns: repeat(2, 1fr); }
-        .about-inner { grid-template-columns: 1fr; gap: 40px; }
-        .lokasi-grid { grid-template-columns: 1fr; }
-        .service-grid { grid-template-columns: repeat(2, 1fr); }
+    .btn-whatsapp {
+        background: #16a34a;
+        color: #fff;
+        box-shadow: 0 18px 34px rgba(22, 163, 74, 0.20);
     }
-    @media (max-width: 767px) {
-        .hero-title { font-size: 30px; }
-        .section-title { font-size: 28px; }
-        .service-title { font-size: 26px; }
-        .steps-grid { grid-template-columns: repeat(2, 1fr); }
-        .feat-grid { grid-template-columns: 1fr; }
-        .feat-wide { grid-column: span 1; }
-        .katalog-grid { grid-template-columns: 1fr; }
-        .testi-grid { grid-template-columns: 1fr; }
-        .about-grid { grid-template-columns: 1fr; }
-        .service-grid { grid-template-columns: 1fr; }
-        .service-cta-title { font-size: 22px; }
+
+    .btn-whatsapp:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 22px 36px rgba(22, 163, 74, 0.28);
+    }
+
+    .btn-secondary {
+        border: 1px solid rgba(220, 38, 38, 0.16);
+        background: #fff;
+        color: var(--brand-red-dark);
+        box-shadow: 0 12px 24px rgba(255, 255, 255, 0.10);
+    }
+
+    .btn-secondary:hover {
+        transform: translateY(-2px);
+        border-color: rgba(220, 38, 38, 0.30);
+        box-shadow: 0 18px 30px rgba(220, 38, 38, 0.12);
+    }
+
+    .btn-inline {
+        padding: 12px 18px;
+        border: 1px solid rgba(220, 38, 38, 0.16);
+        background: #fff;
+        color: var(--brand-red-dark);
+        box-shadow: 0 14px 28px rgba(15, 23, 42, 0.07);
+    }
+
+    .btn-inline:hover {
+        transform: translateY(-2px);
+        border-color: rgba(220, 38, 38, 0.28);
+    }
+
+    .hero-section {
+        position: relative;
+        overflow: hidden;
+        padding: 108px 0 86px;
+        background:
+            radial-gradient(circle at 12% 18%, rgba(248, 113, 113, 0.22), transparent 22%),
+            radial-gradient(circle at 88% 16%, rgba(251, 191, 36, 0.12), transparent 20%),
+            radial-gradient(circle at 76% 74%, rgba(239, 68, 68, 0.16), transparent 24%),
+            linear-gradient(135deg, #07111f 0%, #10213a 46%, #152742 100%);
+    }
+
+    .hero-section::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image:
+            linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+        background-size: 72px 72px;
+        mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent 90%);
+        pointer-events: none;
+    }
+
+    .hero-section::after {
+        content: "";
+        position: absolute;
+        inset: auto 0 0;
+        height: 1px;
+        background: linear-gradient(90deg, rgba(220, 38, 38, 0) 0%, rgba(220, 38, 38, 0.7) 30%, rgba(248, 113, 113, 0.5) 70%, rgba(220, 38, 38, 0) 100%);
+    }
+
+    .hero-inner {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+        align-items: center;
+        gap: 54px;
+    }
+
+    .hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 16px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(10px);
+        margin-bottom: 20px;
+    }
+
+    .hero-badge-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 999px;
+        background: #f87171;
+        box-shadow: 0 0 0 6px rgba(248, 113, 113, 0.18);
+    }
+
+    .hero-badge span {
+        color: #f8fafc;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+    }
+
+    .hero-title {
+        max-width: 700px;
+        margin: 0 0 20px;
+        color: #fff;
+        font-size: 58px;
+        font-weight: 900;
+        line-height: 1.03;
+        letter-spacing: -0.04em;
+    }
+
+    .hero-title span {
+        color: #fca5a5;
+    }
+
+    .hero-sub {
+        max-width: 610px;
+        margin: 0 0 30px;
+        color: rgba(226, 232, 240, 0.86);
+        font-size: 17px;
+        line-height: 1.78;
+    }
+
+    .hero-cta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-bottom: 0;
+    }
+
+    .hero-visual {
+        position: relative;
+    }
+
+    .hero-product-card {
+        position: relative;
+        padding: 20px;
+        border-radius: 32px;
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid rgba(255, 255, 255, 0.75);
+        box-shadow: 0 30px 90px rgba(2, 6, 23, 0.35);
+        overflow: hidden;
+    }
+
+    .hero-product-card::before {
+        content: "";
+        position: absolute;
+        inset: -90px auto auto -40px;
+        width: 180px;
+        height: 180px;
+        border-radius: 999px;
+        background: rgba(220, 38, 38, 0.10);
+        filter: blur(18px);
+        pointer-events: none;
+    }
+
+    .hero-card-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .hero-card-label,
+    .hero-card-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+    }
+
+    .hero-card-label {
+        background: #fff1f2;
+        color: var(--brand-red-dark);
+    }
+
+    .hero-card-status {
+        background: rgba(15, 23, 42, 0.06);
+        color: var(--brand-ink);
+    }
+
+    .hero-media {
+        position: relative;
+        min-height: 320px;
+        border-radius: 26px;
+        overflow: hidden;
+        background:
+            radial-gradient(circle at 50% 20%, rgba(248, 113, 113, 0.20), transparent 30%),
+            linear-gradient(180deg, #fff5f5 0%, #ffffff 55%, #fff7ed 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 28px;
+        border: 1px solid rgba(220, 38, 38, 0.08);
+    }
+
+    .hero-media img {
+        max-width: 100%;
+        max-height: 280px;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+        display: block;
+        filter: drop-shadow(0 26px 36px rgba(15, 23, 42, 0.14));
+    }
+
+    .hero-placeholder {
+        width: 100%;
+        min-height: 260px;
+        border-radius: 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 241, 242, 0.95));
+        color: var(--brand-red-dark);
+        text-align: center;
+        padding: 28px;
+    }
+
+    .hero-placeholder i {
+        font-size: 44px;
+    }
+
+    .hero-placeholder strong {
+        font-size: 16px;
+        color: var(--brand-ink);
+    }
+
+    .hero-placeholder span {
+        max-width: 220px;
+        color: var(--brand-muted);
+        font-size: 13px;
+        line-height: 1.6;
+    }
+
+    .hero-floating-note {
+        position: absolute;
+        right: 20px;
+        bottom: 20px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border-radius: 18px;
+        background: rgba(7, 17, 31, 0.84);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 700;
+        box-shadow: 0 18px 34px rgba(7, 17, 31, 0.20);
+    }
+
+    .hero-card-body {
+        position: relative;
+        z-index: 1;
+        padding-top: 18px;
+    }
+
+    .hero-card-kicker {
+        color: var(--brand-red-dark);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+    }
+
+    .hero-card-title {
+        color: var(--brand-ink);
+        font-size: 26px;
+        font-weight: 900;
+        line-height: 1.18;
+        margin-bottom: 8px;
+    }
+
+    .hero-card-desc {
+        color: var(--brand-muted);
+        font-size: 14px;
+        line-height: 1.7;
+        margin-bottom: 18px;
+    }
+
+    .hero-spec-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+
+    .hero-spec-item {
+        border-radius: 18px;
+        background: #f8fafc;
+        border: 1px solid rgba(148, 163, 184, 0.12);
+        padding: 14px 16px;
+    }
+
+    .hero-spec-label {
+        color: #94a3b8;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        margin-bottom: 6px;
+    }
+
+    .hero-spec-value {
+        color: var(--brand-ink);
+        font-size: 14px;
+        font-weight: 800;
+        line-height: 1.4;
+    }
+
+    .section-head {
+        text-align: center;
+        margin-bottom: 46px;
+    }
+
+    .section-tag {
+        display: inline-block;
+        color: var(--brand-red-dark);
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+        margin-bottom: 12px;
+    }
+
+    .section-title {
+        margin: 0 0 14px;
+        color: var(--brand-text);
+        font-size: 40px;
+        font-weight: 900;
+        letter-spacing: -0.03em;
+        line-height: 1.08;
+    }
+
+    .section-sub {
+        max-width: 680px;
+        margin: 0 auto;
+        color: var(--brand-muted);
+        font-size: 16px;
+        line-height: 1.8;
+    }
+
+    .service-section {
+        background:
+            radial-gradient(circle at 0% 0%, rgba(220, 38, 38, 0.08), transparent 18%),
+            linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    }
+
+    .service-grid,
+    .steps-grid,
+    .feat-grid,
+    .katalog-grid,
+    .testi-grid,
+    .about-grid {
+        display: grid;
+        gap: 22px;
+    }
+
+    .service-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+
+    .service-card {
+        position: relative;
+        background: #fff;
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        border-radius: 26px;
+        padding: 28px 22px;
+        box-shadow: var(--brand-shadow-soft);
+        transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+        overflow: hidden;
+    }
+
+    .service-card::before {
+        content: "";
+        position: absolute;
+        inset: 0 0 auto;
+        height: 4px;
+        background: linear-gradient(90deg, #dc2626 0%, #f97316 100%);
+        opacity: .92;
+    }
+
+    .service-card:hover,
+    .step-card:hover,
+    .feat-card:hover,
+    .katalog-card:hover,
+    .testi-card:hover,
+    .about-card:hover,
+    .lokasi-card:hover {
+        transform: translateY(-4px);
+    }
+
+    .service-card:hover {
+        border-color: rgba(220, 38, 38, 0.18);
+        box-shadow: 0 28px 48px rgba(15, 23, 42, 0.12);
+    }
+
+    .service-icon {
+        width: 62px;
+        height: 62px;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 18px;
+        background: linear-gradient(135deg, #fff1f2 0%, #fee2e2 100%);
+        color: var(--brand-red-dark);
+        font-size: 22px;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    }
+
+    .service-card-title,
+    .step-title,
+    .feat-title,
+    .about-card-title {
+        color: var(--brand-text);
+        font-size: 18px;
+        font-weight: 800;
+        line-height: 1.35;
+        margin-bottom: 8px;
+    }
+
+    .service-card-desc,
+    .step-desc,
+    .feat-desc,
+    .katalog-spec,
+    .about-card-desc {
+        color: var(--brand-muted);
+        font-size: 14px;
+        line-height: 1.75;
+    }
+
+    .steps-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+
+    .step-card {
+        background: #fff;
+        border-radius: 26px;
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        padding: 26px 22px;
+        box-shadow: var(--brand-shadow-soft);
+        transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+    }
+
+    .step-card:hover {
+        box-shadow: 0 28px 48px rgba(15, 23, 42, 0.10);
+        border-color: rgba(220, 38, 38, 0.16);
+    }
+
+    .step-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+
+    .step-num {
+        width: 56px;
+        height: 56px;
+        flex-shrink: 0;
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+        color: #fff;
+        font-size: 18px;
+        font-weight: 900;
+        box-shadow: 0 18px 30px rgba(220, 38, 38, 0.18);
+    }
+
+    .step-icon {
+        width: 44px;
+        height: 44px;
+        flex-shrink: 0;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fff1f2;
+        color: var(--brand-red-dark);
+        font-size: 18px;
+    }
+
+    .feat-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .feat-card {
+        background: #fff;
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        border-radius: 26px;
+        padding: 28px 24px;
+        box-shadow: var(--brand-shadow-soft);
+        transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+    }
+
+    .feat-card:hover {
+        border-color: rgba(220, 38, 38, 0.18);
+        box-shadow: 0 28px 48px rgba(15, 23, 42, 0.10);
+    }
+
+    .feat-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 18px;
+        font-size: 22px;
+    }
+
+    .product-head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 20px;
+        flex-wrap: wrap;
+        margin-bottom: 42px;
+    }
+
+    .product-head-copy .section-tag,
+    .product-head-copy .section-title,
+    .product-head-copy .section-sub {
+        text-align: left;
+        margin-left: 0;
+    }
+
+    .product-head-copy .section-sub {
+        max-width: 620px;
+    }
+
+    .product-head-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .katalog-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .katalog-card {
+        height: 100%;
+        background: #fff;
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        border-radius: 28px;
+        overflow: hidden;
+        box-shadow: var(--brand-shadow-soft);
+        transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+    }
+
+    .katalog-card:hover {
+        border-color: rgba(220, 38, 38, 0.20);
+        box-shadow: 0 30px 50px rgba(15, 23, 42, 0.12);
+    }
+
+    .katalog-card-link {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        text-decoration: none;
+    }
+
+    .katalog-img {
+        position: relative;
+        height: 240px;
+        background:
+            radial-gradient(circle at 50% 18%, rgba(248, 113, 113, 0.18), transparent 28%),
+            linear-gradient(180deg, #fff7f7 0%, #ffffff 62%, #fff7ed 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 28px;
+        overflow: hidden;
+    }
+
+    .katalog-img img {
+        max-width: 100%;
+        max-height: 188px;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+        display: block;
+        transition: transform .35s ease;
+        filter: drop-shadow(0 20px 30px rgba(15, 23, 42, 0.12));
+    }
+
+    .katalog-card:hover .katalog-img img {
+        transform: scale(1.04);
+    }
+
+    .katalog-placeholder {
+        width: 100%;
+        height: 100%;
+        border-radius: 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        background: linear-gradient(180deg, #fff5f5 0%, #ffffff 100%);
+        color: var(--brand-red-dark);
+        text-align: center;
+        border: 1px dashed rgba(220, 38, 38, 0.16);
+    }
+
+    .katalog-placeholder i {
+        font-size: 36px;
+    }
+
+    .katalog-placeholder span {
+        max-width: 180px;
+        color: var(--brand-muted);
+        font-size: 12px;
+        line-height: 1.6;
+    }
+
+    .katalog-badge {
+        position: absolute;
+        top: 18px;
+        left: 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.92);
+        color: var(--brand-red-dark);
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        box-shadow: 0 14px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    .katalog-body {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        padding: 24px;
+    }
+
+    .katalog-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 14px;
+    }
+
+    .katalog-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 7px 10px;
+        border-radius: 999px;
+        background: #f8fafc;
+        color: #475569;
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+    }
+
+    .katalog-name {
+        color: var(--brand-ink);
+        font-size: 20px;
+        font-weight: 900;
+        line-height: 1.3;
+        margin: 0 0 10px;
+    }
+
+    .katalog-spec {
+        margin: 0 0 20px;
+    }
+
+    .katalog-footer {
+        margin-top: auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding-top: 18px;
+        border-top: 1px solid rgba(226, 232, 240, 0.9);
+    }
+
+    .katalog-price {
+        color: var(--brand-red-dark);
+        font-size: 22px;
+        font-weight: 900;
+        line-height: 1;
+    }
+
+    .katalog-order {
+        color: var(--brand-ink);
+        font-size: 13px;
+        font-weight: 800;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .testi-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .testi-grid-sparse {
+        max-width: 880px;
+        margin: 0 auto;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 360px));
+        justify-content: center;
+    }
+
+    .testi-card {
+        position: relative;
+        background: #fff;
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        border-radius: 28px;
+        padding: 30px 26px;
+        box-shadow: var(--brand-shadow-soft);
+        transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+    }
+
+    .testi-card:hover {
+        border-color: rgba(220, 38, 38, 0.18);
+        box-shadow: 0 28px 48px rgba(15, 23, 42, 0.10);
+    }
+
+    .testi-quote {
+        position: absolute;
+        top: 22px;
+        right: 22px;
+        width: 42px;
+        height: 42px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fff5f5;
+        color: var(--brand-red-dark);
+        font-size: 16px;
+    }
+
+    .testi-stars {
+        color: #f59e0b;
+        font-size: 15px;
+        margin-bottom: 18px;
+    }
+
+    .testi-text {
+        color: #475569;
+        font-size: 15px;
+        line-height: 1.9;
+        margin-bottom: 22px;
+    }
+
+    .testi-divider {
+        height: 1px;
+        background: rgba(226, 232, 240, 0.95);
+        margin-bottom: 18px;
+    }
+
+    .testi-author {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .testi-avatar {
+        width: 48px;
+        height: 48px;
+        flex-shrink: 0;
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #fee2e2 0%, #fff1f2 100%);
+        color: var(--brand-red-dark);
+        font-size: 16px;
+        font-weight: 900;
+    }
+
+    .testi-name {
+        color: var(--brand-ink);
+        font-size: 15px;
+        font-weight: 900;
+    }
+
+    .testi-role {
+        color: #94a3b8;
+        font-size: 12px;
+        font-weight: 700;
+        margin-top: 3px;
+    }
+
+    .about-section {
+        position: relative;
+        overflow: hidden;
+        background:
+            radial-gradient(circle at 14% 18%, rgba(248, 113, 113, 0.12), transparent 22%),
+            radial-gradient(circle at 86% 18%, rgba(248, 113, 113, 0.08), transparent 18%),
+            linear-gradient(135deg, #07111f 0%, #10213a 55%, #162945 100%);
+    }
+
+    .about-section::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image:
+            linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+        background-size: 82px 82px;
+        mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.7), transparent 92%);
+        pointer-events: none;
+    }
+
+    .about-inner {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+        gap: 42px;
+        align-items: center;
+    }
+
+    .about-tag {
+        color: #fca5a5;
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        margin-bottom: 12px;
+    }
+
+    .about-title {
+        color: #fff;
+        font-size: 40px;
+        font-weight: 900;
+        line-height: 1.12;
+        letter-spacing: -0.03em;
+        margin: 0 0 16px;
+    }
+
+    .about-desc {
+        color: rgba(226, 232, 240, 0.78);
+        font-size: 16px;
+        line-height: 1.85;
+        margin-bottom: 24px;
+    }
+
+    .about-points {
+        display: grid;
+        gap: 14px;
+        margin-bottom: 28px;
+    }
+
+    .about-point {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        color: rgba(226, 232, 240, 0.82);
+        font-size: 14px;
+        line-height: 1.7;
+    }
+
+    .about-point i {
+        width: 28px;
+        height: 28px;
+        flex-shrink: 0;
+        border-radius: 999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(248, 113, 113, 0.14);
+        color: #fca5a5;
+        font-size: 12px;
+        margin-top: 1px;
+    }
+
+    .about-cta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+    }
+
+    .about-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .about-card {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.11);
+        border-radius: 26px;
+        padding: 24px;
+        backdrop-filter: blur(14px);
+        transition: transform .25s ease, border-color .25s ease, background .25s ease;
+    }
+
+    .about-card:hover {
+        background: rgba(255, 255, 255, 0.12);
+        border-color: rgba(248, 113, 113, 0.20);
+    }
+
+    .about-icon {
+        width: 54px;
+        height: 54px;
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 18px;
+        font-size: 22px;
+    }
+
+    .about-card-title {
+        color: #fff;
+    }
+
+    .about-card-desc {
+        color: rgba(226, 232, 240, 0.72);
+    }
+
+    .lokasi-grid {
+        display: grid;
+        grid-template-columns: 340px minmax(0, 1fr);
+        gap: 24px;
+        align-items: stretch;
+    }
+
+    .lokasi-info {
+        display: grid;
+        gap: 16px;
+    }
+
+    .lokasi-card {
+        background: #fff;
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        border-radius: 24px;
+        padding: 20px;
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        box-shadow: var(--brand-shadow-soft);
+        transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+    }
+
+    .lokasi-card:hover {
+        border-color: rgba(220, 38, 38, 0.18);
+        box-shadow: 0 24px 42px rgba(15, 23, 42, 0.10);
+    }
+
+    .lokasi-icon {
+        width: 48px;
+        height: 48px;
+        flex-shrink: 0;
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+    }
+
+    .lokasi-label {
+        color: #94a3b8;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        margin-bottom: 6px;
+    }
+
+    .lokasi-text {
+        color: var(--brand-ink);
+        font-size: 15px;
+        font-weight: 800;
+        line-height: 1.55;
+        text-decoration: none;
+    }
+
+    .lokasi-sub {
+        color: var(--brand-muted);
+        font-size: 13px;
+        line-height: 1.65;
+        margin-top: 4px;
+    }
+
+    .lokasi-map {
+        min-height: 390px;
+        border-radius: 30px;
+        overflow: hidden;
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        box-shadow: var(--brand-shadow);
+        background: #fff;
+    }
+
+    .landing-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        min-height: 220px;
+        border-radius: 28px;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        border: 1px dashed rgba(148, 163, 184, 0.22);
+        color: var(--brand-muted);
+        text-align: center;
+        padding: 28px;
+    }
+
+    .landing-empty i {
+        color: var(--brand-red-dark);
+        font-size: 36px;
+    }
+
+    @media (max-width: 1366px) {
+        .hero-title {
+            font-size: 52px;
+        }
+
+        .service-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .steps-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .katalog-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 1024px) {
+        .section-pad {
+            padding: 74px 0;
+        }
+
+        .hero-section {
+            padding: 102px 0 76px;
+        }
+
+        .hero-inner,
+        .about-inner,
+        .lokasi-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .feat-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .hero-title,
+        .section-title,
+        .about-title {
+            max-width: none;
+        }
+
+        .hero-title {
+            font-size: 46px;
+        }
+
+        .section-title,
+        .about-title {
+            font-size: 34px;
+        }
+
+        .testi-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .service-grid,
+        .about-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 768px) {
+        .container {
+            padding: 0 16px;
+        }
+
+        .section-pad {
+            padding: 62px 0;
+        }
+
+        .hero-section {
+            padding: 94px 0 62px;
+        }
+
+        .hero-title {
+            font-size: 38px;
+        }
+
+        .hero-sub,
+        .section-sub,
+        .about-desc {
+            font-size: 15px;
+        }
+
+        .service-grid,
+        .feat-grid,
+        .katalog-grid,
+        .testi-grid,
+        .about-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .hero-spec-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .section-head {
+            margin-bottom: 34px;
+        }
+
+        .section-title,
+        .about-title {
+            font-size: 30px;
+        }
+
+        .product-head {
+            margin-bottom: 32px;
+        }
+
+        .product-head-actions,
+        .hero-cta,
+        .about-cta {
+            flex-direction: column;
+        }
+
+        .product-head-actions > *,
+        .hero-cta > *,
+        .about-cta > * {
+            width: 100%;
+        }
+
+        .hero-product-card,
+        .service-card,
+        .step-card,
+        .feat-card,
+        .katalog-card,
+        .testi-card,
+        .about-card,
+        .lokasi-card {
+            border-radius: 24px;
+        }
+
+        .katalog-img {
+            height: 220px;
+        }
+
+        .lokasi-map {
+            min-height: 320px;
+        }
+
+        .hero-floating-note {
+            position: static;
+            margin-top: 14px;
+            justify-content: center;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .hero-title {
+            font-size: 34px;
+        }
+
+        .section-title,
+        .about-title {
+            font-size: 28px;
+        }
+
+        .hero-product-card {
+            padding: 16px;
+        }
+
+        .hero-media {
+            min-height: 260px;
+            padding: 20px;
+        }
+
+        .hero-media img {
+            max-height: 220px;
+        }
+
+        .hero-point {
+            padding: 14px;
+        }
+
+        .katalog-body,
+        .testi-card,
+        .service-card,
+        .step-card,
+        .feat-card,
+        .about-card {
+            padding: 22px 20px;
+        }
+
+        .lokasi-card {
+            padding: 18px;
+        }
+
+        .btn-primary,
+        .btn-secondary,
+        .btn-whatsapp,
+        .btn-inline {
+            font-size: 13px;
+        }
     }
 </style>
 @endsection
 
 @section('content')
-
 @php
     $orderEntryUrl = auth()->check() ? route('order.create') : route('login');
+    $waContact = env('WHATSAPP_CONTACT', '6285128008030');
+    $heroProduct = $produks->first();
+    $testimoniLayout = $testimonis->count() > 0 && $testimonis->count() <= 2 ? 'testi-grid testi-grid-sparse' : 'testi-grid';
 @endphp
 
-{{-- ======================================================= --}}
-{{-- HERO --}}
-{{-- ======================================================= --}}
 <section class="hero-section">
     <div class="container">
         <div class="hero-inner">
-            <div>
+            <div data-reveal>
                 <div class="hero-badge">
-                    <span class="w-1.5 h-1.5 bg-red-400 rounded-full"></span>
+                    <span class="hero-badge-dot"></span>
                     <span>Layanan APAR Profesional</span>
                 </div>
                 <h1 class="hero-title">
-                    Pusat Penjualan &amp;<br>
-                    <span>Layanan APAR</span> Profesional
+                    Solusi <span>Penjualan dan Layanan APAR</span> yang Lebih Meyakinkan untuk Operasional Anda
                 </h1>
                 <p class="hero-sub">
-                    Melayani pembelian APAR baru, refill, servis, dan perawatan berkala dengan proses profesional, bergaransi, dan terpercaya.
+                    PD. Anugrah Utama melayani pembelian APAR, refill, service, inspeksi, dan konsultasi kebutuhan proteksi kebakaran dengan alur yang rapi, harga jelas, dan respons yang cepat.
                 </p>
                 <div class="hero-cta">
-                    <a href="{{ $orderEntryUrl }}" class="btn-orange">
-                        <i class="fa-solid fa-shopping-cart"></i> Pesan Sekarang
+                    <a href="{{ $orderEntryUrl }}" class="btn-primary">
+                        <i class="fa-solid fa-cart-shopping"></i>
+                        Pesan Sekarang
                     </a>
-                    <a href="https://wa.me/{{ env('WHATSAPP_CONTACT', '6285128008030') }}?text={{ urlencode('Halo, saya ingin layanan APAR. Mohon info harga dan jadwal.') }}"
-                       target="_blank" class="btn-green">
-                        <i class="fa-brands fa-whatsapp"></i> Hubungi WhatsApp
+                    <a href="https://wa.me/{{ $waContact }}?text={{ urlencode('Halo, saya ingin konsultasi dan pemesanan APAR.') }}" target="_blank" rel="noopener noreferrer" class="btn-whatsapp">
+                        <i class="fa-brands fa-whatsapp"></i>
+                        Hubungi WhatsApp
                     </a>
                 </div>
             </div>
 
-            {{-- Right: APAR product image (desktop only) --}}
-            <div class="hero-right">
-                <div class="hero-image-card">
-                    <img src="{{ asset('storage/produk/Y7b42cUZToTEcYZS2F74nWERmF3VlKnpLfrKNbEA.jpg') }}" alt="APAR Profesional PD. Anugrah Utama">
+            <div class="hero-visual" data-reveal>
+                <div class="hero-product-card">
+                    <div class="hero-card-top">
+                        <span class="hero-card-label">Produk Unggulan</span>
+                        <span class="hero-card-status">
+                            <i class="fa-solid fa-shield-halved"></i>
+                            Siap Dipesan
+                        </span>
+                    </div>
+
+                    <div class="hero-media">
+                        @if($heroProduct && $heroProduct->gambar)
+                            <img src="{{ asset('storage/' . $heroProduct->gambar) }}" alt="{{ $heroProduct->nama }}">
+                        @else
+                            <div class="hero-placeholder">
+                                <i class="fa-solid fa-fire-extinguisher"></i>
+                                <strong>Produk APAR Siap Ditampilkan</strong>
+                                <span>Tambahkan gambar produk APAR untuk menampilkan visual yang lebih kuat pada halaman utama.</span>
+                            </div>
+                        @endif
+                        <div class="hero-floating-note">
+                            <i class="fa-solid fa-store"></i>
+                            Tersedia pembelian langsung dan pemesanan online
+                        </div>
+                    </div>
+
+                    <div class="hero-card-body">
+                        <p class="hero-card-kicker">{{ $heroProduct?->jenisApar?->nama ?? 'Produk APAR Profesional' }}</p>
+                        <h2 class="hero-card-title">{{ $heroProduct?->nama ?? 'APAR Berkualitas untuk Kebutuhan Operasional Anda' }}</h2>
+                        <p class="hero-card-desc">
+                            {{ $heroProduct ? 'Produk APAR dipilih dari data sistem agar pelanggan langsung melihat spesifikasi utama, harga, dan tampilan yang lebih meyakinkan.' : 'Landing page ini disiapkan untuk menampilkan produk APAR unggulan lengkap dengan kapasitas, merek, dan harga yang jelas.' }}
+                        </p>
+                        <div class="hero-spec-grid">
+                            <div class="hero-spec-item">
+                                <p class="hero-spec-label">Jenis APAR</p>
+                                <p class="hero-spec-value">{{ $heroProduct?->jenisApar?->nama ?? 'APAR' }}</p>
+                            </div>
+                            <div class="hero-spec-item">
+                                <p class="hero-spec-label">Ukuran</p>
+                                <p class="hero-spec-value">{{ $heroProduct?->kapasitas ?: 'Ikuti data produk' }}</p>
+                            </div>
+                            <div class="hero-spec-item">
+                                <p class="hero-spec-label">Merek</p>
+                                <p class="hero-spec-value">{{ $heroProduct?->merek ?: 'Sesuai stok tersedia' }}</p>
+                            </div>
+                            <div class="hero-spec-item">
+                                <p class="hero-spec-label">Harga</p>
+                                <p class="hero-spec-value">{{ $heroProduct ? 'Rp ' . number_format($heroProduct->harga, 0, ',', '.') : 'Hubungi admin' }}</p>
+                            </div>
+                        </div>
+                        <a href="{{ $heroProduct ? route('produk.show', $heroProduct) : route('produk.index') }}" class="btn-inline">
+                            Lihat Detail Produk
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
-
-{{-- ======================================================= --}}
-{{-- LAYANAN KAMI (SERVICE SECTION) --}}
-{{-- ======================================================= --}}
-<section class="service-section">
+<section class="service-section section-pad">
     <div class="container">
-        <div class="section-head">
-            <p class="service-tag">Layanan Kami</p>
-            <h2 class="service-title">Solusi Lengkap untuk Kebutuhan APAR Anda</h2>
-            <p class="service-sub">Dari penjualan hingga perawatan berkala, kami menyediakan semua yang Anda butuhkan untuk menjaga keselamatan fire safety di lingkungan Anda.</p>
+        <div class="section-head" data-reveal>
+            <p class="section-tag">Layanan APAR</p>
+            <h2 class="section-title">Layanan yang Tersusun Lebih Jelas untuk Kebutuhan APAR</h2>
+            <p class="section-sub">Setiap layanan disusun agar mudah dipahami pelanggan, mulai dari pembelian produk hingga perawatan APAR secara berkala.</p>
         </div>
+
+        @php
+            $services = [
+                ['title' => 'Penjualan APAR', 'desc' => 'Pilihan produk APAR untuk rumah, toko, kantor, gudang, proyek, dan area operasional lainnya.', 'icon' => 'fa-cart-shopping'],
+                ['title' => 'Refill APAR', 'desc' => 'Isi ulang APAR dengan prosedur yang rapi dan harga yang mengikuti data layanan yang sudah tersedia.', 'icon' => 'fa-arrows-rotate'],
+                ['title' => 'Service APAR', 'desc' => 'Perawatan dan pemeriksaan komponen APAR agar kondisi unit tetap siap digunakan.', 'icon' => 'fa-screwdriver-wrench'],
+                ['title' => 'Inspeksi & Testing', 'desc' => 'Pengecekan tekanan, kondisi tabung, segel, dan komponen penting APAR lainnya.', 'icon' => 'fa-clipboard-check'],
+                ['title' => 'Konsultasi APAR', 'desc' => 'Diskusikan kebutuhan APAR berdasarkan lokasi, risiko, dan kapasitas yang paling sesuai.', 'icon' => 'fa-comments'],
+            ];
+        @endphp
 
         <div class="service-grid">
-            @php
-            $services = [
-                ['title' => 'Penjualan APAR', 'desc' => 'Pilihan lengkap APAR berbagai kapasitas dan jenis untuk rumah, kantor, dan industri.', 'icon' => 'fa-shopping-cart'],
-                ['title' => 'Refill APAR', 'desc' => 'Isi ulang powder, CO2, atau foam dengan standar prosedur yang ketat dan bergaransi.', 'icon' => 'fa-sync-alt'],
-                ['title' => 'Service & Perbaikan', 'desc' => 'Perbaikan dan perawatan APAR oleh teknisi bersertifikasi untuk performa optimal.', 'icon' => 'fa-tools'],
-                ['title' => ' Inspeksi & Testing', 'desc' => 'Pengecekan berkala tekanan, fisik, dan kelayakan APAR sesuai standar.', 'icon' => 'fa-clipboard-check'],
-                ['title' => 'Konsultasi & Training', 'desc' => 'Bantuan pilih produk dan edukasi penggunaan APAR yang tepat untuk tim Anda.', 'icon' => 'fa-headset'],
-            ];
-            @endphp
-            @foreach($services as $s)
-            <div class="service-card">
-                <div class="service-icon">
-                    <i class="fa-solid {{ $s['icon'] }}" style="color:#fff; font-size:22px;"></i>
-                </div>
-                <h4 class="service-card-title">{{ $s['title'] }}</h4>
-                <p class="service-card-desc">{{ $s['desc'] }}</p>
-            </div>
+            @foreach($services as $service)
+                <article class="service-card" data-reveal>
+                    <div class="service-icon">
+                        <i class="fa-solid {{ $service['icon'] }}"></i>
+                    </div>
+                    <h3 class="service-card-title">{{ $service['title'] }}</h3>
+                    <p class="service-card-desc">{{ $service['desc'] }}</p>
+                </article>
             @endforeach
         </div>
     </div>
 </section>
 
-
-{{-- ======================================================= --}}
-{{-- ALUR LAYANAN (5 STEPS) --}}
-{{-- ======================================================= --}}
-<section class="section-pad bg-white">
+<section class="section-pad section-soft">
     <div class="container">
-        <div class="section-head">
-            <p class="section-tag">Bagaimana Kami Bekerja</p>
-            <h2 class="section-title">Alur Layanan</h2>
-            <p class="section-sub">Proses service &amp; refill APAR yang transparan dan mudah — dari order hingga selesai.</p>
+        <div class="section-head" data-reveal>
+            <p class="section-tag">Keunggulan</p>
+            <h2 class="section-title">Alasan Pelanggan Lebih Percaya Menggunakan Layanan Kami</h2>
+            <p class="section-sub">Tampilan dibuat lebih rapi agar keunggulan usaha APAR terlihat jelas dan terasa lebih profesional bagi calon pelanggan.</p>
         </div>
 
-        <div class="steps-grid">
-            @php
-            $steps = [
-                ['n' => '01', 'title' => 'Hubungi Kami',        'desc' => 'Chat via WhatsApp atau isi form pemesanan online.',                                              'icon' => 'fa-comment-dots'],
-                ['n' => '02', 'title' => 'Konsultasi Kebutuhan', 'desc' => 'Kami bantu arahkan pilihan APAR, refill, atau servis sesuai kebutuhan Anda.',                     'icon' => 'fa-headset'],
-                ['n' => '03', 'title' => 'Penawaran Harga',      'desc' => 'Dapatkan estimasi harga terbaik sesuai produk atau layanan yang dibutuhkan.',                    'icon' => 'fa-file-invoice-dollar'],
-                ['n' => '04', 'title' => 'Proses Pesanan',       'desc' => 'Pesanan APAR, refill, atau servis diproses sesuai standar dan prosedur.',                          'icon' => 'fa-box-open'],
-                ['n' => '05', 'title' => 'Selesai & Garansi',    'desc' => 'Unit siap digunakan kembali dengan layanan yang bergaransi.',                                    'icon' => 'fa-check-circle'],
-            ];
-            @endphp
-            @foreach($steps as $s)
-            <div class="step-card">
-                <div class="step-num">{{ $s['n'] }}</div>
-                <div class="step-icon"><i class="fa-solid {{ $s['icon'] }}"></i></div>
-                <h4 class="step-title">{{ $s['title'] }}</h4>
-                <p class="step-desc">{{ $s['desc'] }}</p>
-            </div>
-            @endforeach
-        </div>
-    </div>
-</section>
-
-
-{{-- ======================================================= --}}
-{{-- KEUNGGULAN (FEATURES) --}}
-{{-- ======================================================= --}}
-<section class="section-pad" style="background:#F9FAFB;">
-    <div class="container">
-        <div class="section-head">
-            <p class="section-tag">Mengapa Memilih Kami</p>
-            <h2 class="section-title">Keunggulan Layanan</h2>
-        </div>
-
-        <div class="feat-grid" style="grid-template-columns: repeat(2, 1fr); max-width: 800px; margin: 0 auto;">
-            @php
+        @php
             $feats = [
-                ['title' => 'Layanan Cepat & Responsif',    'desc' => 'Respon cepat untuk pembelian, refill, servis, dan konsultasi kebutuhan APAR.',     'icon' => 'fa-bolt',         'bg' => 'bg-red-50',     'col' => 'text-red-600'],
-                ['title' => 'Konsultasi Gratis',            'desc' => 'Bantu pilih jenis dan kapasitas APAR yang sesuai dengan kebutuhan lokasi Anda.',       'icon' => 'fa-comments',     'bg' => 'bg-blue-50',    'col' => 'text-blue-600'],
-                ['title' => 'Produk APAR Berkualitas',       'desc' => 'Tersedia berbagai jenis APAR untuk rumah, kantor, gudang, proyek, dan industri.',    'icon' => 'fa-fire-extinguisher', 'bg' => 'bg-amber-50', 'col' => 'text-amber-600'],
-                ['title' => 'Refill & Servis Profesional',  'desc' => 'Proses refill dan servis dilakukan sesuai prosedur agar APAR tetap aman dan siap digunakan.', 'icon' => 'fa-tools',  'bg' => 'bg-emerald-50', 'col' => 'text-emerald-600'],
+                ['title' => 'Administrasi Lebih Cepat', 'desc' => 'Admin lebih mudah menangani konsultasi, pemesanan, dan tindak lanjut layanan pelanggan.', 'icon' => 'fa-bolt', 'bg' => 'linear-gradient(135deg, #fff1f2 0%, #fee2e2 100%)', 'color' => '#b91c1c'],
+                ['title' => 'Spesifikasi Produk Jelas', 'desc' => 'Produk APAR ditampilkan dengan jenis, ukuran, merek, dan harga yang lebih mudah dipahami.', 'icon' => 'fa-fire-extinguisher', 'bg' => 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)', 'color' => '#c2410c'],
+                ['title' => 'Harga Transparan', 'desc' => 'Harga produk dan layanan dibuat lebih jelas agar tidak membingungkan pelanggan.', 'icon' => 'fa-tags', 'bg' => 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', 'color' => '#1d4ed8'],
+                ['title' => 'Layanan End-to-End', 'desc' => 'Pembelian, refill, service, inspeksi, dan monitoring APAR tercatat dalam satu sistem.', 'icon' => 'fa-layer-group', 'bg' => 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)', 'color' => '#047857'],
+                ['title' => 'Operasional Lebih Tertata', 'desc' => 'Stok, transaksi, dan riwayat layanan lebih mudah dipantau oleh admin maupun pelanggan.', 'icon' => 'fa-chart-line', 'bg' => 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)', 'color' => '#334155'],
             ];
-            @endphp
-            @foreach($feats as $f)
-            <div class="feat-card">
-                <div class="feat-icon {{ $f['bg'] }} {{ $f['col'] }}"><i class="fa-solid {{ $f['icon'] }}"></i></div>
-                <h4 class="feat-title">{{ $f['title'] }}</h4>
-                <p class="feat-desc">{{ $f['desc'] }}</p>
-            </div>
+        @endphp
+
+        <div class="feat-grid">
+            @foreach($feats as $feat)
+                <article class="feat-card" data-reveal>
+                    <div class="feat-icon" style="background: {{ $feat['bg'] }}; color: {{ $feat['color'] }};">
+                        <i class="fa-solid {{ $feat['icon'] }}"></i>
+                    </div>
+                    <h3 class="feat-title">{{ $feat['title'] }}</h3>
+                    <p class="feat-desc">{{ $feat['desc'] }}</p>
+                </article>
             @endforeach
         </div>
     </div>
 </section>
 
-
-{{-- ======================================================= --}}
-{{-- KATALOG PRODUK --}}
-{{-- ======================================================= --}}
 <section class="section-pad bg-white">
     <div class="container">
-        <div style="display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:50px; gap:20px; flex-wrap:wrap;">
-            <div>
-                <p class="section-tag" style="text-align:left;">Produk Pilihan</p>
-                <h2 class="section-title" style="text-align:left; margin-bottom:0;">Produk APAR Kami</h2>
+        <div class="product-head" data-reveal>
+            <div class="product-head-copy">
+                <p class="section-tag">Produk</p>
+                <h2 class="section-title">Produk APAR yang Tampil Lebih Menarik dan Mudah Dipahami</h2>
+                <p class="section-sub">Jenis APAR, ukuran, merek, dan harga disusun lebih jelas agar pelanggan dapat melihat pilihan produk dengan cepat.</p>
             </div>
-            <a href="{{ route('produk.index') }}" class="btn-outline" style="border-color:#DC2626; color:#DC2626; padding:10px 22px; font-size:13px;">
-                Lihat Semua <i class="fa-solid fa-arrow-right" style="font-size:11px;"></i>
-            </a>
+            <div class="product-head-actions">
+                <a href="{{ route('produk.index') }}" class="btn-inline">
+                    Lihat Semua Produk
+                    <i class="fa-solid fa-arrow-right"></i>
+                </a>
+                <a href="{{ $orderEntryUrl }}" class="btn-primary">
+                    <i class="fa-solid fa-bag-shopping"></i>
+                    Pesan Sekarang
+                </a>
+            </div>
         </div>
 
         <div class="katalog-grid">
-            @forelse($produks as $p)
-            <a href="{{ $orderEntryUrl }}" class="katalog-card">
-                <div class="katalog-img">
-                    @if($p->gambar)
-                        <img src="{{ asset('storage/' . $p->gambar) }}" alt="{{ $p->nama }}">
-                    @else
-                        <i class="fa-solid fa-fire-extinguisher text-4xl text-gray-300"></i>
-                    @endif
-                    <span class="katalog-badge">{{ $p->jenisApar?->nama ?? 'APAR' }}</span>
-                </div>
-                <div class="katalog-body">
-                    <h3 class="katalog-name">{{ $p->nama }}</h3>
-                    <p class="katalog-spec">{{ $p->kapasitas ?? '-' }}</p>
-                    <div class="katalog-footer">
-                        <span class="katalog-price">Rp {{ number_format($p->harga, 0, ',', '.') }}</span>
-                        <span class="katalog-order">Pesan <i class="fa-solid fa-arrow-right text-[10px]"></i></span>
-                    </div>
-                </div>
-            </a>
+            @forelse($produks as $produk)
+                <article class="katalog-card" data-reveal>
+                    <a href="{{ route('produk.show', $produk) }}" class="katalog-card-link">
+                        <div class="katalog-img">
+                            <span class="katalog-badge">{{ $produk->jenisApar?->nama ?? 'Produk APAR' }}</span>
+                            @if($produk->gambar)
+                                <img src="{{ asset('storage/' . $produk->gambar) }}" alt="{{ $produk->nama }}">
+                            @else
+                                <div class="katalog-placeholder">
+                                    <i class="fa-solid fa-fire-extinguisher"></i>
+                                    <span>Visual produk akan tampil di sini setelah gambar produk ditambahkan.</span>
+                                </div>
+                            @endif
+                        </div>
+                        <div class="katalog-body">
+                            <div class="katalog-meta">
+                                @if($produk->jenisApar?->nama)
+                                    <span class="katalog-chip">{{ $produk->jenisApar->nama }}</span>
+                                @endif
+                                @if($produk->kapasitas)
+                                    <span class="katalog-chip">{{ $produk->kapasitas }}</span>
+                                @endif
+                                @if($produk->merek)
+                                    <span class="katalog-chip">{{ $produk->merek }}</span>
+                                @endif
+                            </div>
+                            <h3 class="katalog-name">{{ $produk->nama }}</h3>
+                            <p class="katalog-spec">
+                                {{ collect([
+                                    $produk->jenisApar?->nama ? 'Jenis ' . $produk->jenisApar->nama : null,
+                                    $produk->kapasitas ? 'Ukuran ' . $produk->kapasitas : null,
+                                    $produk->merek ? 'Merek ' . $produk->merek : null,
+                                ])->filter()->implode(' - ') ?: 'Produk APAR tersedia untuk kebutuhan operasional Anda.' }}
+                            </p>
+                            <div class="katalog-footer">
+                                <span class="katalog-price">Rp {{ number_format($produk->harga, 0, ',', '.') }}</span>
+                                <span class="katalog-order">
+                                    Lihat Detail
+                                    <i class="fa-solid fa-arrow-right"></i>
+                                </span>
+                            </div>
+                        </div>
+                    </a>
+                </article>
             @empty
-            <div class="col-span-4 text-center py-16 text-gray-400">
-                <i class="fa-solid fa-box-open text-4xl mb-4"></i>
-                <p class="font-medium">Belum ada produk tersedia.</p>
-            </div>
+                <div class="landing-empty" data-reveal style="grid-column: 1 / -1;">
+                    <i class="fa-solid fa-box-open"></i>
+                    <strong>Belum ada produk APAR yang ditampilkan.</strong>
+                    <span>Tambahkan data produk dari menu admin agar landing page menampilkan produk unggulan secara otomatis.</span>
+                </div>
             @endforelse
         </div>
     </div>
 </section>
 
-
-{{-- ======================================================= --}}
-{{-- TESTIMONI --}}
-{{-- ======================================================= --}}
-<section class="section-pad" style="background:#F9FAFB;">
+<section class="section-pad section-soft">
     <div class="container">
-        <div class="section-head">
-            <p class="section-tag">Ulasan</p>
+        <div class="section-head" data-reveal>
+            <p class="section-tag">Testimoni</p>
             <h2 class="section-title">Apa Kata Pelanggan</h2>
+            <p class="section-sub">Ulasan pelanggan ditampilkan lebih fokus pada rating, nama, dan isi review agar tampil rapi dan tidak terasa kosong.</p>
         </div>
 
-        <div class="testi-grid">
-            @forelse($testimonis as $t)
-            <div class="testi-card">
-                <div class="testi-stars">
-                    @for($i=0;$i<$t->rating;$i++)<i class="fa-solid fa-star"></i>@endfor
-                    @for($i=$t->rating;$i<5;$i++)<i class="fa-regular fa-star text-gray-300"></i>@endfor
-                </div>
-                <p class="testi-text">{{ $t->review }}</p>
-                @if($t->admin_note)
-                    <div class="mt-3 rounded-2xl bg-gray-50 p-3">
-                        <p class="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-1">Balasan Admin</p>
-                        <p class="text-sm text-gray-600">{{ $t->admin_note }}</p>
+        <div class="{{ $testimoniLayout }}">
+            @forelse($testimonis as $testimoni)
+                <article class="testi-card" data-reveal>
+                    <div class="testi-quote">
+                        <i class="fa-solid fa-quote-right"></i>
                     </div>
-                @endif
-                <div class="testi-divider"></div>
-                <div class="testi-author">
-                    <div class="testi-avatar">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($t->pelanggan->nama ?? 'P', 0, 1)) }}</div>
-                    <div>
-                        <p class="testi-name">{{ $t->pelanggan->nama ?? 'Pelanggan' }}</p>
+                    <div class="testi-stars">
+                        @for($i = 0; $i < $testimoni->rating; $i++)
+                            <i class="fa-solid fa-star"></i>
+                        @endfor
+                        @for($i = $testimoni->rating; $i < 5; $i++)
+                            <i class="fa-regular fa-star text-slate-300"></i>
+                        @endfor
                     </div>
-                </div>
-            </div>
+                    <p class="testi-text">{{ $testimoni->review }}</p>
+                    <div class="testi-divider"></div>
+                    <div class="testi-author">
+                        <div class="testi-avatar">
+                            {{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($testimoni->pelanggan->nama ?? 'P', 0, 1)) }}
+                        </div>
+                        <div>
+                            <p class="testi-name">{{ $testimoni->pelanggan->nama ?? 'Pelanggan' }}</p>
+                            <p class="testi-role">Pelanggan PD. Anugrah Utama</p>
+                        </div>
+                    </div>
+                </article>
             @empty
-            <div class="testi-card">
-                <div class="testi-stars">
-                    @for($i=0;$i<5;$i++)<i class="fa-solid fa-star"></i>@endfor
-                </div>
-                <p class="testi-text">Pelanggan yang sudah selesai transaksi bisa memberi ulasan langsung dari riwayat pesanan, lalu admin dapat membalasnya.</p>
-                <div class="testi-divider"></div>
-                <div class="testi-author">
-                    <div class="testi-avatar">A</div>
-                    <div>
-                        <p class="testi-name">Alur Baru Review</p>
+                <article class="testi-card" data-reveal style="max-width: 720px; margin: 0 auto;">
+                    <div class="testi-quote">
+                        <i class="fa-solid fa-quote-right"></i>
                     </div>
-                </div>
-            </div>
+                    <div class="testi-stars">
+                        @for($i = 0; $i < 5; $i++)
+                            <i class="fa-solid fa-star"></i>
+                        @endfor
+                    </div>
+                    <p class="testi-text">Testimoni pelanggan akan tampil di sini setelah transaksi selesai dan ulasan disetujui oleh admin. Tampilan dibuat lebih tenang agar tetap terlihat profesional walaupun data ulasan masih sedikit.</p>
+                    <div class="testi-divider"></div>
+                    <div class="testi-author">
+                        <div class="testi-avatar">A</div>
+                        <div>
+                            <p class="testi-name">Ulasan Pelanggan</p>
+                            <p class="testi-role">Akan muncul otomatis dari data sistem</p>
+                        </div>
+                    </div>
+                </article>
             @endforelse
         </div>
     </div>
 </section>
 
-
-{{-- ======================================================= --}}
-{{-- TENTANG KAMI --}}
-{{-- ======================================================= --}}
 <section class="section-pad about-section">
     <div class="container">
         <div class="about-inner">
-            <div>
+            <div data-reveal>
                 <p class="about-tag">Tentang Kami</p>
-                <h2 class="about-title">PD. Anugrah Utama</h2>
+                <h2 class="about-title">PD. Anugrah Utama membantu kebutuhan APAR dengan layanan yang lebih rapi dan meyakinkan</h2>
                 <p class="about-desc">
-                    Penyedia layanan APAR terpercaya di Bogor — penjualan, refill, dan service untuk rumah, kantor, dan industri. Dengan pengalaman lebih dari 10 tahun dan teknisi bersertifikasi, kami siap membantu kebutuhan safety Anda.
+                    Kami fokus pada penjualan APAR, refill, service, dan pemantauan riwayat unit APAR agar pelanggan mendapat proses yang lebih jelas sejak konsultasi awal sampai transaksi selesai.
                 </p>
+                <div class="about-points">
+                    <div class="about-point">
+                        <i class="fa-solid fa-check"></i>
+                        <span>Pengalaman menangani kebutuhan APAR untuk rumah, toko, kantor, gudang, dan area operasional lainnya.</span>
+                    </div>
+                    <div class="about-point">
+                        <i class="fa-solid fa-check"></i>
+                        <span>Layanan APAR mencakup pembelian unit baru, refill, service, dan inspeksi berkala.</span>
+                    </div>
+                    <div class="about-point">
+                        <i class="fa-solid fa-check"></i>
+                        <span>Produk berkualitas dengan tampilan harga dan spesifikasi yang lebih jelas untuk pelanggan.</span>
+                    </div>
+                    <div class="about-point">
+                        <i class="fa-solid fa-check"></i>
+                        <span>Respon cepat melalui WhatsApp untuk konsultasi, pemesanan, maupun tindak lanjut layanan.</span>
+                    </div>
+                    <div class="about-point">
+                        <i class="fa-solid fa-check"></i>
+                        <span>Harga lebih transparan dengan pencatatan transaksi dan layanan yang lebih tertata.</span>
+                    </div>
+                </div>
                 <div class="about-cta">
-                    <a href="https://wa.me/{{ env('WHATSAPP_CONTACT', '6285128008030') }}?text={{ urlencode('Halo, saya ingin konsultasi tentang APAR.') }}"
-                       target="_blank" class="btn-green">
-                        <i class="fa-brands fa-whatsapp"></i> Chat WhatsApp
+                    <a href="https://wa.me/{{ $waContact }}?text={{ urlencode('Halo, saya ingin konsultasi kebutuhan APAR.') }}" target="_blank" rel="noopener noreferrer" class="btn-whatsapp">
+                        <i class="fa-brands fa-whatsapp"></i>
+                        Hubungi WhatsApp
                     </a>
-                    <a href="{{ $orderEntryUrl }}" class="btn-outline" style="border-color:#fff; color:#fff;">
+                    <a href="{{ $orderEntryUrl }}" class="btn-secondary">
+                        <i class="fa-solid fa-cart-shopping"></i>
                         Pesan Sekarang
                     </a>
                 </div>
             </div>
-            <div class="about-grid">
-                @php
-                $abouts = [
-                    ['icon'=>'fa-fire-extinguisher','bg'=>'bg-red-600/20',   'col'=>'text-red-400',    'title'=>'Produk APAR Berkualitas', 'desc'=>'Menyediakan berbagai pilihan APAR untuk kebutuhan rumah, toko, kantor, gudang, dan usaha.'],
-                    ['icon'=>'fa-handshake',         'bg'=>'bg-amber-600/20','col'=>'text-amber-400',  'title'=>'Layanan Terpercaya',       'desc'=>'Melayani pembelian, refill, dan servis APAR dengan proses yang jelas dan profesional.'],
-                    ['icon'=>'fa-bolt',              'bg'=>'bg-blue-600/20', 'col'=>'text-blue-400',   'title'=>'Respon Cepat',             'desc'=>'Kami siap membantu pertanyaan dan pemesanan melalui WhatsApp dengan respons yang cepat.'],
-                    ['icon'=>'fa-tags',              'bg'=>'bg-emerald-600/20','col'=>'text-emerald-400','title'=>'Harga Kompetitif',        'desc'=>'Menawarkan produk dan layanan APAR dengan harga yang menyesuaikan kebutuhan pelanggan.'],
+
+            @php
+                $aboutCards = [
+                    ['icon' => 'fa-fire-extinguisher', 'title' => 'Produk APAR', 'desc' => 'Pilihan produk APAR tampil lebih rapi dengan jenis, kapasitas, merek, dan harga yang jelas.', 'bg' => 'linear-gradient(135deg, rgba(248,113,113,0.18) 0%, rgba(254,242,242,0.22) 100%)', 'color' => '#fca5a5'],
+                    ['icon' => 'fa-screwdriver-wrench', 'title' => 'Refill & Service', 'desc' => 'Layanan isi ulang dan service APAR dibuat lebih mudah dipahami dengan alur yang tertata.', 'bg' => 'linear-gradient(135deg, rgba(251,191,36,0.18) 0%, rgba(255,247,237,0.22) 100%)', 'color' => '#fbbf24'],
+                    ['icon' => 'fa-shield-halved', 'title' => 'Inspeksi Unit', 'desc' => 'Riwayat unit APAR pelanggan dapat dipantau agar status dan masa berlaku lebih mudah dicek.', 'bg' => 'linear-gradient(135deg, rgba(96,165,250,0.16) 0%, rgba(239,246,255,0.20) 100%)', 'color' => '#93c5fd'],
+                    ['icon' => 'fa-comments', 'title' => 'Konsultasi Cepat', 'desc' => 'Komunikasi dengan pelanggan lebih mudah melalui WhatsApp dan form pemesanan online.', 'bg' => 'linear-gradient(135deg, rgba(74,222,128,0.16) 0%, rgba(236,253,245,0.20) 100%)', 'color' => '#86efac'],
                 ];
-                @endphp
-                @foreach($abouts as $a)
-                <div class="about-card">
-                    <div class="about-icon {{ $a['bg'] }} {{ $a['col'] }}"><i class="fa-solid {{ $a['icon'] }}"></i></div>
-                    <h4 class="about-card-title">{{ $a['title'] }}</h4>
-                    <p class="about-card-desc">{{ $a['desc'] }}</p>
-                </div>
+            @endphp
+
+            <div class="about-grid">
+                @foreach($aboutCards as $card)
+                    <article class="about-card" data-reveal>
+                        <div class="about-icon" style="background: {{ $card['bg'] }}; color: {{ $card['color'] }};">
+                            <i class="fa-solid {{ $card['icon'] }}"></i>
+                        </div>
+                        <h3 class="about-card-title">{{ $card['title'] }}</h3>
+                        <p class="about-card-desc">{{ $card['desc'] }}</p>
+                    </article>
                 @endforeach
             </div>
         </div>
     </div>
 </section>
 
-
-{{-- ======================================================= --}}
-{{-- LOKASI --}}
-{{-- ======================================================= --}}
 <section class="section-pad bg-white">
     <div class="container">
-        <div class="section-head">
-            <p class="section-tag">Lokasi Kami</p>
-            <h2 class="section-title">Temukan Kami di Bogor</h2>
+        <div class="section-head" data-reveal>
+            <p class="section-tag">Lokasi</p>
+            <h2 class="section-title">Temukan Kami dengan Lebih Mudah</h2>
+            <p class="section-sub">Informasi alamat, WhatsApp, dan jam operasional ditata lebih jelas agar pelanggan mudah menghubungi dan datang ke lokasi.</p>
         </div>
 
         <div class="lokasi-grid">
             <div class="lokasi-info">
-                <div class="lokasi-card">
+                <article class="lokasi-card" data-reveal>
                     <div class="lokasi-icon bg-red-50 text-red-600">
-                        <i class="fa-solid fa-map-marker-alt text-lg"></i>
+                        <i class="fa-solid fa-location-dot"></i>
                     </div>
                     <div>
                         <p class="lokasi-label">Alamat</p>
                         <p class="lokasi-text">Jl. Raya Bogor, Kota Bogor</p>
-                        <p class="lokasi-sub">Jawa Barat, Indonesia</p>
+                        <p class="lokasi-sub">Jawa Barat, Indonesia. Silakan hubungi admin untuk arahan lokasi atau jadwal kunjungan.</p>
                     </div>
-                </div>
-                <div class="lokasi-card">
+                </article>
+                <article class="lokasi-card" data-reveal>
                     <div class="lokasi-icon bg-green-50 text-green-600">
-                        <i class="fa-brands fa-whatsapp text-lg"></i>
+                        <i class="fa-brands fa-whatsapp"></i>
                     </div>
                     <div>
                         <p class="lokasi-label">WhatsApp</p>
-                        <a href="https://wa.me/{{ env('WHATSAPP_CONTACT', '6285128008030') }}" target="_blank"
-                           class="lokasi-text" style="color:#16A34A;">+62 851-2800-8030</a>
-                        <p class="lokasi-sub">Senin – Sabtu, 08.00 – 17.00</p>
+                        <a href="https://wa.me/{{ $waContact }}" target="_blank" rel="noopener noreferrer" class="lokasi-text">+62 851-2800-8030</a>
+                        <p class="lokasi-sub">Gunakan WhatsApp untuk konsultasi, tanya stok, permintaan harga, dan penjadwalan layanan.</p>
                     </div>
-                </div>
-                <div class="lokasi-card">
+                </article>
+                <article class="lokasi-card" data-reveal>
                     <div class="lokasi-icon bg-blue-50 text-blue-600">
-                        <i class="fa-solid fa-clock text-lg"></i>
+                        <i class="fa-solid fa-clock"></i>
                     </div>
                     <div>
                         <p class="lokasi-label">Jam Operasional</p>
-                        <p class="lokasi-text">Senin – Sabtu</p>
-                        <p class="lokasi-sub">08.00 – 17.00 WIB</p>
+                        <p class="lokasi-text">Senin - Sabtu</p>
+                        <p class="lokasi-sub">08.00 - 17.00 WIB. Admin akan membalas pesan secepat mungkin pada jam operasional.</p>
                     </div>
-                </div>
+                </article>
             </div>
-            <div class="lokasi-map">
+            <div class="lokasi-map" data-reveal>
                 <div id="location-map" style="width:100%; height:100%;"></div>
             </div>
         </div>
     </div>
 </section>
-
 @endsection

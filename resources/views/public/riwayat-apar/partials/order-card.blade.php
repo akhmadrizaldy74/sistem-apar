@@ -213,6 +213,13 @@
         @endif
 
         <div class="mt-4 flex flex-wrap gap-2">
+            @if($pesanan->isPaymentConfirmed() || $pesanan->isCompleted() || in_array((string) $pesanan->sumber_pesanan, ['datang_langsung', 'offline', 'input_admin', 'telepon'], true))
+                <a href="{{ route('invoice.show', $pesanan) }}" class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-xs font-black text-white transition hover:bg-red-700">
+                    <i class="fa-solid fa-file-invoice text-[10px]"></i>
+                    Lihat Invoice
+                </a>
+            @endif
+
             @if($pesanan->canPay())
                 <a href="{{ route('order.payment', $pesanan) }}" class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-xs font-black text-white transition hover:bg-red-700">
                     <i class="fa-solid fa-credit-card text-[10px]"></i>

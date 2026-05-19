@@ -16,6 +16,19 @@
                 </a>
             </div>
 
+            @if(session('success'))
+                <div class="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 font-semibold text-sm flex items-center gap-3" data-reveal>
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    {{ session('success') }}
+                </div>
+            @endif
+            @if(session('error'))
+                <div class="mt-6 p-4 bg-red-50 border border-red-200 rounded-2xl text-red-800 font-semibold text-sm flex items-center gap-3" data-reveal>
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    {{ session('error') }}
+                </div>
+            @endif
+
             @php
                 $stokSiapJual = (int) ($produk->stok_tersedia ?? 0);
                 $isHabis = $stokSiapJual <= 0;
@@ -68,8 +81,11 @@
                             @endphp
                             @if($canCustomerOrder)
                             <form action="{{ route('order.create') }}" method="GET" class="bg-white rounded-[1.75rem] border border-gray-100 shadow-lg shadow-gray-200/50 p-6">
+                                @csrf
                                 <input type="hidden" name="produk" value="{{ $produk->id }}">
-                                <div class="flex items-center gap-4 mb-4">
+                                <input type="hidden" name="produk_id" value="{{ $produk->id }}">
+                                
+                                <div class="flex items-center gap-4 mb-6">
                                     <label for="qty" class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Jumlah</label>
                                     <div class="flex items-center gap-2">
                                         <button type="button" onclick="this.parentNode.querySelector('input').stepDown(); this.parentNode.querySelector('input').dispatchEvent(new Event('change'))" @disabled($isHabis) class="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-gray-600 font-bold hover:bg-gray-200 transition disabled:cursor-not-allowed disabled:opacity-50">-</button>
@@ -78,10 +94,17 @@
                                     </div>
                                     <span class="text-xs text-gray-400 font-medium">Stok siap jual: {{ $stokSiapJual }}</span>
                                 </div>
-                                <button type="submit" @disabled($isHabis) class="w-full px-6 py-4 {{ $isHabis ? 'bg-gray-300 cursor-not-allowed text-white' : 'bg-red-700 hover:bg-red-800 text-white shadow-xl shadow-red-700/25' }} font-black rounded-2xl transition text-center flex items-center justify-center gap-2">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                                    {{ $isHabis ? 'Stok Habis' : 'Pesan' }}
-                                </button>
+                                
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <button type="submit" formaction="{{ route('keranjang.store') }}" formmethod="POST" @disabled($isHabis) class="w-full px-5 py-4 {{ $isHabis ? 'bg-gray-200 cursor-not-allowed text-gray-400' : 'bg-red-50 border-2 border-red-600 hover:bg-red-100 text-red-700 hover:shadow-md' }} font-black rounded-2xl transition text-center flex items-center justify-center gap-2 text-xs uppercase tracking-wider">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                                        Masukkan Keranjang
+                                    </button>
+                                    <button type="submit" @disabled($isHabis) class="w-full px-5 py-4 {{ $isHabis ? 'bg-gray-300 cursor-not-allowed text-white' : 'bg-red-700 hover:bg-red-800 text-white shadow-xl shadow-red-700/25' }} font-black rounded-2xl transition text-center flex items-center justify-center gap-2 text-xs uppercase tracking-wider">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+                                        Pesan Sekarang
+                                    </button>
+                                </div>
                             </form>
                             @else
                             <div class="bg-white rounded-[1.75rem] border border-amber-200 bg-amber-50/60 shadow-lg shadow-gray-200/50 p-6">
@@ -90,15 +113,27 @@
                             </div>
                             @endif
                         @else
-                            <div class="grid sm:grid-cols-2 gap-4">
-                                <a href="{{ $isHabis ? '#' : route('order.create', ['produk' => $produk->id, 'qty' => 1]) }}" class="px-6 py-4 {{ $isHabis ? 'bg-gray-300 cursor-not-allowed pointer-events-none' : 'bg-red-700 hover:bg-red-800 shadow-xl shadow-red-700/25' }} text-white font-black rounded-2xl transition text-center flex items-center justify-center gap-2">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                                    {{ $isHabis ? 'Stok Habis' : 'Login untuk Pesan' }}
-                                </a>
-                                <a href="https://wa.me/{{ env('WHATSAPP_CONTACT', '6285128008030') }}" target="_blank" rel="noopener noreferrer" class="px-6 py-4 bg-[#25D366] text-white font-black rounded-2xl hover:brightness-110 transition shadow-lg shadow-[#25D366]/25 text-center flex items-center justify-center gap-2">
-                                    <i class="fa-brands fa-whatsapp text-lg"></i>
-                                    Tanya CS
-                                </a>
+                            <div class="bg-white rounded-[1.75rem] border border-gray-100 shadow-lg shadow-gray-200/50 p-6">
+                                <div class="flex items-center gap-4 mb-6">
+                                    <label for="qty" class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Jumlah</label>
+                                    <div class="flex items-center gap-2">
+                                        <button type="button" onclick="this.parentNode.querySelector('input').stepDown(); this.parentNode.querySelector('input').dispatchEvent(new Event('change'))" @disabled($isHabis) class="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-gray-600 font-bold hover:bg-gray-200 transition disabled:cursor-not-allowed disabled:opacity-50">-</button>
+                                        <input type="number" id="qty" value="{{ $isHabis ? 0 : 1 }}" min="{{ $isHabis ? 0 : 1 }}" max="{{ $stokSiapJual }}" @disabled($isHabis) class="w-16 h-10 text-center bg-gray-50 border border-gray-200 rounded-xl font-black text-gray-900 focus:ring-2 focus:ring-red-600/20 disabled:cursor-not-allowed disabled:opacity-60">
+                                        <button type="button" onclick="this.parentNode.querySelector('input').stepUp(); this.parentNode.querySelector('input').dispatchEvent(new Event('change'))" @disabled($isHabis) class="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-gray-600 font-bold hover:bg-gray-200 transition disabled:cursor-not-allowed disabled:opacity-50">+</button>
+                                    </div>
+                                    <span class="text-xs text-gray-400 font-medium">Stok siap jual: {{ $stokSiapJual }}</span>
+                                </div>
+                                
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <a href="{{ route('login') }}" class="w-full px-5 py-4 {{ $isHabis ? 'bg-gray-200 cursor-not-allowed text-gray-400 pointer-events-none' : 'bg-red-50 border-2 border-red-600 hover:bg-red-100 text-red-700 hover:shadow-md' }} font-black rounded-2xl transition text-center flex items-center justify-center gap-2 text-xs uppercase tracking-wider">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                                        Masukkan Keranjang
+                                    </a>
+                                    <a href="{{ route('login') }}" class="w-full px-5 py-4 {{ $isHabis ? 'bg-gray-300 cursor-not-allowed text-white pointer-events-none' : 'bg-red-700 hover:bg-red-800 text-white shadow-xl shadow-red-700/25' }} font-black rounded-2xl transition text-center flex items-center justify-center gap-2 text-xs uppercase tracking-wider">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+                                        Pesan Sekarang
+                                    </a>
+                                </div>
                             </div>
                         @endauth
                     </div>

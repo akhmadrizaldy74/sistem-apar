@@ -6,7 +6,8 @@
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
         <title>Masuk — {{ config('app.name', 'Sistem APAR') }}</title>
-        <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>" />
+        <link rel="icon" type="image/svg+xml" href="{{ asset('favicon-apar.svg') }}" />
+        <link rel="shortcut icon" href="{{ asset('favicon-apar.svg') }}" />
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">

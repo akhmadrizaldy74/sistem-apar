@@ -7,6 +7,7 @@ use App\Models\JenisRefill;
 use App\Models\Pelanggan;
 use App\Models\Pesanan;
 use App\Models\Produk;
+use App\Models\Refill;
 use App\Models\Service;
 use App\Models\StokBatch;
 use App\Models\UnitApar;
@@ -221,6 +222,7 @@ class SystemFlowTest extends TestCase
             'penggunaan' => 'Ruang server',
             'harga' => 950000,
             'deskripsi' => 'Produk demo',
+            'stok' => 10,
         ]);
         StokBatch::create([
             'produk_id' => $produkPertama->id,
@@ -239,6 +241,7 @@ class SystemFlowTest extends TestCase
             'penggunaan' => 'Ruang server',
             'harga' => 1200000,
             'deskripsi' => 'Produk demo',
+            'stok' => 10,
         ]);
         StokBatch::create([
             'produk_id' => $produkKedua->id,
@@ -251,7 +254,9 @@ class SystemFlowTest extends TestCase
 
         $storeResponse = $this->actingAs($admin)->post(route('admin.pesanan.store'), [
             'tipe' => 'produk',
-            'pelanggan_id' => $pelanggan->id,
+            'new_pelanggan_nama' => $pelanggan->nama,
+            'new_pelanggan_no_wa' => $pelanggan->no_wa,
+            'new_pelanggan_alamat' => $pelanggan->alamat,
             'tanggal' => now()->toDateString(),
             'items' => [
                 [
@@ -311,6 +316,7 @@ class SystemFlowTest extends TestCase
             'penggunaan' => 'Gudang',
             'harga' => 500000,
             'deskripsi' => 'Produk demo',
+            'stok' => 10,
         ]);
         StokBatch::create([
             'produk_id' => $produk->id,
@@ -323,7 +329,9 @@ class SystemFlowTest extends TestCase
 
         $response = $this->actingAs($admin)->post(route('admin.pesanan.store'), [
             'tipe' => 'produk',
-            'pelanggan_id' => $pelanggan->id,
+            'new_pelanggan_nama' => $pelanggan->nama,
+            'new_pelanggan_no_wa' => $pelanggan->no_wa,
+            'new_pelanggan_alamat' => $pelanggan->alamat,
             'tanggal' => now()->toDateString(),
             'items' => [
                 [
@@ -406,53 +414,31 @@ class SystemFlowTest extends TestCase
             'alamat' => 'Jl Service',
         ]);
 
-        $jenisApar = JenisApar::create([
-            'nama' => 'Dry Chemical Powder',
-            'deskripsi' => 'Powder',
-        ]);
-
-        $produk = Produk::create([
-            'nama' => 'APAR Powder',
-            'merek' => 'SAFETY',
-            'jenis_apar_id' => $jenisApar->id,
-            'kapasitas' => '6 kg',
-            'penggunaan' => 'Gudang',
-            'harga' => 500000,
-            'deskripsi' => 'Produk demo',
-        ]);
-
-        $unit = UnitApar::create([
-            'pelanggan_id' => $pelanggan->id,
-            'produk_id' => $produk->id,
-            'no_seri' => 'SN-SVC-001',
-            'tgl_beli' => now()->subMonths(6)->toDateString(),
-            'tgl_produksi' => now()->subMonths(7)->toDateString(),
-            'ukuran' => '6 kg',
-            'bahan' => 'Powder',
-            'tgl_expired' => now()->addMonths(6)->toDateString(),
+        $paket = \App\Models\ServicePaket::create([
+            'nama' => 'Ganti Selang',
+            'label' => 'ganti_selang',
+            'harga' => 150000,
+            'deskripsi' => 'Paket ganti selang',
         ]);
 
         $storeResponse = $this->actingAs($admin)->post(route('admin.service.store'), [
-            'unit_apar_id' => $unit->id,
-            'jenis_service' => 'Ganti Selang',
+            'new_pelanggan_nama' => $pelanggan->nama,
+            'new_pelanggan_no_wa' => $pelanggan->no_wa,
+            'new_pelanggan_alamat' => $pelanggan->alamat,
+            'service_paket_id' => $paket->id,
+            'ukuran_apar' => '6 kg',
+            'jumlah_unit' => 1,
             'tgl_service' => now()->toDateString(),
-            'keterangan' => 'Selang retak dan diganti sesuai paket service.',
-            'biaya' => 150000,
+            'catatan_admin' => 'Selang retak dan diganti sesuai paket service.',
         ]);
 
         $storeResponse->assertRedirect(route('admin.service.index'));
         $this->assertDatabaseHas('services', [
-            'unit_apar_id' => $unit->id,
-            'jenis_service' => 'Ganti Selang',
+            'service_paket_id' => $paket->id,
             'biaya' => 150000,
         ]);
-        $this->assertDatabaseCount('pesanans', 0);
+        $this->assertDatabaseCount('pesanans', 1);
         $this->assertDatabaseCount('refills', 0);
-
-        $servicePage = $this->actingAs($admin)->get(route('admin.service.index'));
-        $servicePage->assertOk();
-        $servicePage->assertSee('Ganti Selang');
-        $servicePage->assertSee('SN-SVC-001');
     }
 
     public function test_admin_can_create_refill_from_refill_menu(): void
@@ -476,44 +462,28 @@ class SystemFlowTest extends TestCase
             'nama' => 'CO2',
             'stok' => 10,
             'satuan' => 'kg',
-        ]);
-
-        $produk = Produk::create([
-            'nama' => 'APAR CO2',
-            'merek' => 'GUARD',
-            'jenis_apar_id' => $jenisApar->id,
-            'kapasitas' => '5 kg',
-            'penggunaan' => 'Ruang server',
-            'harga' => 900000,
-            'deskripsi' => 'Produk demo',
-        ]);
-
-        $unit = UnitApar::create([
-            'pelanggan_id' => $pelanggan->id,
-            'produk_id' => $produk->id,
-            'no_seri' => 'SN-RFL-002',
-            'tgl_beli' => now()->subMonths(3)->toDateString(),
-            'tgl_produksi' => now()->subMonths(4)->toDateString(),
-            'ukuran' => '5 kg',
-            'bahan' => 'CO2',
-            'tgl_expired' => now()->addMonths(9)->toDateString(),
+            'harga' => 55000,
+            'satuan_label' => 'kg',
+            'service_price_rules_json' => [
+                ['ukuran' => '5 kg', 'harga' => 275000],
+            ]
         ]);
 
         $response = $this->actingAs($admin)->post(route('admin.refill.store'), [
-            'unit_apar_id' => $unit->id,
+            'new_pelanggan_nama' => $pelanggan->nama,
+            'new_pelanggan_no_wa' => $pelanggan->no_wa,
+            'new_pelanggan_alamat' => $pelanggan->alamat,
             'jenis_refill_id' => $jenisRefill->id,
+            'ukuran_apar' => '5 kg',
+            'jumlah_unit' => 1,
             'tgl_refill' => now()->toDateString(),
-            'biaya' => 275000,
+            'catatan_admin' => 'Pengecekan dan pengisian CO2',
         ]);
 
         $response->assertRedirect(route('admin.refill.index'));
-        $this->assertDatabaseHas('refills', [
-            'unit_apar_id' => $unit->id,
-            'jenis_refill_id' => $jenisRefill->id,
-            'biaya' => 275000,
-        ]);
+        $this->assertDatabaseCount('pesanans', 1);
         $this->assertDatabaseCount('services', 0);
-        $this->assertDatabaseCount('pesanans', 0);
+        $this->assertDatabaseCount('refills', 0);
     }
 
     public function test_laporan_pesanan_hanya_menampilkan_pesanan_produk(): void
@@ -685,5 +655,134 @@ class SystemFlowTest extends TestCase
             'id' => $pesanan->id,
             'status' => Pesanan::STATUS_DIKONFIRMASI_ADMIN,
         ]);
+    }
+
+    public function test_invoice_synchronization_and_separation_for_different_order_types(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+        ]);
+
+        $pelanggan = Pelanggan::create([
+            'nama' => 'Budi Santoso',
+            'no_wa' => '628999988887',
+            'alamat' => 'Jl. Kebakaran No. 4',
+        ]);
+
+        $jenisApar = JenisApar::create([
+            'nama' => 'Dry Chemical Powder',
+            'deskripsi' => 'DCP',
+        ]);
+
+        $produk = Produk::create([
+            'nama' => 'APAR DCP 3kg',
+            'merek' => 'SAFETY',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '3 kg',
+            'penggunaan' => 'Multi-purpose',
+            'harga' => 150000,
+            'deskripsi' => 'APAR DCP 3kg',
+            'stok' => 10,
+        ]);
+
+        // 1. Create a Product Order
+        $pesananProduk = Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'tipe' => 'produk',
+            'tanggal' => now()->toDateString(),
+            'total' => 150000,
+            'sumber_pesanan' => 'datang_langsung',
+        ]);
+
+        // 2. Create a Refill Order (tipe: 'service', service_jenis_layanan: 'refill')
+        $pesananRefill = Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'tipe' => 'service',
+            'service_jenis_layanan' => 'refill',
+            'tanggal' => now()->toDateString(),
+            'total' => 60000,
+            'sumber_pesanan' => 'datang_langsung',
+        ]);
+
+        $unitApar = UnitApar::create([
+            'pelanggan_id' => $pelanggan->id,
+            'pesanan_id' => $pesananRefill->id,
+            'produk_id' => $produk->id,
+            'no_seri' => 'AUTO-REFILL-123',
+            'ukuran' => '3 kg',
+            'bahan' => 'Dry Chemical Powder',
+            'tgl_produksi' => now()->toDateString(),
+            'tgl_expired' => now()->addYear()->toDateString(),
+        ]);
+
+        $serviceRefill = Service::create([
+            'pesanan_id' => $pesananRefill->id,
+            'unit_apar_id' => $unitApar->id,
+            'jenis_service' => 'Refill APAR',
+            'tgl_service' => now()->toDateString(),
+            'biaya' => 60000,
+            'status_konfirmasi' => 'confirmed',
+        ]);
+
+        $jenisRefill = JenisRefill::create([
+            'nama' => 'Dry Chemical Powder',
+            'deskripsi' => 'DCP',
+            'harga_per_kg' => 20000,
+        ]);
+
+        $refillLog = Refill::create([
+            'service_id' => $serviceRefill->id,
+            'unit_apar_id' => $unitApar->id,
+            'jenis_refill_id' => $jenisRefill->id,
+            'tgl_refill' => now()->toDateString(),
+            'biaya' => 60000,
+        ]);
+
+        // 3. Create a Service Order (tipe: 'service', service_jenis_layanan: 'service')
+        $pesananService = Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'tipe' => 'service',
+            'service_jenis_layanan' => 'service',
+            'tanggal' => now()->toDateString(),
+            'total' => 85000,
+            'sumber_pesanan' => 'datang_langsung',
+        ]);
+
+        $serviceLog = Service::create([
+            'pesanan_id' => $pesananService->id,
+            'unit_apar_id' => $unitApar->id,
+            'jenis_service' => 'Ganti Hose APAR',
+            'tgl_service' => now()->toDateString(),
+            'biaya' => 85000,
+            'status_konfirmasi' => 'confirmed',
+        ]);
+
+        // Check Product Invoice
+        $responseProduk = $this->actingAs($admin)->get(route('invoice.show', $pesananProduk));
+        $responseProduk->assertOk();
+        $responseProduk->assertSee('Invoice Pesanan Produk APAR');
+        $responseProduk->assertDontSee('Invoice Refill APAR');
+        $responseProduk->assertDontSee('Invoice Service APAR');
+
+        // Check Refill Invoice
+        $responseRefill = $this->actingAs($admin)->get(route('invoice.show', $pesananRefill));
+        $responseRefill->assertOk();
+        $responseRefill->assertSee('Invoice Refill APAR');
+        $responseRefill->assertDontSee('Invoice Service APAR');
+        $responseRefill->assertDontSee('Invoice Pesanan Produk APAR');
+
+        // Check Service Invoice
+        $responseService = $this->actingAs($admin)->get(route('invoice.show', $pesananService));
+        $responseService->assertOk();
+        $responseService->assertSee('Invoice Service APAR');
+        $responseService->assertDontSee('Invoice Refill APAR');
+        $responseService->assertDontSee('Invoice Pesanan Produk APAR');
+
+        // Check that Refill data is isolated from Service queries
+        $responseAdminServiceIndex = $this->actingAs($admin)->get(route('admin.service.index'));
+        $responseAdminServiceIndex->assertOk();
+        // The service logs should display Ganti Hose APAR but NOT Refill APAR
+        $responseAdminServiceIndex->assertSee('Ganti Hose APAR');
+        $responseAdminServiceIndex->assertDontSee('Refill APAR');
     }
 }

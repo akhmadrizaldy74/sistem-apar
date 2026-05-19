@@ -18,6 +18,32 @@ class RefillController extends Controller
 {
     public function index()
     {
+        // Self-heal orphan refills that have null service_id
+        $orphanRefills = Refill::whereNull('service_id')->get();
+        foreach ($orphanRefills as $orphan) {
+            $pelangganId = $orphan->unitApar?->pelanggan_id;
+            if ($pelangganId) {
+                $pesanan = Pesanan::where('tipe', 'service')
+                    ->where('service_jenis_layanan', 'refill')
+                    ->where('pelanggan_id', $pelangganId)
+                    ->where('total', $orphan->biaya)
+                    ->first();
+                if ($pesanan) {
+                    $service = \App\Models\Service::updateOrCreate(
+                        ['pesanan_id' => $pesanan->id],
+                        [
+                            'unit_apar_id' => $orphan->unit_apar_id,
+                            'jenis_service' => 'Refill APAR',
+                            'tgl_service' => $orphan->tgl_refill,
+                            'biaya' => $orphan->biaya,
+                            'status_konfirmasi' => 'confirmed',
+                        ]
+                    );
+                    $orphan->update(['service_id' => $service->id]);
+                }
+            }
+        }
+
         $refills = Refill::with(['unitApar.pelanggan', 'unitApar.produk', 'jenisRefill', 'service.pesanan'])->latest('tgl_refill')->get();
         $units = UnitApar::with(['pelanggan', 'produk'])->get();
         $jenisRefills = JenisRefill::orderBy('nama')->get();

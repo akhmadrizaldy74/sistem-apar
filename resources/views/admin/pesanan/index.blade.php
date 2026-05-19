@@ -361,19 +361,23 @@
                                             $canManageRowNego = in_array($pesanan->status, ['menunggu', 'menunggu persetujuan'], true)
                                                 || ($requiresNegoCode && !empty($pesanan->harga_usulan) && empty($pesanan->kode_nego) && $pesanan->status !== 'selesai');
                                         @endphp
-                                        <button type="button" onclick="openNegoModal({{ $pesanan->id }})" class="px-3 py-2 bg-white {{ $canManageRowNego ? 'text-amber-700 border-amber-200 hover:bg-amber-50' : 'text-gray-600 border-gray-200 hover:bg-gray-50' }} rounded-xl border hover:shadow-lg transition-all text-[10px] font-black uppercase tracking-widest" title="Kelola Negosiasi">
+                                                                                <button type="button" onclick="openNegoModal({{ $pesanan->id }})" class="px-3 py-2 bg-white {{ $canManageRowNego ? 'text-amber-700 border-amber-200 hover:bg-amber-50' : 'text-gray-600 border-gray-200 hover:bg-gray-50' }} rounded-xl border hover:shadow-lg transition-all text-[10px] font-black uppercase tracking-widest" title="Kelola Negosiasi">
                                             {{ $canManageRowNego ? 'Kelola Nego' : 'Detail' }}
                                         </button>
-                                        <a href="{{ route('admin.pesanan.invoice.pdf', $pesanan) }}" class="p-2.5 bg-white text-gray-400 hover:text-emerald-600 rounded-xl border border-gray-100 hover:border-emerald-100 hover:shadow-lg transition-all" title="Cetak PDF">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586A2 2 0 0114 3.586L18.414 8A2 2 0 0119 9.414V18a2 2 0 01-2 2z" /></svg>
+                                        
+                                        <a href="{{ route('invoice.show', $pesanan) }}" class="px-3 py-2 bg-red-600 text-white hover:bg-red-700 rounded-xl hover:shadow-lg transition-all text-[10px] font-black uppercase tracking-widest" title="Lihat Invoice">
+                                            Lihat Invoice
                                         </a>
-                                        <form action="{{ route('admin.pesanan.destroy', $pesanan) }}" method="POST" class="inline">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="p-2.5 bg-white text-gray-400 hover:text-red-600 rounded-xl border border-gray-100 hover:border-red-100 hover:shadow-lg transition-all" onclick="return confirm('Yakin ingin menghapus pesanan ini?')" title="Hapus">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                            </button>
-                                        </form>
+
+                                        @if($pesanan->status !== 'selesai' && $pesanan->status !== 'selesai final')
+                                            <form action="{{ route('admin.pesanan.destroy', $pesanan) }}" method="POST" class="inline">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="p-2 bg-white text-gray-400 hover:text-red-600 rounded-xl border border-gray-100 hover:border-red-100 hover:shadow-lg transition-all" onclick="return confirm('Yakin ingin menghapus pesanan ini?')" title="Hapus">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                </button>
+                                            </form>
+                                        @endif
                                     </div>
                                     @if($isManualOrder && !$pesanan->teknisi_id && in_array($manualStage, ['waiting_payment', 'payment_detail_sent', 'waiting_verification'], true))
                                         <p class="text-[10px] font-semibold text-gray-500 mt-2">Assign muncul setelah status pembayaran sudah lunas.</p>
