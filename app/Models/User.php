@@ -41,11 +41,6 @@ class User extends Authenticatable
         return $this->hasOne(Pelanggan::class);
     }
 
-    public function keranjangs()
-    {
-        return $this->hasMany(Keranjang::class);
-    }
-
     /**
      * The attributes that should be hidden for serialization.
      *

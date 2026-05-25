@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Events\PesananBaru;
-use App\Models\Keranjang;
 use App\Models\Pelanggan;
 use App\Models\Pesanan;
 use App\Models\PesananDetail;
+use App\Support\SessionCart;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -99,9 +99,7 @@ class CheckoutController extends Controller
 
         $normalizedPhone = $this->normalizePhone($request->nomor_wa_penerima);
 
-        $keranjangs = Keranjang::with('produk')
-            ->where('user_id', $user->id)
-            ->get();
+        $keranjangs = SessionCart::items();
 
         if ($keranjangs->isEmpty()) {
             return redirect()->route('keranjang.index')
@@ -165,7 +163,7 @@ class CheckoutController extends Controller
                 PesananDetail::create([
                     'pesanan_id' => $pesanan->id,
                     'produk_id'  => $item->produk_id,
-                    'merek'      => $item->produk->merek ?? 'SAFETY',
+                    'merek'      => $item->produk->merek ?? 'FIREFIX',
                     'kapasitas'  => $item->produk->kapasitas ?? '-',
                     'jumlah'     => $item->qty,
                     'harga'      => $item->harga,
@@ -180,7 +178,7 @@ class CheckoutController extends Controller
             ]);
 
             // Kosongkan keranjang user
-            Keranjang::where('user_id', $user->id)->delete();
+            SessionCart::clear();
 
             DB::commit();
 

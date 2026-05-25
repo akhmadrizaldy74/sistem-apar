@@ -14,6 +14,7 @@ class Pengeluaran extends Model
     protected $fillable = [
         'kategori',
         'jenis_pengeluaran',
+        'produk_id',
         'jenis_refill_id',
         'peralatan_id',
         'nama_item',
@@ -80,6 +81,10 @@ class Pengeluaran extends Model
 
     public function getDisplayItemNameAttribute(): string
     {
+        if ($this->produk) {
+            return $this->produk->nama;
+        }
+
         if ($this->jenisRefill) {
             return $this->jenisRefill->nama;
         }

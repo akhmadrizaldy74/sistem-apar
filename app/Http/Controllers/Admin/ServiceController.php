@@ -391,10 +391,6 @@ class ServiceController extends Controller
                 'status_konfirmasi' => 'confirmed',
             ]);
 
-            if ($service->unitApar) {
-                $service->unitApar->update(['tgl_service_terakhir' => now()->toDateString()]);
-            }
-
             return back()->with('success', 'Service dikonfirmasi selesai. Stok peralatan sudah dikurangi saat transaksi offline disimpan.');
         }
 
@@ -441,9 +437,6 @@ class ServiceController extends Controller
                 'stok_kurang_history_json' => json_encode($history),
             ]);
 
-            if ($service->unitApar) {
-                $service->unitApar->update(['tgl_service_terakhir' => now()->toDateString()]);
-            }
             });
         } catch (\RuntimeException $exception) {
             return back()->with('error', $exception->getMessage());

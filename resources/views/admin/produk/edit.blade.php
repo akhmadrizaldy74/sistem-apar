@@ -43,7 +43,7 @@
                             <select name="merek" id="merek" required
                                 class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 transition">
                                 <option value="">Pilih Merek</option>
-                                @foreach(['SAFETY', 'ABC', 'GUARD'] as $merek)
+                                @foreach(['FIREFIX', 'GuardALL', 'TONATA'] as $merek)
                                     <option value="{{ $merek }}" {{ old('merek', $produk->merek) == $merek ? 'selected' : '' }}>{{ $merek }}</option>
                                 @endforeach
                             </select>

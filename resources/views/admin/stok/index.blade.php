@@ -246,25 +246,23 @@
 
             <section class="overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-sm">
                 <div class="border-b border-gray-100 px-8 py-5">
-                    <h3 class="text-lg font-black text-gray-900">Riwayat Perubahan Stok</h3>
-                    <p class="mt-1 text-xs font-semibold text-gray-500">Catatan internal perubahan stok dari transaksi yang sudah disimpan.</p>
+                    <h3 class="text-lg font-black text-gray-900">Riwayat Transaksi Stok</h3>
+                    <p class="mt-1 text-xs font-semibold text-gray-500">Riwayat ini ditarik dari tabel transaksi yang sudah ada: pengeluaran, pesanan, service, dan tugas refill.</p>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left">
                         <thead class="bg-gray-50/60">
                             <tr>
                                 <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Tanggal</th>
-                                <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Kategori</th>
+                                <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Jenis</th>
                                 <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Item</th>
                                 <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Sumber</th>
                                 <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Perubahan</th>
-                                <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Stok Sebelum</th>
-                                <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Stok Sesudah</th>
                                 <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Keterangan</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-50">
-                            @forelse($stockMovements as $movement)
+                            @forelse($stockHistories as $movement)
                                 @php
                                     $isIn = $movement->movement_type === \App\Models\StockMovement::MOVE_IN;
                                 @endphp
@@ -281,13 +279,11 @@
                                             {{ $isIn ? '+' : '-' }}{{ $formatQty($movement->qty) }} {{ $movement->satuan }}
                                         </span>
                                     </td>
-                                    <td class="px-8 py-5 text-sm font-bold text-gray-600">{{ $formatQty($movement->stok_sebelum) }} {{ $movement->satuan }}</td>
-                                    <td class="px-8 py-5 text-sm font-black text-gray-900">{{ $formatQty($movement->stok_sesudah) }} {{ $movement->satuan }}</td>
                                     <td class="px-8 py-5 text-sm font-semibold text-gray-500">{{ $movement->keterangan ?: '-' }}</td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="8" class="px-8 py-12 text-center text-sm font-semibold text-gray-500">Belum ada riwayat perubahan stok.</td>
+                                    <td colspan="6" class="px-8 py-12 text-center text-sm font-semibold text-gray-500">Belum ada riwayat transaksi stok.</td>
                                 </tr>
                             @endforelse
                         </tbody>

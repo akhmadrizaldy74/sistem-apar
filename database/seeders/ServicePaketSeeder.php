@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\JenisRefill;
 use App\Models\Peralatan;
 use App\Models\ServicePaket;
 use Illuminate\Database\Seeder;
@@ -10,6 +11,10 @@ class ServicePaketSeeder extends Seeder
 {
     public function run(): void
     {
+        $powderRefillId = JenisRefill::query()
+            ->whereRaw('LOWER(nama) like ?', ['%powder%'])
+            ->value('id');
+
         $peralatans = [
             ['nama' => 'Valve APAR', 'stok' => 20, 'harga_standar' => 35000, 'stok_minimum' => 3],
             ['nama' => 'Safety Pin APAR', 'stok' => 50, 'harga_standar' => 5000, 'stok_minimum' => 10],
@@ -37,8 +42,8 @@ Pemeriksaan label dan kondisi luar APAR",
                 'nama' => 'Service Standar',
                 'label' => 'Paket B',
                 'harga' => 75000,
-                'jenis_refill_id' => null,
-                'refill_ratio' => 0,
+                'jenis_refill_id' => $powderRefillId,
+                'refill_ratio' => 0.5,
                 'rincian_layanan' => "Inspeksi kondisi fisik tabung, segel, dan pin pengaman
 Pemeriksaan selang, nozzle, dan valve
 Pembersihan body tabung dan area kepala APAR
@@ -52,8 +57,8 @@ Penggantian safety pin dan segel pengaman plastik sesuai standar paket",
                 'nama' => 'Service Lengkap',
                 'label' => 'Paket C',
                 'harga' => 150000,
-                'jenis_refill_id' => null,
-                'refill_ratio' => 0,
+                'jenis_refill_id' => $powderRefillId,
+                'refill_ratio' => 1,
                 'rincian_layanan' => "Pembongkaran komponen utama APAR
 Pemeriksaan valve, selang, nozzle, dan tekanan kerja
 Penggantian valve, safety pin, dan segel pengaman plastik sesuai standar paket

@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\PeralatanController;
 use App\Http\Controllers\Admin\PengeluaranController;
 use App\Http\Controllers\Admin\UnitAparController;
 use App\Http\Controllers\Admin\ComplainController;
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\TestimoniController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\KeranjangController;
@@ -23,7 +24,6 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TeknisiController;
 use App\Http\Controllers\InvoiceController;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
 
 Route::get('/', [LandingPageController::class, 'index'])->name('home');
 
@@ -60,20 +60,9 @@ Route::post('/complain', [PublicController::class, 'complainStore'])->name('comp
 Route::get('/testimoni', [PublicController::class, 'testimoniCreate'])->name('testimoni.create');
 Route::post('/testimoni', [PublicController::class, 'testimoniStore'])->name('testimoni.store');
 
-Route::get('/dashboard', function () {
-    /** @var \App\Models\User */
-    $user = Auth::user();
-
-    if ($user->isTeknisi()) {
-        return redirect()->route('teknisi.dashboard');
-    }
-
-    if ($user->isAdmin()) {
-        return view('dashboard');
-    }
-
-    return redirect()->route('home');
-})->middleware(['auth'])->name('dashboard');
+Route::get('/dashboard', DashboardController::class)
+    ->middleware(['auth'])
+    ->name('dashboard');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
@@ -165,8 +154,8 @@ Route::middleware('auth')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/keranjang', [KeranjangController::class, 'index'])->name('keranjang.index');
     Route::post('/keranjang', [KeranjangController::class, 'store'])->name('keranjang.store');
-    Route::patch('/keranjang/{keranjang}', [KeranjangController::class, 'update'])->name('keranjang.update');
-    Route::delete('/keranjang/{keranjang}', [KeranjangController::class, 'destroy'])->name('keranjang.destroy');
+    Route::patch('/keranjang/{item}', [KeranjangController::class, 'update'])->name('keranjang.update');
+    Route::delete('/keranjang/{item}', [KeranjangController::class, 'destroy'])->name('keranjang.destroy');
     Route::get('/keranjang/count', [KeranjangController::class, 'count'])->name('keranjang.count');
 
     Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');

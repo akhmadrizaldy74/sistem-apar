@@ -39,10 +39,11 @@ return new class extends Migration
         Schema::create('jenis_refills', function (Blueprint $table) {
             $table->id();
             $table->string('nama');
-            $table->unsignedInteger('stok')->default(0);
+            $table->decimal('stok', 12, 2)->default(0);
             $table->string('satuan')->default('kg');
             $table->unsignedBigInteger('harga')->default(0);
-            $table->unsignedInteger('stok_minimum')->default(5);
+            $table->text('service_price_rules_json')->nullable();
+            $table->decimal('stok_minimum', 12, 2)->default(5);
             $table->timestamps();
         });
 
@@ -60,6 +61,8 @@ return new class extends Migration
             $table->string('nama');
             $table->string('label');
             $table->decimal('harga', 15, 2);
+            $table->foreignId('jenis_refill_id')->nullable()->constrained('jenis_refills')->nullOnDelete();
+            $table->decimal('refill_ratio', 5, 2)->default(0);
             $table->text('rincian_layanan')->nullable();
             $table->timestamps();
         });
@@ -67,6 +70,15 @@ return new class extends Migration
         Schema::create('pengeluarans', function (Blueprint $table) {
             $table->id();
             $table->enum('kategori', ['refill', 'peralatan', 'lainnya'])->default('lainnya');
+            $table->enum('jenis_pengeluaran', ['pembelian_apar', 'pembelian_refill', 'pembelian_peralatan'])->nullable();
+            $table->unsignedBigInteger('produk_id')->nullable();
+            $table->foreignId('jenis_refill_id')->nullable()->constrained('jenis_refills')->nullOnDelete();
+            $table->foreignId('peralatan_id')->nullable()->constrained('peralatans')->nullOnDelete();
+            $table->string('nama_item')->nullable();
+            $table->decimal('qty', 12, 2)->nullable();
+            $table->string('satuan', 30)->nullable();
+            $table->decimal('harga_beli', 15, 2)->nullable();
+            $table->decimal('total', 15, 2)->nullable();
             $table->text('keterangan')->nullable();
             $table->decimal('nominal', 15, 2)->default(0);
             $table->date('tanggal');

@@ -38,6 +38,18 @@
                         </div>
 
                         <div>
+                            <label for="merek" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Merek</label>
+                            <select name="merek" id="merek" required
+                                class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 transition">
+                                <option value="">Pilih Merek</option>
+                                @foreach(['FIREFIX', 'GuardALL', 'TONATA'] as $merek)
+                                    <option value="{{ $merek }}" @selected(old('merek') == $merek)>{{ $merek }}</option>
+                                @endforeach
+                            </select>
+                            <x-input-error :messages="$errors->get('merek')" class="mt-2" />
+                        </div>
+
+                        <div>
                             <label for="harga" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Harga (IDR)</label>
                             <div class="relative">
                                 <span class="absolute left-6 top-1/2 -translate-y-1/2 font-black text-gray-400">Rp</span>

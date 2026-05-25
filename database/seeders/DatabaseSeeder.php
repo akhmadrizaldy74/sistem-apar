@@ -40,8 +40,62 @@ class DatabaseSeeder extends Seeder
         $co2 = JenisApar::firstOrCreate(['nama' => 'Carbon Dioxide (CO2)']);
         $foam = JenisApar::firstOrCreate(['nama' => 'Liquid Foam (Busa)']);
 
-        foreach (['Dry Chemical Powder', 'CO2', 'Foam'] as $nama) {
-            JenisRefill::firstOrCreate(['nama' => $nama]);
+        $refillRules = [
+            'Dry Chemical Powder' => [
+                'satuan' => 'Kg',
+                'harga' => 25000,
+                'stok_minimum' => 50,
+                'service_price_rules_json' => [
+                    ['ukuran' => '1 Kg', 'harga' => 30000],
+                    ['ukuran' => '2 Kg', 'harga' => 50000],
+                    ['ukuran' => '3 Kg', 'harga' => 70000],
+                    ['ukuran' => '4 Kg', 'harga' => 90000],
+                    ['ukuran' => '5 Kg', 'harga' => 115000],
+                    ['ukuran' => '6 Kg', 'harga' => 135000],
+                    ['ukuran' => '6.8 Kg', 'harga' => 150000],
+                    ['ukuran' => '9 Kg', 'harga' => 190000],
+                    ['ukuran' => '6 Liter', 'harga' => 150000],
+                    ['ukuran' => '9 Liter', 'harga' => 210000],
+                ],
+            ],
+            'CO2' => [
+                'satuan' => 'Kg',
+                'harga' => 35000,
+                'stok_minimum' => 30,
+                'service_price_rules_json' => [
+                    ['ukuran' => '1 Kg', 'harga' => 45000],
+                    ['ukuran' => '2 Kg', 'harga' => 65000],
+                    ['ukuran' => '3 Kg', 'harga' => 85000],
+                    ['ukuran' => '4 Kg', 'harga' => 110000],
+                    ['ukuran' => '5 Kg', 'harga' => 130000],
+                    ['ukuran' => '6 Kg', 'harga' => 150000],
+                    ['ukuran' => '6.8 Kg', 'harga' => 170000],
+                    ['ukuran' => '9 Kg', 'harga' => 230000],
+                    ['ukuran' => '6 Liter', 'harga' => 160000],
+                    ['ukuran' => '9 Liter', 'harga' => 235000],
+                ],
+            ],
+            'Foam' => [
+                'satuan' => 'L',
+                'harga' => 20000,
+                'stok_minimum' => 40,
+                'service_price_rules_json' => [
+                    ['ukuran' => '1 Kg', 'harga' => 35000],
+                    ['ukuran' => '2 Kg', 'harga' => 60000],
+                    ['ukuran' => '3 Kg', 'harga' => 80000],
+                    ['ukuran' => '4 Kg', 'harga' => 100000],
+                    ['ukuran' => '5 Kg', 'harga' => 125000],
+                    ['ukuran' => '6 Kg', 'harga' => 145000],
+                    ['ukuran' => '6.8 Kg', 'harga' => 165000],
+                    ['ukuran' => '9 Kg', 'harga' => 210000],
+                    ['ukuran' => '6 Liter', 'harga' => 160000],
+                    ['ukuran' => '9 Liter', 'harga' => 225000],
+                ],
+            ],
+        ];
+
+        foreach ($refillRules as $nama => $payload) {
+            JenisRefill::updateOrCreate(['nama' => $nama], $payload);
         }
 
         $produkData = [
@@ -78,24 +132,34 @@ class DatabaseSeeder extends Seeder
         ];
 
         $merekHarga = [
-            'SAFETY' => 1,
-            'ABC' => 1.08,
-            'GUARD' => 1.15,
+            'FIREFIX' => 1,
+            'GuardALL' => 1.08,
+            'TONATA' => 1.15,
+        ];
+
+        $jenisShortLabel = [
+            'Dry Chemical Powder' => 'Powder',
+            'Carbon Dioxide (CO2)' => 'CO2',
+            'Liquid Foam (Busa)' => 'Foam',
         ];
 
         foreach ($produkData as $group) {
             foreach ($group['items'] as $item) {
                 foreach ($merekHarga as $merek => $pengaliHarga) {
+                    $jenisName = $group['jenis']->nama;
+                    $jenisLabel = $jenisShortLabel[$jenisName] ?? $jenisName;
+                    $namaProduk = "APAR {$merek} {$jenisLabel} {$item['kapasitas']}";
+
                     $group['jenis']->produks()->updateOrCreate(
                         [
                             'merek' => $merek,
                             'kapasitas' => $item['kapasitas'],
                         ],
                         [
-                            'nama' => "APAR {$merek} {$group['jenis']->nama} {$item['kapasitas']}",
+                            'nama' => $namaProduk,
                             'penggunaan' => $group['penggunaan'],
                             'harga' => (int) round($item['harga'] * $pengaliHarga),
-                            'stok' => 50, // Added default stock so catalog buttons show 'Tambah ke Keranjang'
+                            'stok' => 50,
                         ],
                     );
                 }

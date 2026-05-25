@@ -9,7 +9,7 @@
     .cart-item { background: #fff; border: 1.5px solid #e2e8f0; border-radius: 1.5rem; padding: 1.25rem; transition: all .2s ease; }
     .cart-item:hover { border-color: #fca5a5; box-shadow: 0 12px 24px rgba(220,38,38,.03); }
     .cart-thumb { width: 5rem; height: 5rem; border-radius: 1.25rem; overflow: hidden; background: #f8fafc; border: 1px solid #f1f5f9; flex-shrink: 0; }
-    .cart-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .cart-thumb img { width: 100%; height: 100%; object-fit: contain; padding: 0.25rem; }
     .qty-btn { width: 2.25rem; height: 2.25rem; border-radius: .85rem; border: 1.5px solid #e2e8f0; background: #f8fafc; color: #334155; display: flex; align-items: center; justify-content: center; transition: all .2s ease; cursor: pointer; }
     .qty-btn:hover { background: #fee2e2; border-color: #fca5a5; color: #dc2626; }
     .qty-btn:disabled { opacity: .4; cursor: not-allowed; }
@@ -109,7 +109,7 @@
                                         <span class="inline-flex items-center px-2 py-0.5 rounded bg-red-50 text-[10px] font-black text-red-600 uppercase tracking-widest">{{ $item->produk->jenisApar?->nama ?? 'APAR' }}</span>
                                         <h3 class="text-base font-black text-slate-900 truncate mt-1">{{ $item->produk->nama }}</h3>
                                         <p class="text-xs font-semibold text-slate-500 mt-0.5">
-                                            Merek: {{ $item->produk->merek ?? 'SAFETY' }} @if($item->produk->kapasitas) • {{ $item->produk->kapasitas }} @endif
+                                            Merek: {{ $item->produk->merek ?? 'FIREFIX' }} @if($item->produk->kapasitas) • {{ $item->produk->kapasitas }} @endif
                                         </p>
                                         <p class="text-xs font-bold text-slate-400 mt-1">Harga Satuan: Rp {{ number_format($item->harga, 0, ',', '.') }}</p>
                                     </div>
@@ -134,7 +134,7 @@
                                             <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Subtotal</p>
                                             <p class="text-base font-black text-red-600 mt-1 item-subtotal" id="subtotal-val-{{ $item->id }}">Rp {{ number_format($item->harga * $item->qty, 0, ',', '.') }}</p>
                                         </div>
-                                        <form action="{{ route('keranjang.destroy', $item) }}" method="POST" onsubmit="return confirm('Hapus item ini dari keranjang?')">
+                                        <form action="{{ route('keranjang.destroy', $item->id) }}" method="POST" onsubmit="return confirm('Hapus item ini dari keranjang?')">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="qty-btn text-red-600 hover:bg-red-50 flex items-center justify-center" title="Hapus Item">

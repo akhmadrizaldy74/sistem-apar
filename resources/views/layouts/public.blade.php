@@ -144,7 +144,7 @@
                 {{-- Desktop CTA --}}
                 <div class="hidden md:flex items-center gap-3">
                     @php
-                        $cartCount = auth()->check() ? \App\Models\Keranjang::where('user_id', auth()->id())->sum('qty') : 0;
+                        $cartCount = auth()->check() ? \App\Support\SessionCart::count() : 0;
                         $user = auth()->user();
                         $dashRoute = '';
                         $dashLabel = 'Masuk';
@@ -206,7 +206,7 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                     Keranjang
                     @auth
-                        @php $mCartCount = \App\Models\Keranjang::where('user_id', auth()->id())->sum('qty'); @endphp
+                        @php $mCartCount = \App\Support\SessionCart::count(); @endphp
                         @if($mCartCount > 0)
                             <span class="w-5 h-5 bg-red-600 text-white text-[10px] font-black rounded-full flex items-center justify-center">{{ $mCartCount > 99 ? '99+' : $mCartCount }}</span>
                         @endif

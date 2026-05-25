@@ -6,13 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\JenisRefill;
 use App\Models\Peralatan;
 use App\Models\Produk;
-use App\Models\StockMovement;
 use App\Models\StokBatch;
+use App\Services\StockHistoryService;
 use Illuminate\Http\Request;
 
 class StokController extends Controller
 {
-    public function index()
+    public function index(StockHistoryService $stockHistoryService)
     {
         $activeTab = request()->query('tab', 'apar');
         if (! in_array($activeTab, ['apar', 'refill', 'peralatan'], true)) {
@@ -22,9 +22,9 @@ class StokController extends Controller
         $produks = Produk::with(['jenisApar', 'stokBatches.tugasRefills'])->latest()->get();
         $jenisRefills = JenisRefill::latest()->get();
         $peralatans = Peralatan::latest()->get();
-        $stockMovements = StockMovement::latest('tanggal')->latest()->take(30)->get();
+        $stockHistories = $stockHistoryService->recent();
 
-        return view('admin.stok.index', compact('produks', 'jenisRefills', 'peralatans', 'activeTab', 'stockMovements'));
+        return view('admin.stok.index', compact('produks', 'jenisRefills', 'peralatans', 'activeTab', 'stockHistories'));
     }
 
     // ─── CRUD Peralatan ───

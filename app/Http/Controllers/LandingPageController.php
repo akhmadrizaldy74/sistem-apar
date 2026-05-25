@@ -63,6 +63,8 @@ class LandingPageController extends Controller
     public function index()
     {
         $produks = Produk::with('jenisApar')
+            ->whereNotNull('gambar')
+            ->where('gambar', '!=', '')
             ->latest()
             ->take(4)
             ->get();

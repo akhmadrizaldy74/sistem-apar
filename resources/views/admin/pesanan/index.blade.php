@@ -904,8 +904,12 @@
                     pelangganDict: @json($pelanggans->map->only(['id', 'alamat_lat', 'alamat_lng'])->keyBy('id')),
                     storeLat: Number('{{ config('app.store_lat') }}'),
                     storeLng: Number('{{ config('app.store_lng') }}'),
-                    shippingRate: Number('{{ config('app.shipping_rate_per_km') }}'),
-                    shippingMin: Number('{{ config('app.shipping_min_cost') }}'),
+                    shippingPricingTiers: {{ \Illuminate\Support\Js::from(config('app.shipping_pricing_tiers')) }},
+                    shippingLongDistanceStepKm: Number('{{ config('app.shipping_long_distance_step_km') }}'),
+                    shippingLongDistanceStepCost: Number('{{ config('app.shipping_long_distance_step_cost') }}'),
+                    shippingItemSurchargeThreshold: Number('{{ config('app.shipping_item_surcharge_threshold') }}'),
+                    shippingItemSurchargePerItem: Number('{{ config('app.shipping_item_surcharge_per_item') }}'),
+                    shippingItemSurchargeCap: Number('{{ config('app.shipping_item_surcharge_cap') }}'),
                     distanceKm: 0,
                     customerAddressSuggestions: [],
                     customerAddressTimer: null,
@@ -956,6 +960,42 @@
                         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
                         return R * c;
                     },
+                    estimateShippingCost(distanceKm, itemCount = 1) {
+                        const normalizedDistance = Math.max(0, Number(distanceKm || 0));
+                        const normalizedItemCount = Math.max(1, Number(itemCount || 1));
+                        const tiers = Array.isArray(this.shippingPricingTiers) ? [...this.shippingPricingTiers] : [];
+                        tiers.sort((left, right) => Number(left.max_distance_km || 0) - Number(right.max_distance_km || 0));
+
+                        let baseCost = 0;
+                        let lastTierDistance = 0;
+                        let lastTierCost = 0;
+
+                        for (const tier of tiers) {
+                            lastTierDistance = Number(tier.max_distance_km || 0);
+                            lastTierCost = Number(tier.cost || 0);
+
+                            if (normalizedDistance <= lastTierDistance) {
+                                baseCost = lastTierCost;
+                                break;
+                            }
+                        }
+
+                        if (baseCost <= 0) {
+                            const stepKm = Math.max(1, Number(this.shippingLongDistanceStepKm || 50));
+                            const stepCost = Math.max(0, Number(this.shippingLongDistanceStepCost || 10000));
+                            const extraDistance = Math.max(0, normalizedDistance - lastTierDistance);
+                            const extraSteps = extraDistance > 0 ? Math.ceil(extraDistance / stepKm) : 0;
+                            baseCost = lastTierCost + (extraSteps * stepCost);
+                        }
+
+                        const threshold = Math.max(1, Number(this.shippingItemSurchargeThreshold || 4));
+                        const surchargePerItem = Math.max(0, Number(this.shippingItemSurchargePerItem || 2500));
+                        const surchargeCap = Math.max(0, Number(this.shippingItemSurchargeCap || 10000));
+                        const extraItems = Math.max(0, normalizedItemCount - threshold);
+                        const itemSurcharge = Math.min(surchargeCap, extraItems * surchargePerItem);
+
+                        return Math.round(baseCost + itemSurcharge);
+                    },
                     updateOngkirFromDistance() {
                         if (this.shippingMethod === 'pickup') {
                             this.ongkir = 0;
@@ -979,8 +1019,7 @@
                         }
                         if (custLat && custLng && this.storeLat && this.storeLng) {
                             this.distanceKm = this.calculateDistance(this.storeLat, this.storeLng, custLat, custLng);
-                            let cost = Math.ceil(this.distanceKm * this.shippingRate);
-                            this.ongkir = Math.max(this.shippingMin, cost);
+                            this.ongkir = this.estimateShippingCost(this.distanceKm, this.totalUnit);
                         } else {
                             this.ongkir = 0;
                             this.distanceKm = 0;
@@ -1059,6 +1098,7 @@
                         })
                         this.grandTotal = this.rows.reduce((total, row) => total + Number(row.subtotal || 0), 0)
                         this.totalUnit = this.rows.reduce((total, row) => total + Number(row.jumlah || 0), 0)
+                        this.updateOngkirFromDistance()
                     },
                     invoiceTotal() {
                         return Number(this.grandTotal || 0) + Number(this.ongkir || 0)

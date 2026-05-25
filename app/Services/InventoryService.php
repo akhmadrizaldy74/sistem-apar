@@ -19,7 +19,6 @@ class InventoryService
             $produk = Produk::findOrFail($pengeluaran->produk_id);
             $tanggalMasuk = $this->resolveMovementDate($pengeluaran->tanggal);
             $qty = (int) round((float) $pengeluaran->qty);
-            $stokSebelum = (float) $produk->fresh()->stok_tersedia;
 
             $produk->stokBatches()->create([
                 'jumlah_masuk' => $qty,
@@ -32,20 +31,6 @@ class InventoryService
             $produk->forceFill([
                 'stok' => (int) ($produk->stok ?? 0) + $qty,
             ])->save();
-
-            $stokSesudah = (float) $produk->fresh('stokBatches')->stok_tersedia;
-
-            $this->logProductMovement(
-                produk: $produk->fresh(),
-                qty: $qty,
-                movementType: StockMovement::MOVE_IN,
-                sourceType: StockMovement::SOURCE_PEMBELIAN_PENGELUARAN,
-                stokSebelum: $stokSebelum,
-                stokSesudah: $stokSesudah,
-                reference: $pengeluaran,
-                keterangan: $pengeluaran->keterangan,
-                tanggal: $tanggalMasuk,
-            );
 
             $pengeluaran->forceFill([
                 'kategori' => 'lainnya',
@@ -199,21 +184,7 @@ class InventoryService
         ?string $keterangan = null,
         Carbon|string|null $tanggal = null,
     ): void {
-        $this->createMovement([
-            'item_type' => StockMovement::ITEM_PRODUK,
-            'item_id' => $produk->id,
-            'item_nama' => $produk->nama,
-            'satuan' => 'Unit',
-            'movement_type' => $movementType,
-            'qty' => round($qty, 2),
-            'stok_sebelum' => round($stokSebelum, 2),
-            'stok_sesudah' => round($stokSesudah, 2),
-            'source_type' => $sourceType,
-            'reference_type' => $reference ? $reference::class : null,
-            'reference_id' => $reference?->getKey(),
-            'keterangan' => $keterangan,
-            'tanggal' => $this->resolveMovementDate($tanggal),
-        ]);
+        unset($produk, $qty, $movementType, $sourceType, $stokSebelum, $stokSesudah, $reference, $keterangan, $tanggal);
     }
 
     protected function mutateSimpleStock(
@@ -245,27 +216,11 @@ class InventoryService
         }
 
         $model->forceFill(['stok' => $stokSesudah])->save();
-
-        $this->createMovement([
-            'item_type' => $itemType,
-            'item_id' => $model->getKey(),
-            'item_nama' => (string) ($model->nama ?? class_basename($model)),
-            'satuan' => $satuan,
-            'movement_type' => $movementType,
-            'qty' => $qty,
-            'stok_sebelum' => $stokSebelum,
-            'stok_sesudah' => $stokSesudah,
-            'source_type' => $sourceType,
-            'reference_type' => $reference ? $reference::class : null,
-            'reference_id' => $reference?->getKey(),
-            'keterangan' => $keterangan,
-            'tanggal' => $this->resolveMovementDate($tanggal),
-        ]);
     }
 
     protected function createMovement(array $attributes): void
     {
-        StockMovement::create($attributes);
+        unset($attributes);
     }
 
     protected function resolveMovementDate(Carbon|string|null $tanggal): Carbon

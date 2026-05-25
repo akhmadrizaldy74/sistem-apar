@@ -597,6 +597,215 @@
         font-size: 22px;
     }
 
+    .media-apar-section {
+        position: relative;
+        overflow: hidden;
+        background:
+            linear-gradient(180deg, #ffffff 0%, #f8fafc 52%, #ffffff 100%);
+    }
+
+    .media-apar-section::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image:
+            linear-gradient(rgba(220, 38, 38, 0.035) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(220, 38, 38, 0.035) 1px, transparent 1px);
+        background-size: 70px 70px;
+        mask-image: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.5) 22%, rgba(0, 0, 0, 0.35) 74%, transparent 100%);
+        pointer-events: none;
+    }
+
+    .media-apar-section .container {
+        position: relative;
+        z-index: 1;
+    }
+
+    .media-apar-shell {
+        overflow: hidden;
+        border-radius: 32px;
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: var(--brand-shadow-soft);
+    }
+
+    .media-apar-item {
+        display: grid;
+        grid-template-columns: minmax(260px, 0.82fr) minmax(0, 1.18fr);
+        gap: 42px;
+        align-items: center;
+        padding: 40px 44px;
+        border-bottom: 1px solid rgba(226, 232, 240, 0.92);
+    }
+
+    .media-apar-item:last-child {
+        border-bottom: 0;
+    }
+
+    .media-apar-item--reverse {
+        grid-template-columns: minmax(0, 1.18fr) minmax(260px, 0.82fr);
+    }
+
+    .media-apar-item--reverse .media-visual-wrap {
+        order: 2;
+    }
+
+    .media-apar-item--reverse .media-copy {
+        order: 1;
+    }
+
+    .media-visual-wrap {
+        display: flex;
+        justify-content: center;
+    }
+
+    .media-visual-stage {
+        position: relative;
+        width: min(100%, 300px);
+        aspect-ratio: 1;
+        border-radius: 30px;
+        border: 1px solid rgba(220, 38, 38, 0.12);
+        background:
+            linear-gradient(145deg, #fff1f2 0%, #ffffff 64%, #f8fafc 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86), 0 18px 34px rgba(15, 23, 42, 0.07);
+    }
+
+    .media-visual-stage::after {
+        content: "";
+        position: absolute;
+        inset: 24px;
+        border-radius: 26px;
+        border: 1px dashed rgba(220, 38, 38, 0.20);
+    }
+
+    .media-main-icon {
+        position: relative;
+        z-index: 1;
+        width: 138px;
+        height: 138px;
+        color: var(--brand-red-dark);
+    }
+
+    .media-copy {
+        max-width: 680px;
+    }
+
+    .media-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+        color: var(--brand-red-dark);
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+    }
+
+    .media-kicker::before {
+        content: "";
+        width: 20px;
+        height: 2px;
+        border-radius: 999px;
+        background: currentColor;
+    }
+
+    .media-title {
+        margin: 0 0 12px;
+        color: var(--brand-ink);
+        font-size: 30px;
+        font-weight: 900;
+        line-height: 1.12;
+    }
+
+    .media-desc {
+        margin: 0;
+        color: var(--brand-muted);
+        font-size: 15px;
+        line-height: 1.9;
+    }
+
+    .media-class-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(146px, 170px));
+        justify-content: flex-start;
+        gap: 12px;
+        margin-top: 22px;
+    }
+
+    .media-class-card {
+        min-height: 132px;
+        border-radius: 20px;
+        border: 1px solid rgba(220, 38, 38, 0.22);
+        background: linear-gradient(180deg, #ffffff 0%, #fff7f7 100%);
+        color: var(--brand-red-dark);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        position: relative;
+        overflow: hidden;
+        padding: 14px 12px 13px;
+        text-align: center;
+        box-shadow: 0 14px 24px rgba(220, 38, 38, 0.08);
+    }
+
+    .media-class-card::before {
+        content: "";
+        position: absolute;
+        inset: 8px;
+        border-radius: 16px;
+        border: 1px solid rgba(220, 38, 38, 0.08);
+        pointer-events: none;
+    }
+
+    .media-class-visual {
+        position: relative;
+        z-index: 1;
+        width: 46px;
+        height: 46px;
+        margin-bottom: 9px;
+        border-radius: 16px;
+        background: #fff;
+        border: 1px solid rgba(220, 38, 38, 0.14);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .media-class-visual svg {
+        width: 32px;
+        height: 32px;
+        display: block;
+    }
+
+    .media-class-visual path,
+    .media-class-visual circle {
+        vector-effect: non-scaling-stroke;
+    }
+
+    .media-class-label {
+        z-index: 2;
+        color: var(--brand-ink);
+        font-size: 12px;
+        font-weight: 900;
+        line-height: 1;
+        margin-bottom: 6px;
+    }
+
+    .media-class-desc {
+        position: relative;
+        z-index: 2;
+        color: var(--brand-muted);
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1.45;
+        margin: 0;
+    }
+
     .product-head {
         display: flex;
         align-items: flex-end;
@@ -680,27 +889,15 @@
     .katalog-placeholder {
         width: 100%;
         height: 100%;
-        border-radius: 24px;
         display: flex;
-        flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 10px;
-        background: linear-gradient(180deg, #fff5f5 0%, #ffffff 100%);
-        color: var(--brand-red-dark);
-        text-align: center;
-        border: 1px dashed rgba(220, 38, 38, 0.16);
+        color: #d1d5db;
     }
 
-    .katalog-placeholder i {
-        font-size: 36px;
-    }
-
-    .katalog-placeholder span {
-        max-width: 180px;
-        color: var(--brand-muted);
-        font-size: 12px;
-        line-height: 1.6;
+    .katalog-placeholder svg {
+        width: 48px;
+        height: 48px;
     }
 
     .katalog-badge {
@@ -1145,6 +1342,17 @@
             max-width: none;
         }
 
+        .media-apar-item,
+        .media-apar-item--reverse {
+            grid-template-columns: 1fr;
+            gap: 28px;
+        }
+
+        .media-apar-item--reverse .media-visual-wrap,
+        .media-apar-item--reverse .media-copy {
+            order: initial;
+        }
+
         .hero-title {
             font-size: 46px;
         }
@@ -1199,6 +1407,23 @@
             grid-template-columns: 1fr;
         }
 
+        .media-apar-shell {
+            border-radius: 26px;
+        }
+
+        .media-apar-item {
+            padding: 30px 24px;
+        }
+
+        .media-visual-stage {
+            width: min(100%, 260px);
+            border-radius: 24px;
+        }
+
+        .media-title {
+            font-size: 26px;
+        }
+
         .section-head {
             margin-bottom: 34px;
         }
@@ -1228,6 +1453,7 @@
         .service-card,
         .step-card,
         .feat-card,
+        .media-apar-shell,
         .katalog-card,
         .testi-card,
         .about-card,
@@ -1275,6 +1501,32 @@
 
         .hero-point {
             padding: 14px;
+        }
+
+        .media-apar-item {
+            padding: 26px 18px;
+        }
+
+        .media-main-icon {
+            width: 116px;
+            height: 116px;
+        }
+
+        .media-class-list {
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        .media-class-card {
+            min-height: auto;
+            align-items: flex-start;
+            padding: 14px 16px;
+            border-radius: 18px;
+            text-align: left;
+        }
+
+        .media-class-visual {
+            margin-bottom: 8px;
         }
 
         .katalog-body,
@@ -1427,6 +1679,152 @@
     </div>
 </section>
 
+<section class="media-apar-section section-pad">
+    <div class="container">
+        <div class="section-head" data-reveal>
+            <p class="section-tag">Jenis Media APAR</p>
+            <h2 class="section-title">Kenali Media Pemadam APAR yang Sesuai Kebutuhan</h2>
+            <p class="section-sub">Informasi media APAR disusun ringkas agar pelanggan lebih mudah memahami fungsi dry chemical powder, foam, dan karbon dioksida sebelum memilih produk atau layanan.</p>
+        </div>
+
+        @php
+            $mediaAparItems = [
+                [
+                    'key' => 'powder',
+                    'title' => 'Dry Chemical Powder',
+                    'desc' => 'APAR dry chemical powder adalah media pemadam api serbaguna yang dapat digunakan untuk kebakaran kelas A, B, dan C. Cocok digunakan di perkantoran, sekolah, tempat ibadah, rumah sakit, hotel, pusat perbelanjaan, rumah tinggal, gudang, kendaraan, dan area usaha umum lainnya.',
+                    'classes' => ['A', 'B', 'C'],
+                    'reverse' => false,
+                ],
+                [
+                    'key' => 'foam',
+                    'title' => 'Foam / Busa',
+                    'desc' => 'APAR foam banyak digunakan untuk kebakaran yang melibatkan bahan padat dan cairan mudah terbakar. Media ini bekerja dengan cara mendinginkan serta menutup permukaan sumber api sehingga membantu mempercepat proses pemadaman.',
+                    'classes' => ['A', 'B'],
+                    'reverse' => true,
+                ],
+                [
+                    'key' => 'co2',
+                    'title' => 'Karbon Dioksida (CO2)',
+                    'desc' => 'APAR karbon dioksida cocok digunakan untuk kebakaran akibat peralatan elektronik dan cairan yang mudah terbakar. Media CO2 tidak meninggalkan residu sehingga sesuai untuk area yang memiliki perangkat elektronik.',
+                    'classes' => ['B', 'C'],
+                    'reverse' => false,
+                ],
+            ];
+        @endphp
+
+        <div class="media-apar-shell" data-reveal>
+            @foreach($mediaAparItems as $item)
+                <article class="media-apar-item {{ $item['reverse'] ? 'media-apar-item--reverse' : '' }}">
+                    <div class="media-visual-wrap">
+                        <div class="media-visual-stage" aria-hidden="true">
+                            @if($item['key'] === 'powder')
+                                <svg class="media-main-icon" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M48 34h24l6 17v42a9 9 0 0 1-9 9H51a9 9 0 0 1-9-9V51l6-17Z" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/>
+                                    <path d="M51 24h18v10H51V24Z" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/>
+                                    <path d="M68 24c7-5 15-5 22-1" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                                    <path d="M48 56h24M48 70h24M48 84h16" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                                    <path d="M82 50c7-7 14-10 23-9M86 62c8-3 15-3 22 0M83 76c7 2 13 6 18 12" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                                    <circle cx="26" cy="39" r="4" fill="currentColor"/>
+                                    <circle cx="29" cy="62" r="3" fill="currentColor"/>
+                                    <circle cx="22" cy="83" r="4" fill="currentColor"/>
+                                </svg>
+                            @elseif($item['key'] === 'foam')
+                                <svg class="media-main-icon" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M34 82c8-8 16-8 24 0s16 8 24 0 16-8 24 0" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                                    <path d="M24 94c8-8 16-8 24 0s16 8 24 0 16-8 24 0" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                                    <circle cx="37" cy="36" r="11" stroke="currentColor" stroke-width="4"/>
+                                    <circle cx="63" cy="25" r="8" stroke="currentColor" stroke-width="4"/>
+                                    <circle cx="78" cy="49" r="13" stroke="currentColor" stroke-width="4"/>
+                                    <circle cx="52" cy="57" r="7" stroke="currentColor" stroke-width="4"/>
+                                </svg>
+                            @else
+                                <svg class="media-main-icon" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M41 62h28a18 18 0 1 1 0 36H46a20 20 0 0 1-4-39.6" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M38 54c0-15 10-27 22-27s22 12 22 27" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                                    <path d="M50 36V24M70 36V24M45 24h30" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                                    <path d="M53 73h18M53 86h12" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                                    <circle cx="88" cy="35" r="4" fill="currentColor"/>
+                                    <circle cx="96" cy="52" r="3" fill="currentColor"/>
+                                </svg>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="media-copy">
+                        <p class="media-kicker">Media Pemadam APAR</p>
+                        <h3 class="media-title">{{ $item['title'] }}</h3>
+                        <p class="media-desc">{{ $item['desc'] }}</p>
+                        <div class="media-class-list" aria-label="Klasifikasi kebakaran untuk {{ $item['title'] }}">
+                            @foreach($item['classes'] as $class)
+                                @php
+                                    $classMeta = match ($class) {
+                                        'A' => [
+                                            'label' => 'Kelas A',
+                                            'desc' => 'Kayu / benda padat',
+                                            'title' => 'Kelas A: kebakaran benda padat seperti kayu',
+                                        ],
+                                        'B' => [
+                                            'label' => 'Kelas B',
+                                            'desc' => 'Bensin / cairan mudah terbakar',
+                                            'title' => 'Kelas B: kebakaran bensin atau cairan mudah terbakar',
+                                        ],
+                                        'C' => [
+                                            'label' => 'Kelas C',
+                                            'desc' => 'Listrik / elektronik',
+                                            'title' => 'Kelas C: kebakaran akibat listrik atau peralatan elektronik',
+                                        ],
+                                        default => [
+                                            'label' => 'Kelas D',
+                                            'desc' => 'Logam',
+                                            'title' => 'Kelas D: kebakaran logam tertentu',
+                                        ],
+                                    };
+                                @endphp
+                                <article class="media-class-card" title="{{ $classMeta['title'] }}" aria-label="{{ $classMeta['title'] }}">
+                                    <div class="media-class-visual" aria-hidden="true">
+                                        @if($class === 'A')
+                                            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M11 14h23a6 6 0 0 1 0 12H11a6 6 0 0 1 0-12Z" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                                <path d="M14 26h23a6 6 0 0 1 0 12H14a6 6 0 0 1 0-12Z" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                                <circle cx="34" cy="20" r="2.4" stroke="currentColor" stroke-width="2.8"/>
+                                                <circle cx="37" cy="32" r="2.4" stroke="currentColor" stroke-width="2.8"/>
+                                                <path d="M15 14l8 12M26 14l8 12M18 26l8 12M29 26l8 12" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/>
+                                            </svg>
+                                        @elseif($class === 'B')
+                                            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M15 15h18l6 6v18a4 4 0 0 1-4 4H19a4 4 0 0 1-4-4V15Z" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                                <path d="M20 15V9h10v6M33 17h5l4 5v6" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                                <path d="M21 28h11M21 34h8" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/>
+                                                <path d="M33 15v6h6" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                        @elseif($class === 'C')
+                                            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M18 8v13M30 8v13" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/>
+                                                <path d="M14 21h20v7a10 10 0 0 1-20 0v-7Z" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                                <path d="M24 38v4M24 42h8a6 6 0 0 0 6-6v-4" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                                <path d="M18 28h12" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/>
+                                            </svg>
+                                        @else
+                                            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M24 10v5M24 33v5M15 15l4 4M33 33l4 4M38 24h-5M15 24h-5M33 15l-4 4M15 33l4-4" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/>
+                                                <circle cx="24" cy="24" r="9" stroke="currentColor" stroke-width="2.8"/>
+                                                <circle cx="24" cy="24" r="3" stroke="currentColor" stroke-width="2.8"/>
+                                            </svg>
+                                        @endif
+                                    </div>
+                                    <strong class="media-class-label">{{ $classMeta['label'] }}</strong>
+                                    <p class="media-class-desc">{{ $classMeta['desc'] }}</p>
+                                </article>
+                            @endforeach
+                        </div>
+                    </div>
+                </article>
+            @endforeach
+        </div>
+    </div>
+</section>
+
 <section class="section-pad section-soft">
     <div class="container">
         <div class="section-head" data-reveal>
@@ -1479,51 +1877,11 @@
             </div>
         </div>
 
-        <div class="katalog-grid">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             @forelse($produks as $produk)
-                <article class="katalog-card" data-reveal>
-                    <a href="{{ route('produk.show', $produk) }}" class="katalog-card-link">
-                        <div class="katalog-img">
-                            <span class="katalog-badge">{{ $produk->jenisApar?->nama ?? 'Produk APAR' }}</span>
-                            @if($produk->gambar)
-                                <img src="{{ asset('storage/' . $produk->gambar) }}" alt="{{ $produk->nama }}">
-                            @else
-                                <div class="katalog-placeholder">
-                                    <i class="fa-solid fa-fire-extinguisher"></i>
-                                    <span>Visual produk akan tampil di sini setelah gambar produk ditambahkan.</span>
-                                </div>
-                            @endif
-                        </div>
-                        <div class="katalog-body">
-                            <div class="katalog-meta">
-                                @if($produk->jenisApar?->nama)
-                                    <span class="katalog-chip">{{ $produk->jenisApar->nama }}</span>
-                                @endif
-                                @if($produk->kapasitas)
-                                    <span class="katalog-chip">{{ $produk->kapasitas }}</span>
-                                @endif
-                                @if($produk->merek)
-                                    <span class="katalog-chip">{{ $produk->merek }}</span>
-                                @endif
-                            </div>
-                            <h3 class="katalog-name">{{ $produk->nama }}</h3>
-                            <p class="katalog-spec">
-                                {{ collect([
-                                    $produk->jenisApar?->nama ? 'Jenis ' . $produk->jenisApar->nama : null,
-                                    $produk->kapasitas ? 'Ukuran ' . $produk->kapasitas : null,
-                                    $produk->merek ? 'Merek ' . $produk->merek : null,
-                                ])->filter()->implode(' - ') ?: 'Produk APAR tersedia untuk kebutuhan operasional Anda.' }}
-                            </p>
-                            <div class="katalog-footer">
-                                <span class="katalog-price">Rp {{ number_format($produk->harga, 0, ',', '.') }}</span>
-                                <span class="katalog-order">
-                                    Lihat Detail
-                                    <i class="fa-solid fa-arrow-right"></i>
-                                </span>
-                            </div>
-                        </div>
-                    </a>
-                </article>
+                <div data-reveal>
+                    <x-product-card :produk="$produk" />
+                </div>
             @empty
                 <div class="landing-empty" data-reveal style="grid-column: 1 / -1;">
                     <i class="fa-solid fa-box-open"></i>

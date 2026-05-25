@@ -2,106 +2,82 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Keranjang;
 use App\Models\Produk;
+use App\Support\SessionCart;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 class KeranjangController extends Controller
 {
-
-    /**
-     * Tampilkan halaman keranjang belanja.
-     */
     public function index()
     {
-        $keranjangs = Keranjang::with('produk.jenisApar')
-            ->where('user_id', Auth::id())
-            ->latest()
-            ->get();
-
+        $keranjangs = SessionCart::items();
         $totalHarga = $keranjangs->sum(fn ($item) => $item->harga * $item->qty);
 
         return view('public.keranjang.index', compact('keranjangs', 'totalHarga'));
     }
 
-    /**
-     * Tambah produk ke keranjang.
-     */
     public function store(Request $request)
     {
         $request->validate([
             'produk_id' => 'required|exists:produks,id',
-            'qty'       => 'nullable|integer|min:1|max:999',
+            'qty' => 'nullable|integer|min:1|max:999',
         ]);
 
         $produk = Produk::findOrFail($request->produk_id);
-        $qty = $request->input('qty', 1);
+        $qty = (int) $request->input('qty', 1);
         $stokTersedia = (int) $produk->stok_tersedia;
 
         if ($stokTersedia < $qty) {
             return back()->with('error', 'Stok siap jual tidak mencukupi. Stok tersedia: ' . $stokTersedia);
         }
 
-        $keranjang = Keranjang::where('user_id', Auth::id())
-            ->where('produk_id', $produk->id)
-            ->where('tipe_item', 'produk')
-            ->first();
-
-        if ($keranjang) {
-            $newQty = $keranjang->qty + $qty;
-            if ($newQty > $stokTersedia) {
-                return back()->with('error', 'Total qty melebihi stok siap jual (' . $stokTersedia . ').');
-            }
-            $keranjang->update(['qty' => $newQty]);
-        } else {
-            Keranjang::create([
-                'user_id'   => Auth::id(),
-                'produk_id' => $produk->id,
-                'qty'       => $qty,
-                'harga'     => $produk->harga,
-                'tipe_item' => 'produk',
-            ]);
+        $existingQty = SessionCart::items()->firstWhere('produk_id', $produk->id)?->qty ?? 0;
+        if (($existingQty + $qty) > $stokTersedia) {
+            return back()->with('error', 'Total qty melebihi stok siap jual (' . $stokTersedia . ').');
         }
 
-        return back()
-            ->with('success', '✅ "' . $produk->nama . '" berhasil ditambahkan ke keranjang!');
+        SessionCart::add($produk, $qty);
+
+        return back()->with('success', '"' . $produk->nama . '" berhasil ditambahkan ke keranjang.');
     }
 
-    /**
-     * Update qty item di keranjang.
-     */
-    public function update(Request $request, Keranjang $keranjang)
+    public function update(Request $request, string $item)
     {
-        if ($keranjang->user_id !== Auth::id()) {
-            if ($request->wantsJson() || $request->ajax()) {
-                return response()->json(['success' => false, 'message' => 'Aksi tidak diizinkan.'], 403);
-            }
-            abort(403);
-        }
-
         $request->validate([
             'qty' => 'required|integer|min:1|max:999',
         ]);
 
+        $produkId = (int) $item;
+        $keranjang = SessionCart::items()->firstWhere('produk_id', $produkId);
+
+        if (! $keranjang || ! $keranjang->produk) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'Item keranjang tidak ditemukan.'], 404);
+            }
+
+            return back()->with('error', 'Item keranjang tidak ditemukan.');
+        }
+
         $produk = $keranjang->produk;
         $stokTersedia = (int) $produk->stok_tersedia;
 
-        if ($request->qty > $stokTersedia) {
+        if ((int) $request->qty > $stokTersedia) {
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Stok tidak mencukupi. Stok ' . $produk->nama . ' tersedia: ' . $stokTersedia . ' unit.'
+                    'message' => 'Stok tidak mencukupi. Stok ' . $produk->nama . ' tersedia: ' . $stokTersedia . ' unit.',
                 ], 422);
             }
+
             return back()->with('error', 'Qty melebihi stok siap jual (' . $stokTersedia . ').');
         }
 
-        $keranjang->update(['qty' => $request->qty]);
+        SessionCart::update($produkId, (int) $request->qty);
+        $keranjang = SessionCart::items()->firstWhere('produk_id', $produkId);
 
         if ($request->wantsJson() || $request->ajax()) {
-            $allCart = Keranjang::where('user_id', Auth::id())->get();
-            $cartTotal = $allCart->sum(fn ($item) => $item->harga * $item->qty);
+            $allCart = SessionCart::items();
+            $cartTotal = $allCart->sum(fn ($cartItem) => $cartItem->harga * $cartItem->qty);
             $cartCount = $allCart->sum('qty');
             $negotiationEligible = $cartCount >= 10;
             $remainingToNego = max(0, 10 - $cartCount);
@@ -116,33 +92,24 @@ class KeranjangController extends Controller
                 'cart_total_formatted' => 'Rp ' . number_format($cartTotal, 0, ',', '.'),
                 'cart_count' => $cartCount,
                 'negotiation_eligible' => $negotiationEligible,
-                'remaining_to_nego' => $remainingToNego
+                'remaining_to_nego' => $remainingToNego,
             ]);
         }
 
         return back()->with('success', 'Qty berhasil diubah.');
     }
 
-    /**
-     * Hapus item dari keranjang.
-     */
-    public function destroy(Keranjang $keranjang)
+    public function destroy(string $item)
     {
-        if ($keranjang->user_id !== Auth::id()) {
-            abort(403);
+        if (! SessionCart::remove((int) $item)) {
+            return back()->with('error', 'Item keranjang tidak ditemukan.');
         }
-
-        $keranjang->delete();
 
         return back()->with('success', 'Item berhasil dihapus dari keranjang.');
     }
 
-    /**
-     * API: Hitung jumlah item di keranjang (untuk badge).
-     */
     public function count()
     {
-        $count = Keranjang::where('user_id', Auth::id())->sum('qty');
-        return response()->json(['count' => $count]);
+        return response()->json(['count' => SessionCart::count()]);
     }
 }

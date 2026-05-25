@@ -132,7 +132,7 @@
             'nama' => (string) ($item->produk?->nama ?? 'Produk'),
             'jenis' => (string) ($item->produk?->jenisApar?->nama ?? 'APAR'),
             'kapasitas' => (string) ($item->produk?->kapasitas ?? '-'),
-            'merek' => (string) ($item->produk?->merek ?? 'SAFETY'),
+            'merek' => (string) ($item->produk?->merek ?? 'FIREFIX'),
         ];
     })->values()) !!};
     const CSRF_TOKEN = '{{ csrf_token() }}';
@@ -515,7 +515,7 @@
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <p class="truncate text-base font-black text-slate-900">{{ $item->produk?->nama ?? 'Produk' }}</p>
-                                    <p class="mt-1 text-xs font-semibold text-slate-500">{{ $item->produk?->jenisApar?->nama ?? 'APAR' }} - {{ $item->produk?->kapasitas ?? '-' }} - {{ $item->produk?->merek ?? 'SAFETY' }}</p>
+                                    <p class="mt-1 text-xs font-semibold text-slate-500">{{ $item->produk?->jenisApar?->nama ?? 'APAR' }} - {{ $item->produk?->kapasitas ?? '-' }} - {{ $item->produk?->merek ?? 'FIREFIX' }}</p>
                                     <p class="mt-2 text-xs font-semibold text-slate-400">Qty {{ $item->qty }} - @ Rp {{ number_format($item->harga, 0, ',', '.') }}</p>
                                 </div>
                                 <div class="text-right">
@@ -565,7 +565,7 @@
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <p class="truncate text-base font-black text-slate-900">{{ $item['nama'] ?? 'Produk' }}</p>
-                                    <p class="mt-1 text-xs font-semibold text-slate-500">{{ $item['jenis'] ?? 'APAR' }} - {{ $item['kapasitas'] ?? '-' }} - {{ $item['merek'] ?? 'SAFETY' }}</p>
+                                    <p class="mt-1 text-xs font-semibold text-slate-500">{{ $item['jenis'] ?? 'APAR' }} - {{ $item['kapasitas'] ?? '-' }} - {{ $item['merek'] ?? 'FIREFIX' }}</p>
                                     <p class="mt-2 text-xs font-semibold text-slate-400">Qty {{ (int) ($item['jumlah'] ?? 0) }} - @ Rp {{ number_format((float) ($item['harga'] ?? 0), 0, ',', '.') }}</p>
                                 </div>
                                 <div class="text-right">
@@ -1556,7 +1556,7 @@
                 jumlah: Number(item.jumlah || 0),
                 jenis: item.jenis || 'APAR',
                 kapasitas: item.kapasitas || '-',
-                merek: item.merek || 'SAFETY',
+                merek: item.merek || 'FIREFIX',
                 harga: Number(item.harga || 0),
                 nama: item.nama || 'Produk',
             })).filter((item) => item.produk_id > 0 && item.jumlah > 0);
@@ -1568,7 +1568,7 @@
                 jumlah: Number(item.jumlah || 0),
                 jenis: item.jenis || 'APAR',
                 kapasitas: item.kapasitas || '-',
-                merek: item.merek || 'SAFETY',
+                merek: item.merek || 'FIREFIX',
                 harga: Number(item.harga || 0),
                 nama: item.nama || 'Produk',
             })).filter((item) => item.produk_id > 0 && item.jumlah > 0);

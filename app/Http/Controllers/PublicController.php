@@ -6,7 +6,6 @@ use App\Events\PesananBaru;
 use App\Models\ActivityLog;
 use App\Models\JenisRefill;
 use App\Models\JenisApar;
-use App\Models\Keranjang;
 use App\Models\Pelanggan;
 use App\Models\Pesanan;
 use App\Models\Produk;
@@ -17,6 +16,7 @@ use App\Models\StockMovement;
 use App\Models\Testimoni;
 use App\Models\UnitApar;
 use App\Services\InventoryService;
+use App\Support\SessionCart;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -581,11 +581,50 @@ class PublicController extends Controller
 
     private function estimateOngkir(float $distanceKm, int $itemCount = 1): float
     {
-        $ratePerKm = (float) env('SHIPPING_RATE_PER_KM', 5000);
-        $minCost = (float) env('SHIPPING_MIN_COST', 10000);
+        $distanceKm = max(0, $distanceKm);
+        $itemCount = max(1, $itemCount);
 
-        $raw = $distanceKm * $ratePerKm;
-        return (float) max($minCost, round($raw, 0));
+        $tiers = collect(config('app.shipping_pricing_tiers', []))
+            ->map(function ($tier) {
+                return [
+                    'max_distance_km' => (float) ($tier['max_distance_km'] ?? 0),
+                    'cost' => (float) ($tier['cost'] ?? 0),
+                ];
+            })
+            ->filter(fn ($tier) => $tier['max_distance_km'] > 0)
+            ->sortBy('max_distance_km')
+            ->values();
+
+        $baseCost = 0.0;
+        $lastTierDistance = 0.0;
+        $lastTierCost = 0.0;
+
+        foreach ($tiers as $tier) {
+            $lastTierDistance = (float) $tier['max_distance_km'];
+            $lastTierCost = (float) $tier['cost'];
+
+            if ($distanceKm <= $lastTierDistance) {
+                $baseCost = $lastTierCost;
+                break;
+            }
+        }
+
+        if ($baseCost <= 0) {
+            $stepKm = max(1, (float) config('app.shipping_long_distance_step_km', 50));
+            $stepCost = max(0, (float) config('app.shipping_long_distance_step_cost', 10000));
+            $extraDistance = max(0, $distanceKm - $lastTierDistance);
+            $extraSteps = $extraDistance > 0 ? (int) ceil($extraDistance / $stepKm) : 0;
+
+            $baseCost = $lastTierCost + ($extraSteps * $stepCost);
+        }
+
+        $threshold = max(1, (int) config('app.shipping_item_surcharge_threshold', 4));
+        $surchargePerItem = max(0, (float) config('app.shipping_item_surcharge_per_item', 2500));
+        $surchargeCap = max(0, (float) config('app.shipping_item_surcharge_cap', 10000));
+        $extraItems = max(0, $itemCount - $threshold);
+        $itemSurcharge = min($surchargeCap, $extraItems * $surchargePerItem);
+
+        return (float) round($baseCost + $itemSurcharge, 0);
     }
 
     private function normalizeShippingMethod(string $method): string
@@ -835,14 +874,11 @@ class PublicController extends Controller
 
     private function authenticatedCartItems(): Collection
     {
-        if (!Auth::check()) {
+        if (! Auth::check()) {
             return collect();
         }
 
-        return Keranjang::with('produk.jenisApar')
-            ->where('user_id', Auth::id())
-            ->latest()
-            ->get();
+        return SessionCart::items();
     }
 
     private function buildCartOrderItems(Collection $cartItems): array
@@ -857,7 +893,7 @@ class PublicController extends Controller
                     'nama' => (string) ($item->produk?->nama ?? 'Produk'),
                     'jenis' => (string) ($item->produk?->jenisApar?->nama ?? 'APAR'),
                     'kapasitas' => (string) ($item->produk?->kapasitas ?? '-'),
-                    'merek' => (string) ($item->produk?->merek ?? 'SAFETY'),
+                    'merek' => (string) ($item->produk?->merek ?? 'FIREFIX'),
                 ];
             })
             ->values()
@@ -967,7 +1003,9 @@ class PublicController extends Controller
                 ->with('warning', 'Selesaikan pembayaran sebelumnya sebelum membuat pesanan baru.');
         }
 
-        $produks = Produk::whereHas('stokBatches', function ($q) {
+        $produks = Produk::whereNotNull('gambar')
+            ->where('gambar', '!=', '')
+            ->whereHas('stokBatches', function ($q) {
                 $q->where('sisa_qty', '>', 0)
                   ->where('tgl_expired', '>=', now()->toDateString());
             })
@@ -1011,7 +1049,7 @@ class PublicController extends Controller
                     'nama' => (string) $selectedOrderProduct->nama,
                     'jenis' => (string) ($selectedOrderProduct->jenisApar?->nama ?? 'APAR'),
                     'kapasitas' => (string) ($selectedOrderProduct->kapasitas ?? '-'),
-                    'merek' => (string) ($selectedOrderProduct->merek ?? 'SAFETY'),
+                    'merek' => (string) ($selectedOrderProduct->merek ?? 'FIREFIX'),
                     'gambar' => (string) ($selectedOrderProduct->gambar ?? ''),
                 ]]);
                 $prefillFromProduct = true;
@@ -1245,7 +1283,7 @@ class PublicController extends Controller
 
                     $pesanan->details()->create([
                         'produk_id' => $produk->id,
-                        'merek' => $produk->merek ?? 'SAFETY',
+                        'merek' => $produk->merek ?? 'FIREFIX',
                         'kapasitas' => $produk->kapasitas,
                         'jumlah' => $item['jumlah'],
                         'harga' => $hargaSatuan,
@@ -1254,7 +1292,7 @@ class PublicController extends Controller
                 }
 
                 if ($isCartCheckout && Auth::check()) {
-                    Keranjang::where('user_id', Auth::id())->delete();
+                    SessionCart::clear();
                 }
 
                 $totalFinal = ($isNegoDeal && !is_null($hargaDeal))
@@ -1684,7 +1722,7 @@ class PublicController extends Controller
 
                 $pesanan->details()->create([
                     'produk_id' => $produk->id,
-                    'merek' => $produk->merek ?? 'SAFETY',
+                    'merek' => $produk->merek ?? 'FIREFIX',
                     'kapasitas' => $produk->kapasitas,
                     'jumlah' => $jumlah,
                     'harga' => $produk->harga,

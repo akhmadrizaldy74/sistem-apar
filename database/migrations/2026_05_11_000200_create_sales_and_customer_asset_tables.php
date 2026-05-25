@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('produks', function (Blueprint $table) {
             $table->id();
             $table->string('nama');
-            $table->string('merek')->default('SAFETY');
+            $table->string('merek')->default('FIREFIX');
             $table->decimal('harga', 15, 2)->default(0);
             $table->text('deskripsi')->nullable();
             $table->string('gambar')->nullable();
@@ -38,8 +38,12 @@ return new class extends Migration
             $table->enum('sumber_pesanan', ['website', 'whatsapp', 'telepon', 'datang_langsung', 'input_admin', 'data_lama'])->default('input_admin');
             $table->boolean('is_pesanan_lama')->default(false);
             $table->enum('service_jenis_layanan', ['service', 'refill'])->nullable();
+            $table->foreignId('service_paket_id')->nullable()->constrained('service_pakets')->nullOnDelete();
+            $table->foreignId('service_jenis_refill_id')->nullable()->constrained('jenis_refills')->nullOnDelete();
             $table->string('service_jenis_apar', 120)->nullable();
+            $table->string('service_ukuran_apar', 120)->nullable();
             $table->unsignedInteger('service_jumlah_unit')->nullable();
+            $table->decimal('service_total_kg', 12, 2)->nullable();
             $table->text('service_keluhan')->nullable();
             $table->string('service_foto')->nullable();
             $table->enum('service_metode_penanganan', ['dijemput', 'antar sendiri', 'survey lokasi'])->nullable();
@@ -61,6 +65,7 @@ return new class extends Migration
             $table->timestamp('link_pembayaran_terkirim_at')->nullable();
             $table->timestamp('pembayaran_terkonfirmasi_at')->nullable();
             $table->decimal('harga_usulan', 15, 2)->nullable();
+            $table->decimal('harga_penawaran_pelanggan', 15, 2)->nullable();
             $table->string('kode_nego', 20)->nullable();
             $table->timestamp('kode_nego_terpakai_at')->nullable();
             $table->boolean('is_nego')->default(false);
@@ -84,23 +89,13 @@ return new class extends Migration
                 'menunggu penjadwalan',
                 'menunggu persetujuan biaya',
                 'disetujui',
+                'menunggu pengambilan',
+                'menunggu kedatangan unit',
             ])->default('menunggu');
             $table->boolean('stok_dikurangi')->default(false);
             $table->date('tanggal');
             $table->json('invoice_snapshot')->nullable();
             $table->timestamps();
-        });
-
-        Schema::create('keranjangs', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('produk_id')->constrained('produks')->cascadeOnDelete();
-            $table->unsignedInteger('qty')->default(1);
-            $table->unsignedBigInteger('harga')->default(0);
-            $table->string('tipe_item')->default('produk');
-            $table->timestamps();
-
-            $table->unique(['user_id', 'produk_id', 'tipe_item']);
         });
 
         Schema::create('unit_apars', function (Blueprint $table) {
@@ -131,13 +126,20 @@ return new class extends Migration
             $table->unsignedBigInteger('subtotal');
             $table->timestamps();
         });
+
+        Schema::table('pengeluarans', function (Blueprint $table) {
+            $table->foreign('produk_id')->references('id')->on('produks')->nullOnDelete();
+        });
     }
 
     public function down(): void
     {
+        Schema::table('pengeluarans', function (Blueprint $table) {
+            $table->dropForeign(['produk_id']);
+        });
+
         Schema::dropIfExists('pesanan_details');
         Schema::dropIfExists('unit_apars');
-        Schema::dropIfExists('keranjangs');
         Schema::dropIfExists('pesanans');
         Schema::dropIfExists('produks');
     }

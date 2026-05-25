@@ -193,7 +193,8 @@ class TeknisiController extends Controller
             'status' => 'selesai oleh teknisi',
             'teknisi_selesai_at' => now(),
             'teknisi_catatan' => $request->input('catatan'),
-            'final_total' => $grandTotal,
+            'total' => $grandTotal,
+            'total_harga' => $grandTotal,
             'invoice_snapshot' => json_encode($snapshot),
         ]);
 
