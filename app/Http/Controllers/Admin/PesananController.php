@@ -15,6 +15,7 @@ use App\Models\StockMovement;
 use App\Models\UnitApar;
 use App\Models\User;
 use App\Services\InventoryService;
+use App\Services\OrderPricingService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -40,14 +41,7 @@ class PesananController extends Controller
 
     private function getNormalOrderTotal(Pesanan $pesanan): float
     {
-        $subtotalBarang = (float) $pesanan->details()->sum('subtotal');
-        $ongkir = (float) ($pesanan->ongkir ?? 0);
-
-        if (!is_null($pesanan->total) && (float) $pesanan->total > 0) {
-            return (float) $pesanan->total;
-        }
-
-        return $subtotalBarang + $ongkir;
+        return (float) app(OrderPricingService::class)->summarizePesanan($pesanan)['totalPembayaran'];
     }
 
     private function normalizeMoneyInput(mixed $value): ?string
@@ -369,6 +363,52 @@ class PesananController extends Controller
 
         $teknisis = \App\Models\User::where('role', 'teknisi')->orderBy('name')->get();
 
+        // Prepare detail data for modal
+        $pesananDetailData = $pesanans->map(function ($pesanan) {
+            $pricingSummary = $pesanan->pricingSummary();
+            $sumber = 'Input';
+            if ($pesanan->sumber_pesanan === 'website') { $sumber = 'Online'; }
+            elseif ($pesanan->sumber_pesanan === 'whatsapp') { $sumber = 'WhatsApp'; }
+            elseif ($pesanan->sumber_pesanan === 'telepon') { $sumber = 'Telepon'; }
+            elseif (in_array($pesanan->sumber_pesanan, ['datang_langsung', 'offline'])) { $sumber = 'Offline'; }
+            elseif ($pesanan->sumber_pesanan === 'data_lama') { $sumber = 'Data lama'; }
+
+            return [
+                'id' => $pesanan->id,
+                'label' => $pesanan->transactionDisplayName(),
+                'pelanggan' => $pesanan->pelanggan?->nama ?? '-',
+                'no_wa' => $pesanan->pelanggan?->no_wa ?? '-',
+                'alamat' => $pesanan->pelanggan?->alamat ?? '-',
+                'tanggal' => $pesanan->displayTransactionDateTime(),
+                'sumber' => $sumber,
+                'status' => $pesanan->status,
+                'status_label' => strtoupper($pesanan->status),
+                'payment_status_label' => $pesanan->isPaymentConfirmed() ? 'Lunas' : 'Belum Bayar',
+                'metode' => $pesanan->metode_pengiriman === 'diantar_internal' ? 'Diantar' : 'Ambil Sendiri',
+                'bank' => strtoupper($pesanan->bank ?? '-'),
+                'total_unit' => $pesanan->details->sum('jumlah'),
+                'subtotal' => number_format((float) $pricingSummary['subtotalProduk'], 0, ',', '.'),
+                'diskon' => (float) $pricingSummary['nominalDiskon'] > 0 ? number_format((float) $pricingSummary['nominalDiskon'], 0, ',', '.') : null,
+                'diskon_persen' => (int) $pricingSummary['diskonPersen'],
+                'ongkir' => number_format((float) $pricingSummary['ongkir'], 0, ',', '.'),
+                'total' => number_format((float) $pricingSummary['totalPembayaran'], 0, ',', '.'),
+                'bukti_pembayaran' => $pesanan->bukti_pembayaran,
+                'teknisi' => $pesanan->teknisi?->name,
+                'is_paid' => $pesanan->isPaymentConfirmed(),
+                'items' => $pesanan->details->map(function ($d) {
+                    return [
+                        'nama' => $d->produk?->nama ?? 'Produk Terhapus',
+                        'jenis' => $d->produk?->jenisApar?->nama ?? '-',
+                        'kapasitas' => $d->kapasitas ?? '-',
+                        'merek' => $d->merek ?? '-',
+                        'jumlah' => (int) $d->jumlah,
+                        'harga' => number_format((float) $d->harga, 0, ',', '.'),
+                        'subtotal' => number_format((float) $d->subtotal, 0, ',', '.'),
+                    ];
+                })->all(),
+            ];
+        })->values();
+
         return view('admin.pesanan.index', compact(
             'pesanans',
             'pelanggans',
@@ -378,7 +418,8 @@ class PesananController extends Controller
             'prefillItems',
             'targetNegoPesanan',
             'autoOpenNegoId',
-            'teknisis'
+            'teknisis',
+            'pesananDetailData'
         ));
     }
 
@@ -582,16 +623,10 @@ class PesananController extends Controller
     public function update(Request $request, Pesanan $pesanan)
     {
         $validated = $request->validate([
-            'status'          => 'required|in:menunggu,menunggu persetujuan,pending,diproses,selesai,ditolak,menunggu diproses admin,ditugaskan ke teknisi,dikerjakan teknisi,selesai oleh teknisi,dikonfirmasi admin,selesai final,permintaan masuk,direview admin,menunggu penjadwalan,menunggu persetujuan biaya,disetujui',
-            'terima_negosiasi'=> 'nullable|boolean',
+            'status'          => 'required|in:menunggu,pending,diproses,selesai,ditolak,menunggu diproses admin,ditugaskan ke teknisi,dikerjakan teknisi,selesai oleh teknisi,dikonfirmasi admin,selesai final,permintaan masuk,direview admin,menunggu penjadwalan,menunggu persetujuan biaya,disetujui',
         ]);
 
-        if ($request->has('terima_negosiasi') && $request->terima_negosiasi) {
-            $pesanan->total = $pesanan->harga_usulan ?? $pesanan->total;
-            $pesanan->status = 'diproses';
-        } else {
-            $pesanan->status = $validated['status'];
-        }
+        $pesanan->status = $validated['status'];
 
         if ($pesanan->isDirty('status') && in_array($pesanan->status, ['diproses', 'selesai', 'selesai final', 'ditugaskan ke teknisi', 'dikerjakan teknisi', 'selesai oleh teknisi', 'dikonfirmasi admin'], true) && $pesanan->tipe === 'produk') {
             $pesanan->reduceStock();
@@ -606,93 +641,14 @@ class PesananController extends Controller
             $pesanan->pelanggan?->update(['status' => 'tetap']);
         }
 
-        if (in_array($pesanan->status, ['diproses', 'selesai', 'selesai final'], true) && $pesanan->tipe === 'produk') {
+        if ($pesanan->status === 'selesai final' && $pesanan->tipe === 'produk') {
             $this->syncUnitAparsForPesanan($pesanan);
         }
 
         return redirect()->back()->with('success', 'Status pesanan berhasil diperbarui.');
     }
 
-    /**
-     * ACC atau TOLAK negosiasi (dipanggil dari modal detail di halaman index).
-     */
-    public function negoAction(Request $request, Pesanan $pesanan)
-    {
-        $action = $request->input('action'); // 'acc' | 'tolak'
-        $isManualOrder = $this->isManualOrder($pesanan);
-
-        if ($action === 'acc') {
-            $request->merge([
-                'harga_final' => $this->normalizeMoneyInput($request->input('harga_final')),
-            ]);
-
-            $request->validate([
-                'harga_final'  => 'required|numeric|min:0',
-            ]);
-
-            $kodeNego = $this->generateNegoCode();
-            $hargaFinal = (float) $request->harga_final;
-            $totalNormal = $this->getNormalOrderTotal($pesanan);
-
-            if ($hargaFinal > $totalNormal) {
-                return back()
-                    ->withInput($request->all() + ['nego_modal_id' => $pesanan->id])
-                    ->withErrors(['harga_final' => 'Harga deal tidak boleh lebih besar dari total akhir normal (termasuk ongkir).']);
-            }
-
-            if ($isManualOrder) {
-                $pesanan->update([
-                    'status'      => 'pending',
-                    'is_nego'     => true,
-                    'kode_nego'   => null,
-                    'kode_nego_terpakai_at' => null,
-                    'harga_usulan'=> $hargaFinal,
-                    'harga_penawaran_pelanggan' => $pesanan->harga_penawaran_pelanggan,
-                    'total_harga' => $hargaFinal,
-                    'tipe_harga'  => 'deal',
-                ]);
-
-                return redirect()->back()->with('success', 'Harga deal offline di-ACC. Pesanan tidak membutuhkan kode negosiasi.');
-            }
-
-            $pesanan->update([
-                'status'      => 'pending',
-                'is_nego'     => true,
-                'kode_nego'   => $kodeNego,
-                'kode_nego_terpakai_at' => null,
-                'harga_usulan'=> $hargaFinal,
-                'harga_penawaran_pelanggan' => $pesanan->harga_penawaran_pelanggan ?: $pesanan->harga_usulan,
-                'total_harga' => $hargaFinal,
-                'tipe_harga'  => 'deal',
-            ]);
-
-            $waNumber = preg_replace('/^0/', '62', (string) ($pesanan->pelanggan?->no_wa ?? ''));
-            $waMessage = "Halo {$pesanan->pelanggan?->nama}, negosiasi Anda sudah di-ACC.\n"
-                . "Kode Negosiasi: {$kodeNego}\n"
-                . "Harga Deal: Rp " . number_format($hargaFinal, 0, ',', '.') . "\n"
-                . "Status: Menunggu pembayaran.\n"
-                . "Silakan masukkan kode di website untuk lanjut transaksi.";
-            $waUrl = $waNumber ? ('https://wa.me/' . $waNumber . '?text=' . rawurlencode($waMessage)) : null;
-
-            $redirect = redirect()->back()
-                ->with('success', 'Negosiasi di-ACC. Kode: ' . $kodeNego)
-                ->with('wa_title', 'Kode negosiasi berhasil dibuat.')
-                ->with('wa_description', 'Kirim kode ke pelanggan agar bisa dipakai di form website.')
-                ->with('wa_button', 'Kirim Kode via WhatsApp');
-            if ($waUrl) {
-                $redirect->with('wa_url', $waUrl);
-            }
-
-            return $redirect;
-        }
-
-        if ($action === 'tolak') {
-            $pesanan->update(['status' => 'ditolak']);
-            return redirect()->back()->with('success', 'Negosiasi pesanan #' . $pesanan->id . ' ditolak.');
-        }
-
-        return redirect()->back()->with('error', 'Aksi tidak dikenali.');
-    }
+    // negoAction removed
 
     public function kirimLinkPembayaran(Pesanan $pesanan)
     {
@@ -1005,13 +961,14 @@ class PesananController extends Controller
     {
         Pesanan::with(['details.produk.jenisApar', 'unitApars'])
             ->where('tipe', 'produk')
+            ->where('status', 'selesai final')
             ->get()
             ->each(fn (Pesanan $pesanan) => $this->syncUnitAparsForPesanan($pesanan));
     }
 
     protected function syncUnitAparsForPesanan(Pesanan $pesanan): void
     {
-        if ($pesanan->tipe !== 'produk' || !in_array($pesanan->status, ['diproses', 'selesai', 'selesai final'], true)) {
+        if ($pesanan->tipe !== 'produk' || !in_array($pesanan->status, ['selesai final'], true)) {
             return;
         }
 

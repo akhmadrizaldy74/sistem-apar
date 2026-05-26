@@ -6,6 +6,8 @@ use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\StockMovement;
 use App\Services\InventoryService;
+use App\Services\OrderPricingService;
+use App\Services\ServicePackagePricingService;
 
 class Pesanan extends Model
 {
@@ -231,6 +233,53 @@ class Pesanan extends Model
         return 'TNTI' . $this->tanggal->format('dmY') . 'AJ' . str_pad((string) $this->id, 3, '0', STR_PAD_LEFT);
     }
 
+    public function transactionDisplayName(): string
+    {
+        if ($this->isRefillOrder()) {
+            return 'Refill APAR';
+        }
+
+        if ($this->isServiceOrder()) {
+            return 'Service APAR';
+        }
+
+        return 'Pesanan Produk';
+    }
+
+    public function displayTransactionAt(): ?\Illuminate\Support\Carbon
+    {
+        if ($this->created_at) {
+            return $this->created_at->copy()->timezone(config('app.timezone'));
+        }
+
+        return $this->tanggal?->copy()
+            ->timezone(config('app.timezone'))
+            ->startOfDay();
+    }
+
+    public function displayTransactionDateTime(string $format = 'd M Y, H:i'): string
+    {
+        return $this->displayTransactionAt()?->format($format) ?? '-';
+    }
+
+    public function invoiceDisplayNumber(): string
+    {
+        return 'INV-' . str_pad((string) $this->id, 5, '0', STR_PAD_LEFT);
+    }
+
+    public function invoiceTitle(): string
+    {
+        if ($this->isRefillOrder()) {
+            return 'Invoice Refill APAR';
+        }
+
+        if ($this->isServiceOrder()) {
+            return 'Invoice Service APAR';
+        }
+
+        return 'Invoice Pesanan Produk';
+    }
+
     public function isPaymentConfirmed(): bool
     {
         if (!is_null($this->pembayaran_terkonfirmasi_at)) {
@@ -242,13 +291,12 @@ class Pesanan extends Model
 
     public function payableTotal(): float
     {
-        $total = (float) ($this->total_harga ?: $this->total ?: 0);
+        return (float) ($this->pricingSummary()['totalPembayaran'] ?? 0);
+    }
 
-        if ($total <= 0 && $this->tipe === 'service') {
-            $total = (float) ($this->service_estimasi_biaya ?: 0);
-        }
-
-        return max(0, $total);
+    public function pricingSummary(): array
+    {
+        return app(OrderPricingService::class)->summarizePesanan($this);
     }
 
     public function isCompleted(): bool
@@ -327,22 +375,83 @@ class Pesanan extends Model
 
         $this->loadMissing('servicePaket.peralatans');
 
-        $qtyMultiplier = max(1, (int) ($this->service_jumlah_unit ?? 1));
+        return app(ServicePackagePricingService::class)->resolveEstimatedPeralatan(
+            $this->servicePaket,
+            max(1, (int) ($this->service_jumlah_unit ?? 1)),
+        );
+    }
 
-        return $this->servicePaket?->peralatans
-            ?->map(function ($peralatan) use ($qtyMultiplier) {
-                $jumlahPerUnit = (int) ($peralatan->pivot->jumlah_estimasi ?? 0);
+    public function servicePricingBreakdown(): array
+    {
+        if (!$this->isServiceOrder()) {
+            return [];
+        }
+
+        $parsed = collect(preg_split('/\r\n|\r|\n/', (string) $this->service_keluhan))
+            ->map(fn ($line) => trim((string) $line))
+            ->filter()
+            ->map(function (string $line) {
+                if (!preg_match('/^\d+\.\s*(.+?)\s+-\s+Rp\s*([\d\.]+)/u', $line, $matches)) {
+                    return null;
+                }
+
+                $label = trim((string) $matches[1]);
+                $total = (float) str_replace('.', '', (string) $matches[2]);
+                $qty = 1;
+
+                if (preg_match('/\sx\s*(\d+)\s*unit$/ui', $label, $qtyMatch)) {
+                    $qty = max(1, (int) ($qtyMatch[1] ?? 1));
+                    $label = trim((string) preg_replace('/\sx\s*\d+\s*unit$/ui', '', $label));
+                }
 
                 return [
-                    'peralatan_id' => (int) $peralatan->id,
-                    'nama' => (string) $peralatan->nama,
-                    'jumlah' => $jumlahPerUnit * $qtyMultiplier,
-                    'jumlah_per_unit' => $jumlahPerUnit,
+                    'label' => $label,
+                    'qty' => $qty,
+                    'unit_price' => $qty > 0 ? round($total / $qty, 0) : $total,
+                    'total' => $total,
                 ];
             })
-            ->filter(fn (array $item) => (int) ($item['jumlah'] ?? 0) > 0)
+            ->filter()
             ->values()
-            ->all() ?? [];
+            ->all();
+
+        if (!empty($parsed)) {
+            return $parsed;
+        }
+
+        $qty = max(1, (int) ($this->service_jumlah_unit ?? 1));
+        $total = (float) ($this->service_estimasi_biaya ?: $this->total_harga ?: $this->total ?: 0);
+        $labelParts = array_filter([
+            $this->service_jenis_apar ? 'APAR ' . $this->service_jenis_apar : 'APAR',
+            $this->service_ukuran_apar ?: null,
+        ]);
+
+        return [[
+            'label' => implode(' ', $labelParts),
+            'qty' => $qty,
+            'unit_price' => $qty > 0 ? round($total / $qty, 0) : $total,
+            'total' => $total,
+        ]];
+    }
+
+    public function serviceCustomerNote(): string
+    {
+        $lines = collect(preg_split('/\r\n|\r|\n/', (string) $this->service_keluhan))
+            ->map(fn ($line) => trim((string) $line))
+            ->filter();
+
+        $customerNoteLine = $lines->first(fn (string $line) => str_starts_with(mb_strtolower($line), 'catatan pelanggan:'));
+
+        if ($customerNoteLine) {
+            return trim((string) preg_replace('/^Catatan Pelanggan:\s*/iu', '', $customerNoteLine));
+        }
+
+        return trim((string) $this->service_keluhan);
+    }
+
+    public function servicePeralatanItems(): array
+    {
+        return $this->service?->effective_peralatan ?: $this->estimatedServicePeralatan();
     }
 
     public function serviceLogPayload(array $overrides = []): array

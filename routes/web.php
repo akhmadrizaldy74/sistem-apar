@@ -44,7 +44,6 @@ Route::get('/produk/{produk}', [LandingPageController::class, 'produkShow'])->na
 
 Route::get('/order', [PublicController::class, 'orderCreate'])->name('order.create');
 Route::post('/order', [PublicController::class, 'orderStore'])->name('order.store');
-Route::post('/order/ask-whatsapp', [PublicController::class, 'orderAskWhatsapp'])->name('order.ask-whatsapp');
 Route::post('/order/shipping/quote', [PublicController::class, 'orderShippingQuote'])->name('order.shipping.quote');
 Route::get('/order/address/suggest', [PublicController::class, 'orderAddressSuggest'])->name('order.address.suggest');
 Route::get('/order/{pesanan}/payment', [PublicController::class, 'orderPayment'])->name('order.payment');
@@ -54,7 +53,6 @@ Route::post('/order/{pesanan}/payment', [PublicController::class, 'orderPaymentS
         \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
     ])  
     ->name('order.payment.store');
-Route::match(['get', 'post'], '/order/check-nego-code', [PublicController::class, 'checkNegoCode'])->name('order.check-nego-code');
 Route::get('/complain', [PublicController::class, 'complainCreate'])->name('complain.create');
 Route::post('/complain', [PublicController::class, 'complainStore'])->name('complain.store');
 Route::get('/testimoni', [PublicController::class, 'testimoniCreate'])->name('testimoni.create');
@@ -88,6 +86,7 @@ Route::middleware(['auth', 'teknisi'])->prefix('teknisi')->name('teknisi.')->gro
 
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');
+    Route::get('/laporan/pdf', [LaporanController::class, 'indexPdf'])->name('laporan.index.pdf');
     Route::get('/laporan/apar', [LaporanController::class, 'apar'])->name('laporan.apar');
     Route::get('/laporan/pesanan', [LaporanController::class, 'pesanan'])->name('laporan.pesanan');
     Route::get('/laporan/service', [LaporanController::class, 'service'])->name('laporan.service');
@@ -105,7 +104,6 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::delete('/stok/peralatan/{peralatan}', [StokController::class, 'destroyPeralatan'])->name('stok.peralatan.destroy');
     Route::resource('pelanggan', PelangganController::class);
     Route::get('/pesanan/{pesanan}/invoice/pdf', [PesananController::class, 'invoicePdf'])->name('pesanan.invoice.pdf');
-    Route::post('/pesanan/{pesanan}/nego-action', [PesananController::class, 'negoAction'])->name('pesanan.nego-action');
     Route::get('/pesanan/notifikasi/pembayaran', [PesananController::class, 'paymentNotifications'])->name('pesanan.payment-notifications');
     Route::post('/pesanan/{pesanan}/kirim-link-pembayaran', [PesananController::class, 'kirimLinkPembayaran'])->name('pesanan.kirim-link-pembayaran');
     Route::post('/pesanan/{pesanan}/input-bukti-pembayaran-manual', [PesananController::class, 'inputBuktiPembayaranManual'])->name('pesanan.input-bukti-pembayaran-manual');

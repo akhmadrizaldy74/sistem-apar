@@ -12,7 +12,12 @@ class ComplainController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Complain::with(['pelanggan', 'pesanan', 'service']);
+        $query = Complain::with([
+            'pelanggan',
+            'pesanan.service.refill',
+            'service.pesanan',
+            'service.refill',
+        ]);
 
         if ($request->filled('status')) {
             $query->where('status_penyelesaian', $request->status);
@@ -38,17 +43,27 @@ class ComplainController extends Controller
 
     public function update(Request $request, Complain $complain)
     {
-        $request->validate([
+        $validated = $request->validate([
             'status_penyelesaian' => 'required|in:menunggu,diproses,selesai',
             'service_id' => 'nullable|exists:services,id',
             'pesanan_id' => 'nullable|exists:pesanans,id',
         ]);
 
         $complain->update([
-            'status_penyelesaian' => $request->status_penyelesaian,
-            'service_id' => $request->service_id,
-            'pesanan_id' => $request->pesanan_id ?: $complain->pesanan_id,
+            'status_penyelesaian' => $validated['status_penyelesaian'],
+            'service_id' => $request->filled('service_id') ? $validated['service_id'] : $complain->service_id,
+            'pesanan_id' => $request->filled('pesanan_id') ? $validated['pesanan_id'] : $complain->pesanan_id,
         ]);
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'message' => 'Status komplain berhasil diperbarui.',
+                'data' => [
+                    'id' => $complain->id,
+                    'status_penyelesaian' => $complain->status_penyelesaian,
+                ],
+            ]);
+        }
 
         return back()->with('success', 'Status komplain berhasil diperbarui.');
     }

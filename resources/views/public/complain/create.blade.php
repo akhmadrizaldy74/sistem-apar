@@ -12,8 +12,8 @@
 
             @if(isset($selectedOrder) && $selectedOrder)
                 <div class="alert alert-warning border-0 rounded-4">
-                    <div class="fw-bold mb-1">Komplain untuk transaksi {{ $selectedOrder->orderCode() }}</div>
-                    <div class="small text-muted">{{ $selectedOrder->trackingItemLabel() }} • status {{ $selectedOrder->publicStatusLabel() }}</div>
+                    <div class="fw-bold mb-1">{{ $selectedOrder->transactionDisplayName() }}</div>
+                    <div class="small text-muted">{{ $selectedOrder->displayTransactionDateTime() }} • status {{ $selectedOrder->publicStatusLabel() }}</div>
                 </div>
             @endif
 
@@ -30,7 +30,7 @@
                 @if(isset($selectedOrder) && $selectedOrder)
                     <input type="hidden" name="pesanan_id" value="{{ $selectedOrder->id }}">
                 @endif
-                
+
                 <div class="mb-3">
                     <label class="form-label fw-bold">Nomor WhatsApp Anda <span class="text-danger">*</span></label>
                     <input type="text" name="no_wa" class="form-control @error('no_wa') is-invalid @enderror" value="{{ old('no_wa', $pelanggan->no_wa ?? '') }}" {{ isset($pelanggan) && $pelanggan ? 'readonly' : 'required' }} placeholder="Contoh: 08123456789">

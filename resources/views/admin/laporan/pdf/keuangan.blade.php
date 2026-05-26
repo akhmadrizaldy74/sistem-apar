@@ -32,15 +32,15 @@
         <tbody>
             @foreach($pesanans as $pesanan)
                 <tr>
-                    <td>{{ $pesanan->tanggal->format('d-m-Y') }}</td>
+                    <td>{{ $pesanan->displayTransactionDateTime() }}</td>
                     <td>Penjualan</td>
-                    <td>Pesanan #{{ $pesanan->id }} - {{ $pesanan->pelanggan->nama ?? '-' }}</td>
+                    <td>{{ $pesanan->transactionDisplayName() }} - {{ $pesanan->displayTransactionDateTime() }} - {{ $pesanan->pelanggan->nama ?? '-' }}</td>
                     <td style="color: green;">Rp {{ number_format($pesanan->total, 0, ',', '.') }}</td>
                 </tr>
             @endforeach
             @foreach($services as $service)
                 <tr>
-                    <td>{{ \Carbon\Carbon::parse($service->tgl_service)->format('d-m-Y') }}</td>
+                    <td>{{ $service->displayTransactionDateTime() }}</td>
                     <td>Service</td>
                     <td>{{ $service->jenis_service }} - {{ $service->unitApar->pelanggan->nama ?? '-' }}</td>
                     <td style="color: green;">Rp {{ number_format($service->biaya, 0, ',', '.') }}</td>

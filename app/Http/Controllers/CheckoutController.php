@@ -6,6 +6,7 @@ use App\Events\PesananBaru;
 use App\Models\Pelanggan;
 use App\Models\Pesanan;
 use App\Models\PesananDetail;
+use App\Services\OrderPricingService;
 use App\Support\SessionCart;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -80,7 +81,7 @@ class CheckoutController extends Controller
     /**
      * Proses checkout: buat pesanan dari keranjang.
      */
-    public function store(Request $request)
+    public function store(Request $request, OrderPricingService $orderPricingService)
     {
         /** @var \App\Models\User */
         $user = Auth::user();
@@ -100,6 +101,7 @@ class CheckoutController extends Controller
         $normalizedPhone = $this->normalizePhone($request->nomor_wa_penerima);
 
         $keranjangs = SessionCart::items();
+        $pricingSummary = $orderPricingService->summarizeCart($keranjangs);
 
         if ($keranjangs->isEmpty()) {
             return redirect()->route('keranjang.index')
@@ -145,10 +147,10 @@ class CheckoutController extends Controller
                 'tipe'              => 'produk',
                 'sumber_pesanan'    => 'website',
                 'status'            => 'pending',
-                'tipe_harga'        => 'normal',
+                'tipe_harga'        => ($pricingSummary['diskonPersen'] ?? 0) > 0 ? 'promo' : 'normal',
                 'tanggal'           => now(),
                 'metode_pengiriman' => 'pickup',
-                'ongkir'            => 0,
+                'ongkir'            => (float) ($pricingSummary['ongkir'] ?? 0),
                 'total'             => 0,
                 'total_harga'       => 0,
                 'keterangan'        => 'Pesanan via Keranjang Belanja [' . $noPesanan . ']',
@@ -171,10 +173,11 @@ class CheckoutController extends Controller
                 ]);
             }
 
-            // Update total harga pesanan
+            $pricingSummary = $orderPricingService->summarizePesanan($pesanan->fresh('details'));
+
             $pesanan->update([
-                'total'       => $totalHarga,
-                'total_harga' => $totalHarga,
+                'total'       => (float) $pricingSummary['totalPembayaran'],
+                'total_harga' => (float) $pricingSummary['totalPembayaran'],
             ]);
 
             // Kosongkan keranjang user

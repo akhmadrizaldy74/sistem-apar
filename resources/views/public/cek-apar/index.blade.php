@@ -114,7 +114,7 @@
                                         </div>
                                         <h4 class="mt-4 text-xl font-black text-slate-900">{{ $pesanan->trackingItemLabel() }}</h4>
                                         <p class="mt-2 text-sm font-semibold text-slate-500">
-                                            Kode Pesanan: {{ $pesanan->orderCode() }} • {{ optional($pesanan->tanggal)->format('d M Y') }}
+                                            {{ $pesanan->transactionDisplayName() }} • {{ $pesanan->displayTransactionDateTime() }}
                                         </p>
                                     </div>
                                     <div class="text-left lg:text-right">

@@ -28,4 +28,25 @@ class Refill extends Model
     {
         return $this->belongsTo(JenisRefill::class);
     }
+
+    public function transactionDisplayName(): string
+    {
+        return 'Refill APAR';
+    }
+
+    public function displayTransactionAt(): ?\Illuminate\Support\Carbon
+    {
+        if ($this->created_at) {
+            return $this->created_at->copy()->timezone(config('app.timezone'));
+        }
+
+        return $this->tgl_refill?->copy()
+            ->timezone(config('app.timezone'))
+            ->startOfDay();
+    }
+
+    public function displayTransactionDateTime(string $format = 'd M Y, H:i'): string
+    {
+        return $this->displayTransactionAt()?->format($format) ?? '-';
+    }
 }

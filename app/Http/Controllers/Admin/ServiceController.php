@@ -12,18 +12,21 @@ use App\Models\UnitApar;
 use App\Models\Peralatan;
 use App\Models\StockMovement;
 use App\Services\InventoryService;
+use App\Services\ServicePackagePricingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ServiceController extends Controller
 {
-    public function index()
+    public function index(ServicePackagePricingService $servicePackagePricingService)
     {
         $servicePakets = ServicePaket::with('peralatans')
             ->orderBy('harga')
             ->get()
             ->reject(fn (ServicePaket $servicePaket) => $servicePaket->isLegacyTemplate())
             ->values();
+        $serviceMediaOptions = $servicePackagePricingService->availableMediaOptions();
+        $servicePaketCatalog = $servicePackagePricingService->packageCatalog($servicePakets, $serviceMediaOptions);
         $peralatans = Peralatan::orderBy('nama')->get();
 
         $serviceLogs = Service::with(['unitApar.pelanggan', 'unitApar.produk', 'pesanan.pelanggan', 'servicePaket'])
@@ -86,6 +89,8 @@ class ServiceController extends Controller
             'ukuranAparOptions',
             'pelanggans',
             'servicePakets',
+            'serviceMediaOptions',
+            'servicePaketCatalog',
             'requestServices',
             'peralatans',
             'teknisis',
@@ -133,7 +138,11 @@ class ServiceController extends Controller
         return redirect()->route('admin.service.index');
     }
 
-    public function store(Request $request, InventoryService $inventoryService)
+    public function store(
+        Request $request,
+        InventoryService $inventoryService,
+        ServicePackagePricingService $servicePackagePricingService
+    )
     {
         $request->merge([
             'new_pelanggan_no_wa' => $this->normalizePhone($request->input('new_pelanggan_no_wa')),
@@ -144,6 +153,7 @@ class ServiceController extends Controller
             'new_pelanggan_no_wa' => 'required|string|max:20',
             'new_pelanggan_alamat' => 'nullable|string|max:1000',
             'service_paket_id'    => 'required|exists:service_pakets,id',
+            'jenis_apar'          => 'required|string|max:120',
             'ukuran_apar'         => 'required|string|max:50',
             'jumlah_unit'         => 'required|integer|min:1',
             'tgl_service'         => 'required|date',
@@ -156,31 +166,30 @@ class ServiceController extends Controller
 
         $paket = ServicePaket::with('peralatans')->findOrFail($request->service_paket_id);
         $jumlahUnit = max(1, (int) $request->jumlah_unit);
-        $totalBiaya = (float) $paket->harga * $jumlahUnit;
+        $packageSummary = $servicePackagePricingService->summarizePackageOrder($paket, [[
+            'label' => trim('APAR ' . $request->jenis_apar . ' ' . $request->ukuran_apar),
+            'media' => (string) $request->jenis_apar,
+            'ukuran' => (string) $request->ukuran_apar,
+            'qty' => $jumlahUnit,
+        ]]);
+        $totalBiaya = (float) ($packageSummary['total_price'] ?? 0);
         $teknisi = \App\Models\User::where('role', 'teknisi')->first();
-        $peralatanPaket = [];
+        $peralatanPaket = $packageSummary['peralatan_items'] ?? [];
 
-        foreach ($paket->peralatans as $peralatan) {
-            $jumlahPakai = ((int) $peralatan->pivot->jumlah_estimasi) * $jumlahUnit;
+        if ($totalBiaya <= 0) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'service_paket_id' => 'Harga service untuk kombinasi paket, media APAR, dan ukuran yang dipilih belum tersedia.',
+                ]);
+        }
 
-            if ($jumlahPakai <= 0) {
-                continue;
-            }
-
-            if ((float) $peralatan->stok < $jumlahPakai) {
-                return back()
-                    ->withInput()
-                    ->withErrors([
-                        'service_paket_id' => "Stok peralatan {$peralatan->nama} tidak cukup. Dibutuhkan {$jumlahPakai} unit, tersedia {$peralatan->stok} unit.",
-                    ]);
-            }
-
-            $peralatanPaket[] = [
-                'peralatan_id' => (int) $peralatan->id,
-                'nama' => (string) $peralatan->nama,
-                'jumlah' => $jumlahPakai,
-                'jumlah_per_unit' => (int) $peralatan->pivot->jumlah_estimasi,
-            ];
+        foreach (($packageSummary['stock_issues'] ?? []) as $stockIssue) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'service_paket_id' => "Stok peralatan {$stockIssue['nama']} tidak cukup. Dibutuhkan {$stockIssue['jumlah']} unit, tersedia {$stockIssue['stok']} unit.",
+                ]);
         }
 
         try {
@@ -217,7 +226,7 @@ class ServiceController extends Controller
                 'tipe' => 'service',
                 'service_jenis_layanan' => 'service',
                 'service_paket_id' => $paket->id,
-                'service_jenis_apar' => 'APAR ' . $request->ukuran_apar,
+                'service_jenis_apar' => (string) $request->jenis_apar,
                 'service_ukuran_apar' => $request->ukuran_apar,
                 'service_jumlah_unit' => $jumlahUnit,
                 'service_metode_penanganan' => 'antar sendiri',
@@ -235,6 +244,11 @@ class ServiceController extends Controller
                 'ongkir' => 0,
                 'pembayaran_terkonfirmasi_at' => now(),
                 'catatan_admin' => $request->catatan_admin,
+                'service_keluhan' => trim(
+                    "Rincian Service " . ($paket->label ?: 'Paket') . " - {$paket->nama}\n"
+                    . "1. APAR {$request->jenis_apar} {$request->ukuran_apar} x {$jumlahUnit} unit - Rp" . number_format($totalBiaya, 0, ',', '.') . "\n"
+                    . "Catatan Pelanggan: " . (trim((string) $request->catatan_admin) !== '' ? trim((string) $request->catatan_admin) : '-')
+                ),
             ]);
 
             $history = [];
@@ -303,6 +317,11 @@ class ServiceController extends Controller
         return $digits;
     }
 
+    public function show(Service $service)
+    {
+        return redirect()->route('admin.service.edit', $service);
+    }
+
     public function edit(Service $service)
     {
         if ($service->jenis_service === 'Refill') {
@@ -319,7 +338,7 @@ class ServiceController extends Controller
         return view('admin.service.edit', compact('service', 'units', 'servicePakets'));
     }
 
-    public function update(Request $request, Service $service)
+    public function update(Request $request, Service $service, ServicePackagePricingService $servicePackagePricingService)
     {
         $request->validate([
             'unit_apar_id' => 'required|exists:unit_apars,id',
@@ -345,15 +364,11 @@ class ServiceController extends Controller
         }
 
         $paket = ServicePaket::with('peralatans')->findOrFail($request->service_paket_id);
-
-        $estimasiPeralatan = [];
-        foreach ($paket->peralatans as $peralatan) {
-            $estimasiPeralatan[] = [
-                'peralatan_id' => $peralatan->id,
-                'nama' => $peralatan->nama,
-                'jumlah' => $peralatan->pivot->jumlah_estimasi,
-            ];
-        }
+        $unitApar = UnitApar::with('produk.jenisApar')->findOrFail($request->unit_apar_id);
+        $ukuran = trim((string) ($unitApar->ukuran ?: $unitApar->produk?->kapasitas ?: ''));
+        $media = trim((string) ($unitApar->produk?->jenisApar?->nama ?: $unitApar->bahan ?: ''));
+        $estimasiPeralatan = $servicePackagePricingService->resolveEstimatedPeralatan($paket, 1);
+        $biaya = $servicePackagePricingService->resolvePackagePrice($paket, $media, $ukuran);
 
         $service->update([
             'unit_apar_id' => $request->unit_apar_id,
@@ -362,7 +377,7 @@ class ServiceController extends Controller
             'rincian_layanan' => $paket->rincian_layanan,
             'tgl_service' => $request->tgl_service,
             'keterangan' => $request->keterangan,
-            'biaya' => $paket->harga,
+            'biaya' => $biaya,
             'estimasi_peralatan_json' => json_encode($estimasiPeralatan),
         ]);
 

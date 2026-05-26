@@ -9,6 +9,7 @@ use App\Models\Produk;
 use App\Models\Refill;
 use App\Models\Service;
 use App\Models\UnitApar;
+use App\Models\WebsiteVisit;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -258,6 +259,18 @@ class DashboardController extends Controller
                 'expiringUnits' => $expiringUnits,
                 'expiredUnits' => $expiredUnits,
             ],
+            'visitorStats' => [
+                'hariIni' => WebsiteVisit::getTodayVisitors(),
+            ],
+            'topViewedProducts' => WebsiteVisit::getMostViewedProducts(null, null, 5)
+                ->map(function ($item) {
+                    $product = \App\Models\Produk::with('jenisApar')->find($item->product_id);
+                    return [
+                        'product_name' => $product?->nama ?? 'Produk #' . $item->product_id,
+                        'view_count' => $item->view_count,
+                    ];
+                }),
+            'topSoldProducts' => $this->getTopSoldProducts(5),
         ]);
     }
 
@@ -280,5 +293,31 @@ class DashboardController extends Controller
         return (float) ($query
             ->selectRaw("COALESCE(SUM({$column}), 0) as total_amount")
             ->value('total_amount') ?? 0);
+    }
+
+    private function getTopSoldProducts(int $limit = 5): \Illuminate\Support\Collection
+    {
+        $completedOrderStatuses = ['selesai', 'dikonfirmasi admin', 'selesai final'];
+        $startOfMonth = now()->startOfMonth()->toDateString();
+        $endOfMonth = now()->endOfMonth()->toDateString();
+
+        return \App\Models\PesananDetail::query()
+            ->selectRaw('produk_id, SUM(jumlah) as total_sold')
+            ->whereHas('pesanan', function ($q) use ($completedOrderStatuses, $startOfMonth, $endOfMonth) {
+                $q->where('tipe', 'produk')
+                    ->whereIn('status', $completedOrderStatuses)
+                    ->whereBetween('tanggal', [$startOfMonth, $endOfMonth]);
+            })
+            ->groupBy('produk_id')
+            ->orderByDesc('total_sold')
+            ->limit($limit)
+            ->get()
+            ->map(function ($item) {
+                $product = \App\Models\Produk::find($item->produk_id);
+                return [
+                    'product_name' => $product?->nama ?? 'Produk #' . $item->produk_id,
+                    'total_sold' => $item->total_sold,
+                ];
+            });
     }
 }

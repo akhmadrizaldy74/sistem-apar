@@ -583,7 +583,7 @@
             </div>
         </div>
 
-        @unless($isTeknisi)
+        @unless($isTeknisi || (auth()->check() && auth()->user()->isAdmin()))
             <a
                 href="https://wa.me/{{ env('WHATSAPP_CONTACT', '6285128008030') }}"
                 target="_blank"
@@ -679,7 +679,7 @@
                         })
                         .listen('.pesanan.status-diperbarui', (event) => {
                             const payload = event.payload || event;
-                            renderToast('Status Pesanan', `Pesanan #${payload.id} berubah ke status ${payload.status}.`, 'amber');
+                            renderToast('Status Pesanan', `Transaksi pesanan berubah ke status ${payload.status}.`, 'amber');
                             dispatchRealtime('realtime:status-pesanan', payload);
                             if (shouldRefreshAdminPage) {
                                 scheduleRefresh('Status pesanan berubah.');
@@ -687,7 +687,7 @@
                         })
                         .listen('.tugas.diperbarui', (event) => {
                             const payload = event.payload || event;
-                            renderToast('Update Teknisi', `Tugas pesanan #${payload.id} diperbarui (${payload.status}).`, 'red');
+                            renderToast('Update Teknisi', `Tugas pesanan diperbarui (${payload.status}).`, 'red');
                             dispatchRealtime('realtime:tugas-teknisi', payload);
                             if (shouldRefreshAdminPage) {
                                 scheduleRefresh('Tugas teknisi diperbarui.');
@@ -699,7 +699,7 @@
                     window.Echo.channel(`teknisi-${userId}`)
                         .listen('.tugas.diperbarui', (event) => {
                             const payload = event.payload || event;
-                            renderToast('Tugas Masuk', `Pesanan #${payload.id} untuk ${payload.pelanggan} diperbarui (${payload.status}).`, 'emerald');
+                            renderToast('Tugas Masuk', `Transaksi ${payload.pelanggan} diperbarui (${payload.status}).`, 'emerald');
                             dispatchRealtime('realtime:tugas-teknisi', payload);
                             if (shouldRefreshTeknisiPage) {
                                 scheduleRefresh('Ada perubahan tugas teknisi.');
@@ -707,7 +707,7 @@
                         })
                         .listen('.pesanan.status-diperbarui', (event) => {
                             const payload = event.payload || event;
-                            renderToast('Status Tugas', `Pesanan #${payload.id} berubah ke status ${payload.status}.`, 'amber');
+                            renderToast('Status Tugas', `Transaksi berubah ke status ${payload.status}.`, 'amber');
                             dispatchRealtime('realtime:status-pesanan', payload);
                             if (shouldRefreshTeknisiPage) {
                                 scheduleRefresh('Status tugas berubah.');

@@ -173,15 +173,48 @@
                     </div>
                     @endif
 
-                    @if($pesanan->service_estimasi_biaya)
-                    <div class="flex justify-between items-center py-2 border-b border-slate-100">
-                        <span class="text-sm text-slate-500">Estimasi Biaya</span>
-                        <span class="text-sm font-semibold text-amber-600">
-                            Rp {{ number_format((float) $pesanan->service_estimasi_biaya, 0, ',', '.') }}
-                        </span>
+            @if($pesanan->service_estimasi_biaya)
+            <div class="flex justify-between items-center py-2 border-b border-slate-100">
+                <span class="text-sm text-slate-500">Estimasi Biaya</span>
+                <span class="text-sm font-semibold text-amber-600">
+                    Rp {{ number_format((float) $pesanan->service_estimasi_biaya, 0, ',', '.') }}
+                </span>
+            </div>
+            @endif
+
+            @if($pesanan->isServiceOrder())
+                @php
+                    $serviceLines = $pesanan->servicePricingBreakdown();
+                    $servicePeralatan = $pesanan->servicePeralatanItems();
+                @endphp
+                <div class="pt-3 border-t border-slate-100 space-y-3">
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Harga Per Unit</p>
+                        <div class="space-y-2">
+                            @foreach($serviceLines as $line)
+                                <div class="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                                    <p class="text-sm font-semibold text-slate-700">{{ $line['label'] }}</p>
+                                    <p class="text-xs text-slate-400 mt-1">{{ (int) ($line['qty'] ?? 1) }} unit • Rp {{ number_format((float) ($line['total'] ?? 0), 0, ',', '.') }}</p>
+                                </div>
+                            @endforeach
+                        </div>
                     </div>
-                    @endif
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Peralatan Paket</p>
+                        <div class="space-y-2">
+                            @forelse($servicePeralatan as $item)
+                                <div class="flex justify-between items-center rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                                    <span class="text-sm font-semibold text-slate-700">{{ $item['nama'] ?? '-' }}</span>
+                                    <span class="text-xs text-slate-400">x{{ (int) ($item['jumlah'] ?? 0) }}</span>
+                                </div>
+                            @empty
+                                <p class="text-sm text-slate-500">Tidak ada peralatan terhubung.</p>
+                            @endforelse
+                        </div>
+                    </div>
                 </div>
+            @endif
+        </div>
 
             @else
                 {{-- Product Items --}}

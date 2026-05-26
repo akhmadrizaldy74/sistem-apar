@@ -40,7 +40,15 @@
       "Bash(php -l \"C:\\\\laragon\\\\www\\\\sistem-apar\\\\resources\\\\views\\\\admin\\\\jenis-refill\\\\index.blade.php\")",
       "Bash(php -l \"C:\\\\laragon\\\\www\\\\sistem-apar\\\\app\\\\Http\\\\Controllers\\\\Admin\\\\PeralatanController.php\")",
       "Bash(php -l \"C:\\\\laragon\\\\www\\\\sistem-apar\\\\app\\\\Http\\\\Controllers\\\\Admin\\\\JenisRefillController.php\")",
-      "Bash(php -l \"C:\\\\laragon\\\\www\\\\sistem-apar\\\\app\\\\Http\\\\Controllers\\\\Admin\\\\StokController.php\")"
+      "Bash(php -l \"C:\\\\laragon\\\\www\\\\sistem-apar\\\\app\\\\Http\\\\Controllers\\\\Admin\\\\StokController.php\")",
+      "Bash(composer show *)",
+      "Bash(Select-Object -First 30)",
+      "PowerShell(php artisan config:clear 2>&1)",
+      "Bash(Select-String -Path \"C:\\\\laragon\\\\www\\\\sistem-apar\\\\resources\\\\views\\\\admin\\\\pesanan\\\\index.blade.php\" -Pattern \"text-red-500\" -Context 0,1)",
+      "Bash(Select-Object -First 5)",
+      "Bash(Format-List)",
+      "Bash(findstr /n \"text-red-500\")",
+      "Bash(powershell *)"
     ]
   }
 }

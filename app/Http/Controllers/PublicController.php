@@ -16,6 +16,8 @@ use App\Models\StockMovement;
 use App\Models\Testimoni;
 use App\Models\UnitApar;
 use App\Services\InventoryService;
+use App\Services\OrderPricingService;
+use App\Services\ServicePackagePricingService;
 use App\Support\SessionCart;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -634,6 +636,9 @@ class PublicController extends Controller
         if ($method === 'diantar_internal') {
             return 'diantar';
         }
+        if ($method === 'ambil_sendiri') {
+            return 'pickup';
+        }
 
         return $method === 'diantar' ? 'diantar' : 'pickup';
     }
@@ -648,8 +653,8 @@ class PublicController extends Controller
     private function shippingMethodLabel(?string $method): string
     {
         return $this->normalizeShippingMethod((string) $method) === 'diantar'
-            ? 'DIANTAR'
-            : 'PICKUP';
+            ? 'Diantar (Ekspedisi)'
+            : 'Ambil Sendiri';
     }
 
     private function buildCombinedAddress(string $mapsAddress, string $detailAddress): string
@@ -790,87 +795,7 @@ class PublicController extends Controller
         return $meta;
     }
 
-    private function normalizeNegoCode(?string $code): string
-    {
-        return strtoupper(trim((string) $code));
-    }
-
-    private function isValidNegoCodeFormat(string $code): bool
-    {
-        return (bool) preg_match('/^ANUTA-\d{3}$/', $code);
-    }
-
-    private function buildRequestItemSignature(array $items): array
-    {
-        $signature = [];
-        foreach ($items as $item) {
-            $produkId = (int) ($item['produk_id'] ?? 0);
-            $jumlah = (int) ($item['jumlah'] ?? 0);
-            if ($produkId <= 0 || $jumlah <= 0) {
-                continue;
-            }
-            $signature[$produkId] = ($signature[$produkId] ?? 0) + $jumlah;
-        }
-
-        ksort($signature);
-        return $signature;
-    }
-
-    private function buildPesananItemSignature(Pesanan $pesanan): array
-    {
-        $signature = [];
-        foreach ($pesanan->details as $detail) {
-            $produkId = (int) $detail->produk_id;
-            $jumlah = (int) $detail->jumlah;
-            if ($produkId <= 0 || $jumlah <= 0) {
-                continue;
-            }
-            $signature[$produkId] = ($signature[$produkId] ?? 0) + $jumlah;
-        }
-
-        ksort($signature);
-        return $signature;
-    }
-
-    private function isNegoMatchedToCurrentOrder(Pesanan $sourceNego, string $noWa, array $requestItems): bool
-    {
-        $sourcePhone = $this->normalizePhone((string) ($sourceNego->pelanggan?->no_wa ?? ''));
-        $currentPhone = $this->normalizePhone($noWa);
-        if ($sourcePhone === '' || $currentPhone === '' || $sourcePhone !== $currentPhone) {
-            return false;
-        }
-
-        $requestSignature = $this->buildRequestItemSignature($requestItems);
-        $sourceSignature = $this->buildPesananItemSignature($sourceNego);
-
-        return $requestSignature === $sourceSignature;
-    }
-
-    private function findValidNegoSource(string $kode): ?Pesanan
-    {
-        $kode = $this->normalizeNegoCode($kode);
-        return Pesanan::query()
-            ->with(['pelanggan', 'details.produk'])
-            ->where('kode_nego', $kode)
-            ->whereNotNull('harga_usulan')
-            ->whereIn('status', ['pending', 'diproses', 'selesai'])
-            ->whereNull('kode_nego_terpakai_at')
-            ->whereNull('bukti_pembayaran')
-            ->latest('tanggal')
-            ->first();
-    }
-
-    private function getNormalOrderTotal(Pesanan $pesanan): float
-    {
-        $subtotalBarang = (float) $pesanan->details()->sum('subtotal');
-        $ongkir = (float) ($pesanan->ongkir ?? 0);
-
-        if (!is_null($pesanan->total) && (float) $pesanan->total > 0) {
-            return (float) $pesanan->total;
-        }
-
-        return $subtotalBarang + $ongkir;
-    }
+    // Removed negotiation helpers
 
     private function authenticatedCartItems(): Collection
     {
@@ -898,6 +823,26 @@ class PublicController extends Controller
             })
             ->values()
             ->all();
+    }
+
+    private function registeredUnitAparQuery(Pelanggan $pelanggan)
+    {
+        return UnitApar::query()
+            ->with(['produk.jenisApar', 'pesanan'])
+            ->where('pelanggan_id', $pelanggan->id)
+            ->where(function ($query) {
+                $query->whereNull('kondisi_awal')
+                    ->orWhereRaw('LOWER(kondisi_awal) <> ?', ['tidak_aktif']);
+            })
+            ->where(function ($query) {
+                $query->whereDoesntHave('pesanan')
+                    ->orWhereHas('pesanan', function ($pesananQuery) {
+                        $pesananQuery->whereIn('status', [
+                            Pesanan::STATUS_SELESAI,
+                            Pesanan::STATUS_SELESAI_FINAL,
+                        ]);
+                    });
+            });
     }
 
     private function registeredUnitAparLabel(UnitApar $unitApar): string
@@ -947,6 +892,192 @@ class PublicController extends Controller
             : 'Tanpa tanggal pembelian';
     }
 
+    private function registeredUnitAparStatusLabel(UnitApar $unitApar): string
+    {
+        $status = mb_strtolower(trim((string) ($unitApar->kondisi_awal ?? '')));
+
+        return match ($status) {
+            'tidak_aktif' => 'Tidak Aktif',
+            'perlu_servis' => 'Perlu Servis',
+            'aktif', 'valid', 'layak', '' => 'Aktif',
+            default => ucwords(str_replace('_', ' ', $status)),
+        };
+    }
+
+    private function normalizeRefillMatchingText(?string $value): string
+    {
+        $text = mb_strtolower(trim((string) $value));
+        $text = preg_replace('/[^a-z0-9]+/u', ' ', $text) ?? $text;
+        $text = preg_replace('/\s+/', ' ', $text) ?? $text;
+
+        return trim($text);
+    }
+
+    private function matchJenisRefillForRegisteredUnit(UnitApar $unitApar, ?Collection $jenisRefills = null): ?JenisRefill
+    {
+        $jenisRefills ??= JenisRefill::query()->get();
+        $source = $this->normalizeRefillMatchingText(
+            $this->registeredUnitAparTypeLabel($unitApar) . ' ' . ($unitApar->produk?->nama ?? '')
+        );
+
+        if ($source === '') {
+            return null;
+        }
+
+        return $jenisRefills->first(function (JenisRefill $jenisRefill) use ($source) {
+            $nama = $this->normalizeRefillMatchingText((string) $jenisRefill->nama);
+            $label = $this->normalizeRefillMatchingText((string) $jenisRefill->nama_label);
+
+            return ($nama !== '' && (str_contains($source, $nama) || str_contains($nama, $source)))
+                || ($label !== '' && (str_contains($source, $label) || str_contains($label, $source)));
+        });
+    }
+
+    private function resolveRefillPriceForUkuran(JenisRefill $jenisRefill, string $ukuran): ?float
+    {
+        $price = $jenisRefill->resolveServicePrice($ukuran);
+        if (!is_null($price) && $price > 0) {
+            return (float) $price;
+        }
+
+        $ukuranKg = $this->extractAparCapacityKg($ukuran);
+        if (!is_null($ukuranKg) && $ukuranKg > 0 && (float) $jenisRefill->harga > 0) {
+            return (float) ($ukuranKg * (float) $jenisRefill->harga);
+        }
+
+        return null;
+    }
+
+    private function summarizeRegisteredRefillUnits(Collection $unitApars): array
+    {
+        $jenisRefills = JenisRefill::query()->get();
+        $lineAmounts = [];
+        $matchedRefillIds = [];
+        $totalKebutuhanKg = 0.0;
+        $estimasiBiaya = 0.0;
+
+        foreach ($unitApars as $unitApar) {
+            $jenisRefill = $this->matchJenisRefillForRegisteredUnit($unitApar, $jenisRefills);
+            if (!$jenisRefill) {
+                throw ValidationException::withMessages([
+                    'service_unit_apar_ids' => 'Jenis refill otomatis belum ditemukan dari Unit APAR terdaftar yang dipilih.',
+                ]);
+            }
+
+            $ukuran = trim((string) ($unitApar->ukuran ?: $unitApar->produk?->kapasitas ?: ''));
+            $unitPrice = $this->resolveRefillPriceForUkuran($jenisRefill, $ukuran);
+            if (is_null($unitPrice) || $unitPrice <= 0) {
+                throw ValidationException::withMessages([
+                    'service_unit_apar_ids' => 'Harga refill otomatis untuk salah satu Unit APAR terdaftar belum tersedia.',
+                ]);
+            }
+
+            $unitKg = (float) ($this->extractAparCapacityKg($ukuran) ?? 0);
+            $totalKebutuhanKg += $unitKg;
+            $estimasiBiaya += $unitPrice;
+            $lineAmounts[(int) $unitApar->id] = (float) $unitPrice;
+            $matchedRefillIds[] = (int) $jenisRefill->id;
+        }
+
+        $matchedRefillIds = collect($matchedRefillIds)->filter()->unique()->values();
+        if ($matchedRefillIds->count() !== 1) {
+            throw ValidationException::withMessages([
+                'service_unit_apar_ids' => 'Unit APAR yang dipilih memiliki jenis refill berbeda. Pisahkan pesanan berdasarkan jenis APAR.',
+            ]);
+        }
+
+        /** @var JenisRefill|null $jenisRefill */
+        $jenisRefill = $jenisRefills->firstWhere('id', (int) $matchedRefillIds->first());
+        if (!$jenisRefill) {
+            throw ValidationException::withMessages([
+                'service_unit_apar_ids' => 'Jenis refill otomatis tidak ditemukan untuk Unit APAR terdaftar yang dipilih.',
+            ]);
+        }
+
+        return [
+            'jenis_refill' => $jenisRefill,
+            'line_amounts' => $lineAmounts,
+            'total_kg' => round($totalKebutuhanKg, 2),
+            'estimasi_biaya' => (float) round($estimasiBiaya, 0),
+        ];
+    }
+
+    private function buildRegisteredServicePackageLineSpecs(Collection $unitApars): array
+    {
+        return $unitApars
+            ->map(function (UnitApar $unitApar) {
+                $ukuran = trim((string) ($unitApar->ukuran ?: $unitApar->produk?->kapasitas ?: ''));
+                $media = $this->registeredUnitAparTypeLabel($unitApar);
+
+                return [
+                    'unit_id' => (int) $unitApar->id,
+                    'label' => $this->registeredUnitAparLabel($unitApar),
+                    'media' => $media,
+                    'ukuran' => $ukuran,
+                    'qty' => 1,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function buildManualServicePackageLineSpec(string $media, string $ukuran, int $jumlahUnit): array
+    {
+        $media = trim($media);
+        $ukuran = trim($ukuran);
+
+        return [[
+            'label' => trim('APAR ' . $media . ' ' . $ukuran),
+            'media' => $media,
+            'ukuran' => $ukuran,
+            'qty' => max(1, $jumlahUnit),
+        ]];
+    }
+
+    private function buildServicePackageOrderNote(
+        ServicePaket $paket,
+        array $lineItems,
+        array $peralatanItems,
+        float $total,
+        string $metode,
+        string $customerNote,
+        ?string $purchaseLabel = null
+    ): string {
+        $lines = [];
+
+        if ($purchaseLabel) {
+            $lines[] = "Unit APAR Terdaftar dari {$purchaseLabel}:";
+        } else {
+            $lines[] = 'Rincian Service ' . trim(($paket->label ?: 'Paket') . ' - ' . $paket->nama);
+        }
+
+        foreach (array_values($lineItems) as $index => $item) {
+            $qty = max(1, (int) ($item['qty'] ?? 1));
+            $qtyLabel = $qty > 1 ? " x {$qty} unit" : '';
+            $lines[] = ($index + 1) . '. '
+                . trim((string) ($item['label'] ?? '-'))
+                . $qtyLabel
+                . ' - Rp'
+                . number_format((float) ($item['total'] ?? 0), 0, ',', '.');
+        }
+
+        if (!empty($peralatanItems)) {
+            $lines[] = 'Peralatan Paket:';
+            foreach ($peralatanItems as $peralatanItem) {
+                $lines[] = '- '
+                    . trim((string) ($peralatanItem['nama'] ?? '-'))
+                    . ' x'
+                    . (int) ($peralatanItem['jumlah'] ?? 0);
+            }
+        }
+
+        $lines[] = 'Total Service: Rp' . number_format($total, 0, ',', '.');
+        $lines[] = 'Metode Penanganan: ' . ($metode === 'antar sendiri' ? 'Antar Sendiri' : 'Dijemput');
+        $lines[] = 'Catatan Pelanggan: ' . (trim($customerNote) !== '' ? trim($customerNote) : '-');
+
+        return implode("\n", $lines);
+    }
+
     private function selectedRegisteredUnitsNote(
         Collection $unitApars,
         string $purchaseLabel,
@@ -980,7 +1111,10 @@ class PublicController extends Controller
         return implode("\n", $lines);
     }
 
-    public function orderCreate()
+    public function orderCreate(
+        OrderPricingService $orderPricingService,
+        ServicePackagePricingService $servicePackagePricingService
+    )
     {
         /** @var \App\Models\User|null $user */
         $user = Auth::user();
@@ -1019,6 +1153,8 @@ class PublicController extends Controller
             ->get()
             ->reject(fn (ServicePaket $servicePaket) => $servicePaket->isLegacyTemplate())
             ->values();
+        $serviceMediaOptions = $servicePackagePricingService->availableMediaOptions();
+        $servicePackageCatalog = $servicePackagePricingService->packageCatalog($servicePakets, $serviceMediaOptions);
         $serviceUkuranOptions = $this->serviceUkuranOptions();
         $customerProfile = $this->authenticatedCustomerProfile();
         $useAuthenticatedCustomer = !is_null($customerProfile);
@@ -1057,17 +1193,31 @@ class PublicController extends Controller
             }
         }
 
+        $orderSummary = $orderPricingService->summarizeProductItems([]);
+
         if ($canUseCartCheckout) {
             $cartItems = $this->authenticatedCartItems();
-            $cartTotal = $cartItems->sum(fn ($item) => $item->harga * $item->qty);
-            $cartItemCount = (int) $cartItems->sum('qty');
+            $orderSummary = $orderPricingService->summarizeCart($cartItems);
+            $cartTotal = (float) $orderSummary['totalPembayaran'];
+        } elseif ($prefillFromProduct && count($prefilledOrderItems) > 0) {
+            $orderSummary = $orderPricingService->summarizeProductItems($prefilledOrderItems);
+            $cartTotal = (float) $orderSummary['totalPembayaran'];
         }
+
+        $subtotalProduk = (float) $orderSummary['subtotalProduk'];
+        $totalUnit = (int) $orderSummary['totalUnit'];
+        $diskonPersen = (int) $orderSummary['diskonPersen'];
+        $nominalDiskon = (float) $orderSummary['nominalDiskon'];
+        $ongkir = (float) $orderSummary['ongkir'];
+        $totalPembayaran = (float) $orderSummary['totalPembayaran'];
+        $cartItemCount = $totalUnit;
+        $subtotal = $subtotalProduk;
+        $cartTotal = $totalPembayaran;
 
         $registeredUnitApars = collect();
         $authenticatedCustomer = $this->authenticatedCustomer();
         if ($authenticatedCustomer) {
-            $registeredUnitApars = UnitApar::with(['produk.jenisApar'])
-                ->where('pelanggan_id', $authenticatedCustomer->id)
+            $registeredUnitApars = $this->registeredUnitAparQuery($authenticatedCustomer)
                 ->orderByDesc('tgl_beli')
                 ->orderBy('no_seri')
                 ->get();
@@ -1078,10 +1228,20 @@ class PublicController extends Controller
             'jenisApars',
             'jenisRefills',
             'servicePakets',
+            'serviceMediaOptions',
+            'servicePackageCatalog',
             'serviceUkuranOptions',
             'customerProfile',
             'useAuthenticatedCustomer',
             'cartItems',
+            'orderSummary',
+            'subtotalProduk',
+            'totalUnit',
+            'subtotal',
+            'diskonPersen',
+            'nominalDiskon',
+            'ongkir',
+            'totalPembayaran',
             'cartTotal',
             'cartItemCount',
             'canUseCartCheckout',
@@ -1092,7 +1252,12 @@ class PublicController extends Controller
         ));
     }
 
-    public function orderStore(Request $request, InventoryService $inventoryService)
+    public function orderStore(
+        Request $request,
+        InventoryService $inventoryService,
+        OrderPricingService $orderPricingService,
+        ServicePackagePricingService $servicePackagePricingService
+    )
     {
         /** @var \App\Models\User|null $user */
         $user = Auth::user();
@@ -1121,6 +1286,14 @@ class PublicController extends Controller
             ? $this->buildCartOrderItems($cartItems)
             : (array) $request->input('items', []);
         $serviceUkuranOptions = $this->serviceUkuranOptions();
+        $serviceMediaOptions = $servicePackagePricingService->availableMediaOptions();
+        $serviceMediaSizeMap = collect($serviceMediaOptions)
+            ->mapWithKeys(function (array $media) {
+                return [
+                    mb_strtolower((string) ($media['label'] ?? '')) => array_values($media['sizes'] ?? []),
+                ];
+            })
+            ->all();
 
         $rules = [
             'nama'               => 'required|string|max:255',
@@ -1134,15 +1307,12 @@ class PublicController extends Controller
             'alamat_lat'         => 'nullable|numeric|between:-90,90',
             'alamat_lng'         => 'nullable|numeric|between:-180,180',
             'tipe_layanan'       => 'required|in:beli,service',
-            'metode_pengiriman'  => 'nullable|in:pickup,diantar,diantar_internal',
-            'bank'               => 'nullable|in:bca,mandiri,bri',
-            'harga_usulan'       => 'nullable|numeric|min:0',
-            'kode_nego'          => 'nullable|string|max:50',
-            'is_nego_deal'       => 'nullable|boolean',
+            'metode_pengiriman'  => 'nullable|required_if:tipe_layanan,beli|in:pickup,ambil_sendiri,diantar,diantar_internal',
+            'bank_tujuan'        => 'nullable|required_if:tipe_layanan,beli|in:bca,mandiri,bri',
             'submit_source'      => 'nullable|in:normal,ask_wa',
             'service_jenis_layanan' => 'nullable|required_if:tipe_layanan,service|in:service,refill',
             'service_jenis_apar' => 'nullable|string|max:120',
-            'service_jumlah_unit' => 'nullable|required_if:tipe_layanan,service|integer|min:1|max:1000',
+            'service_jumlah_unit' => 'nullable|integer|min:1|max:1000',
             'service_keluhan' => 'nullable|string|max:2000',
             'service_foto' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:5120',
             'service_metode_penanganan' => 'nullable|required_if:tipe_layanan,service|in:dijemput,antar sendiri',
@@ -1205,68 +1375,31 @@ class PublicController extends Controller
             $redirectToPayment = false;
 
             if ($request->tipe_layanan === 'beli') {
-                $isNegoDeal = $request->boolean('is_nego_deal');
-                $kodeNegoInput = $request->filled('kode_nego') ? $this->normalizeNegoCode((string) $request->kode_nego) : null;
-                $hargaDeal = null;
-                $sumberNego = null;
-
-                if ($isNegoDeal) {
-                    if (!$kodeNegoInput) {
-                        throw new \RuntimeException('Kode negosiasi wajib diisi untuk harga deal.');
-                    }
-                    if (!$this->isValidNegoCodeFormat($kodeNegoInput)) {
-                        throw new \RuntimeException('Format kode negosiasi tidak valid.');
-                    }
-
-                    $sumberNego = $this->findValidNegoSource($kodeNegoInput);
-
-                    if (!$sumberNego) {
-                        throw new \RuntimeException('Kode negosiasi tidak valid atau sudah digunakan.');
-                    }
-
-                    if (!$this->isNegoMatchedToCurrentOrder($sumberNego, $normalizedNoWa, $productItems)) {
-                        throw new \RuntimeException('Kode tidak sesuai dengan pesanan Anda.');
-                    }
-
-                    $pesanan = $sumberNego;
-                    $hargaDeal = (float) $pesanan->harga_usulan;
-                } else {
-                    // Use the newly instantiated pesanan
-                }
-
                 $deliveryMeta = $this->buildDeliveryMeta($request, $productItems);
+                $draftPricing = $orderPricingService->summarizeProductItems($productItems, (float) $deliveryMeta['ongkir']);
                 $pesanan->tipe = 'produk';
                 $pesanan->sumber_pesanan = 'website';
-                $pesanan->metode_pengiriman = $deliveryMeta['metode_pengiriman'];
-                $pesanan->bank = (string) $request->input('bank', '');
+                $pesanan->metode_pengiriman = (string) $deliveryMeta['metode_pengiriman'];
+                $pesanan->bank = (string) $request->input('bank_tujuan', '');
                 $pesanan->ongkir = (float) $deliveryMeta['ongkir'];
                 $pesanan->shipping_distance_km = $deliveryMeta['distance_km'];
                 $pesanan->alamat_maps = $deliveryMeta['alamat_maps'];
                 $pesanan->alamat_detail = $deliveryMeta['alamat_detail'];
                 $pesanan->alamat_lat = $deliveryMeta['alamat_lat'];
                 $pesanan->alamat_lng = $deliveryMeta['alamat_lng'];
-                $bankTujuan = strtoupper((string) $request->input('bank', '-'));
+                $bankTujuan = strtoupper((string) $request->input('bank_tujuan', '-'));
 
-                if ($isNegoDeal) {
-                    $pesanan->harga_usulan = $hargaDeal;
-                    $pesanan->is_nego = true;
-                    $pesanan->kode_nego = $kodeNegoInput;
-                    $pesanan->kode_nego_terpakai_at = now();
-                    $pesanan->status = 'pending';
-                    $pesanan->tipe_harga = 'deal';
-                    $pesanan->keterangan = "Pembelian Produk [Kode: {$kodeNegoInput}] [Sumber: Kode Nego Admin] [Pengiriman: " . $this->shippingMethodLabel((string) $pesanan->metode_pengiriman) . "] [Bank Tujuan: {$bankTujuan}]";
+                $pesanan->total = 0;
+                $pesanan->status = 'pending';
+                $pesanan->tipe_harga = ((int) $draftPricing['diskonPersen']) > 0 ? 'promo' : 'normal';
+                
+                if ((int) $draftPricing['diskonPersen'] > 0) {
+                    $pesanan->keterangan = "Pembelian Produk [Promo Diskon {$draftPricing['diskonPersen']}%] [Pengiriman: " . $this->shippingMethodLabel((string) $pesanan->metode_pengiriman) . "] [Bank Tujuan: {$bankTujuan}]";
                 } else {
-                    $pesanan->total = 0;
-                    $pesanan->status = 'pending';
-                    $pesanan->tipe_harga = 'normal';
                     $pesanan->keterangan = "Pembelian Produk [Pengiriman: " . $this->shippingMethodLabel((string) $pesanan->metode_pengiriman) . "] [Bank Tujuan: {$bankTujuan}]";
                 }
 
                 $pesanan->save();
-
-                if ($isNegoDeal && $sumberNego) {
-                    $pesanan->details()->delete();
-                }
 
                 $totalHarga = 0;
                 foreach ($productItems as $item) {
@@ -1295,13 +1428,20 @@ class PublicController extends Controller
                     SessionCart::clear();
                 }
 
-                $totalFinal = ($isNegoDeal && !is_null($hargaDeal))
-                    ? $hargaDeal
-                    : ($totalHarga + (float) ($pesanan->ongkir ?? 0));
-                
+                $pricingSummary = $orderPricingService->summarizePesanan($pesanan->fresh('details'));
+
+                if ((int) $pricingSummary['diskonPersen'] > 0) {
+                    $pesanan->keterangan = str_replace(
+                        "[Promo Diskon {$pricingSummary['diskonPersen']}%]",
+                        "[Promo Diskon {$pricingSummary['diskonPersen']}%: -Rp " . number_format((float) $pricingSummary['nominalDiskon'], 0, ',', '.') . "]",
+                        $pesanan->keterangan
+                    );
+                }
+
                 $pesanan->update([
-                    'total' => $totalFinal,
-                    'total_harga' => $totalFinal,
+                    'total' => (float) $pricingSummary['totalPembayaran'],
+                    'total_harga' => (float) $pricingSummary['totalPembayaran'],
+                    'keterangan' => $pesanan->keterangan,
                 ]);
 
                 $redirectToPayment = true;
@@ -1319,7 +1459,9 @@ class PublicController extends Controller
                 $selectedUnitApars = collect();
                 $servicePurchaseGroup = trim((string) $request->input('service_purchase_group', ''));
                 $serviceUkuranApar = trim((string) $request->input('service_ukuran_apar', ''));
-                $serviceJumlahUnit = max(1, (int) $request->input('service_jumlah_unit', 1));
+                $manualServiceJenisApar = trim((string) $request->input('service_jenis_apar', ''));
+                $rawServiceJumlahUnit = (int) $request->input('service_jumlah_unit', 0);
+                $serviceJumlahUnit = max(1, $rawServiceJumlahUnit);
                 $originalServiceKeluhan = trim((string) $request->input('service_keluhan', (string) $request->input('keterangan_service', '-')));
                 $serviceKeluhan = $originalServiceKeluhan;
                 $serviceMetode = strtolower(trim((string) $request->input('service_metode_penanganan', 'dijemput')));
@@ -1360,8 +1502,7 @@ class PublicController extends Controller
                         ]);
                     }
 
-                    $selectedUnitApars = UnitApar::with(['produk.jenisApar'])
-                        ->where('pelanggan_id', $pelanggan->id)
+                    $selectedUnitApars = $this->registeredUnitAparQuery($pelanggan)
                         ->whereIn('id', $selectedUnitAparIds->all())
                         ->get()
                         ->sortBy(fn (UnitApar $unitApar) => $selectedUnitAparIds->search((int) $unitApar->id))
@@ -1398,10 +1539,32 @@ class PublicController extends Controller
                         ->filter()
                         ->unique(fn ($ukuran) => mb_strtolower($ukuran))
                         ->implode(', ');
-                } elseif ($serviceUkuranApar === '' || !in_array($serviceUkuranApar, $serviceUkuranOptions, true)) {
-                    throw ValidationException::withMessages([
-                        'service_ukuran_apar' => 'Ukuran APAR wajib dipilih dari daftar yang tersedia.',
-                    ]);
+                } else {
+                    if ($rawServiceJumlahUnit < 1) {
+                        throw ValidationException::withMessages([
+                            'service_jumlah_unit' => 'Jumlah unit wajib diisi minimal 1.',
+                        ]);
+                    }
+
+                    if ($serviceJenisLayanan === 'service') {
+                        $serviceMediaSizes = $serviceMediaSizeMap[mb_strtolower($manualServiceJenisApar)] ?? [];
+
+                        if ($manualServiceJenisApar === '' || empty($serviceMediaSizes)) {
+                            throw ValidationException::withMessages([
+                                'service_jenis_apar' => 'Jenis media APAR wajib dipilih dari data yang tersedia.',
+                            ]);
+                        }
+
+                        if ($serviceUkuranApar === '' || !in_array($serviceUkuranApar, $serviceMediaSizes, true)) {
+                            throw ValidationException::withMessages([
+                                'service_ukuran_apar' => 'Ukuran APAR wajib dipilih sesuai media APAR yang tersedia di sistem.',
+                            ]);
+                        }
+                    } elseif ($serviceUkuranApar === '' || !in_array($serviceUkuranApar, $serviceUkuranOptions, true)) {
+                        throw ValidationException::withMessages([
+                            'service_ukuran_apar' => 'Ukuran APAR wajib dipilih dari daftar yang tersedia.',
+                        ]);
+                    }
                 }
 
                 $serviceUkuranKg = $selectedUnitApars->isNotEmpty()
@@ -1413,7 +1576,7 @@ class PublicController extends Controller
                         ->filter()
                         ->unique(fn ($jenis) => mb_strtolower($jenis))
                         ->implode(', ')
-                    : 'APAR ' . $serviceUkuranApar;
+                    : $manualServiceJenisApar;
                 $servicePurchaseLabel = $selectedUnitApars->isNotEmpty()
                     ? $this->registeredUnitAparPurchaseLabel($selectedUnitApars->first())
                     : '';
@@ -1441,47 +1604,46 @@ class PublicController extends Controller
                 $pesanan->status = Pesanan::STATUS_PENDING;
 
                 if ($serviceJenisLayanan === 'refill') {
-                    $jenisRefill = JenisRefill::find($request->input('service_jenis_refill_id'));
-
-                    if (!$jenisRefill) {
-                        throw ValidationException::withMessages([
-                            'service_jenis_refill_id' => 'Jenis refill wajib dipilih.',
-                        ]);
-                    }
-
                     if (!$serviceUkuranKg || $serviceUkuranKg <= 0) {
                         throw ValidationException::withMessages([
                             'service_ukuran_apar' => 'Ukuran APAR belum bisa dihitung ke satuan Kg.',
                         ]);
                     }
 
-                    $hargaStandar = (float) $jenisRefill->harga;
-                    if ($hargaStandar <= 0) {
-                        throw ValidationException::withMessages([
-                            'service_jenis_refill_id' => 'Harga standar jenis refil belum tersedia. Silakan hubungi admin untuk mengisi harga standar di Master Data Jenis Refil.',
-                        ]);
-                    }
-
-                    $totalKebutuhanKg = $selectedUnitApars->isNotEmpty()
-                        ? round((float) $serviceUkuranKg, 2)
-                        : round($serviceUkuranKg * $serviceJumlahUnit, 2);
-                    if ((float) $jenisRefill->stok < $totalKebutuhanKg) {
-                        throw ValidationException::withMessages([
-                            'service_jenis_refill_id' => 'Stok refill ' . $jenisRefill->nama_label . ' tidak mencukupi.',
-                        ]);
-                    }
-
-                    $registeredLineAmounts = [];
                     if ($selectedUnitApars->isNotEmpty()) {
-                        foreach ($selectedUnitApars as $unitApar) {
-                            $unitKg = (float) ($this->extractAparCapacityKg($unitApar->ukuran ?: $unitApar->produk?->kapasitas) ?? 0);
-                            $registeredLineAmounts[$unitApar->id] = $unitKg * $hargaStandar;
+                        $registeredRefillSummary = $this->summarizeRegisteredRefillUnits($selectedUnitApars);
+                        /** @var JenisRefill $jenisRefill */
+                        $jenisRefill = $registeredRefillSummary['jenis_refill'];
+                        $registeredLineAmounts = $registeredRefillSummary['line_amounts'];
+                        $totalKebutuhanKg = (float) $registeredRefillSummary['total_kg'];
+                        $estimasiBiaya = (float) $registeredRefillSummary['estimasi_biaya'];
+                    } else {
+                        $jenisRefill = JenisRefill::find($request->input('service_jenis_refill_id'));
+
+                        if (!$jenisRefill) {
+                            throw ValidationException::withMessages([
+                                'service_jenis_refill_id' => 'Jenis refill wajib dipilih.',
+                            ]);
                         }
+
+                        $hargaStandar = $this->resolveRefillPriceForUkuran($jenisRefill, $serviceUkuranApar);
+                        if (is_null($hargaStandar) || $hargaStandar <= 0) {
+                            throw ValidationException::withMessages([
+                                'service_jenis_refill_id' => 'Harga standar jenis refil untuk ukuran APAR tersebut belum tersedia.',
+                            ]);
+                        }
+
+                        $totalKebutuhanKg = round($serviceUkuranKg * $serviceJumlahUnit, 2);
+                        $estimasiBiaya = (float) round($hargaStandar * $serviceJumlahUnit, 0);
+                        $registeredLineAmounts = [];
                     }
 
-                    $estimasiBiaya = $selectedUnitApars->isNotEmpty()
-                        ? array_sum($registeredLineAmounts)
-                        : $totalKebutuhanKg * $hargaStandar;
+                    if ((float) $jenisRefill->stok < $totalKebutuhanKg) {
+                        $stockErrorKey = $selectedUnitApars->isNotEmpty() ? 'service_unit_apar_ids' : 'service_jenis_refill_id';
+                        throw ValidationException::withMessages([
+                            $stockErrorKey => 'Stok refill ' . $jenisRefill->nama_label . ' tidak mencukupi.',
+                        ]);
+                    }
 
                     if ($selectedUnitApars->isNotEmpty()) {
                         $pesanan->service_keluhan = $this->selectedRegisteredUnitsNote(
@@ -1523,34 +1685,47 @@ class PublicController extends Controller
                         ]);
                     }
 
-                    $estimasiBiaya = $paket->harga * $serviceJumlahUnit;
-                    $estimasiRefillKg = null;
-                    if ($serviceUkuranKg && $serviceUkuranKg > 0 && $paket->refill_ratio && $paket->refill_ratio > 0) {
-                        $estimasiRefillKg = $selectedUnitApars->isNotEmpty()
-                            ? round($serviceUkuranKg * $paket->refill_ratio, 2)
-                            : round($serviceUkuranKg * $serviceJumlahUnit * $paket->refill_ratio, 2);
-                    }
-
-                    if ($selectedUnitApars->isNotEmpty()) {
-                        $serviceLineAmounts = [];
-                        foreach ($selectedUnitApars as $unitApar) {
-                            $serviceLineAmounts[$unitApar->id] = (float) $paket->harga;
-                        }
-
-                        $pesanan->service_keluhan = $this->selectedRegisteredUnitsNote(
-                            unitApars: $selectedUnitApars,
-                            purchaseLabel: $servicePurchaseLabel,
-                            totalLabel: 'Total Service',
-                            total: $estimasiBiaya,
-                            metode: $serviceMetode,
-                            customerNote: $originalServiceKeluhan,
-                            lineAmounts: $serviceLineAmounts,
+                    $serviceLineSpecs = $selectedUnitApars->isNotEmpty()
+                        ? $this->buildRegisteredServicePackageLineSpecs($selectedUnitApars)
+                        : $this->buildManualServicePackageLineSpec(
+                            media: $serviceJenisAparLabel,
+                            ukuran: $serviceUkuranApar,
+                            jumlahUnit: $serviceJumlahUnit,
                         );
+                    $packageSummary = $servicePackagePricingService->summarizePackageOrder($paket, $serviceLineSpecs);
+                    $estimasiBiaya = (float) ($packageSummary['total_price'] ?? 0);
+                    $estimasiPeralatan = $packageSummary['peralatan_items'] ?? [];
+                    $stockIssues = $packageSummary['stock_issues'] ?? [];
+
+                    if ($estimasiBiaya <= 0) {
+                        throw ValidationException::withMessages([
+                            'service_paket_id' => 'Harga service untuk kombinasi paket, media APAR, dan ukuran yang dipilih belum tersedia.',
+                        ]);
                     }
+
+                    if (!empty($stockIssues)) {
+                        $issueText = collect($stockIssues)
+                            ->map(fn (array $item) => ($item['nama'] ?? 'Peralatan') . ' (butuh ' . (int) ($item['jumlah'] ?? 0) . ', stok ' . (float) ($item['stok'] ?? 0) . ')')
+                            ->implode(', ');
+
+                        throw ValidationException::withMessages([
+                            'service_paket_id' => 'Stok peralatan paket service belum mencukupi: ' . $issueText . '.',
+                        ]);
+                    }
+
+                    $pesanan->service_keluhan = $this->buildServicePackageOrderNote(
+                        paket: $paket,
+                        lineItems: $packageSummary['line_items'] ?? [],
+                        peralatanItems: $estimasiPeralatan,
+                        total: $estimasiBiaya,
+                        metode: $serviceMetode,
+                        customerNote: $originalServiceKeluhan,
+                        purchaseLabel: $selectedUnitApars->isNotEmpty() ? $servicePurchaseLabel : null,
+                    );
 
                     $pesanan->service_paket_id = $paket->id;
-                    $pesanan->service_jenis_refill_id = $paket->jenis_refill_id;
-                    $pesanan->service_total_kg = $estimasiRefillKg;
+                    $pesanan->service_jenis_refill_id = null;
+                    $pesanan->service_total_kg = null;
                     $pesanan->service_estimasi_biaya = $estimasiBiaya;
                     $pesanan->total = $estimasiBiaya;
                     $pesanan->total_harga = $estimasiBiaya;
@@ -1589,172 +1764,7 @@ class PublicController extends Controller
         }
     }
 
-    public function orderAskWhatsapp(Request $request)
-    {
-        $this->applyAuthenticatedCustomerProfileToRequest($request);
-
-        $validated = $request->validate([
-            'nama' => 'required|string|max:255',
-            'no_wa' => 'required|string|max:20',
-            'alamat_maps' => 'required|string|max:255',
-            'alamat_detail' => 'required|string|max:1000',
-            'alamat_provinsi' => 'nullable|string|max:255',
-            'alamat_kota' => 'nullable|string|max:255',
-            'alamat_kecamatan' => 'nullable|string|max:255',
-            'alamat_kode_pos' => 'nullable|string|max:50',
-            'alamat_lat' => 'nullable|numeric|between:-90,90',
-            'alamat_lng' => 'nullable|numeric|between:-180,180',
-            'metode_pengiriman' => 'nullable|in:pickup,diantar',
-            'bank' => 'required|in:bca,mandiri,bri',
-            'perusahaan' => 'nullable|string|max:255',
-            'harga_usulan' => 'nullable|numeric|min:0',
-            'sumber_negosiasi' => 'nullable|in:sistem,whatsapp',
-            'items' => 'required|array|min:1',
-            'items.*.produk_id' => 'required|exists:produks,id',
-            'items.*.jumlah' => 'required|integer|min:1',
-        ]);
-
-        $normalizedNoWa = $this->normalizePhone((string) $validated['no_wa']);
-        $this->ensurePhoneOwnedBySameCustomer($normalizedNoWa, (string) $validated['nama']);
-        $alamatGabungan = $this->buildCombinedAddress(
-            (string) ($validated['alamat_maps'] ?? ''),
-            (string) ($validated['alamat_detail'] ?? ''),
-        );
-        $totalQty = collect((array) ($validated['items'] ?? []))
-            ->sum(fn ($item) => (int) ($item['jumlah'] ?? 0));
-
-        if (!empty($validated['harga_usulan']) && $totalQty < 10) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Harga usulan hanya bisa diajukan jika total pembelian minimal 10 unit.',
-            ], 422);
-        }
-
-        DB::beginTransaction();
-        try {
-            $deliveryMeta = $this->buildDeliveryMeta($request, (array) ($validated['items'] ?? []));
-
-            $pelanggan = Pelanggan::firstOrCreate(
-                ['no_wa' => $normalizedNoWa],
-                [
-                    'nama' => $validated['nama'],
-                    'alamat' => $alamatGabungan,
-                    'status' => 'calon',
-                ]
-            );
-
-            if (empty($pelanggan->status)) {
-                $pelanggan->status = 'calon';
-            }
-
-            // Hanya perbarui nama/alamat jika pelanggan baru dibuat,
-            // atau jika nama di DB masih kosong — JANGAN timpa data pelanggan lama!
-            if ($pelanggan->wasRecentlyCreated || empty($pelanggan->nama)) {
-                $pelanggan->nama   = $validated['nama'];
-                $pelanggan->alamat = $alamatGabungan;
-            }
-            // Sync data alamat lengkap ke tabel pelanggan
-            $this->syncPelangganAddressFromValidated($pelanggan, $validated, $alamatGabungan);
-
-            // ─── Cegah duplikasi: cek apakah sudah ada pesanan menunggu persetujuan
-            // dari pelanggan yang sama dalam 10 menit terakhir (anti double-submit)
-            $existingPesanan = Pesanan::where('pelanggan_id', $pelanggan->id)
-                ->where('tipe', 'produk')
-                ->where('status', 'menunggu persetujuan')
-                ->whereNull('kode_nego')
-                ->where('created_at', '>=', now()->subMinutes(10))
-                ->latest()
-                ->first();
-
-            if ($existingPesanan) {
-                DB::commit();
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Inquiry negosiasi sudah ada dan sedang menunggu proses.',
-                    'data' => [
-                        'pesanan_id' => $existingPesanan->id,
-                        'kode_pesanan' => $this->buildOrderCode($existingPesanan),
-                    ],
-                ]);
-            }
-            // ─────────────────────────────────────────────────────────────────
-
-            $pesanan = new Pesanan();
-            $pesanan->pelanggan_id = $pelanggan->id;
-            $pesanan->tanggal = now();
-            $pesanan->tipe = 'produk';
-            $pesanan->sumber_pesanan = 'website';
-            $pesanan->status = 'menunggu persetujuan';
-            $pesanan->is_nego = true;
-            $pesanan->harga_usulan = $validated['harga_usulan'] ?? null;
-            $pesanan->harga_penawaran_pelanggan = $validated['harga_usulan'] ?? null;
-            $pesanan->tipe_harga = 'normal';
-            $pesanan->total = 0;
-            $pesanan->total_harga = 0;
-            $pesanan->metode_pengiriman = $deliveryMeta['metode_pengiriman'];
-            $pesanan->bank = (string) $validated['bank'];
-            $pesanan->ongkir = (float) $deliveryMeta['ongkir'];
-            $pesanan->shipping_distance_km = $deliveryMeta['distance_km'];
-            $pesanan->alamat_maps = $deliveryMeta['alamat_maps'];
-            $pesanan->alamat_detail = $deliveryMeta['alamat_detail'];
-            $pesanan->alamat_lat = $deliveryMeta['alamat_lat'];
-            $pesanan->alamat_lng = $deliveryMeta['alamat_lng'];
-            $sumberNegosiasi = $validated['sumber_negosiasi'] ?? 'whatsapp';
-            $labelSumberNegosiasi = $sumberNegosiasi === 'sistem' ? 'Sistem Pelanggan' : 'WhatsApp';
-                $pesanan->keterangan = 'Inquiry Negosiasi via ' . $labelSumberNegosiasi
-                . ($pesanan->harga_usulan ? ' [Harga Usulan: Rp ' . number_format($pesanan->harga_usulan, 0, ',', '.') . ']' : '')
-                . ' [Pengiriman: ' . $this->shippingMethodLabel((string) $deliveryMeta['metode_pengiriman']) . ']'
-                . ' [Bank Tujuan: ' . strtoupper((string) $validated['bank']) . ']'
-                . (!empty($validated['perusahaan']) ? ' [Perusahaan: ' . $validated['perusahaan'] . ']' : '');
-            $pesanan->save();
-
-            $total = 0;
-            foreach ((array) $validated['items'] as $item) {
-                $produk = Produk::findOrFail((int) $item['produk_id']);
-                $jumlah = (int) $item['jumlah'];
-                $stokTersedia = (int) $produk->stok_tersedia;
-
-                if ($stokTersedia < $jumlah) {
-                    throw new \RuntimeException('Stok siap jual "' . $produk->nama . '" tidak mencukupi. Tersedia: ' . $stokTersedia);
-                }
-
-                $subtotal = ((float) $produk->harga) * $jumlah;
-
-                $pesanan->details()->create([
-                    'produk_id' => $produk->id,
-                    'merek' => $produk->merek ?? 'FIREFIX',
-                    'kapasitas' => $produk->kapasitas,
-                    'jumlah' => $jumlah,
-                    'harga' => $produk->harga,
-                    'subtotal' => $subtotal,
-                ]);
-
-                $total += $subtotal;
-            }
-
-            $pesanan->update([
-                'total' => $total + (float) $pesanan->ongkir,
-                'total_harga' => $total + (float) $pesanan->ongkir,
-            ]);
-
-            DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Data negosiasi berhasil disimpan.',
-                'data' => [
-                    'pesanan_id' => $pesanan->id,
-                    'kode_pesanan' => $this->buildOrderCode($pesanan),
-                ],
-            ]);
-        } catch (\Throwable $th) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal menyimpan data negosiasi. ' . $th->getMessage(),
-            ], 500);
-        }
-    }
+    // orderAskWhatsapp removed
 
     public function orderShippingQuote(Request $request)
     {
@@ -1964,29 +1974,6 @@ private function fetchPhoton(string $query): array
             return back()->withErrors(['bank' => 'Bank transfer tidak valid.'])->withInput();
         }
 
-        $kodeNego = $this->normalizeNegoCode((string) ($pesanan->kode_nego ?? ''));
-        if ($kodeNego !== '') {
-            $kodeSudahDipakaiOrderLain = Pesanan::query()
-                ->where('kode_nego', $kodeNego)
-                ->where(function ($query) {
-                    $query->whereNotNull('kode_nego_terpakai_at')
-                        ->orWhereNotNull('bukti_pembayaran');
-                })
-                ->where('id', '!=', $pesanan->id)
-                ->exists();
-
-            if (!empty($pesanan->bukti_pembayaran) || $kodeSudahDipakaiOrderLain) {
-                $message = 'Kode negosiasi sudah dipakai sebelumnya dan tidak dapat digunakan lagi.';
-                if ($request->expectsJson()) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => $message,
-                    ], 422);
-                }
-                return back()->withErrors(['kode_nego' => $message])->withInput();
-            }
-        }
-
         $proofPath = $request->file('bukti_pembayaran')->store('bukti-pembayaran', 'public');
 
         $pesanan->loadMissing(['details.produk', 'pelanggan', 'serviceJenisRefill', 'servicePaket.peralatans', 'service']);
@@ -2044,7 +2031,6 @@ private function fetchPhoton(string $query): array
             $this->syncUnitAparsForPesanan($pesanan->fresh(['details.produk.jenisApar', 'unitApars']));
         }
 
-        $orderCode = $this->buildOrderCode($pesanan);
         $tipeHargaLabel = $pesanan->tipe_harga === 'deal' ? 'Harga Deal' : 'Harga Normal';
         $total = number_format($pesanan->payableTotal(), 0, ',', '.');
         $ongkir = number_format((float) ($pesanan->ongkir ?: 0), 0, ',', '.');
@@ -2073,8 +2059,9 @@ private function fetchPhoton(string $query): array
         }
 
         $waNumber = preg_replace('/^0/', '62', env('WHATSAPP_CONTACT', '082124716109'));
-        $waMessage = "Halo Admin, saya sudah mengonfirmasi pembayaran pesanan.\n\n"
-            . "Kode Pesanan: {$orderCode}\n"
+        $waMessage = "Halo Admin, saya sudah mengonfirmasi pembayaran transaksi.\n\n"
+            . "Transaksi: " . $pesanan->transactionDisplayName() . "\n"
+            . "Waktu: " . $pesanan->displayTransactionDateTime() . " WIB\n"
             . "Nama: " . ($pesanan->pelanggan?->nama ?? '-') . "\n"
             . "No WA: " . ($pesanan->pelanggan?->no_wa ?? '-') . "\n"
             . "Kategori: " . $pesanan->trackingTypeLabel() . "\n"
@@ -2103,84 +2090,11 @@ private function fetchPhoton(string $query): array
             ->withInput(['no_wa' => $pesanan->pelanggan?->no_wa]);
     }
 
-    public function checkNegoCode(Request $request)
-    {
-        $validated = validator($request->all(), [
-            'kode_nego' => 'required|string|max:20|regex:/^ANUTA-\d{3}$/i',
-            'no_wa' => 'required|string|max:20',
-            'items' => 'required|array|min:1',
-            'items.*.produk_id' => 'required|exists:produks,id',
-            'items.*.jumlah' => 'required|integer|min:1',
-        ], [
-            'kode_nego.regex' => 'Format kode harus ANUTA-xxx (contoh: ANUTA-123).',
-        ])->validate();
-
-        $kode = $this->normalizeNegoCode((string) $validated['kode_nego']);
-        $noWa = $this->normalizePhone((string) $validated['no_wa']);
-        $requestItems = (array) ($validated['items'] ?? []);
-
-        $kodePernahDipakai = Pesanan::query()
-            ->where('kode_nego', $kode)
-            ->where(function ($query) {
-                $query->whereNotNull('kode_nego_terpakai_at')
-                    ->orWhereNotNull('bukti_pembayaran');
-            })
-            ->exists();
-
-        if ($kodePernahDipakai) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Kode negosiasi sudah pernah digunakan.',
-            ], 422);
-        }
-
-        $pesanan = $this->findValidNegoSource($kode);
-
-        if (!$pesanan) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Kode negosiasi tidak valid atau belum disetujui admin.',
-            ], 404);
-        }
-
-        if (!$this->isNegoMatchedToCurrentOrder($pesanan, $noWa, $requestItems)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Kode tidak sesuai dengan pesanan Anda.',
-            ], 422);
-        }
-
-        $totalNormal = $this->getNormalOrderTotal($pesanan);
-        $hargaDeal = (float) $pesanan->harga_usulan;
-        
-        return response()->json([
-            'success' => true,
-            'message' => 'Kode negosiasi valid.',
-            'data' => [
-                'pesanan_id' => $pesanan->id,
-                'kode_nego' => $pesanan->kode_nego,
-                'harga_deal' => $hargaDeal,
-                'total_normal' => $totalNormal,
-                'deal_includes_shipping' => true,
-                'status' => $pesanan->status,
-                'pelanggan' => [
-                    'nama' => $pesanan->pelanggan?->nama,
-                    'no_wa' => $pesanan->pelanggan?->no_wa,
-                ],
-                'items' => $pesanan->details->map(function ($d) {
-                    return [
-                        'produk' => $d->produk?->nama ?? 'Produk',
-                        'qty' => (int) $d->jumlah,
-                        'subtotal' => (float) $d->subtotal,
-                    ];
-                })->values(),
-            ],
-        ]);
-    }
+    // Removed checkNegoCode
 
     private function syncUnitAparsForPesanan(Pesanan $pesanan): void
     {
-        if ($pesanan->tipe !== 'produk' || !in_array($pesanan->status, ['diproses', 'selesai', 'selesai final'], true)) {
+        if ($pesanan->tipe !== 'produk' || !in_array($pesanan->status, ['selesai final'], true)) {
             return;
         }
 

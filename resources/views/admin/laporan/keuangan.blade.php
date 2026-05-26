@@ -138,15 +138,15 @@
                     <tbody class="divide-y divide-gray-50">
                         @foreach($pesanans as $pesanan)
                             <tr>
-                                <td class="px-8 py-5 text-sm font-bold text-gray-900">{{ $pesanan->tanggal->format('d M Y') }}</td>
+                                <td class="px-8 py-5 text-sm font-bold text-gray-900">{{ $pesanan->displayTransactionDateTime() }}</td>
                                 <td class="px-8 py-5"><span class="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold uppercase tracking-wider">Penjualan</span></td>
-                                <td class="px-8 py-5 text-sm font-semibold text-gray-700">Pesanan #{{ $pesanan->id }} - {{ $pesanan->pelanggan->nama ?? '-' }}</td>
+                                <td class="px-8 py-5 text-sm font-semibold text-gray-700">{{ $pesanan->transactionDisplayName() }} • {{ $pesanan->displayTransactionDateTime() }} • {{ $pesanan->pelanggan->nama ?? '-' }}</td>
                                 <td class="px-8 py-5 text-sm font-black text-emerald-700">Rp {{ number_format($pesanan->total, 0, ',', '.') }}</td>
                             </tr>
                         @endforeach
                         @foreach($services as $service)
                             <tr>
-                                <td class="px-8 py-5 text-sm font-bold text-gray-900">{{ \Carbon\Carbon::parse($service->tgl_service)->format('d M Y') }}</td>
+                                <td class="px-8 py-5 text-sm font-bold text-gray-900">{{ $service->displayTransactionDateTime() }}</td>
                                 <td class="px-8 py-5"><span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-bold uppercase tracking-wider">Service</span></td>
                                 <td class="px-8 py-5 text-sm font-semibold text-gray-700">{{ $service->jenis_service }} - {{ $service->unitApar?->pelanggan?->nama ?? '-' }}</td>
                                 <td class="px-8 py-5 text-sm font-black text-blue-700">Rp {{ number_format($service->biaya, 0, ',', '.') }}</td>

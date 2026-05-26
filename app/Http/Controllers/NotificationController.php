@@ -22,7 +22,7 @@ class NotificationController extends Controller
             ->get()
             ->map(fn($p) => [
                 'id'         => $p->id,
-                'kode'       => 'Pesanan #' . $p->id,
+                'kode'       => $p->transactionDisplayName() . ' • ' . $p->displayTransactionDateTime(),
                 'pelanggan'  => $p->pelanggan?->nama ?? '-',
                 'status'     => $p->status,
                 'total'      => $p->total_harga ?: $p->total,

@@ -11,9 +11,13 @@
 
 @section('content')
 @php
-    $totalBayar = $pesanan->payableTotal();
-    $ongkir = (float) ($pesanan->ongkir ?: 0);
-    $totalBarang = max(0, $totalBayar - $ongkir);
+    $pricingSummary = $pesanan->pricingSummary();
+    $totalBayar = (float) $pricingSummary['totalPembayaran'];
+    $ongkir = (float) $pricingSummary['ongkir'];
+    $subtotalProduk = (float) $pricingSummary['subtotalProduk'];
+    $totalUnit = (int) $pricingSummary['totalUnit'];
+    $diskonPersen = (int) $pricingSummary['diskonPersen'];
+    $nominalDiskon = (float) $pricingSummary['nominalDiskon'];
     $metodePengiriman = $pesanan->metode_pengiriman ?: 'pickup';
     $selectedBankCode = ($pesanan->bank && isset($banks[$pesanan->bank])) ? $pesanan->bank : array_key_first($banks);
     $selectedBank = $banks[$selectedBankCode];
@@ -75,8 +79,9 @@
                     <div class="px-6 md:px-8 py-6 border-b border-slate-100/70 bg-white/40 backdrop-blur-sm">
                         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                             <div>
-                                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Kode Pesanan</p>
-                                <p class="text-2xl md:text-3xl font-black text-slate-900 mt-1 tracking-tight">{{ $orderCode }}</p>
+                                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Transaksi Pembayaran</p>
+                                <p class="mt-1 text-2xl font-black tracking-tight text-slate-900 md:text-3xl">{{ $pesanan->transactionDisplayName() }}</p>
+                                <p class="mt-2 text-xs font-semibold text-slate-400">{{ $pesanan->displayTransactionDateTime() }}</p>
                             </div>
                             <div class="flex items-center gap-4">
                                 <div class="px-5 py-3 rounded-2xl {{ $isExpired ? 'bg-red-50 border border-red-200' : 'bg-amber-50 border border-amber-200' }} text-center shadow-sm relative overflow-hidden">
@@ -131,7 +136,7 @@
                                 <div class="relative z-10">
                                     <p class="text-[10px] font-black uppercase tracking-widest text-red-400">Total Yang Harus Dibayar</p>
                                     <p id="nominal-bayar" class="text-3xl md:text-[36px] leading-tight font-black text-slate-900 mt-3 tracking-tight break-words">Rp {{ number_format($totalBayar, 0, ',', '.') }}</p>
-                                    <p class="text-sm font-semibold text-slate-500 mt-1">{{ $pesanan->tipe_harga === 'deal' ? 'Harga Nego Khusus' : 'Harga Normal' }}</p>
+                                    <p class="text-sm font-semibold text-slate-500 mt-1">{{ $diskonPersen > 0 ? 'Promo Diskon ' . $diskonPersen . '%' : 'Harga Normal' }}</p>
 
                                     <button type="button" id="copy-nominal" class="mt-5 w-full sm:w-auto inline-flex items-center justify-center px-4 sm:px-5 py-3 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white text-sm font-black transition shadow-lg shadow-red-600/25">
                                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
@@ -288,15 +293,27 @@
                     <!-- Price Breakdown -->
                     <div class="rounded-2xl bg-slate-50/80 backdrop-blur-sm border border-slate-100 p-5 space-y-3 shadow-sm mb-6">
                         <div class="flex items-center justify-between text-sm">
-                            <span class="font-semibold text-slate-500">{{ $isServiceOrder ? 'Estimasi Layanan' : 'Total Barang' }}</span>
-                            <span class="font-black text-slate-800">Rp {{ number_format($totalBarang, 0, ',', '.') }}</span>
+                            <span class="font-semibold text-slate-500">{{ $isServiceOrder ? 'Estimasi Layanan' : 'Subtotal Produk' }}</span>
+                            <span class="font-black text-slate-800">Rp {{ number_format($subtotalProduk, 0, ',', '.') }}</span>
                         </div>
-                        @if($metodePengiriman === 'diantar')
+                        @unless($isServiceOrder)
                             <div class="flex items-center justify-between text-sm">
-                                <span class="font-semibold text-slate-500">Ongkir Diantar</span>
-                                <span class="font-black text-slate-800">Rp {{ number_format($ongkir, 0, ',', '.') }}</span>
+                                <span class="font-semibold text-slate-500">Total Unit</span>
+                                <span class="font-black text-slate-800">{{ $totalUnit }} unit</span>
                             </div>
-                        @endif
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="font-semibold text-slate-500">Diskon Promo</span>
+                                <span class="font-black {{ $diskonPersen > 0 ? 'text-emerald-700' : 'text-slate-800' }}">{{ $diskonPersen }}%</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="font-semibold text-slate-500">Nominal Diskon</span>
+                                <span class="font-black {{ $nominalDiskon > 0 ? 'text-emerald-700' : 'text-slate-800' }}">{{ $nominalDiskon > 0 ? '- ' : '' }}Rp {{ number_format($nominalDiskon, 0, ',', '.') }}</span>
+                            </div>
+                        @endunless
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="font-semibold text-slate-500">{{ $metodePengiriman === 'diantar_internal' ? 'Ongkir Diantar' : 'Ongkir Ambil Sendiri' }}</span>
+                            <span class="font-black text-slate-800">Rp {{ number_format($ongkir, 0, ',', '.') }}</span>
+                        </div>
                         <div class="flex items-center justify-between text-sm">
                             <span class="font-semibold text-slate-500">Bank Tujuan</span>
                             <span class="font-black text-slate-800">{{ $selectedBank['nama_bank'] }}</span>

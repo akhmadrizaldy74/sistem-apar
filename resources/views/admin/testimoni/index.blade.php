@@ -49,10 +49,7 @@
                         <tr class="hover:bg-gray-50/30 transition">
                             <td class="px-8 py-5 text-sm font-black text-gray-900">{{ $t->pelanggan->nama ?? '-' }}</td>
                             <td class="px-8 py-5">
-                                <div class="flex gap-0.5 text-amber-400 text-sm">
-                                    @for($i=0;$i<$t->rating;$i++)<i class="fa-solid fa-star"></i>@endfor
-                                    @for($i=$t->rating;$i<5;$i++)<i class="fa-regular fa-star text-gray-200"></i>@endfor
-                                </div>
+                                <x-rating-stars :rating="$t->rating" sizeClass="text-base" activeClass="text-amber-400" inactiveClass="text-slate-300" emptyClass="text-xs font-semibold text-gray-400" />
                             </td>
                             <td class="px-8 py-5">
                                 <p class="text-sm text-gray-600 max-w-xs line-clamp-2">{{ $t->review }}</p>
@@ -75,7 +72,7 @@
                                     {{ $t->status }}
                                 </span>
                             </td>
-                            <td class="px-8 py-5 text-xs font-bold text-gray-500 whitespace-nowrap">{{ $t->tanggal->format('d M Y') }}</td>
+                            <td class="px-8 py-5 text-xs font-bold text-gray-500 whitespace-nowrap">{{ $t->displaySubmittedDateTime() }}</td>
                             <td class="px-8 py-5">
                                 <div class="flex gap-1.5 flex-wrap">
                                     @if($t->status !== 'approved')

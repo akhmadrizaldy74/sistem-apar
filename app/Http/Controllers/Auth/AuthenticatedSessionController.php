@@ -29,7 +29,7 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerate();
 
         if ($request->user()->isAdmin()) {
-            return redirect()->route('admin.pesanan.index');
+            return redirect()->route('dashboard');
         }
 
         if ($request->user()->isTeknisi()) {

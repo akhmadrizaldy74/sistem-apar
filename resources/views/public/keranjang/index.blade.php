@@ -34,11 +34,7 @@
 @endsection
 
 @section('content')
-    @php
-        $totalUnit = $keranjangs->sum('qty');
-        $negotiationEligible = $totalUnit >= 10;
-        $remainingToNego = max(0, 10 - $totalUnit);
-    @endphp
+
 
     <section class="cart-page min-h-screen py-10 sm:py-14">
         <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -161,17 +157,25 @@
                                     <span class="font-semibold text-slate-500">Total unit</span>
                                     <span class="font-black text-slate-800" id="summary-total-unit">{{ $totalUnit }}</span>
                                 </div>
+                                <div class="flex items-center justify-between text-sm border-t border-slate-100 pt-3">
+                                    <span class="font-semibold text-slate-500">Subtotal</span>
+                                    <span class="font-black text-slate-800" id="summary-subtotal">Rp {{ number_format($subtotal, 0, ',', '.') }}</span>
+                                </div>
+                                <div class="flex items-center justify-between text-sm">
+                                    <span class="font-semibold text-slate-500">Diskon Aktif (<span id="summary-diskon-persen">{{ $diskonPersen }}</span>%)</span>
+                                    <span class="font-black text-emerald-600" id="summary-diskon-nominal">- Rp {{ number_format($nominalDiskon, 0, ',', '.') }}</span>
+                                </div>
                                 <div class="flex items-center justify-between border-t border-slate-100 pt-4 mt-2">
                                     <span class="text-sm font-black text-slate-500">Total Belanja</span>
-                                    <span class="text-2xl font-black text-red-600" id="summary-total-harga">Rp {{ number_format($totalHarga, 0, ',', '.') }}</span>
+                                    <span class="text-2xl font-black text-red-600" id="summary-total-akhir">Rp {{ number_format($totalAkhir, 0, ',', '.') }}</span>
                                 </div>
                             </div>
 
-                            <div class="mt-5 {{ $negotiationEligible ? 'mini-note ok' : 'mini-note wait' }}" id="nego-warning-box">
-                                @if($negotiationEligible)
-                                    Harga usulan tersedia karena total pembelian sudah minimal 10 unit.
+                            <div class="mt-5 {{ $diskonPersen > 0 ? 'mini-note ok' : 'mini-note wait' }}" id="promo-warning-box">
+                                @if($diskonPersen > 0)
+                                    Selamat, Anda mendapatkan diskon {{ $diskonPersen }}%.
                                 @else
-                                    Harga usulan aktif jika total pembelian minimal 10 unit. Tambah {{ $remainingToNego }} unit lagi.
+                                    Tambah {{ 5 - $totalUnit }} unit lagi untuk mendapatkan diskon 5%.
                                 @endif
                             </div>
 
@@ -245,32 +249,45 @@
                 subtotalBox.textContent = 'Rp ' + new Intl.NumberFormat('id-ID').format(newSubtotal);
                 decBtn.disabled = (newQty <= 1);
                 
-                // Recalculate and update the grand totals and remaining units to nego immediately
+                // Recalculate and update the grand totals
                 const allItems = Array.from(document.querySelectorAll('.cart-item'));
                 let totalUnit = 0;
-                let totalHarga = 0;
+                let subtotal = 0;
                 
                 allItems.forEach(el => {
                     const elId = el.getAttribute('data-id');
                     const elPrice = parseFloat(el.getAttribute('data-price'));
                     const elQty = (elId === String(itemId)) ? newQty : parseInt(document.getElementById(`qty-val-${elId}`).textContent);
                     totalUnit += elQty;
-                    totalHarga += (elPrice * elQty);
+                    subtotal += (elPrice * elQty);
                 });
                 
+                let diskonPersen = 0;
+                if (totalUnit >= 50) diskonPersen = 25;
+                else if (totalUnit >= 35) diskonPersen = 20;
+                else if (totalUnit >= 20) diskonPersen = 15;
+                else if (totalUnit >= 10) diskonPersen = 10;
+                else if (totalUnit >= 5) diskonPersen = 5;
+
+                const nominalDiskon = subtotal * (diskonPersen / 100);
+                const totalAkhir = subtotal - nominalDiskon;
+
                 document.getElementById('summary-total-unit').textContent = totalUnit;
-                document.getElementById('summary-total-harga').textContent = 'Rp ' + new Intl.NumberFormat('id-ID').format(totalHarga);
+                document.getElementById('summary-subtotal').textContent = 'Rp ' + new Intl.NumberFormat('id-ID').format(subtotal);
+                document.getElementById('summary-diskon-persen').textContent = diskonPersen;
+                document.getElementById('summary-diskon-nominal').textContent = '- Rp ' + new Intl.NumberFormat('id-ID').format(nominalDiskon);
+                document.getElementById('summary-total-akhir').textContent = 'Rp ' + new Intl.NumberFormat('id-ID').format(totalAkhir);
                 
-                // Update negotiation note
-                const negoWarning = document.getElementById('nego-warning-box');
-                if (negoWarning) {
-                    if (totalUnit >= 10) {
-                        negoWarning.className = 'mini-note ok mt-5';
-                        negoWarning.textContent = 'Harga usulan tersedia karena total pembelian sudah minimal 10 unit.';
+                // Update promo note
+                const promoWarning = document.getElementById('promo-warning-box');
+                if (promoWarning) {
+                    if (diskonPersen > 0) {
+                        promoWarning.className = 'mini-note ok mt-5';
+                        promoWarning.textContent = `Selamat, Anda mendapatkan diskon ${diskonPersen}%.`;
                     } else {
-                        negoWarning.className = 'mini-note wait mt-5';
-                        const remaining = 10 - totalUnit;
-                        negoWarning.textContent = `Harga usulan aktif jika total pembelian minimal 10 unit. Tambah ${remaining} unit lagi.`;
+                        promoWarning.className = 'mini-note wait mt-5';
+                        const remaining = 5 - totalUnit;
+                        promoWarning.textContent = `Tambah ${remaining} unit lagi untuk mendapatkan diskon 5%.`;
                     }
                 }
 
@@ -299,8 +316,11 @@
                     // Keep DOM perfectly synced with absolute data returned from backend
                     qtyBox.textContent = data.item_qty;
                     subtotalBox.textContent = data.item_subtotal_formatted;
-                    document.getElementById('summary-total-harga').textContent = data.cart_total_formatted;
                     document.getElementById('summary-total-unit').textContent = data.cart_count;
+                    document.getElementById('summary-subtotal').textContent = data.subtotal_formatted;
+                    document.getElementById('summary-diskon-persen').textContent = data.diskon_persen;
+                    document.getElementById('summary-diskon-nominal').textContent = data.nominal_diskon_formatted;
+                    document.getElementById('summary-total-akhir').textContent = data.total_akhir_formatted;
                     
                     // Update badge counts in navbar dynamically (desktop and mobile)
                     const desktopBadge = document.querySelector('header a[href*="keranjang"] span');
@@ -333,17 +353,30 @@
                     
                     // Re-calculate totals back
                     let revertUnit = 0;
-                    let revertHarga = 0;
+                    let revertSubtotal = 0;
                     allItems.forEach(el => {
                         const elId = el.getAttribute('data-id');
                         const elPrice = parseFloat(el.getAttribute('data-price'));
                         const elQty = parseInt(document.getElementById(`qty-val-${elId}`).textContent);
                         revertUnit += elQty;
-                        revertHarga += (elPrice * elQty);
+                        revertSubtotal += (elPrice * elQty);
                     });
                     
+                    let revertDiskon = 0;
+                    if (revertUnit >= 50) revertDiskon = 25;
+                    else if (revertUnit >= 35) revertDiskon = 20;
+                    else if (revertUnit >= 20) revertDiskon = 15;
+                    else if (revertUnit >= 10) revertDiskon = 10;
+                    else if (revertUnit >= 5) revertDiskon = 5;
+
+                    const revertNominal = revertSubtotal * (revertDiskon / 100);
+                    const revertTotal = revertSubtotal - revertNominal;
+
                     document.getElementById('summary-total-unit').textContent = revertUnit;
-                    document.getElementById('summary-total-harga').textContent = 'Rp ' + new Intl.NumberFormat('id-ID').format(revertHarga);
+                    document.getElementById('summary-subtotal').textContent = 'Rp ' + new Intl.NumberFormat('id-ID').format(revertSubtotal);
+                    document.getElementById('summary-diskon-persen').textContent = revertDiskon;
+                    document.getElementById('summary-diskon-nominal').textContent = '- Rp ' + new Intl.NumberFormat('id-ID').format(revertNominal);
+                    document.getElementById('summary-total-akhir').textContent = 'Rp ' + new Intl.NumberFormat('id-ID').format(revertTotal);
                     
                     showError(err.message || 'Gagal mengubah qty. Silakan coba lagi.');
                 }

@@ -1,6 +1,6 @@
 @extends('layouts.public')
 
-@section('title', 'Invoice ' . $pesanan->orderCode() . ' - PD. Anugrah Utama')
+@section('title', $pesanan->invoiceTitle() . ' - PD. Anugrah Utama')
 
 @section('content')
 <div class="min-h-screen bg-slate-50/60 py-12">
@@ -43,16 +43,9 @@
 
                     <div class="text-left md:text-right md:self-stretch flex flex-col justify-between items-start md:items-end">
                         <div>
-                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                @if($pesanan->isRefillOrder())
-                                    Invoice Refill APAR
-                                @elseif($pesanan->isServiceOrder())
-                                    Invoice Service APAR
-                                @else
-                                    Invoice Pesanan Produk APAR
-                                @endif
-                            </span>
-                            <h2 class="text-3xl font-black text-slate-900 mt-1 break-all">{{ $pesanan->orderCode() }}</h2>
+                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Dokumen Transaksi</span>
+                            <h2 class="mt-1 text-3xl font-black text-slate-900">{{ $pesanan->invoiceTitle() }}</h2>
+                            <p class="mt-2 text-sm font-semibold text-slate-500">Tanggal Transaksi: {{ $pesanan->displayTransactionDateTime() }}</p>
                         </div>
                         
                         <div class="mt-4 md:mt-0 flex items-center gap-3">
@@ -99,10 +92,6 @@
                         <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Rincian Transaksi</h3>
                         
                         <dl class="space-y-2 text-xs">
-                            <div class="flex md:justify-end gap-4">
-                                <dt class="font-bold text-slate-400">Tanggal Transaksi:</dt>
-                                <dd class="font-black text-slate-800">{{ optional($pesanan->tanggal)->format('d F Y') ?? '-' }}</dd>
-                            </div>
                             <div class="flex md:justify-end gap-4">
                                 <dt class="font-bold text-slate-400">Metode Pemesanan:</dt>
                                 <dd class="font-black text-slate-800 uppercase">{{ $pesanan->trackingMethodLabel() }}</dd>
@@ -207,14 +196,18 @@
                     </div>
 
                 @elseif($pesanan->isServiceOrder())
+                    @php
+                        $serviceLines = $pesanan->servicePricingBreakdown();
+                        $servicePeralatan = $pesanan->servicePeralatanItems();
+                    @endphp
                     <!-- SERVICE APAR TABLE -->
                     <div class="overflow-hidden rounded-2xl border border-slate-100">
                         <table class="w-full text-left text-sm border-collapse">
                             <thead>
                                 <tr class="bg-slate-50 border-b border-slate-100">
                                     <th class="px-6 py-4 text-xs font-black uppercase tracking-wider text-slate-500">Paket Service</th>
-                                    <th class="px-6 py-4 text-xs font-black uppercase tracking-wider text-slate-500 text-center">Spesifikasi APAR</th>
-                                    <th class="px-6 py-4 text-xs font-black uppercase tracking-wider text-slate-500 text-center">Jumlah Unit</th>
+                                    <th class="px-6 py-4 text-xs font-black uppercase tracking-wider text-slate-500">Rincian Unit</th>
+                                    <th class="px-6 py-4 text-xs font-black uppercase tracking-wider text-slate-500">Peralatan Paket</th>
                                     <th class="px-6 py-4 text-xs font-black uppercase tracking-wider text-slate-500 text-right">Biaya Service</th>
                                 </tr>
                             </thead>
@@ -222,20 +215,28 @@
                                 <tr class="hover:bg-slate-50/30 transition-colors">
                                     <td class="px-6 py-4">
                                         <p class="font-black text-slate-900">{{ $pesanan->servicePaket?->nama ?? 'Paket Service APAR' }}</p>
-                                        @if($pesanan->servicePaket?->deskripsi)
-                                            <p class="text-xs text-slate-400 mt-1">{{ $pesanan->servicePaket->deskripsi }}</p>
+                                        @if($pesanan->servicePaket?->label)
+                                            <p class="text-xs text-slate-400 mt-1">{{ $pesanan->servicePaket->label }}</p>
                                         @endif
                                     </td>
-                                    <td class="px-6 py-4 text-center">
-                                        <span class="inline-block px-2.5 py-1 text-[10px] font-black uppercase tracking-wider bg-slate-100 rounded text-slate-700">
-                                            {{ $pesanan->service_jenis_apar ?: '-' }} ({{ $pesanan->service_ukuran_apar ?: '-' }})
-                                        </span>
-                                        @if($pesanan->service?->unitApar?->no_seri)
-                                            <p class="text-[10px] font-bold text-slate-500 mt-1.5">No. Seri: <span class="font-black text-slate-900">{{ $pesanan->service->unitApar->no_seri }}</span></p>
-                                        @endif
+                                    <td class="px-6 py-4">
+                                        <div class="space-y-2">
+                                            @foreach($serviceLines as $line)
+                                                <div class="rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2">
+                                                    <p class="font-semibold text-slate-800">{{ $line['label'] }}</p>
+                                                    <p class="text-xs font-bold text-slate-500 mt-1">{{ (int) ($line['qty'] ?? 1) }} unit • Rp {{ number_format((float) ($line['total'] ?? 0), 0, ',', '.') }}</p>
+                                                </div>
+                                            @endforeach
+                                        </div>
                                     </td>
-                                    <td class="px-6 py-4 text-center font-bold text-slate-800">
-                                        {{ (int) ($pesanan->service_jumlah_unit ?: 1) }} unit
+                                    <td class="px-6 py-4">
+                                        <div class="space-y-2">
+                                            @forelse($servicePeralatan as $item)
+                                                <p class="text-sm font-semibold text-slate-700">{{ $item['nama'] ?? '-' }} <span class="text-slate-400">x{{ (int) ($item['jumlah'] ?? 0) }}</span></p>
+                                            @empty
+                                                <p class="text-sm font-semibold text-slate-500">Tidak ada peralatan terhubung.</p>
+                                            @endforelse
+                                        </div>
                                     </td>
                                     <td class="px-6 py-4 text-right font-black text-slate-900">
                                         Rp {{ number_format($pesanan->payableTotal(), 0, ',', '.') }}
@@ -304,6 +305,7 @@
             <div class="p-8 sm:p-12 bg-slate-50/30 border-t border-slate-50 text-center">
                 <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Terima kasih atas kepercayaan Anda</p>
                 <p class="text-[10px] font-semibold text-slate-400 mt-1.5">Invoice ini dicetak secara otomatis dan sah sebagai bukti transaksi.</p>
+                <p class="mt-2 text-[10px] font-medium text-slate-300">Nomor referensi internal: {{ $pesanan->invoiceDisplayNumber() }}</p>
             </div>
         </div>
     </div>

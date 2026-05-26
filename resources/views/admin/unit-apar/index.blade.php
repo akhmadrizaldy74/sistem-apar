@@ -355,10 +355,20 @@
 
                 <form action="{{ route('admin.unit-apar.store') }}" method="POST" class="p-8 sm:p-10">
                     @csrf
+                    @if($errors->any())
+                        <div class="mb-8 rounded-2xl border border-red-100 bg-red-50 px-6 py-5">
+                            <p class="text-sm font-black text-red-700">Registrasi unit belum berhasil. Periksa data berikut:</p>
+                            <ul class="mt-3 space-y-1 text-sm font-semibold text-red-600">
+                                @foreach($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
                         <div class="space-y-6">
                             <div>
-                                <label for="pelanggan_id" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Pelanggan / Pemilik</label>
+                                <label for="pelanggan_id" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Pelanggan / Pemilik <span class="text-red-500">*</span></label>
                                 <select name="pelanggan_id" id="pelanggan_id" required
                                     class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 transition">
                                     <option value="">Pilih Pelanggan</option>
@@ -370,7 +380,7 @@
                             </div>
 
                             <div>
-                                <label for="produk_id" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Model Produk</label>
+                                <label for="produk_id" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Model Produk <span class="text-red-500">*</span></label>
                                 <select name="produk_id" id="produk_id" required
                                     class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 transition">
                                     <option value="">Pilih Produk</option>
@@ -401,15 +411,15 @@
 
                         <div class="space-y-6">
                             <div>
-                                <label for="tgl_beli" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Tanggal Beli</label>
+                                <label for="tgl_beli" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Tanggal Beli <span class="text-red-500">*</span></label>
                                 <input type="date" name="tgl_beli" id="tgl_beli" value="{{ old('tgl_beli') }}" required
                                     class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 transition">
                                 <p class="mt-2 text-[10px] text-gray-500 font-semibold">Tanggal beli boleh perkiraan jika dokumen pembelian tidak tersedia.</p>
                                 <x-input-error :messages="$errors->get('tgl_beli')" class="mt-2" />
                             </div>
                             <div>
-                                <label for="kondisi_awal" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Kondisi Awal Unit</label>
-                                <select name="kondisi_awal" id="kondisi_awal" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 transition">
+                                <label for="kondisi_awal" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Kondisi Awal Unit <span class="text-red-500">*</span></label>
+                                <select name="kondisi_awal" id="kondisi_awal" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 transition">
                                     <option value="layak" @selected(old('kondisi_awal', 'layak') === 'layak')>Layak</option>
                                     <option value="perlu_servis" @selected(old('kondisi_awal') === 'perlu_servis')>Perlu servis</option>
                                     <option value="tidak_aktif" @selected(old('kondisi_awal') === 'tidak_aktif')>Tidak aktif</option>
@@ -439,6 +449,22 @@
                 </form>
             </div>
         </div>
+
+        @if(session('success'))
+            <div x-data="{show:true}" x-show="show" x-init="setTimeout(()=>show=false,4500)"
+                class="fixed bottom-6 right-6 z-[200] px-6 py-4 bg-emerald-600 text-white font-bold rounded-2xl shadow-2xl flex items-center gap-3 text-sm">
+                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                {{ session('success') }}
+            </div>
+        @endif
+
+        @if(session('error'))
+            <div x-data="{show:true}" x-show="show" x-init="setTimeout(()=>show=false,5000)"
+                class="fixed bottom-6 right-6 z-[200] px-6 py-4 bg-red-600 text-white font-bold rounded-2xl shadow-2xl flex items-center gap-3 text-sm">
+                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                {{ session('error') }}
+            </div>
+        @endif
     </div>
 
     @once

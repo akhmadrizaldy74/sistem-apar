@@ -87,7 +87,7 @@ class Service extends Model
         }
 
         if ($this->pesanan_id) {
-            return 'REQ-' . $this->pesanan_id;
+            return 'Unit Request Pelanggan';
         }
 
         return 'Tanpa Seri';
@@ -102,5 +102,26 @@ class Service extends Model
         }
 
         return $this->estimasi_peralatan;
+    }
+
+    public function transactionDisplayName(): string
+    {
+        return $this->refill ? 'Refill APAR' : 'Service APAR';
+    }
+
+    public function displayTransactionAt(): ?\Illuminate\Support\Carbon
+    {
+        if ($this->created_at) {
+            return $this->created_at->copy()->timezone(config('app.timezone'));
+        }
+
+        return $this->tgl_service?->copy()
+            ->timezone(config('app.timezone'))
+            ->startOfDay();
+    }
+
+    public function displayTransactionDateTime(string $format = 'd M Y, H:i'): string
+    {
+        return $this->displayTransactionAt()?->format($format) ?? '-';
     }
 }

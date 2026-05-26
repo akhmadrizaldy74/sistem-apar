@@ -12,8 +12,8 @@
 
             @if(isset($selectedOrder) && $selectedOrder)
                 <div class="alert alert-info border-0 rounded-4">
-                    <div class="fw-bold mb-1">Penilaian untuk transaksi {{ $selectedOrder->orderCode() }}</div>
-                    <div class="small text-muted">{{ $selectedOrder->trackingItemLabel() }} • status {{ $selectedOrder->publicStatusLabel() }}</div>
+                    <div class="fw-bold mb-1">{{ $selectedOrder->transactionDisplayName() }}</div>
+                    <div class="small text-muted">{{ $selectedOrder->displayTransactionDateTime() }} • status {{ $selectedOrder->publicStatusLabel() }}</div>
                 </div>
             @endif
 
@@ -30,7 +30,7 @@
                 @if(isset($selectedOrder) && $selectedOrder)
                     <input type="hidden" name="pesanan_id" value="{{ $selectedOrder->id }}">
                 @endif
-                
+
                 <div class="mb-3">
                     <label class="form-label fw-bold">Nomor WhatsApp Anda <span class="text-danger">*</span></label>
                     <input type="text" name="no_wa" class="form-control @error('no_wa') is-invalid @enderror" value="{{ old('no_wa', $pelanggan->no_wa ?? '') }}" {{ isset($pelanggan) && $pelanggan ? 'readonly' : 'required' }} placeholder="Contoh: 08123456789">
@@ -41,10 +41,10 @@
                 <div class="mb-3">
                     <label class="form-label fw-bold">Rating / Nilai Kepuasan <span class="text-danger">*</span></label>
                     <div class="d-flex gap-3 fs-3 text-warning rating-stars">
-                        @for($i=1; $i<=5; $i++)
-                            <label class="cursor-pointer" for="rating{{$i}}">
-                                <input type="radio" name="rating" id="rating{{$i}}" value="{{$i}}" class="d-none" required {{$i==5 ? 'checked' : ''}}>
-                                <i class="fa-regular fa-star" id="star{{$i}}"></i>
+                        @for($i = 1; $i <= 5; $i++)
+                            <label class="cursor-pointer" for="rating{{ $i }}">
+                                <input type="radio" name="rating" id="rating{{ $i }}" value="{{ $i }}" class="d-none" required {{ $i == 5 ? 'checked' : '' }}>
+                                <i class="fa-regular fa-star" id="star{{ $i }}"></i>
                             </label>
                         @endfor
                     </div>
@@ -54,7 +54,7 @@
                     <label class="form-label fw-bold">Ulasan Anda <span class="text-danger">*</span></label>
                     <textarea name="review" class="form-control @error('review') is-invalid @enderror" rows="5" required placeholder="Bagaimana menurut Anda kualitas APAR & pelayanan kami?">{{ old('review') }}</textarea>
                     @error('review') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                    <small class="text-muted d-block mt-2">Jika ada kendala serius, tetap gunakan menu komplain agar admin follow up lewat WhatsApp.</small>
+                    <small class="mt-2 d-block text-muted">Jika ada kendala serius, tetap gunakan menu komplain agar admin follow up lewat WhatsApp.</small>
                 </div>
 
                 <button type="submit" class="btn btn-primary w-100 btn-lg shadow-sm" {{ isset($existingReview) && $existingReview ? 'disabled' : '' }}>
@@ -79,13 +79,13 @@
         reviewHint.className = 'small mt-2';
         document.querySelector('.rating-stars').parentElement.appendChild(reviewHint);
 
-        for(let i=1; i<=5; i++) {
-            stars.push(document.getElementById('star'+i));
+        for (let i = 1; i <= 5; i++) {
+            stars.push(document.getElementById('star' + i));
         }
-        
+
         function updateStars(val) {
-            for(let i=0; i<5; i++) {
-                if(i < val) {
+            for (let i = 0; i < 5; i++) {
+                if (i < val) {
                     stars[i].classList.remove('fa-regular');
                     stars[i].classList.add('fa-solid');
                 } else {
@@ -102,8 +102,7 @@
                 reviewHint.textContent = 'Review positif Anda akan direview admin terlebih dahulu sebelum tampil ke publik.';
             }
         }
-        
-        // Initial set based on checked radio
+
         updateStars(5);
 
         document.querySelectorAll('.rating-stars input').forEach((radio) => {

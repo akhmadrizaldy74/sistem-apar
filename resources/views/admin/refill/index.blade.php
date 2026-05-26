@@ -15,6 +15,13 @@
     @php
         $offlineRefills = $requestRefills->filter(fn ($refill) => in_array((string) $refill->sumber_pesanan, ['datang_langsung', 'offline'], true));
         $dikerjakanTeknisi = $requestRefills->filter(fn ($refill) => in_array((string) $refill->status, ['ditugaskan ke teknisi', 'dikerjakan teknisi'], true));
+        $actionButtonBase = 'inline-flex items-center justify-center px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition shadow-sm';
+        $actionButtonNeutral = $actionButtonBase . ' border-gray-200 bg-white text-gray-600 hover:bg-gray-50';
+        $actionButtonPrimary = $actionButtonBase . ' border-red-600 bg-red-600 text-white hover:bg-red-700 hover:border-red-700';
+        $actionButtonProof = $actionButtonBase . ' border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100';
+        $actionButtonDanger = $actionButtonBase . ' border-red-200 bg-white text-red-600 hover:bg-red-50';
+        $actionButtonSuccess = $actionButtonBase . ' border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:border-emerald-700';
+        $actionButtonDisabled = $actionButtonBase . ' border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed';
         $refillOfflineOptions = $jenisRefills->map(fn ($jenisRefill) => [
             'id' => $jenisRefill->id,
             'nama' => $jenisRefill->nama_label,
@@ -31,6 +38,8 @@
                 'pelanggan' => $refill->pelanggan?->nama ?? '-',
                 'no_wa' => $refill->pelanggan?->no_wa ?? '-',
                 'alamat' => $refill->pelanggan?->alamat ?? '-',
+                'transaksi' => $refill->transactionDisplayName(),
+                'waktu' => $refill->displayTransactionDateTime(),
                 'jenis' => $refill->serviceJenisRefill?->nama_label ?? 'Refill APAR',
                 'estimasi' => number_format((float) ($refill->service_estimasi_biaya ?? 0), 0, ',', '.'),
                 'ukuran' => $refill->service_ukuran_apar ?? '-',
@@ -48,6 +57,8 @@
                 'pelanggan' => $r->unitApar?->pelanggan?->nama ?? $pesanan?->pelanggan?->nama ?? '-',
                 'no_wa' => $r->unitApar?->pelanggan?->no_wa ?? $pesanan?->pelanggan?->no_wa ?? '-',
                 'alamat' => $r->unitApar?->pelanggan?->alamat ?? $pesanan?->pelanggan?->alamat ?? '-',
+                'transaksi' => $r->transactionDisplayName(),
+                'waktu' => $r->displayTransactionDateTime(),
                 'jenis' => $r->jenisRefill?->nama_label ?? $pesanan?->serviceJenisRefill?->nama_label ?? 'Refill APAR',
                 'estimasi' => number_format((float) ($r->biaya ?? $pesanan?->payableTotal() ?? 0), 0, ',', '.'),
                 'ukuran' => $r->unitApar?->produk?->kapasitas ?? $pesanan?->service_ukuran_apar ?? '-',
@@ -78,65 +89,6 @@
             <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
                 <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Proses Teknisi</p>
                 <p class="text-4xl font-black text-red-700">{{ $dikerjakanTeknisi->count() }}</p>
-            </div>
-        </div>
-
-        <div class="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
-            <div class="px-8 py-6 border-b border-gray-50 bg-gray-50/30">
-                <h3 class="text-lg font-black text-gray-900">Riwayat Data Refill</h3>
-                <p class="mt-1 text-xs font-semibold text-gray-500">Data refill yang sudah tercatat pada log refill.</p>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left">
-                    <thead class="bg-gray-50/50">
-                        <tr>
-                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Tanggal</th>
-                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Pelanggan</th>
-                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Unit APAR</th>
-                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Jenis Refill</th>
-                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Biaya</th>
-                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-50">
-                        @forelse($refills as $refill)
-                            <tr class="hover:bg-gray-50/40 transition-colors">
-                                <td class="px-8 py-5">
-                                    <p class="text-xs font-bold text-gray-900">{{ optional($refill->tgl_refill)->format('d M Y') }}</p>
-                                    <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">RFL-{{ $refill->id }}</p>
-                                </td>
-                                <td class="px-8 py-5 text-sm font-black text-gray-900">{{ $refill->unitApar?->pelanggan?->nama ?? $refill->service?->pesanan?->pelanggan?->nama ?? '-' }}</td>
-                                <td class="px-8 py-5">
-                                    <p class="text-sm font-bold text-gray-900">{{ $refill->unitApar?->no_seri ?? 'REQ-' . ($refill->pesanan_id ?? $refill->service?->pesanan_id ?? '-') }}</p>
-                                    <p class="mt-1 text-xs font-semibold text-gray-500">{{ $refill->unitApar?->produk?->nama ?? 'Unit offline / belum terhubung' }}</p>
-                                </td>
-                                <td class="px-8 py-5 text-sm font-black text-gray-900">{{ $refill->jenisRefill?->nama_label ?? '-' }}</td>
-                                <td class="px-8 py-5 text-sm font-black text-gray-900">Rp {{ number_format((float) ($refill->biaya ?? 0), 0, ',', '.') }}</td>
-                                <td class="px-8 py-5">
-                                    <div class="flex items-center justify-end gap-2">
-                                        <button type="button" onclick="openRefillDetailModal('log-{{ $refill->id }}')" class="px-3 py-2 bg-white text-gray-600 border border-gray-200 rounded-xl text-[10px] font-black uppercase hover:bg-gray-50 transition shadow-sm" title="Detail">
-                                            Detail
-                                        </button>
-                                        
-                                        @if($refill->service?->pesanan)
-                                            <a href="{{ route('invoice.show', $refill->service->pesanan) }}" class="px-3 py-2 bg-red-600 text-white hover:bg-red-700 rounded-xl hover:shadow-lg transition-all text-[10px] font-black uppercase tracking-widest" title="Lihat Invoice">
-                                                Lihat Invoice
-                                            </a>
-                                        @else
-                                            <button type="button" disabled class="px-3 py-2 bg-gray-100 text-gray-400 rounded-xl text-[10px] font-black uppercase tracking-widest cursor-not-allowed" title="Invoice tidak tersedia">
-                                                Lihat Invoice
-                                            </button>
-                                        @endif
-                                    </div>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="6" class="px-8 py-12 text-center text-sm font-semibold text-gray-500">Belum ada data refill pada log.</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
             </div>
         </div>
 
@@ -174,8 +126,8 @@
                             @endphp
                             <tr class="hover:bg-gray-50/30 transition-colors">
                                 <td class="px-8 py-6">
-                                    <p class="text-xs font-bold text-gray-900">{{ optional($refill->tanggal)->format('d M Y') }}</p>
-                                    <p class="text-[10px] font-black text-gray-400 mt-1">RFL-{{ $refill->id }}</p>
+                                    <p class="text-xs font-bold text-gray-900">{{ $refill->displayTransactionDateTime() }}</p>
+                                    <p class="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">{{ $refill->transactionDisplayName() }}</p>
                                 </td>
                                 <td class="px-8 py-6">
                                     <p class="text-sm font-bold text-gray-900">{{ $refill->pelanggan?->nama ?? '-' }}</p>
@@ -207,28 +159,36 @@
                                     @endif
                                 </td>
                                 <td class="px-8 py-6 text-right">
-                                    <div class="flex justify-end gap-2 items-center">
+                                    <div class="flex flex-wrap items-center justify-end gap-2">
                                         @if(!empty($refill->bukti_pembayaran))
-                                            <a href="{{ asset('storage/' . ltrim($refill->bukti_pembayaran, '/')) }}" target="_blank" class="px-3 py-2 rounded-xl border border-sky-200 bg-sky-50 text-sky-700 text-[10px] font-black uppercase tracking-widest hover:bg-sky-100 transition shadow-sm">
-                                                Bukti Bayar
-                                            </a>
+                                            <button type="button" onclick='openRefillProofModal(@js(asset("storage/" . ltrim($refill->bukti_pembayaran, "/"))), @js("Bukti TF - " . $refill->transactionDisplayName()))' class="{{ $actionButtonProof }}">
+                                                Bukti TF
+                                            </button>
+                                        @else
+                                            <button type="button" disabled class="{{ $actionButtonDisabled }}">
+                                                Bukti TF
+                                            </button>
                                         @endif
                                         @if(in_array((string) $refill->status, ['selesai oleh teknisi', 'dikonfirmasi admin'], true))
                                             <form action="{{ route('admin.pesanan.selesai-final', $refill) }}" method="POST" onsubmit="return confirm('Selesaikan final refill ini?')">
                                                 @csrf
-                                                <button type="submit" class="px-4 py-2.5 bg-emerald-600 text-white font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-emerald-700 transition shadow-sm">Final</button>
+                                                <button type="submit" class="{{ $actionButtonSuccess }}">Final</button>
                                             </form>
                                         @elseif($canAssign)
                                             <form action="{{ route('admin.refill.assign-teknisi', $refill) }}" method="POST" class="inline">
                                                 @csrf
-                                                <button type="submit" class="px-3 py-2 bg-red-600 text-white font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-red-700 transition shadow-sm">Assign Teknisi</button>
+                                                <button type="submit" class="{{ $actionButtonPrimary }}">Assign Teknisi</button>
                                             </form>
+                                        @else
+                                            <button type="button" disabled class="{{ $actionButtonDisabled }}">
+                                                Assign Teknisi
+                                            </button>
                                         @endif
-                                                                                <button type="button" onclick="openRefillDetailModal({{ $refill->id }})" class="px-3 py-2 bg-white text-gray-600 border border-gray-200 rounded-xl text-[10px] font-black uppercase hover:bg-gray-50 transition shadow-sm">
+                                        <button type="button" onclick="openRefillDetailModal({{ $refill->id }})" class="{{ $actionButtonNeutral }}">
                                             Detail
                                         </button>
                                         
-                                        <a href="{{ route('invoice.show', $refill) }}" class="px-3 py-2 bg-red-600 text-white hover:bg-red-700 rounded-xl hover:shadow-lg transition-all text-[10px] font-black uppercase tracking-widest" title="Lihat Invoice">
+                                        <a href="{{ route('invoice.show', $refill) }}" class="{{ $actionButtonPrimary }}" title="Lihat Invoice">
                                             Lihat Invoice
                                         </a>
 
@@ -236,10 +196,10 @@
                                             <form action="{{ route('admin.pesanan.destroy', $refill) }}" method="POST" class="inline">
                                                 @csrf
                                                 @method('DELETE')
-                                                <button type="submit" onclick="return confirm('Yakin ingin menghapus data refill ini?')" class="p-2 bg-white text-gray-400 hover:text-red-600 rounded-xl border border-gray-100 hover:border-red-100 hover:shadow-lg transition-all" title="Hapus">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                                </button>
+                                                <button type="submit" onclick="return confirm('Yakin ingin menghapus data refill ini?')" class="{{ $actionButtonDanger }}" title="Hapus">Hapus</button>
                                             </form>
+                                        @else
+                                            <button type="button" disabled class="{{ $actionButtonDisabled }}" title="Hapus">Hapus</button>
                                         @endif
                                     </div>
                                 </td>
@@ -247,6 +207,84 @@
                         @empty
                             <tr>
                                 <td colspan="6" class="px-8 py-12 text-center text-sm font-semibold text-gray-500">Belum ada data refill dari pelanggan.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+            <div class="px-8 py-6 border-b border-gray-50 bg-gray-50/30">
+                <h3 class="text-lg font-black text-gray-900">Riwayat Data Refill</h3>
+                <p class="mt-1 text-xs font-semibold text-gray-500">Data refill yang sudah tercatat pada log refill.</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead class="bg-gray-50/50">
+                        <tr>
+                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Tanggal</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Pelanggan</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Unit APAR</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Jenis Refill</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Biaya</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-50">
+                        @forelse($refills as $refill)
+                            <tr class="hover:bg-gray-50/40 transition-colors">
+                                <td class="px-8 py-5">
+                                    <p class="text-xs font-bold text-gray-900">{{ $refill->displayTransactionDateTime() }}</p>
+                                    <p class="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">{{ $refill->transactionDisplayName() }}</p>
+                                </td>
+                                <td class="px-8 py-5 text-sm font-black text-gray-900">{{ $refill->unitApar?->pelanggan?->nama ?? $refill->service?->pesanan?->pelanggan?->nama ?? '-' }}</td>
+                                <td class="px-8 py-5">
+                                    <p class="text-sm font-bold text-gray-900">{{ $refill->unitApar?->no_seri ?? 'Unit Offline / Belum Terserial' }}</p>
+                                    <p class="mt-1 text-xs font-semibold text-gray-500">{{ $refill->unitApar?->produk?->nama ?? 'Unit offline / belum terhubung' }}</p>
+                                </td>
+                                <td class="px-8 py-5 text-sm font-black text-gray-900">{{ $refill->jenisRefill?->nama_label ?? '-' }}</td>
+                                <td class="px-8 py-5 text-sm font-black text-gray-900">Rp {{ number_format((float) ($refill->biaya ?? 0), 0, ',', '.') }}</td>
+                                <td class="px-8 py-5">
+                                    @php
+                                        $refillProofUrl = !empty($refill->service?->pesanan?->bukti_pembayaran)
+                                            ? asset('storage/' . ltrim($refill->service->pesanan->bukti_pembayaran, '/'))
+                                            : null;
+                                    @endphp
+                                    <div class="flex flex-wrap items-center justify-end gap-2">
+                                        @if($refillProofUrl)
+                                            <button type="button" onclick='openRefillProofModal(@js($refillProofUrl), @js("Bukti TF - " . $refill->transactionDisplayName()))' class="{{ $actionButtonProof }}">
+                                                Bukti TF
+                                            </button>
+                                        @else
+                                            <button type="button" disabled class="{{ $actionButtonDisabled }}">
+                                                Bukti TF
+                                            </button>
+                                        @endif
+                                        <button type="button" onclick="openRefillDetailModal('log-{{ $refill->id }}')" class="{{ $actionButtonNeutral }}" title="Detail">
+                                            Detail
+                                        </button>
+                                        
+                                        @if($refill->service?->pesanan)
+                                            <a href="{{ route('invoice.show', $refill->service->pesanan) }}" class="{{ $actionButtonPrimary }}" title="Lihat Invoice">
+                                                Lihat Invoice
+                                            </a>
+                                        @else
+                                            <button type="button" disabled class="{{ $actionButtonDisabled }}" title="Invoice tidak tersedia">
+                                                Lihat Invoice
+                                            </button>
+                                        @endif
+                                        <form action="{{ route('admin.refill.destroy', $refill) }}" method="POST" class="inline">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" onclick="return confirm('Yakin ingin menghapus riwayat refill ini?')" class="{{ $actionButtonDanger }}" title="Hapus">Hapus</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6" class="px-8 py-12 text-center text-sm font-semibold text-gray-500">Belum ada data refill pada log.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -267,6 +305,22 @@
                     </button>
                 </div>
                 <div class="p-6 space-y-5" id="refill-detail-content"></div>
+            </div>
+        </div>
+
+        <div id="refill-proof-modal" class="hidden fixed inset-0 z-[160] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-gray-950/70 backdrop-blur-sm" onclick="closeRefillProofModal()"></div>
+            <div class="relative z-10 w-full max-w-4xl overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-2xl">
+                <div class="flex items-center justify-between border-b border-gray-100 px-6 py-5">
+                    <div>
+                        <h3 class="text-lg font-black text-gray-900" id="refill-proof-title">Bukti TF</h3>
+                        <p class="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">Preview bukti pembayaran pelanggan</p>
+                    </div>
+                    <button type="button" onclick="closeRefillProofModal()" class="rounded-xl bg-gray-50 p-2 text-gray-400 transition hover:text-red-600">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <div id="refill-proof-body" class="max-h-[78vh] overflow-auto bg-gray-50 p-6"></div>
             </div>
         </div>
 
@@ -423,7 +477,7 @@
             const data = refillDetailData.find((item) => item.id === id);
             if (!data) return;
 
-            document.getElementById('refill-detail-subtitle').textContent = 'RFL-' + id + ' - ' + data.pelanggan;
+            document.getElementById('refill-detail-subtitle').textContent = `${data.transaksi} - ${data.waktu}`;
 
             const paidBadge = data.is_paid
                 ? '<span class="inline-flex px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-black uppercase">LUNAS</span>'
@@ -481,6 +535,25 @@
 
         function closeRefillDetailModal() {
             document.getElementById('refill-detail-modal').classList.add('hidden');
+        }
+
+        function openRefillProofModal(url, title) {
+            const modal = document.getElementById('refill-proof-modal');
+            const body = document.getElementById('refill-proof-body');
+            const heading = document.getElementById('refill-proof-title');
+            const isPdf = /\.pdf($|\?)/i.test(String(url || ''));
+
+            heading.textContent = title || 'Bukti TF';
+            body.innerHTML = isPdf
+                ? `<iframe src="${url}" class="h-[70vh] w-full rounded-2xl border border-gray-200 bg-white" title="Preview bukti pembayaran"></iframe>`
+                : `<img src="${url}" alt="Preview bukti pembayaran" class="mx-auto max-h-[70vh] rounded-2xl border border-gray-200 bg-white object-contain">`;
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeRefillProofModal() {
+            document.getElementById('refill-proof-modal').classList.add('hidden');
+            document.getElementById('refill-proof-body').innerHTML = '';
         }
 
         function refillOfflineForm(jenisRefills, initialState) {

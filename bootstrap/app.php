@@ -23,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'teknisi' => \App\Http\Middleware\TechnicianMiddleware::class,
         ]);
+        $middleware->append(\App\Http\Middleware\TrackWebsiteVisitor::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Invoice - {{ $pesanan->orderCode() }}</title>
+    <title>{{ $pesanan->invoiceTitle() }}</title>
     <style>
         body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #1f2937; line-height: 1.4; }
         h1 { font-size: 20px; margin: 0 0 4px; }
@@ -37,16 +37,8 @@
             </p>
         </div>
         <div class="header-meta">
-            <h2 style="font-size: 18px; margin: 0; color: #111827;">{{ $pesanan->orderCode() }}</h2>
-            <p style="font-size: 9px; color: #9ca3af; uppercase: true; font-weight: bold; margin-top: 2px;">
-                @if($pesanan->isRefillOrder())
-                    Invoice Refill APAR
-                @elseif($pesanan->isServiceOrder())
-                    Invoice Service APAR
-                @else
-                    Invoice Pesanan Produk APAR
-                @endif
-            </p>
+            <h2 style="font-size: 18px; margin: 0; color: #111827;">{{ $pesanan->invoiceTitle() }}</h2>
+            <p style="font-size: 10px; color: #6b7280; margin-top: 4px;">Tanggal Transaksi: {{ $pesanan->displayTransactionDateTime() }}</p>
             <div style="margin-top: 8px;">
                 @if($isLunas)
                     <span class="badge badge-success">LUNAS / PAID</span>
@@ -76,7 +68,6 @@
         <div class="col" style="margin-left: 2%;">
             <div class="box">
                 <h2>Rincian Transaksi:</h2>
-                <p><strong>Tanggal:</strong> {{ optional($pesanan->tanggal)->format('d F Y') ?? '-' }}</p>
                 <p><strong>Metode Pemesanan:</strong> {{ strtoupper($pesanan->trackingMethodLabel()) }}</p>
                 <p><strong>Metode Pembayaran:</strong> {{ strtoupper($pesanan->getPaymentMethodLabel()) }}</p>
                 <p><strong>Status Pembayaran:</strong> {{ $isLunas ? 'Lunas / Paid' : 'Belum Lunas' }}</p>
@@ -142,12 +133,16 @@
         </table>
 
     @elseif($pesanan->isServiceOrder())
+        @php
+            $serviceLines = $pesanan->servicePricingBreakdown();
+            $servicePeralatan = $pesanan->servicePeralatanItems();
+        @endphp
         <table>
             <thead>
                 <tr>
-                    <th style="width: 45%;">Paket Service</th>
-                    <th class="text-center" style="width: 25%;">Spesifikasi APAR</th>
-                    <th class="text-center" style="width: 15%;">Jumlah Unit</th>
+                    <th style="width: 25%;">Paket Service</th>
+                    <th style="width: 35%;">Rincian Unit</th>
+                    <th style="width: 25%;">Peralatan Paket</th>
                     <th class="text-right" style="width: 15%;">Total Biaya</th>
                 </tr>
             </thead>
@@ -155,17 +150,25 @@
                 <tr>
                     <td>
                         <strong>{{ $pesanan->servicePaket?->nama ?? 'Paket Service APAR' }}</strong><br>
-                        @if($pesanan->servicePaket?->deskripsi)
-                            <span style="font-size: 9px; color: #6b7280;">{{ $pesanan->servicePaket->deskripsi }}</span>
+                        @if($pesanan->servicePaket?->label)
+                            <span style="font-size: 9px; color: #6b7280;">{{ $pesanan->servicePaket->label }}</span>
                         @endif
                     </td>
-                    <td class="text-center">
-                        {{ $pesanan->service_jenis_apar ?: '-' }} ({{ $pesanan->service_ukuran_apar ?: '-' }})
-                        @if($pesanan->service?->unitApar?->no_seri)
-                            <br><span style="font-size: 8px; color: #4b5563;">No. Seri: {{ $pesanan->service->unitApar->no_seri }}</span>
-                        @endif
+                    <td>
+                        @foreach($serviceLines as $line)
+                            <div style="margin-bottom: 4px;">
+                                <strong>{{ $line['label'] }}</strong><br>
+                                <span style="font-size: 9px; color: #4b5563;">{{ (int) ($line['qty'] ?? 1) }} unit - Rp {{ number_format((float) ($line['total'] ?? 0), 0, ',', '.') }}</span>
+                            </div>
+                        @endforeach
                     </td>
-                    <td class="text-center">{{ (int) ($pesanan->service_jumlah_unit ?: 1) }} unit</td>
+                    <td>
+                        @forelse($servicePeralatan as $item)
+                            <div style="font-size: 9px; color: #374151; margin-bottom: 2px;">{{ $item['nama'] ?? '-' }} x{{ (int) ($item['jumlah'] ?? 0) }}</div>
+                        @empty
+                            <span style="font-size: 9px; color: #6b7280;">Tidak ada peralatan terhubung.</span>
+                        @endforelse
+                    </td>
                     <td class="text-right">Rp {{ number_format($pesanan->payableTotal(), 0, ',', '.') }}</td>
                 </tr>
             </tbody>
@@ -204,6 +207,7 @@
     <div style="margin-top: 40px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 15px;">
         <p style="font-size: 9px; font-weight: bold; color: #9ca3af; uppercase: true; letter-spacing: 0.5px;">Terima kasih atas kepercayaan Anda</p>
         <p style="font-size: 8px; color: #9ca3af; margin-top: 2px;">Invoice ini dicetak secara otomatis dan sah sebagai bukti transaksi.</p>
+        <p style="font-size: 8px; color: #cbd5e1; margin-top: 4px;">Nomor referensi internal: {{ $pesanan->invoiceDisplayNumber() }}</p>
     </div>
 </body>
 </html>

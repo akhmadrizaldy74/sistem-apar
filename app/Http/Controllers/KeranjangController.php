@@ -2,18 +2,25 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Middleware\TrackWebsiteVisitor;
 use App\Models\Produk;
+use App\Services\OrderPricingService;
 use App\Support\SessionCart;
 use Illuminate\Http\Request;
 
 class KeranjangController extends Controller
 {
-    public function index()
+    public function index(OrderPricingService $orderPricingService)
     {
         $keranjangs = SessionCart::items();
-        $totalHarga = $keranjangs->sum(fn ($item) => $item->harga * $item->qty);
+        $summary = $orderPricingService->summarizeCart($keranjangs);
+        $totalUnit = (int) $summary['totalUnit'];
+        $subtotal = (float) $summary['subtotalProduk'];
+        $diskonPersen = (int) $summary['diskonPersen'];
+        $nominalDiskon = (float) $summary['nominalDiskon'];
+        $totalAkhir = (float) $summary['totalPembayaran'];
 
-        return view('public.keranjang.index', compact('keranjangs', 'totalHarga'));
+        return view('public.keranjang.index', compact('keranjangs', 'totalUnit', 'subtotal', 'diskonPersen', 'nominalDiskon', 'totalAkhir'));
     }
 
     public function store(Request $request)
@@ -38,10 +45,12 @@ class KeranjangController extends Controller
 
         SessionCart::add($produk, $qty);
 
+        TrackWebsiteVisitor::trackAddToCart($request, $produk->id, $produk->nama, $qty);
+
         return back()->with('success', '"' . $produk->nama . '" berhasil ditambahkan ke keranjang.');
     }
 
-    public function update(Request $request, string $item)
+    public function update(Request $request, string $item, OrderPricingService $orderPricingService)
     {
         $request->validate([
             'qty' => 'required|integer|min:1|max:999',
@@ -77,10 +86,12 @@ class KeranjangController extends Controller
 
         if ($request->wantsJson() || $request->ajax()) {
             $allCart = SessionCart::items();
-            $cartTotal = $allCart->sum(fn ($cartItem) => $cartItem->harga * $cartItem->qty);
-            $cartCount = $allCart->sum('qty');
-            $negotiationEligible = $cartCount >= 10;
-            $remainingToNego = max(0, 10 - $cartCount);
+            $summary = $orderPricingService->summarizeCart($allCart);
+            $cartCount = (int) $summary['totalUnit'];
+            $subtotal = (float) $summary['subtotalProduk'];
+            $diskonPersen = (int) $summary['diskonPersen'];
+            $nominalDiskon = (float) $summary['nominalDiskon'];
+            $totalAkhir = (float) $summary['totalPembayaran'];
 
             return response()->json([
                 'success' => true,
@@ -88,11 +99,14 @@ class KeranjangController extends Controller
                 'item_qty' => $keranjang->qty,
                 'item_subtotal' => $keranjang->qty * $keranjang->harga,
                 'item_subtotal_formatted' => 'Rp ' . number_format($keranjang->qty * $keranjang->harga, 0, ',', '.'),
-                'cart_total' => $cartTotal,
-                'cart_total_formatted' => 'Rp ' . number_format($cartTotal, 0, ',', '.'),
+                'subtotal' => $subtotal,
+                'subtotal_formatted' => 'Rp ' . number_format($subtotal, 0, ',', '.'),
+                'diskon_persen' => $diskonPersen,
+                'nominal_diskon' => $nominalDiskon,
+                'nominal_diskon_formatted' => '- Rp ' . number_format($nominalDiskon, 0, ',', '.'),
+                'total_akhir' => $totalAkhir,
+                'total_akhir_formatted' => 'Rp ' . number_format($totalAkhir, 0, ',', '.'),
                 'cart_count' => $cartCount,
-                'negotiation_eligible' => $negotiationEligible,
-                'remaining_to_nego' => $remainingToNego,
             ]);
         }
 

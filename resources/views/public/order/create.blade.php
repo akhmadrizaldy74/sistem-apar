@@ -27,43 +27,55 @@
     .summary-card{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:1.25rem;padding:1.25rem}
     .summary-row{display:flex;justify-content:space-between;align-items:center;padding:.4rem 0;font-size:.875rem}
     .summary-row.total{border-top:1.5px dashed #cbd5e1;padding-top:.75rem;margin-top:.25rem}
-    .nego-toggle{display:flex;align-items:center;gap:.625rem;padding:.75rem 1rem;background:#fffbeb;border:1.5px solid #fde68a;border-radius:.875rem;cursor:pointer;transition:all .2s ease;width:100%}
-    .nego-toggle:hover{background:#fef3c7}
-    .nego-toggle.active{background:#fffbeb;border-color:#d97706;box-shadow:0 0 0 3px rgba(217,119,6,0.1)}
-    .nego-box{background:#fffbeb;border:1.5px solid #fde68a;border-radius:.875rem;padding:1rem}
-    .deal-box{background:linear-gradient(135deg,#ecfdf5 0%,#d1fae5 100%);border:1.5px solid #6ee7b7;border-radius:.875rem;padding:.875rem 1rem}
-    .kode-nego-input{flex:1;padding:.625rem .875rem;background:#fff;border:1.5px solid #e2e8f0;border-radius:.75rem;font-size:.875rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#1e293b;outline:none;transition:all .2s ease}
-    .kode-nego-input:focus{border-color:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,0.1)}
-    .btn-nego-check{padding:.625rem 1.25rem;background:#10b981;color:#fff;border-radius:.75rem;font-size:.8rem;font-weight:800;border:none;cursor:pointer;transition:all .2s ease;white-space:nowrap}
-    .btn-nego-check:hover{background:#059669}
-    .btn-nego-check:disabled{opacity:.5;cursor:not-allowed}
-    .shipping-btn{flex:1;padding:.625rem;border-radius:.75rem;font-size:.8rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;border:2px solid;cursor:pointer;transition:all .2s ease;text-align:center}
-    .shipping-btn.pickup{border-color:#94a3b8;background:#fff;color:#475569}
-    .shipping-btn.pickup.active{border-color:#1e293b;background:#1e293b;color:#fff}
-    .shipping-btn.diantar{border-color:#10b981;background:#fff;color:#059669}
-    .shipping-btn.diantar.active{border-color:#10b981;background:#10b981;color:#fff}
+    .choice-grid{display:grid;gap:.75rem}
+    .choice-grid.shipping{grid-template-columns:repeat(1,minmax(0,1fr))}
+    .choice-grid.bank{grid-template-columns:repeat(1,minmax(0,1fr))}
+    @media(min-width:640px){.choice-grid.shipping{grid-template-columns:repeat(2,minmax(0,1fr))}.choice-grid.bank{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(min-width:1024px){.choice-grid.bank{grid-template-columns:repeat(3,minmax(0,1fr))}}
+    .choice-card{width:100%;min-height:100%;padding:1rem 1.05rem;border:1.5px solid #e2e8f0;border-radius:1rem;background:linear-gradient(180deg,#fff 0%,#f8fafc 100%);cursor:pointer;transition:all .18s ease;box-shadow:0 1px 2px rgba(15,23,42,.03)}
+    .choice-card:hover{border-color:#fca5a5;background:#fff}
+    .choice-card.active{border-color:#dc2626;background:linear-gradient(180deg,#fff5f5 0%,#fef2f2 100%);box-shadow:0 0 0 3px rgba(220,38,38,.08)}
+    .choice-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:.9rem}
+    .choice-card-copy{min-width:0}
+    .choice-card-kicker{display:block;font-size:.63rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#94a3b8}
+    .choice-card-title{display:block;margin-top:.28rem;font-size:1rem;font-weight:900;line-height:1.2;color:#0f172a}
+    .choice-card-subtitle{display:block;margin-top:.3rem;font-size:.77rem;font-weight:600;line-height:1.45;color:#64748b}
+    .choice-card-indicator{width:1.15rem;height:1.15rem;border-radius:9999px;border:2px solid #cbd5e1;background:#fff;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .18s ease;margin-top:.08rem}
+    .choice-card-indicator::after{content:'';width:.45rem;height:.45rem;border-radius:9999px;background:#dc2626;opacity:0;transform:scale(.7);transition:all .18s ease}
+    .choice-card.active .choice-card-indicator{border-color:#dc2626;background:#fff}
+    .choice-card.active .choice-card-indicator::after{opacity:1;transform:scale(1)}
+    .shipping-card.active .choice-card-title,.bank-option.active .choice-card-title{color:#991b1b}
+    .shipping-card.active .choice-card-subtitle,.bank-option.active .choice-card-subtitle{color:#7f1d1d}
     .address-suggestion-item{display:block;width:100%;text-align:left;padding:.7rem .85rem;border-bottom:1px solid #f1f5f9;background:#fff;transition:all .2s ease}
     .address-suggestion-item:last-child{border-bottom:0}
     .address-suggestion-item:hover{background:#fef2f2}
     .address-suggestion-title{display:block;font-size:.9rem;font-weight:700;color:#0f172a;line-height:1.35}
     .address-suggestion-subtitle{display:block;font-size:.72rem;font-weight:600;color:#64748b;line-height:1.35;margin-top:.15rem}
-    .bank-option{width:100%;padding:1rem;border-radius:1rem;border:1.5px solid #e2e8f0;background:#fff;text-align:left;transition:all .2s ease;cursor:pointer}
-    .bank-option:hover{border-color:#cbd5e1;background:#f8fafc}
-    .bank-option.active{border-color:#dc2626;background:linear-gradient(135deg,#fff1f2 0%,#ffe4e6 100%);box-shadow:0 0 0 3px rgba(220,38,38,0.08)}
-    .bank-option-label{display:flex;align-items:center;justify-content:space-between;gap:.75rem}
-    .bank-option-dot{width:1rem;height:1rem;border-radius:9999px;border:2px solid #cbd5e1;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
-    .bank-option.active .bank-option-dot{border-color:#dc2626}
-    .bank-option-dot::after{content:'';width:.4rem;height:.4rem;border-radius:9999px;background:#dc2626;opacity:0;transition:opacity .2s ease}
-    .bank-option.active .bank-option-dot::after{opacity:1}
+    .bank-option{padding:.8rem .9rem;min-height:auto}
+    .bank-option .choice-card-title{font-size:1rem}
+    .bank-option .choice-card-kicker{font-size:.6rem}
+    .bank-option .choice-card-header{align-items:center}
+    .shipping-action-row{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin-top:.85rem}
+    .btn-shipping-quote{display:inline-flex;align-items:center;gap:.45rem;padding:.62rem .95rem;border-radius:.85rem;background:#dc2626;color:#fff;font-size:.78rem;font-weight:900;letter-spacing:.04em;border:none;cursor:pointer;transition:all .18s ease;box-shadow:0 8px 20px rgba(220,38,38,.18)}
+    .btn-shipping-quote:hover{background:#b91c1c}
+    .btn-shipping-quote:disabled{opacity:.65;cursor:wait}
+    .shipping-status-note{display:none;margin-top:.75rem;padding:.8rem .9rem;border-radius:.95rem;border:1px solid #e2e8f0;background:#f8fafc}
+    .shipping-status-note.show{display:block}
+    .shipping-status-note.compact{background:#fff;border-color:#e2e8f0}
+    .shipping-status-note.success{border-color:#fecaca;background:#fff5f5}
+    .shipping-status-note.error{border-color:#fecaca;background:#fef2f2}
+    .shipping-status-label{display:block;font-size:.62rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8}
+    .shipping-status-value{display:block;margin-top:.18rem;font-size:1rem;font-weight:900;line-height:1.2;color:#0f172a}
+    .shipping-status-meta{display:block;margin-top:.2rem;font-size:.74rem;font-weight:700;line-height:1.4;color:#64748b}
+    .shipping-status-note.success .shipping-status-label,.shipping-status-note.success .shipping-status-value{color:#991b1b}
+    .shipping-status-note.success .shipping-status-meta{color:#7f1d1d}
+    .shipping-status-note.error .shipping-status-label,.shipping-status-note.error .shipping-status-value{color:#b91c1c}
+    .shipping-status-note.error .shipping-status-meta{color:#991b1b}
     .btn-primary-action{display:inline-flex;align-items:center;gap:.5rem;padding:.75rem 1.5rem;border-radius:1rem;font-size:.875rem;font-weight:800;border:none;cursor:pointer;transition:all .2s ease}
     .btn-primary-action.wa{background:#16a34a;color:#fff;box-shadow:0 4px 14px rgba(22,163,74,0.35)}
     .btn-primary-action.wa:hover{background:#15803d;transform:translateY(-1px);box-shadow:0 6px 20px rgba(22,163,74,0.4)}
     .btn-primary-action.submit{background:#1e293b;color:#fff;box-shadow:0 4px 14px rgba(30,41,59,0.3)}
     .btn-primary-action.submit:hover{background:#0f172a;transform:translateY(-1px)}
-    .btn-primary-action.submit.deal{background:#059669;color:#fff;box-shadow:0 4px 14px rgba(5,150,105,0.4)}
-    .btn-primary-action.submit.deal:hover{background:#047857}
-    .btn-primary-action.submit.nego{background:#d97706;color:#fff;box-shadow:0 4px 14px rgba(217,119,6,0.4)}
-    .btn-primary-action.submit.nego:hover{background:#b45309}
     .btn-primary-action.submit.service{background:#dc2626;color:#fff;box-shadow:0 4px 14px rgba(220,38,38,0.35)}
     .btn-primary-action.submit.service:hover{background:#b91c1c}
     .btn-add-item{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1rem;background:#fef2f2;border:1.5px solid #fecaca;border-radius:.75rem;color:#dc2626;font-size:.8rem;font-weight:800;cursor:pointer;transition:all .2s ease}
@@ -115,8 +127,7 @@
 
 <script>
     const PRODUK_DB = {!! json_encode($produks->load('jenisApar')) !!};
-    const CHECK_NEGO_CODE_URL = '{{ route('order.check-nego-code') }}';
-    const ASK_WHATSAPP_URL = '{{ route('order.ask-whatsapp') }}';
+
     const SHIPPING_QUOTE_URL = '{{ route('order.shipping.quote') }}';
     const ADDRESS_SUGGEST_URL = '{{ route('order.address.suggest') }}';
     const WA_NUMBER = '{{ preg_replace("/^0/", "62", env("WHATSAPP_CONTACT", "082124716109")) }}';
@@ -143,6 +154,7 @@
     const CAN_USE_CART_CHECKOUT = {{ !empty($canUseCartCheckout) ? 'true' : 'false' }};
     const CART_HAS_ITEMS = {{ !empty($cartItemCount) ? 'true' : 'false' }};
     const PREFILLED_ORDER_ITEMS = {!! json_encode(($prefilledOrderItems ?? collect())->values()) !!};
+    const INITIAL_PRODUCT_SUMMARY = {!! json_encode($orderSummary ?? []) !!};
     const USING_DIRECT_PRODUCT_SELECTION = {{ !empty($prefillFromProduct) ? 'true' : 'false' }};
     const JENIS_REFILL_DB = {!! json_encode(($jenisRefills ?? collect())->map(function ($jenisRefill) {
         return [
@@ -171,6 +183,13 @@
         $purchaseDate = $unitApar->tgl_beli ? $unitApar->tgl_beli->translatedFormat('d F Y') : 'Tanpa tanggal';
         $purchaseKey = $unitApar->tgl_beli ? $unitApar->tgl_beli->toDateString() : 'tanpa-tanggal';
         $purchaseLabel = $purchaseDate;
+        $rawStatusUnit = mb_strtolower(trim((string) ($unitApar->kondisi_awal ?? '')));
+        $statusUnit = match ($rawStatusUnit) {
+            'tidak_aktif' => 'Tidak Aktif',
+            'perlu_servis' => 'Perlu Servis',
+            'aktif', 'valid', 'layak', '' => 'Aktif',
+            default => ucwords(str_replace('_', ' ', $rawStatusUnit)),
+        };
         $label = collect([$kode, $produkNama, $jenisApar, $ukuran])
             ->map(fn ($part) => trim((string) $part))
             ->filter()
@@ -184,30 +203,15 @@
             'ukuran' => $ukuran,
             'tgl_beli' => $purchaseDate,
             'masa_berlaku' => $unitApar->tgl_expired ? $unitApar->tgl_expired->translatedFormat('d F Y') : '-',
-            'status_unit' => (string) ($unitApar->kondisi_awal ?: '-'),
+            'status_unit' => $statusUnit,
             'label' => $label,
             'purchase_key' => $purchaseKey,
             'purchase_label' => $purchaseLabel,
         ];
     })->values()) !!};
     const OLD_SELECTED_UNIT_APAR_IDS = {!! json_encode(collect(old('service_unit_apar_ids', old('service_unit_apar_id') ? [old('service_unit_apar_id')] : []))->map(fn ($id) => (int) $id)->filter()->values()) !!};
-    const SERVICE_PAKET_DB = {!! json_encode(($servicePakets ?? collect())->map(function ($servicePaket) {
-        return [
-            'id' => (int) $servicePaket->id,
-            'label' => (string) ($servicePaket->label ?? ''),
-            'nama' => (string) $servicePaket->nama,
-            'harga' => (float) $servicePaket->harga,
-            'jenis_refill_id' => $servicePaket->jenis_refill_id ? (int) $servicePaket->jenis_refill_id : null,
-            'refill_ratio' => (float) ($servicePaket->refill_ratio ?? 0),
-            'rincian' => $servicePaket->rincian_list,
-            'peralatans' => $servicePaket->peralatans->map(function ($peralatan) {
-                return [
-                    'nama' => (string) $peralatan->nama,
-                    'jumlah' => (int) ($peralatan->pivot->jumlah_estimasi ?? 0),
-                ];
-            })->values(),
-        ];
-    })->values()) !!};
+    const SERVICE_PAKET_DB = {!! json_encode(array_values($servicePackageCatalog ?? [])) !!};
+    const SERVICE_MEDIA_DB = {!! json_encode(array_values($serviceMediaOptions ?? [])) !!};
     const SERVICE_UKURAN_OPTIONS = {!! json_encode(array_values($serviceUkuranOptions ?? [])) !!};
 </script>
 
@@ -219,8 +223,26 @@
         $cartItems = $cartItems ?? collect();
         $cartHasItems = $cartItems->isNotEmpty();
         $prefilledOrderItems = collect($prefilledOrderItems ?? []);
+        $orderSummary = $orderSummary ?? [
+            'subtotalProduk' => 0,
+            'totalUnit' => 0,
+            'diskonPersen' => 0,
+            'nominalDiskon' => 0,
+            'ongkir' => 0,
+            'totalPembayaran' => 0,
+            'nextDiscountTier' => null,
+            'nextDiscountPercent' => null,
+            'nextDiscountUnitsNeeded' => null,
+        ];
         $prefilledOrderTotal = (float) $prefilledOrderItems->sum(fn ($item) => ((float) ($item['harga'] ?? 0)) * ((int) ($item['jumlah'] ?? 0)));
         $prefilledOrderQty = (int) $prefilledOrderItems->sum(fn ($item) => (int) ($item['jumlah'] ?? 0));
+        $selectedShippingMethod = old('metode_pengiriman', (($orderSummary['ongkir'] ?? 0) > 0 ? 'diantar' : 'pickup'));
+        $selectedShippingMethod = in_array($selectedShippingMethod, ['diantar', 'pickup', 'ambil_sendiri', 'diantar_internal'], true)
+            ? $selectedShippingMethod
+            : 'pickup';
+        $selectedShippingMethod = in_array($selectedShippingMethod, ['pickup', 'ambil_sendiri'], true) ? 'pickup' : 'diantar';
+        $selectedBank = old('bank_tujuan', old('bank', ''));
+        $hasInitialDiscount = (int) ($orderSummary['diskonPersen'] ?? 0) > 0;
     @endphp
 
     {{-- Header --}}
@@ -260,12 +282,10 @@
     @csrf
     <input type="hidden" id="inp-submit-source" name="submit_source" value="normal">
     <input type="hidden" id="inp-tipe-harga" name="tipe_harga" value="normal">
-    <input type="hidden" id="inp-is-nego-deal" name="is_nego_deal" value="0">
-    <input type="hidden" id="inp-harga-deal" name="harga_deal" value="">
-    <input type="hidden" id="inp-metode-pengiriman" name="metode_pengiriman" value="pickup">
-    <input type="hidden" id="inp-bank" name="bank" value="{{ old('bank') }}">
-    <input type="hidden" id="inp-ongkir" name="ongkir" value="0">
-    <input type="hidden" id="inp-shipping-distance" name="shipping_distance_km" value="0">
+    <input type="hidden" id="inp-metode-pengiriman" value="{{ $selectedShippingMethod }}">
+    <input type="hidden" id="inp-bank" value="{{ $selectedBank }}">
+    <input type="hidden" id="inp-ongkir" name="ongkir" value="{{ old('ongkir', (float) ($orderSummary['ongkir'] ?? 0)) }}">
+    <input type="hidden" id="inp-shipping-distance" name="shipping_distance_km" value="{{ old('shipping_distance_km', 0) }}">
     <input type="hidden" id="inp-use-cart-checkout" name="use_cart_checkout" value="{{ !empty($canUseCartCheckout) && $cartHasItems ? '1' : '0' }}">
 
     <div id="section-beli" class="mb-5">
@@ -526,17 +546,6 @@
                         @endforeach
                     </div>
 
-                    <div class="mt-5 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Ringkasan Produk</p>
-                            <p class="mt-1 text-sm font-semibold text-slate-600">{{ $cartItemCount }} unit siap diproses di halaman ini.</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Total Belanja</p>
-                            <p class="mt-1 text-2xl font-black text-red-600">Rp {{ number_format($cartTotal, 0, ',', '.') }}</p>
-                        </div>
-                    </div>
-
                     <div class="mt-5 flex flex-col gap-3 sm:flex-row">
                         <a href="{{ route('produk.index') }}" class="flow-cta secondary flex-1">
                             Kembali ke Katalog
@@ -574,17 +583,6 @@
                                 </div>
                             </div>
                         @endforeach
-                    </div>
-
-                    <div class="mt-5 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Ringkasan Produk</p>
-                            <p class="mt-1 text-sm font-semibold text-slate-600">{{ $prefilledOrderQty }} unit siap diproses pada halaman ini.</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Total Belanja</p>
-                            <p class="mt-1 text-2xl font-black text-red-600">Rp {{ number_format($prefilledOrderTotal, 0, ',', '.') }}</p>
-                        </div>
                     </div>
 
                     <div class="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -701,14 +699,19 @@
                     </div>
                     <div id="service-registered-unit-list" class="mt-4 space-y-3"></div>
                     <p id="service-registered-count-note" class="hidden mt-3 text-xs font-black uppercase tracking-[0.18em] text-blue-600"></p>
-                    <div class="mt-3 flex flex-col gap-2 sm:flex-row">
-                        <button type="button" id="btn-select-all-units" class="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-red-700 hover:bg-red-100 transition">
-                            Centang Semua
-                        </button>
-                        <button type="button" id="btn-clear-all-units" class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-600 hover:bg-slate-100 transition">
-                            Hapus Semua Centang
-                        </button>
-                    </div>
+                </div>
+
+                <div id="service-manual-type-field" class="hidden">
+                    <label class="order-label">Jenis Media APAR <span>*</span></label>
+                    <select id="service-jenis-apar-manual" class="order-input">
+                        <option value="">-- Pilih Jenis Media APAR --</option>
+                        @foreach(($serviceMediaOptions ?? []) as $mediaOption)
+                            <option value="{{ $mediaOption['label'] }}" {{ old('service_jenis_apar') === $mediaOption['label'] ? 'selected' : '' }}>
+                                {{ $mediaOption['label'] }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <p class="mt-2 text-xs font-semibold leading-relaxed text-slate-500">Ukuran APAR akan menyesuaikan jenis media yang tersedia di sistem.</p>
                 </div>
 
                 <div id="service-manual-size-field">
@@ -721,8 +724,13 @@
                     </select>
                 </div>
 
+                <div id="service-quantity-field">
+                    <label class="order-label">Jumlah Unit <span>*</span></label>
+                    <input type="number" name="service_jumlah_unit" id="service-jumlah-unit" min="1" value="{{ old('service_jumlah_unit', 1) }}" class="order-input">
+                </div>
+
                 <div id="service-refill-fields" class="contents">
-                    <div>
+                    <div id="service-refill-select-field">
                         <label class="order-label">Jenis Refil <span>*</span></label>
                         <select name="service_jenis_refill_id" id="service-jenis-refill-id" class="order-input">
                             <option value="">-- Pilih Jenis Refil --</option>
@@ -738,26 +746,18 @@
                 </div>
 
                 <div id="service-service-fields" class="contents hidden">
-                    <div>
+                    <div class="md:col-span-2">
                         <label class="order-label">Paket Service <span>*</span></label>
                         <select name="service_paket_id" id="service-paket-id" class="order-input">
                             <option value="">-- Pilih Paket Service --</option>
                             @foreach($servicePakets as $servicePaket)
-                                <option value="{{ $servicePaket->id }}" {{ (string) old('service_paket_id') === (string) $servicePaket->id ? 'selected' : '' }}>{{ $servicePaket->label ?: 'Paket' }} - {{ $servicePaket->nama }} - Rp {{ number_format($servicePaket->harga, 0, ',', '.') }}</option>
+                                <option value="{{ $servicePaket->id }}" {{ (string) old('service_paket_id') === (string) $servicePaket->id ? 'selected' : '' }}>{{ $servicePaket->label ?: 'Paket' }} - {{ $servicePaket->nama }} - Harga mengikuti media & ukuran APAR</option>
                             @endforeach
                         </select>
                     </div>
-                    <div id="service-paket-info" class="hidden rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Ringkasan Paket</p>
-                        <div id="service-paket-info-content" class="mt-3 space-y-2 text-sm font-semibold leading-relaxed text-slate-700"></div>
-                    </div>
                 </div>
 
-                <div id="service-quantity-field">
-                    <label class="order-label">Jumlah Unit <span>*</span></label>
-                    <input type="number" name="service_jumlah_unit" id="service-jumlah-unit" min="1" value="{{ old('service_jumlah_unit', 1) }}" class="order-input">
-                </div>
-                <div>
+                <div class="md:col-span-2">
                     <label class="order-label">Upload Foto APAR <span class="text-slate-300 font-normal normal-case tracking-normal">(Opsional)</span></label>
                     <input type="file" name="service_foto" id="service-foto" accept=".jpg,.jpeg,.png,.webp" class="order-input text-slate-500 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-red-50 file:text-red-600">
                     <p class="text-[11px] font-semibold text-slate-400 mt-1">Foto membantu admin melakukan pemeriksaan awal.</p>
@@ -836,7 +836,7 @@
                                 <span id="service-summary-qty" class="font-black text-slate-800">1 unit</span>
                             </div>
                             <div class="summary-row">
-                                <span class="text-slate-500 font-semibold">Kebutuhan Refill</span>
+                                <span id="service-summary-usage-label" class="text-slate-500 font-semibold">Kebutuhan Refill</span>
                                 <span id="service-summary-kg" class="font-black text-slate-800">-</span>
                             </div>
                             <div class="summary-row">
@@ -851,17 +851,11 @@
                     </div>
 
                     <div class="order-section-card p-6 space-y-4">
-                        <div class="rounded-2xl border border-blue-200 bg-blue-50 p-4">
-                            <p class="text-xs font-black uppercase tracking-[0.18em] text-blue-600">Stok Saat Ini</p>
-                            <p id="service-stock-current" class="mt-2 text-lg font-black text-slate-900">Pilih jenis refil untuk melihat stok.</p>
-                            <p id="service-stock-after" class="mt-1 text-xs font-semibold text-slate-500">Sisa stok setelah transaksi akan tampil di sini.</p>
-                        </div>
-
                         <div id="service-stock-warning" class="hidden rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700"></div>
                         <div id="service-low-stock-warning" class="hidden rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800"></div>
 
                         <div id="service-package-note" class="hidden rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                            <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Rincian Paket</p>
+                            <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Rincian Paket & Harga</p>
                             <div id="service-package-rincian" class="mt-3 space-y-2 text-sm font-semibold text-slate-700"></div>
                         </div>
 
@@ -869,8 +863,6 @@
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                             <span id="btn-service-submit-label">Lanjut ke Pembayaran</span>
                         </button>
-
-                        <p class="text-[11px] text-slate-400 font-semibold text-center">Harga layanan memakai standar sistem. Setelah form dikirim, pelanggan langsung lanjut ke pembayaran dan status akan mengikuti alur pickup atau pengiriman.</p>
                     </div>
                 </div>
                 <div id="section-service-sidebar" class="space-y-5">
@@ -883,20 +875,42 @@
                         </div>
                         <p class="text-sm font-black text-slate-800">Metode Pengiriman</p>
                     </div>
-                    <div class="flex gap-3">
-                        <button type="button" id="btn-pickup" class="shipping-btn pickup active">
-                            Ambil Sendiri
-                        </button>
-                        <button type="button" id="btn-lalamove" class="shipping-btn lalamove">
-                            Diantar
-                        </button>
+                    <div class="choice-grid shipping">
+                        <label for="shipping-ambil-sendiri" class="flex-1 cursor-pointer">
+                            <input id="shipping-ambil-sendiri" type="radio" name="metode_pengiriman" value="ambil_sendiri" class="sr-only" {{ $selectedShippingMethod === 'pickup' ? 'checked' : '' }}>
+                            <div data-shipping-card="pickup" class="choice-card shipping-card">
+                                <div class="choice-card-header">
+                                    <div class="choice-card-copy">
+                                        <span class="choice-card-kicker">Metode Pengiriman</span>
+                                        <span class="choice-card-title">Ambil Sendiri</span>
+                                        <span class="choice-card-subtitle">Ambil pesanan langsung di lokasi kami tanpa biaya ongkir.</span>
+                                    </div>
+                                    <span class="choice-card-indicator" aria-hidden="true"></span>
+                                </div>
+                            </div>
+                        </label>
+                        <label for="shipping-diantar" class="flex-1 cursor-pointer">
+                            <input id="shipping-diantar" type="radio" name="metode_pengiriman" value="diantar" class="sr-only" {{ $selectedShippingMethod === 'diantar' ? 'checked' : '' }}>
+                            <div data-shipping-card="diantar" class="choice-card shipping-card">
+                                <div class="choice-card-header">
+                                    <div class="choice-card-copy">
+                                        <span class="choice-card-kicker">Metode Pengiriman</span>
+                                        <span class="choice-card-title">Diantar</span>
+                                        <span class="choice-card-subtitle">Pesanan dikirim ke alamat Anda dengan ongkir sesuai hasil perhitungan sistem.</span>
+                                    </div>
+                                    <span class="choice-card-indicator" aria-hidden="true"></span>
+                                </div>
+                            </div>
+                        </label>
                     </div>
+                    <div class="shipping-action-row">
                     <button type="button" id="btn-check-ongkir"
-                        class="hidden mt-3 w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold transition">
-                        <svg class="w-4 h-4 inline mr-1.5 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                        Hitung Ongkir Ekspedisi
+                        class="btn-shipping-quote hidden">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                        Hitung Ongkir
                     </button>
-                    <p id="shipping-status-note" class="hidden mt-2 text-xs font-bold rounded-lg px-3 py-2"></p>
+                    </div>
+                    <div id="shipping-status-note" class="shipping-status-note" aria-live="polite"></div>
                 </div>
 
                 <div class="order-section-card p-6">
@@ -906,121 +920,81 @@
                         </div>
                         <p class="text-sm font-black text-slate-800">Pilih Bank Tujuan</p>
                     </div>
-                    <p class="text-[11px] font-semibold text-slate-500 leading-relaxed mb-4">
-                        Pembayaran dilakukan melalui transfer ke rekening resmi perusahaan. Detail rekening akan ditampilkan setelah pesanan dibuat.
-                    </p>
-                    <div id="bank-options" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <button type="button" class="bank-option" data-bank="bca">
-                            <div class="bank-option-label">
-                                <div>
-                                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Transfer Bank</p>
-                                    <p class="text-sm font-black text-slate-900 mt-1">Bank BCA</p>
+                    <p class="text-[11px] font-semibold text-slate-500 mb-4">Pilih bank tujuan pembayaran.</p>
+                    <div id="bank-options" class="choice-grid bank">
+                        <label for="bank-bca" class="cursor-pointer">
+                            <input id="bank-bca" type="radio" name="bank_tujuan" value="bca" class="sr-only" {{ $selectedBank === 'bca' ? 'checked' : '' }}>
+                            <div data-bank-card="bca" class="choice-card bank-option">
+                                <div class="choice-card-header">
+                                    <div class="choice-card-copy">
+                                        <span class="choice-card-kicker">Transfer Bank</span>
+                                        <span class="choice-card-title">Bank BCA</span>
+                                    </div>
+                                    <span class="choice-card-indicator" aria-hidden="true"></span>
                                 </div>
-                                <span class="bank-option-dot" aria-hidden="true"></span>
                             </div>
-                        </button>
-                        <button type="button" class="bank-option" data-bank="mandiri">
-                            <div class="bank-option-label">
-                                <div>
-                                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Transfer Bank</p>
-                                    <p class="text-sm font-black text-slate-900 mt-1">Bank Mandiri</p>
+                        </label>
+                        <label for="bank-mandiri" class="cursor-pointer">
+                            <input id="bank-mandiri" type="radio" name="bank_tujuan" value="mandiri" class="sr-only" {{ $selectedBank === 'mandiri' ? 'checked' : '' }}>
+                            <div data-bank-card="mandiri" class="choice-card bank-option">
+                                <div class="choice-card-header">
+                                    <div class="choice-card-copy">
+                                        <span class="choice-card-kicker">Transfer Bank</span>
+                                        <span class="choice-card-title">Bank Mandiri</span>
+                                    </div>
+                                    <span class="choice-card-indicator" aria-hidden="true"></span>
                                 </div>
-                                <span class="bank-option-dot" aria-hidden="true"></span>
                             </div>
-                        </button>
-                        <button type="button" class="bank-option" data-bank="bri">
-                            <div class="bank-option-label">
-                                <div>
-                                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Transfer Bank</p>
-                                    <p class="text-sm font-black text-slate-900 mt-1">Bank BRI</p>
+                        </label>
+                        <label for="bank-bri" class="cursor-pointer">
+                            <input id="bank-bri" type="radio" name="bank_tujuan" value="bri" class="sr-only" {{ $selectedBank === 'bri' ? 'checked' : '' }}>
+                            <div data-bank-card="bri" class="choice-card bank-option">
+                                <div class="choice-card-header">
+                                    <div class="choice-card-copy">
+                                        <span class="choice-card-kicker">Transfer Bank</span>
+                                        <span class="choice-card-title">Bank BRI</span>
+                                    </div>
+                                    <span class="choice-card-indicator" aria-hidden="true"></span>
                                 </div>
-                                <span class="bank-option-dot" aria-hidden="true"></span>
                             </div>
-                        </button>
+                        </label>
                     </div>
                     <p id="bank-selection-error" class="error-msg hidden"></p>
                 </div>
 
-                {{-- Negosiasi tetap tersedia di bawah bank tujuan sesuai alur sistem yang sudah ada --}}
-                <div class="order-section-card p-6">
+                <div class="order-section-card p-6" id="section-promo-banyak">
                     <div class="flex items-center gap-2 mb-4">
-                        <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>
+                        <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                         </div>
                         <div>
-                            <p class="text-sm font-black text-slate-800">Penyesuaian Harga</p>
-                            <p class="text-[11px] font-semibold text-slate-500">Alur negosiasi sesuai proposal skripsi.</p>
+                            <p class="text-sm font-black text-slate-800">Promo Pembelian Banyak</p>
+                            <p class="text-[11px] font-semibold text-slate-500">Diskon otomatis diterapkan berdasarkan total unit APAR.</p>
                         </div>
                     </div>
 
-                    <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                        <p class="text-sm font-black text-amber-900">Butuh harga proyek, pembelian banyak, atau penawaran khusus?</p>
-                        <p class="mt-1 text-xs font-semibold leading-relaxed text-amber-700">Pelanggan bisa diskusi dulu via WhatsApp, lalu kirim harga usulan di sistem. Setelah pemilik/admin menyetujui, pelanggan lanjut transaksi dengan kode penawaran.</p>
+                    <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                        <p class="text-sm font-black text-emerald-900">Dapatkan Harga Lebih Murah!</p>
+                        <p class="mt-1 text-xs font-semibold leading-relaxed text-emerald-700">Skema diskon kami berikan langsung ke pesanan Anda tanpa perlu menunggu persetujuan admin.</p>
 
-                        <div class="mt-4 grid gap-2 rounded-2xl border border-amber-200 bg-white/80 p-3 text-[11px] font-semibold text-slate-600">
-                            <div class="flex items-center gap-2">
-                                <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-black text-white">1</span>
-                                <span>Tanya atau nego awal lewat WhatsApp.</span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-black text-white">2</span>
-                                <span>Masukkan harga usulan Anda ke sistem.</span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-black text-white">3</span>
-                                <span>Jika disetujui, masukkan kode penawaran lalu lanjut checkout.</span>
-                            </div>
-                        </div>
-
-                        <button type="button" id="btn-ask-whatsapp" class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#25D366] px-4 py-3 text-sm font-black text-white shadow-lg shadow-[#25D366]/20 transition hover:brightness-110">
-                            <i class="fa-brands fa-whatsapp text-base"></i>
-                            Tanya Harga via WhatsApp
-                        </button>
-
-                        <div class="mt-4 rounded-2xl border border-amber-200 bg-white p-4">
-                            <label class="order-label mb-2">Ajukan Harga Usulan Anda</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-amber-600">Rp</span>
-                                <input type="text" id="inp-display-harga-usulan" placeholder="Contoh: 450000"
-                                    class="w-full pl-9 pr-4 py-3 bg-white border border-amber-200 rounded-xl text-sm font-black text-slate-900 focus:outline-none focus:border-amber-500 transition">
-                            </div>
-                            <p class="mt-2 text-[11px] font-semibold leading-relaxed text-amber-700">Harga usulan ini akan masuk ke sistem dan menunggu persetujuan pemilik/admin.</p>
-                            <p id="nego-minimum-note" class="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-800">
-                                Harga usulan hanya bisa diajukan jika total pembelian minimal 10 unit.
+                        <div id="active-promo-status" class="mt-4 p-3 rounded-xl border {{ $hasInitialDiscount ? 'border-emerald-200 bg-emerald-50 shadow-inner' : 'border-slate-200 bg-slate-50' }} text-center">
+                            <p class="text-sm font-black {{ $hasInitialDiscount ? 'text-emerald-800' : 'text-slate-500' }}" id="promo-status-text">
+                                {{ $hasInitialDiscount ? 'Diskon Aktif: ' . $orderSummary['diskonPersen'] . '%' : 'Belum ada diskon aktif.' }}
                             </p>
-                            <button type="button" id="btn-submit-nego" class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-amber-500/20 transition hover:bg-amber-600">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 12h16m-7-7l7 7-7 7"/></svg>
-                                Ajukan Harga ke Sistem
-                            </button>
-                        </div>
-
-                        <div class="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-                            <p class="text-sm font-black text-emerald-900">Sudah di-ACC pemilik?</p>
-                            <p class="mt-1 text-xs font-semibold leading-relaxed text-emerald-700">Masukkan kode penawaran yang dikirim pemilik/admin untuk melanjutkan transaksi dengan harga deal.</p>
-                        </div>
-                    </div>
-
-                    {{-- Kode Negosiasi --}}
-                    <div class="mt-4">
-                        <label class="order-label mb-1.5">Masukkan Kode Penawaran</label>
-                        <div class="flex gap-2">
-                            <input type="text" id="inp-kode-nego" name="kode_nego"
-                                placeholder="ANUTA-123"
-                                class="kode-nego-input">
-                            <button type="button" id="btn-check-nego-code" class="btn-nego-check">
-                                Cek Kode
-                            </button>
-                        </div>
-                        <p id="nego-code-error" class="error-msg hidden"></p>
-                        <div id="deal-status-note" class="deal-box hidden mt-2">
-                            <p class="text-sm font-bold text-emerald-800">
-                                Kode <span id="deal-code-label" class="font-black">-</span> valid — Harga Khusus:
-                                <span id="deal-price-label" class="font-black text-base">Rp 0</span>
+                            <p class="text-xs font-semibold text-emerald-600 mt-1" id="promo-status-subtext">
+                                @if($hasInitialDiscount)
+                                    @if(!empty($orderSummary['nextDiscountUnitsNeeded']) && !empty($orderSummary['nextDiscountPercent']))
+                                        Tambah {{ $orderSummary['nextDiscountUnitsNeeded'] }} unit lagi untuk mendapatkan diskon {{ $orderSummary['nextDiscountPercent'] }}%.
+                                    @else
+                                        Anda sudah mendapatkan diskon maksimal.
+                                    @endif
+                                @elseif(!empty($orderSummary['nextDiscountUnitsNeeded']))
+                                    Tambah {{ $orderSummary['nextDiscountUnitsNeeded'] }} unit lagi untuk mendapatkan diskon 5%.
+                                @else
+                                    Tambah unit lagi untuk mendapatkan diskon.
+                                @endif
                             </p>
                         </div>
-                        <p id="normal-price-note" class="text-[11px] text-slate-400 font-semibold mt-2 italic">
-                            Kode ini diberikan setelah harga usulan Anda disetujui pemilik/admin.
-                        </p>
                     </div>
                 </div>
 
@@ -1034,20 +1008,28 @@
 
                     <div class="summary-card">
                         <div class="summary-row">
-                            <span class="text-slate-500 font-semibold">Subtotal</span>
-                            <span id="lbl-subtotal" class="font-bold text-slate-700">Rp 0</span>
+                            <span class="text-slate-500 font-semibold">Subtotal Produk</span>
+                            <span id="lbl-subtotal" class="font-bold text-slate-700">Rp {{ number_format((float) ($orderSummary['subtotalProduk'] ?? 0), 0, ',', '.') }}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="text-slate-500 font-semibold">Total Unit</span>
+                            <span id="lbl-total-unit" class="font-bold text-slate-700">{{ (int) ($orderSummary['totalUnit'] ?? 0) }}</span>
+                        </div>
+                        <div class="summary-row text-emerald-700" id="discount-percent-row">
+                            <span class="font-semibold">Diskon Promo</span>
+                            <span id="lbl-discount-percent" class="font-bold">{{ (int) ($orderSummary['diskonPersen'] ?? 0) }}%</span>
                         </div>
                         <div class="summary-row text-emerald-700" id="discount-row">
-                            <span class="font-semibold">Potongan</span>
-                            <span id="lbl-discount" class="font-bold">- Rp 0</span>
+                            <span class="font-semibold">Nominal Diskon</span>
+                            <span id="lbl-discount" class="font-bold">- Rp {{ number_format((float) ($orderSummary['nominalDiskon'] ?? 0), 0, ',', '.') }}</span>
                         </div>
-                        <div class="summary-row text-emerald-700 hidden" id="ongkir-row">
-                            <span class="font-semibold">Ongkir Ekspedisi</span>
-                            <span id="lbl-ongkir" class="font-bold">Rp 0</span>
+                        <div class="summary-row" id="ongkir-row">
+                            <span class="text-slate-500 font-semibold">Ongkir/Pengiriman</span>
+                            <span id="lbl-ongkir" class="font-bold text-slate-700">Rp {{ number_format((float) ($orderSummary['ongkir'] ?? 0), 0, ',', '.') }}</span>
                         </div>
                         <div class="summary-row total">
                             <span class="text-xs font-black text-slate-800 uppercase tracking-wider">Total Pembayaran</span>
-                            <span id="lbl-total" class="text-xl font-black text-red-600">Rp 0</span>
+                            <span id="lbl-total" class="text-xl font-black text-red-600">Rp {{ number_format((float) ($orderSummary['totalPembayaran'] ?? 0), 0, ',', '.') }}</span>
                         </div>
                     </div>
 
@@ -1119,16 +1101,13 @@
     'use strict';
 
     let currentTab = 'beli';
-    let dealValidated = false;
-    let validatedDealPrice = 0;
-    let validatedNegoCode = '';
-    let negotiatedNormalReferenceTotal = 0;
-    let dealPriceIncludesShipping = true;
-    let normalTotal = 0;
-    let shippingMethod = 'pickup';
-    let shippingCost = 0;
+    let normalTotal = Number(INITIAL_PRODUCT_SUMMARY.subtotalProduk || 0);
+    let promoDiscountPercent = Number(INITIAL_PRODUCT_SUMMARY.diskonPersen || 0);
+    let promoDiscountNominal = Number(INITIAL_PRODUCT_SUMMARY.nominalDiskon || 0);
+    let shippingMethod = (document.querySelector('input[name="metode_pengiriman"]:checked')?.value || 'ambil_sendiri') === 'diantar' ? 'diantar' : 'pickup';
+    let shippingCost = shippingMethod === 'diantar' ? Number(INITIAL_PRODUCT_SUMMARY.ongkir || 0) : 0;
     let shippingDistanceKm = 0;
-    let shippingQuoteReady = true;
+    let shippingQuoteReady = shippingMethod === 'pickup' || shippingCost > 0;
     let rowIndex = 0;
 
     const itemsContainer = document.getElementById('items-container');
@@ -1141,29 +1120,21 @@
     const lblOngkir = document.getElementById('lbl-ongkir');
     const btnSubmitLabel = document.getElementById('btn-submit-label');
     const btnSubmit = document.getElementById('btn-submit');
-    const btnAskWhatsApp = document.getElementById('btn-ask-whatsapp');
-    const btnSubmitNego = document.getElementById('btn-submit-nego');
-    const btnPickup = document.getElementById('btn-pickup');
-    const btnLalamove = document.getElementById('btn-lalamove');
+    const activePromoStatus = document.getElementById('active-promo-status');
+    const promoStatusText = document.getElementById('promo-status-text');
+    const promoStatusSubtext = document.getElementById('promo-status-subtext');
+    const shippingMethodRadios = [...document.querySelectorAll('input[name="metode_pengiriman"]')];
+    const shippingCards = [...document.querySelectorAll('[data-shipping-card]')];
+    const bankRadios = [...document.querySelectorAll('input[name="bank_tujuan"]')];
+    const bankCards = [...document.querySelectorAll('[data-bank-card]')];
+    const tierBadges = [...document.querySelectorAll('.tier-badge')];
     const btnCheckOngkir = document.getElementById('btn-check-ongkir');
-    const bankOptions = [...document.querySelectorAll('.bank-option')];
     const inpBank = document.getElementById('inp-bank');
     const bankSelectionError = document.getElementById('bank-selection-error');
     const shippingStatusNote = document.getElementById('shipping-status-note');
-    const inpKodeNego = document.getElementById('inp-kode-nego');
-    const inpHargaDeal = document.getElementById('inp-harga-deal');
-    const inpIsNegoDeal = document.getElementById('inp-is-nego-deal');
     const inpMetodePengiriman = document.getElementById('inp-metode-pengiriman');
     const inpOngkir = document.getElementById('inp-ongkir');
     const inpShippingDistance = document.getElementById('inp-shipping-distance');
-    const normalPriceNote = document.getElementById('normal-price-note');
-    const dealStatusNote = document.getElementById('deal-status-note');
-    const dealPriceLabel = document.getElementById('deal-price-label');
-    const dealCodeLabel = document.getElementById('deal-code-label');
-    const negoCodeError = document.getElementById('nego-code-error');
-    const btnCheckNegoCode = document.getElementById('btn-check-nego-code');
-    const inpDisplayHargaUsulan = document.getElementById('inp-display-harga-usulan');
-    const negoMinimumNote = document.getElementById('nego-minimum-note');
     const orderForm = document.getElementById('order-form');
     const inpSubmitSource = document.getElementById('inp-submit-source');
     const inpTipeHarga = document.getElementById('inp-tipe-harga');
@@ -1195,15 +1166,14 @@
     const serviceRegisteredEmptyNote = document.getElementById('service-registered-empty-note');
     const serviceRegisteredUnitList = document.getElementById('service-registered-unit-list');
     const serviceRegisteredCountNote = document.getElementById('service-registered-count-note');
-    const btnSelectAllUnits = document.getElementById('btn-select-all-units');
-    const btnClearAllUnits = document.getElementById('btn-clear-all-units');
     const serviceJenisAparHidden = document.getElementById('service-jenis-apar-hidden');
+    const serviceManualTypeField = document.getElementById('service-manual-type-field');
+    const serviceJenisAparManual = document.getElementById('service-jenis-apar-manual');
     const serviceManualSizeField = document.getElementById('service-manual-size-field');
     const serviceRefillFields = document.getElementById('service-refill-fields');
+    const serviceRefillSelectField = document.getElementById('service-refill-select-field');
     const serviceServiceFields = document.getElementById('service-service-fields');
     const serviceRefillPriceNote = document.getElementById('service-refill-price-note');
-    const servicePaketInfo = document.getElementById('service-paket-info');
-    const servicePaketInfoContent = document.getElementById('service-paket-info-content');
     const serviceSummaryCategory = document.getElementById('service-summary-category');
     const serviceSummaryStatusRow = document.getElementById('service-summary-status-row');
     const serviceSummaryStatus = document.getElementById('service-summary-status');
@@ -1213,8 +1183,10 @@
     const serviceSummarySize = document.getElementById('service-summary-size');
     const serviceSummaryQty = document.getElementById('service-summary-qty');
     const serviceSummaryKg = document.getElementById('service-summary-kg');
+    const serviceSummaryUsageLabel = document.getElementById('service-summary-usage-label');
     const serviceSummaryMethod = document.getElementById('service-summary-method');
     const serviceSummaryPrice = document.getElementById('service-summary-price');
+    const serviceStockTitle = document.getElementById('service-stock-title');
     const serviceStockCurrent = document.getElementById('service-stock-current');
     const serviceStockAfter = document.getElementById('service-stock-after');
     const serviceStockWarning = document.getElementById('service-stock-warning');
@@ -1230,6 +1202,13 @@
 
     function fmt(n) {
         return 'Rp ' + Number(n || 0).toLocaleString('id-ID');
+    }
+
+    function formatDistance(distance) {
+        return Number(distance || 0).toLocaleString('id-ID', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        });
     }
 
     function enableSelect(sel) {
@@ -1280,11 +1259,20 @@
         bankSelectionError.classList.remove('hidden');
     }
 
+    function syncBankCardState() {
+        const selectedBank = inpBank.value || '';
+
+        bankCards.forEach((card) => {
+            const isActive = card.dataset.bankCard === selectedBank;
+            card.classList.toggle('active', isActive);
+        });
+    }
+
     function setSelectedBank(bank) {
         inpBank.value = bank || '';
-        bankOptions.forEach((option) => {
-            option.classList.toggle('active', option.dataset.bank === inpBank.value);
-        });
+        const radio = document.querySelector(`input[name="bank_tujuan"][value="${bank}"]`);
+        if (radio) radio.checked = true;
+        syncBankCardState();
         hideBankError();
     }
 
@@ -1297,31 +1285,58 @@
 
     function setShippingStatus(message, type) {
         if (!message) {
-            shippingStatusNote.classList.add('hidden');
-            shippingStatusNote.textContent = '';
+            shippingStatusNote.className = 'shipping-status-note';
+            shippingStatusNote.innerHTML = '';
             return;
         }
-        shippingStatusNote.classList.remove('hidden');
-        shippingStatusNote.textContent = message;
+
         if (type === 'error') {
-            shippingStatusNote.className = 'mt-2 text-xs font-bold rounded-lg px-3 py-2 bg-red-50 border border-red-200 text-red-700';
+            shippingStatusNote.className = 'shipping-status-note show error';
+            shippingStatusNote.innerHTML = `
+                <span class="shipping-status-label">Informasi Pengiriman</span>
+                <span class="shipping-status-value">Belum bisa menghitung ongkir</span>
+                <span class="shipping-status-meta">${escapeHtml(message)}</span>
+            `;
         } else if (type === 'success') {
-            shippingStatusNote.className = 'mt-2 text-xs font-bold rounded-lg px-3 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700';
+            shippingStatusNote.className = 'shipping-status-note show success';
+            shippingStatusNote.innerHTML = `
+                <span class="shipping-status-label">Ongkir Ekspedisi</span>
+                <span class="shipping-status-value">${fmt(shippingCost)}</span>
+                <span class="shipping-status-meta">Jarak: ${formatDistance(shippingDistanceKm)} km</span>
+            `;
+        } else if (shippingMethod === 'pickup') {
+            shippingStatusNote.className = 'shipping-status-note show compact';
+            shippingStatusNote.innerHTML = `
+                <span class="shipping-status-label">Ongkir</span>
+                <span class="shipping-status-meta">Rp0 karena pesanan diambil sendiri.</span>
+            `;
         } else {
-            shippingStatusNote.className = 'mt-2 text-xs font-bold rounded-lg px-3 py-2 bg-blue-50 border border-blue-200 text-blue-700';
+            shippingStatusNote.className = 'shipping-status-note show compact';
+            shippingStatusNote.innerHTML = `
+                <span class="shipping-status-label">Pengiriman Diantar</span>
+                <span class="shipping-status-meta">${escapeHtml(message)}</span>
+            `;
         }
     }
 
     function applyShippingModeVisual() {
         const isPickup = shippingMethod === 'pickup';
-        btnPickup.className = 'shipping-btn pickup' + (isPickup ? ' active' : '');
-        btnLalamove.className = 'shipping-btn lalamove' + (!isPickup ? ' active' : '');
+        const radioPickup = document.querySelector('input[name="metode_pengiriman"][value="ambil_sendiri"]');
+        const radioDiantar = document.querySelector('input[name="metode_pengiriman"][value="diantar"]');
+        if (radioPickup && isPickup) radioPickup.checked = true;
+        if (radioDiantar && !isPickup) radioDiantar.checked = true;
+
+        shippingCards.forEach((card) => {
+            const isActive = card.dataset.shippingCard === (isPickup ? 'pickup' : 'diantar');
+            card.classList.toggle('active', isActive);
+        });
+
         btnCheckOngkir.classList.toggle('hidden', isPickup);
     }
 
     function setShippingMethod(method) {
         shippingMethod = method === 'diantar' ? 'diantar' : 'pickup';
-        inpMetodePengiriman.value = shippingMethod;
+        inpMetodePengiriman.value = shippingMethod === 'pickup' ? 'ambil_sendiri' : 'diantar';
 
         if (shippingMethod === 'pickup') {
             shippingCost = 0;
@@ -1336,7 +1351,7 @@
             shippingQuoteReady = false;
             inpOngkir.value = '0';
             inpShippingDistance.value = '0';
-            setShippingStatus('Klik "Hitung Ongkir Ekspedisi" untuk menghitung biaya pengiriman.', 'info');
+            setShippingStatus('Klik "Hitung Ongkir" untuk melihat biaya pengiriman ke alamat Anda.', 'info');
         }
 
         applyShippingModeVisual();
@@ -1515,7 +1530,7 @@
         }
 
         btnCheckOngkir.disabled = true;
-        btnCheckOngkir.textContent = 'Menghitung Ongkir...';
+        btnCheckOngkir.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Menghitung Ongkir';
         setShippingStatus('', 'info');
 
         try {
@@ -1539,13 +1554,13 @@
             inpOngkir.value = String(shippingCost);
             inpShippingDistance.value = String(shippingDistanceKm);
 
-            setShippingStatus(`Ongkir Ekspedisi: ${fmt(shippingCost)} (Jarak ${shippingDistanceKm.toFixed(2)} km)`, 'success');
+            setShippingStatus('Ongkir berhasil dihitung.', 'success');
             syncDisplayedTotal();
         } catch (error) {
             invalidateShippingQuote(error.message || 'Gagal menghitung ongkir.');
         } finally {
             btnCheckOngkir.disabled = false;
-            btnCheckOngkir.textContent = 'Hitung Ongkir Ekspedisi';
+            btnCheckOngkir.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg> Hitung Ongkir';
         }
     }
 
@@ -1590,188 +1605,84 @@
         return getSelectedItems().reduce((totalQty, item) => totalQty + Number(item.jumlah || 0), 0);
     }
 
-    function syncNegotiationEligibility() {
+    function syncDisplayedTotal() {
         const totalQty = getSelectedItemQuantityTotal();
-        const eligible = totalQty >= 10;
-
-        if (inpDisplayHargaUsulan) {
-            inpDisplayHargaUsulan.disabled = !eligible;
-            inpDisplayHargaUsulan.classList.toggle('bg-white', eligible);
-            inpDisplayHargaUsulan.classList.toggle('bg-slate-100', !eligible);
-            inpDisplayHargaUsulan.classList.toggle('text-slate-900', eligible);
-            inpDisplayHargaUsulan.classList.toggle('text-slate-400', !eligible);
-            inpDisplayHargaUsulan.classList.toggle('cursor-not-allowed', !eligible);
-            if (!eligible) {
-                inpDisplayHargaUsulan.value = '';
-                inpHargaDeal.value = '';
+        const totalOngkir = shippingMethod === 'diantar' ? shippingCost : 0;
+        
+        // Cek promo diskon untuk tipe beli
+        promoDiscountPercent = 0;
+        if (currentTab === 'beli' && totalQty > 0) {
+            if (totalQty >= 50) promoDiscountPercent = 25;
+            else if (totalQty >= 35) promoDiscountPercent = 20;
+            else if (totalQty >= 20) promoDiscountPercent = 15;
+            else if (totalQty >= 10) promoDiscountPercent = 10;
+            else if (totalQty >= 5) promoDiscountPercent = 5;
+        }
+        
+        // Update UI Promo
+        if (activePromoStatus && currentTab === 'beli') {
+            if (promoDiscountPercent > 0) {
+                activePromoStatus.className = 'mt-4 p-3 rounded-xl border border-emerald-200 bg-emerald-50 text-center shadow-inner';
+                promoStatusText.textContent = `Diskon Aktif: ${promoDiscountPercent}%`;
+                promoStatusText.className = 'text-sm font-black text-emerald-800';
+                
+                let nextTier = 0;
+                let nextPercent = 0;
+                if (totalQty >= 50) {
+                    promoStatusSubtext.textContent = 'Anda sudah mendapatkan diskon maksimal.';
+                } else {
+                    if (totalQty >= 35) { nextTier = 50; nextPercent = 25; }
+                    else if (totalQty >= 20) { nextTier = 35; nextPercent = 20; }
+                    else if (totalQty >= 10) { nextTier = 20; nextPercent = 15; }
+                    else if (totalQty >= 5) { nextTier = 10; nextPercent = 10; }
+                    
+                    const diff = nextTier - totalQty;
+                    promoStatusSubtext.textContent = `Tambah ${diff} unit lagi untuk mendapatkan diskon ${nextPercent}%.`;
+                }
+            } else {
+                activePromoStatus.className = 'mt-4 p-3 rounded-xl border border-slate-200 bg-slate-50 text-center';
+                promoStatusText.textContent = 'Belum ada diskon aktif.';
+                promoStatusText.className = 'text-sm font-black text-slate-500';
+                const diff = 5 - totalQty;
+                if (diff > 0) {
+                    promoStatusSubtext.textContent = `Tambah ${diff} unit lagi untuk mendapatkan diskon 5%.`;
+                } else {
+                    promoStatusSubtext.textContent = `Tambah unit lagi untuk mendapatkan diskon.`;
+                }
             }
         }
 
-        if (btnSubmitNego) {
-            btnSubmitNego.disabled = !eligible;
-            btnSubmitNego.classList.toggle('opacity-50', !eligible);
-            btnSubmitNego.classList.toggle('cursor-not-allowed', !eligible);
-        }
+        promoDiscountNominal = (normalTotal * promoDiscountPercent) / 100;
+        const finalTotal = normalTotal - promoDiscountNominal + totalOngkir;
 
-        if (negoMinimumNote) {
-            negoMinimumNote.textContent = eligible
-                ? `Harga usulan aktif. Total pembelian Anda ${totalQty} unit, jadi sudah memenuhi minimal 10 unit.`
-                : `Harga usulan hanya bisa diajukan jika total pembelian minimal 10 unit. Saat ini total pembelian Anda ${totalQty} unit.`;
-            negoMinimumNote.className = eligible
-                ? 'mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-bold text-emerald-700'
-                : 'mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-800';
-        }
-    }
-
-    function syncDisplayedTotal() {
-        const totalOngkir = shippingMethod === 'diantar' ? shippingCost : 0;
-        const normalGrandTotal = normalTotal + totalOngkir;
-        const referenceNormalTotal = dealValidated && negotiatedNormalReferenceTotal > 0
-            ? negotiatedNormalReferenceTotal
-            : normalGrandTotal;
-
-        const finalTotal = dealValidated
-            ? (dealPriceIncludesShipping ? validatedDealPrice : (validatedDealPrice + totalOngkir))
-            : normalGrandTotal;
-
-        const discountValue = dealValidated ? Math.max(0, referenceNormalTotal - finalTotal) : 0;
         lblSubtotal.textContent = fmt(normalTotal);
-        if (lblDiscount) lblDiscount.textContent = '- ' + fmt(discountValue);
+        
+        const lblTotalUnit = document.getElementById('lbl-total-unit');
+        if (lblTotalUnit) lblTotalUnit.textContent = totalQty;
+        
+        const lblDiscountPercent = document.getElementById('lbl-discount-percent');
+        if (lblDiscountPercent) lblDiscountPercent.textContent = promoDiscountPercent + '%';
+
+        if (lblDiscount) lblDiscount.textContent = '- ' + fmt(promoDiscountNominal);
         if (lblOngkir) lblOngkir.textContent = fmt(totalOngkir);
+        
         if (ongkirRow) {
-            ongkirRow.style.display = shippingMethod === 'diantar' ? 'flex' : 'none';
+            ongkirRow.style.display = 'flex';
         }
+        
         lblTotal.textContent = fmt(finalTotal);
-        lblTotal.classList.toggle('text-emerald-600', dealValidated);
-        lblTotal.classList.toggle('text-red-600', !dealValidated);
-
-        if (dealValidated) {
-            btnSubmitLabel.textContent = 'Checkout';
-            btnSubmit.className = 'btn-primary-action submit deal w-full justify-center';
-        } else {
-            btnSubmitLabel.textContent = 'Checkout';
-            btnSubmit.className = 'btn-primary-action submit w-full justify-center';
-        }
-
-        if (discountRow) {
-            discountRow.classList.toggle('text-emerald-700', discountValue > 0);
-            discountRow.classList.toggle('text-emerald-700', discountValue <= 0);
-            discountRow.className = 'summary-row text-emerald-700';
-        }
-
-        if (dealValidated) {
-            dealPriceLabel.textContent = fmt(validatedDealPrice);
-            dealCodeLabel.textContent = validatedNegoCode || '-';
-            dealStatusNote.classList.remove('hidden');
-            if (normalPriceNote) normalPriceNote.classList.add('hidden');
-        } else {
-            dealStatusNote.classList.add('hidden');
-            if (normalPriceNote) normalPriceNote.classList.remove('hidden');
-        }
-    }
-
-    function resetDealValidation(clearError) {
-        dealValidated = false;
-        validatedDealPrice = 0;
-        validatedNegoCode = '';
-        negotiatedNormalReferenceTotal = 0;
-        dealPriceIncludesShipping = true;
-        inpHargaDeal.value = '';
-        inpIsNegoDeal.value = '0';
-        inpTipeHarga.value = 'normal';
+        
         btnSubmitLabel.textContent = 'Checkout';
         btnSubmit.className = 'btn-primary-action submit w-full justify-center';
-        if (clearError !== false) {
-            negoCodeError.classList.add('hidden');
-            negoCodeError.textContent = '';
-        }
-        syncDisplayedTotal();
-    }
 
-    function invalidateDealByItemChange() {
-        if (!dealValidated) return;
-        resetDealValidation(false);
-        negoCodeError.textContent = 'Produk berubah. Silakan cek ulang kode penawaran.';
-        negoCodeError.classList.remove('hidden');
+        if (discountRow) {
+            discountRow.classList.toggle('text-emerald-700', promoDiscountNominal > 0);
+            discountRow.style.display = 'flex';
+        }
     }
 
     function invalidatePricingByItemChange() {
-        invalidateDealByItemChange();
         invalidateShippingQuote();
-    }
-
-    async function checkNegoCode() {
-        const kode = inpKodeNego.value.trim().toUpperCase();
-        const noWa = normalizePhone(inpNoWa.value);
-        const items = getSelectedItems().map((item) => ({ produk_id: item.produk_id, jumlah: item.jumlah }));
-
-        if (!hasSelectedProduct() || normalTotal <= 0) {
-            resetDealValidation(false);
-            negoCodeError.textContent = 'Pilih produk terlebih dahulu.';
-            negoCodeError.classList.remove('hidden');
-            return;
-        }
-        if (!noWa) {
-            resetDealValidation(false);
-            negoCodeError.textContent = 'Nomor WhatsApp wajib diisi.';
-            negoCodeError.classList.remove('hidden');
-            return;
-        }
-        if (!kode) {
-            resetDealValidation(false);
-            negoCodeError.textContent = 'Masukkan kode penawaran.';
-            negoCodeError.classList.remove('hidden');
-            return;
-        }
-        if (!/^ANUTA-\d{3}$/i.test(kode)) {
-            resetDealValidation(false);
-            negoCodeError.textContent = 'Format: ANUTA-xxx (contoh: ANUTA-123).';
-            negoCodeError.classList.remove('hidden');
-            return;
-        }
-
-        btnCheckNegoCode.disabled = true;
-        btnCheckNegoCode.textContent = 'Mengecek...';
-        negoCodeError.classList.add('hidden');
-
-        try {
-            const response = await fetch(CHECK_NEGO_CODE_URL, {
-                method: 'POST',
-                headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
-                credentials: 'same-origin',
-                body: JSON.stringify({ kode_nego: kode, no_wa: noWa, items }),
-            });
-
-            const data = await response.json();
-            if (!response.ok || !data.success) throw new Error(data.message || 'Kode tidak valid.');
-
-            const dealPrice = Number(data.data?.harga_deal || 0);
-            if (dealPrice <= 0) throw new Error('Kode valid tapi harga deal belum tersedia.');
-
-            const normalTotalFromServer = Number(data.data?.total_normal || 0);
-            const normalGrandCurrent = normalTotal + (shippingMethod === 'diantar' ? shippingCost : 0);
-            if (dealPrice > normalGrandCurrent) throw new Error('Harga deal (' + fmt(dealPrice) + ') lebih mahal dari harga normal (' + fmt(normalGrandCurrent) + ').');
-
-            dealValidated = true;
-            validatedDealPrice = dealPrice;
-            validatedNegoCode = kode;
-            negotiatedNormalReferenceTotal = normalTotalFromServer || normalGrandCurrent;
-            dealPriceIncludesShipping = Boolean(data.data?.deal_includes_shipping ?? true);
-            inpKodeNego.value = kode;
-            inpHargaDeal.value = String(dealPrice);
-            inpIsNegoDeal.value = '1';
-            inpTipeHarga.value = 'deal';
-            btnSubmitLabel.textContent = 'Checkout';
-            btnSubmit.className = 'btn-primary-action submit deal w-full justify-center';
-            syncDisplayedTotal();
-        } catch (error) {
-            resetDealValidation(false);
-            negoCodeError.textContent = error.message || 'Gagal memvalidasi kode.';
-            negoCodeError.classList.remove('hidden');
-        } finally {
-            btnCheckNegoCode.disabled = false;
-            btnCheckNegoCode.textContent = 'Cek Kode';
-        }
     }
 
     function formatKg(value) {
@@ -1807,6 +1718,25 @@
 
     function normalizeMatchText(value) {
         return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    }
+
+    function normalizeServiceMediaKey(value) {
+        const text = String(value || '').toLowerCase().trim();
+        if (!text) return 'unknown';
+        if (text.includes('powder') || text.includes('dry chemical') || text.includes('dcp')) return 'powder';
+        if (text.includes('foam')) return 'foam';
+        if (text.includes('co2') || text.includes('carbon')) return 'co2';
+        if (text.includes('clean agent') || text.includes('halotron')) return 'clean_agent';
+        return text.replace(/[^a-z0-9]+/g, '_');
+    }
+
+    function displayServiceMediaLabel(value) {
+        const key = normalizeServiceMediaKey(value);
+        if (key === 'powder') return 'Powder';
+        if (key === 'foam') return 'Foam';
+        if (key === 'co2') return 'CO2';
+        if (key === 'clean_agent') return 'Clean Agent';
+        return String(value || 'APAR').trim() || 'APAR';
     }
 
     function escapeHtml(value) {
@@ -1860,18 +1790,150 @@
         }) || null;
     }
 
+    function resolveRefillPriceForSize(refill, ukuran) {
+        if (!refill) {
+            return 0;
+        }
+
+        const ukuranNormalized = String(ukuran || '').trim().toLowerCase();
+        const rules = Array.isArray(refill.service_price_rules) ? refill.service_price_rules : [];
+        const directRule = rules.find((rule) => String(rule.ukuran || '').trim().toLowerCase() === ukuranNormalized);
+
+        if (directRule && Number(directRule.harga || 0) > 0) {
+            return Number(directRule.harga || 0);
+        }
+
+        const ukuranKg = parseServiceSizeKg(ukuran);
+        if (ukuranKg > 0) {
+            const numericRule = rules.find((rule) => parseServiceSizeKg(rule.ukuran) === ukuranKg);
+            if (numericRule && Number(numericRule.harga || 0) > 0) {
+                return Number(numericRule.harga || 0);
+            }
+
+            if (Number(refill.harga || 0) > 0) {
+                return ukuranKg * Number(refill.harga || 0);
+            }
+        }
+
+        return 0;
+    }
+
+    function getRegisteredUnitRefillSelection(unit) {
+        const refill = suggestRefillForUnits([unit]);
+        const unitPrice = resolveRefillPriceForSize(refill, unit.ukuran);
+
+        return {
+            refill,
+            unitPrice,
+        };
+    }
+
+    function getManualServiceMedia() {
+        return String(serviceJenisAparManual?.value || '').trim();
+    }
+
+    function availableSizesForManualService() {
+        const mediaKey = normalizeServiceMediaKey(getManualServiceMedia());
+        const matched = SERVICE_MEDIA_DB.find((item) => normalizeServiceMediaKey(item.label || item.key) === mediaKey);
+
+        return matched && Array.isArray(matched.sizes) ? matched.sizes : [];
+    }
+
+    function syncServiceJenisAparValue() {
+        if (!serviceJenisAparHidden) {
+            return;
+        }
+
+        const isService = serviceJenisLayanan && serviceJenisLayanan.value === 'service';
+        const isRegistered = getServiceUnitStatus() === 'terdaftar';
+
+        if (isService && !isRegistered) {
+            serviceJenisAparHidden.value = getManualServiceMedia();
+            return;
+        }
+
+        const selectedUnits = getSelectedRegisteredUnits();
+        if (selectedUnits.length) {
+            serviceJenisAparHidden.value = [...new Set(selectedUnits.map((unit) => displayServiceMediaLabel(unit.jenis_apar || 'APAR')))].join(', ');
+        }
+    }
+
+    function syncManualServiceSizeOptions() {
+        if (!serviceUkuranApar) {
+            return;
+        }
+
+        const isService = serviceJenisLayanan && serviceJenisLayanan.value === 'service';
+        const isRegistered = getServiceUnitStatus() === 'terdaftar';
+        const selectedValue = String(serviceUkuranApar.value || '').trim();
+        const sizeOptions = (!isService || isRegistered) ? SERVICE_UKURAN_OPTIONS : availableSizesForManualService();
+
+        serviceUkuranApar.innerHTML = '';
+
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = '-- Pilih Ukuran APAR --';
+        serviceUkuranApar.appendChild(placeholder);
+
+        sizeOptions.forEach((ukuran) => {
+            const option = document.createElement('option');
+            option.value = ukuran;
+            option.textContent = ukuran;
+            option.selected = ukuran === selectedValue;
+            serviceUkuranApar.appendChild(option);
+        });
+
+        if (!sizeOptions.includes(selectedValue)) {
+            serviceUkuranApar.value = '';
+        }
+    }
+
+    function resolveServicePackagePrice(paket, media, ukuran) {
+        if (!paket) {
+            return 0;
+        }
+
+        const mediaKey = normalizeServiceMediaKey(media);
+        const mediaPrices = paket.price_matrix?.[mediaKey] || {};
+        const direct = Number(mediaPrices?.[ukuran] || 0);
+        if (direct > 0) {
+            return direct;
+        }
+
+        const ukuranKg = parseServiceSizeKg(ukuran);
+        const matchedSize = Object.keys(mediaPrices).find((size) => parseServiceSizeKg(size) === ukuranKg);
+
+        return matchedSize ? Number(mediaPrices[matchedSize] || 0) : 0;
+    }
+
+    function resolveServicePeralatan(paket, qty) {
+        if (!paket) {
+            return [];
+        }
+
+        return (paket.peralatans || []).map((peralatan) => {
+            const jumlahPerUnit = Math.max(1, Number(peralatan.jumlah || 0));
+
+            return {
+                peralatan_id: Number(peralatan.peralatan_id || 0),
+                nama: peralatan.nama || '-',
+                jumlah_per_unit: jumlahPerUnit,
+                jumlah: jumlahPerUnit * Math.max(1, Number(qty || 1)),
+                stok: Number(peralatan.stok || 0),
+                stok_minimum: Number(peralatan.stok_minimum || 0),
+            };
+        });
+    }
+
     function getRegisteredUnitSubtotal(unit) {
         const kategori = serviceJenisLayanan && serviceJenisLayanan.value === 'service' ? 'service' : 'refill';
 
         if (kategori === 'service') {
             const paket = findServicePaketById(servicePaketId?.value);
-            return Number(paket?.harga || 0);
+            return resolveServicePackagePrice(paket, unit.jenis_apar, unit.ukuran);
         }
 
-        const refill = findServiceRefillById(serviceJenisRefill?.value);
-        const ukuranKg = parseServiceSizeKg(unit.ukuran);
-
-        return refill && ukuranKg > 0 ? ukuranKg * Number(refill.harga || 0) : 0;
+        return getRegisteredUnitRefillSelection(unit).unitPrice;
     }
 
     function renderRegisteredUnitChecklist(options = {}) {
@@ -1885,7 +1947,7 @@
         const unitIdsInGroup = new Set(units.map((unit) => Number(unit.id)));
         const oldIdsInGroup = OLD_SELECTED_UNIT_APAR_IDS.filter((id) => unitIdsInGroup.has(Number(id)));
         const currentSelectedIds = shouldReset
-            ? new Set(oldIdsInGroup.length ? oldIdsInGroup : units.map((unit) => Number(unit.id)))
+            ? new Set(oldIdsInGroup)
             : new Set(getSelectedRegisteredUnitIds());
 
         serviceRegisteredUnitList.innerHTML = '';
@@ -1904,19 +1966,15 @@
 
         if (serviceRegisteredEmptyNote) serviceRegisteredEmptyNote.classList.add('hidden');
 
-        const suggestedRefill = suggestRefillForUnits(units);
-        if (suggestedRefill && serviceJenisRefill && (shouldReset || !serviceJenisRefill.value)) {
-            serviceJenisRefill.value = String(suggestedRefill.id);
-        } else if (serviceJenisRefill && !serviceJenisRefill.value && JENIS_REFILL_DB.length === 1) {
-            serviceJenisRefill.value = String(JENIS_REFILL_DB[0].id);
-        }
-
         units.forEach((unit) => {
             const row = document.createElement('label');
             row.className = 'block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:bg-blue-50/40 has-[:checked]:border-blue-400 has-[:checked]:bg-blue-50';
 
             const subtotal = getRegisteredUnitSubtotal(unit);
-            const subtotalText = subtotal > 0 ? fmt(subtotal) : (serviceJenisLayanan?.value === 'service' ? 'Pilih paket service' : 'Pilih jenis refil');
+            const unitRefillSelection = getRegisteredUnitRefillSelection(unit);
+            const subtotalText = subtotal > 0
+                ? fmt(subtotal)
+                : (serviceJenisLayanan?.value === 'service' ? 'Harga service belum tersedia' : 'Harga refill belum tersedia');
             const kode = escapeHtml(unit.kode || '-');
             const produkNama = escapeHtml(unit.produk_nama || '-');
             const jenisApar = escapeHtml(unit.jenis_apar || '-');
@@ -1924,6 +1982,7 @@
             const tglBeli = escapeHtml(unit.tgl_beli || '-');
             const masaBerlaku = escapeHtml(unit.masa_berlaku || '-');
             const statusUnit = escapeHtml(unit.status_unit || '-');
+            const refillLabel = escapeHtml(unitRefillSelection.refill?.nama_label || '-');
 
             row.innerHTML = `
                 <div class="flex items-start gap-3">
@@ -1937,6 +1996,7 @@
                         <div class="mt-3 grid grid-cols-1 gap-2 text-xs font-semibold text-slate-500 sm:grid-cols-2">
                             <p><span class="font-black text-slate-400 uppercase tracking-wider">Jenis APAR:</span> ${jenisApar}</p>
                             <p><span class="font-black text-slate-400 uppercase tracking-wider">Ukuran:</span> ${ukuran}</p>
+                            <p><span class="font-black text-slate-400 uppercase tracking-wider">Jenis Refill:</span> ${refillLabel}</p>
                             <p><span class="font-black text-slate-400 uppercase tracking-wider">Tanggal Beli:</span> ${tglBeli}</p>
                             <p><span class="font-black text-slate-400 uppercase tracking-wider">Tanggal Expired:</span> ${masaBerlaku}</p>
                             <p><span class="font-black text-slate-400 uppercase tracking-wider">Status:</span> ${statusUnit}</p>
@@ -1968,19 +2028,6 @@
             return;
         }
 
-        if (isRefill && serviceJenisRefill && !serviceJenisRefill.value) {
-            const units = getSelectedRegisteredUnits().length
-                ? getSelectedRegisteredUnits()
-                : getUnitsByPurchaseGroup(servicePurchaseGroup?.value || '');
-            const suggestedRefill = suggestRefillForUnits(units);
-
-            if (suggestedRefill) {
-                serviceJenisRefill.value = String(suggestedRefill.id);
-            } else if (JENIS_REFILL_DB.length === 1) {
-                serviceJenisRefill.value = String(JENIS_REFILL_DB[0].id);
-            }
-        }
-
         if (!isRefill && servicePaketId && !servicePaketId.value && SERVICE_PAKET_DB.length) {
             servicePaketId.value = String(SERVICE_PAKET_DB[0].id);
         }
@@ -2001,21 +2048,21 @@
         element.classList.remove('hidden');
     }
 
-    function renderServicePackageDetails(paket, qty = 1) {
+    function renderServicePackageDetails(state) {
         if (!servicePackageNote || !servicePackageRincian) {
             return;
         }
 
         servicePackageRincian.innerHTML = '';
 
-        if (!paket || currentTab === 'beli') {
+        if (!state || state.kategori !== 'service' || !state.paket || currentTab === 'beli') {
             servicePackageNote.classList.add('hidden');
             return;
         }
 
         const detailTitle = document.createElement('p');
         detailTitle.className = 'text-sm font-black text-slate-900';
-        detailTitle.textContent = `${paket.label ? paket.label + ' - ' : ''}${paket.nama} - ${fmt(paket.harga)} / unit`;
+        detailTitle.textContent = `${state.paket.label ? state.paket.label + ' - ' : ''}${state.paket.nama}`;
         servicePackageRincian.appendChild(detailTitle);
 
         const workTitle = document.createElement('p');
@@ -2023,24 +2070,38 @@
         workTitle.textContent = 'Pekerjaan Dalam Paket';
         servicePackageRincian.appendChild(workTitle);
 
-        (paket.rincian || []).forEach((item) => {
+        (state.paket.rincian || []).forEach((item) => {
             const row = document.createElement('p');
             row.className = 'text-sm font-semibold text-slate-700';
             row.textContent = '- ' + item;
             servicePackageRincian.appendChild(row);
         });
 
-        if ((paket.peralatans || []).length) {
-            const peralatanTitle = document.createElement('p');
-            peralatanTitle.className = 'pt-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400';
-            peralatanTitle.textContent = `Estimasi Barang Dipakai (${qty} unit)`;
-            servicePackageRincian.appendChild(peralatanTitle);
+        if ((state.lineItems || []).length) {
+            const priceTitle = document.createElement('p');
+            priceTitle.className = 'pt-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400';
+            priceTitle.textContent = 'Harga Berdasarkan Unit APAR';
+            servicePackageRincian.appendChild(priceTitle);
 
-            (paket.peralatans || []).forEach((item) => {
+            state.lineItems.forEach((item) => {
                 const row = document.createElement('p');
                 row.className = 'text-sm font-semibold text-slate-700';
-                const totalQty = Number(item.jumlah || 0) * Math.max(1, Number(qty || 1));
-                row.textContent = `${item.nama} (${totalQty} pcs total)`;
+                const qtyLabel = Number(item.qty || 1) > 1 ? ` x ${Number(item.qty || 1)} unit` : '';
+                row.textContent = `${item.label}${qtyLabel}: ${fmt(item.total || 0)}`;
+                servicePackageRincian.appendChild(row);
+            });
+        }
+
+        if ((state.peralatanItems || []).length) {
+            const peralatanTitle = document.createElement('p');
+            peralatanTitle.className = 'pt-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400';
+            peralatanTitle.textContent = `Peralatan Paket (${state.qty} unit)`;
+            servicePackageRincian.appendChild(peralatanTitle);
+
+            (state.peralatanItems || []).forEach((item) => {
+                const row = document.createElement('p');
+                row.className = 'text-sm font-semibold text-slate-700';
+                row.textContent = `${item.nama} (${Number(item.jumlah || 0)} pcs total)`;
                 servicePackageRincian.appendChild(row);
             });
         }
@@ -2062,9 +2123,14 @@
         const metode = getSelectedServiceMethod();
         const refill = kategori === 'refill' ? findServiceRefillById(serviceJenisRefill?.value) : null;
         const paket = kategori === 'service' ? findServicePaketById(servicePaketId?.value) : null;
-        const linkedRefill = kategori === 'service' && paket?.jenis_refill_id
-            ? findServiceRefillById(paket.jenis_refill_id)
-            : null;
+        const manualMedia = getManualServiceMedia();
+        const registeredRefillSelections = kategori === 'refill' && registeredUnits.length
+            ? registeredUnits.map((unit) => ({
+                unit,
+                ...getRegisteredUnitRefillSelection(unit),
+            }))
+            : [];
+        const registeredRefillIds = [...new Set(registeredRefillSelections.map((selection) => Number(selection.refill?.id || 0)).filter((id) => id > 0))];
 
         const state = {
             kategori,
@@ -2076,25 +2142,56 @@
             metode,
             refill,
             paket,
-            linkedRefill,
+            manualMedia,
             itemLabel: 'Belum dipilih',
             unitPrice: 0,
             totalPrice: 0,
             totalKg: 0,
-            stockUnit: linkedRefill?.satuan_label || refill?.satuan_label || 'Kg',
+            stockUnit: refill?.satuan_label || 'Kg',
             insufficientStock: false,
             lowStock: false,
             currentStockLabel: 'Pilih jenis refil untuk melihat stok.',
             afterStockLabel: 'Sisa stok setelah transaksi akan tampil di sini.',
+            registeredRefillSelections,
+            hasMixedRegisteredRefill: registeredRefillIds.length > 1,
+            lineItems: [],
+            peralatanItems: [],
         };
 
         if (kategori === 'refill') {
-            state.itemLabel = refill?.nama_label || 'Belum dipilih';
-            state.unitPrice = Number(refill?.harga || 0);
+            state.refill = registeredUnits.length
+                ? (registeredRefillSelections[0]?.refill || null)
+                : refill;
+            state.itemLabel = state.refill?.nama_label || 'Belum dipilih';
+            state.unitPrice = registeredUnits.length
+                ? Number(registeredRefillSelections[0]?.unitPrice || 0)
+                : resolveRefillPriceForSize(refill, ukuran);
             state.totalKg = ukuranKg > 0 ? (registeredUnits.length ? ukuranKg : ukuranKg * qty) : 0;
-            state.totalPrice = state.totalKg > 0 ? state.unitPrice * state.totalKg : 0;
+            state.totalPrice = registeredUnits.length
+                ? registeredRefillSelections.reduce((total, selection) => total + Number(selection.unitPrice || 0), 0)
+                : (state.unitPrice > 0 ? state.unitPrice * qty : 0);
 
-            if (refill) {
+            if (state.hasMixedRegisteredRefill) {
+                state.itemLabel = 'Campuran jenis refill';
+                state.currentStockLabel = 'Unit APAR yang dipilih memiliki jenis refill berbeda.';
+                state.afterStockLabel = 'Pisahkan pesanan refill berdasarkan jenis APAR agar sistem dapat menghitung stok dan harga dengan benar.';
+                state.insufficientStock = true;
+                state.lowStock = false;
+            } else if (state.refill) {
+                const currentStock = Number(state.refill.stok || 0);
+                const remainingStock = currentStock - state.totalKg;
+                state.currentStockLabel = `${state.refill.nama_label}: ${formatKg(currentStock)} ${state.refill.satuan_label}`;
+                state.afterStockLabel = state.totalKg > 0
+                    ? `Perkiraan sisa stok setelah pesanan: ${formatKg(remainingStock)} ${state.refill.satuan_label}`
+                    : 'Jumlah kebutuhan refill akan muncul setelah ukuran dan unit dipilih.';
+                state.insufficientStock = state.totalKg > 0 && remainingStock < 0;
+                state.lowStock = state.totalKg > 0 && remainingStock <= Number(state.refill.stok_minimum || 0);
+            } else if (registeredUnits.length) {
+                state.currentStockLabel = 'Jenis refill otomatis belum ditemukan untuk unit yang dipilih.';
+                state.afterStockLabel = 'Pastikan master data jenis refill sesuai dengan jenis APAR pada unit terdaftar.';
+                state.insufficientStock = true;
+                state.lowStock = false;
+            } else if (refill) {
                 const currentStock = Number(refill.stok || 0);
                 const remainingStock = currentStock - state.totalKg;
                 state.currentStockLabel = `${refill.nama_label}: ${formatKg(currentStock)} ${refill.satuan_label}`;
@@ -2108,24 +2205,44 @@
             state.itemLabel = paket
                 ? `${paket.label ? paket.label + ' - ' : ''}${paket.nama}`
                 : 'Belum dipilih';
-            state.unitPrice = Number(paket?.harga || 0);
-            state.totalPrice = state.unitPrice * qty;
-            state.totalKg = linkedRefill && ukuranKg > 0 && Number(paket?.refill_ratio || 0) > 0
-                ? (registeredUnits.length ? ukuranKg : ukuranKg * qty) * Number(paket.refill_ratio || 0)
-                : 0;
+            state.lineItems = registeredUnits.length
+                ? registeredUnits.map((unit) => {
+                    const unitPrice = resolveServicePackagePrice(paket, unit.jenis_apar, unit.ukuran);
+                    return {
+                        label: `${displayServiceMediaLabel(unit.jenis_apar)} ${unit.ukuran}`,
+                        qty: 1,
+                        unitPrice,
+                        total: unitPrice,
+                    };
+                })
+                : [{
+                    label: `${displayServiceMediaLabel(manualMedia)} ${ukuran}`.trim(),
+                    qty,
+                    unitPrice: resolveServicePackagePrice(paket, manualMedia, ukuran),
+                    total: resolveServicePackagePrice(paket, manualMedia, ukuran) * qty,
+                }];
+            state.unitPrice = Number(state.lineItems[0]?.unitPrice || 0);
+            state.totalPrice = state.lineItems.reduce((total, item) => total + Number(item.total || 0), 0);
+            state.peralatanItems = resolveServicePeralatan(paket, qty);
 
-            if (linkedRefill) {
-                const currentStock = Number(linkedRefill.stok || 0);
-                const remainingStock = currentStock - state.totalKg;
-                state.currentStockLabel = `Estimasi ${linkedRefill.nama_label}: ${formatKg(currentStock)} ${linkedRefill.satuan_label}`;
-                state.afterStockLabel = state.totalKg > 0
-                    ? `Estimasi kebutuhan paket: ${formatKg(state.totalKg)} ${linkedRefill.satuan_label}. Stok perlengkapan dipotong saat service selesai.`
-                    : 'Paket ini menggunakan perlengkapan sesuai standar service.';
-                state.lowStock = state.totalKg > 0 && remainingStock <= Number(linkedRefill.stok_minimum || 0);
-                state.insufficientStock = state.totalKg > 0 && remainingStock < 0;
+            const stockIssues = state.peralatanItems.filter((item) => Number(item.stok || 0) < Number(item.jumlah || 0));
+            const lowStockItems = state.peralatanItems.filter((item) => {
+                const remaining = Number(item.stok || 0) - Number(item.jumlah || 0);
+                return Number(item.jumlah || 0) > 0 && remaining <= Number(item.stok_minimum || 0);
+            });
+
+            if (stockIssues.length) {
+                state.currentStockLabel = stockIssues.map((item) => `${item.nama}: stok ${item.stok}, butuh ${item.jumlah}`).join(' • ');
+                state.afterStockLabel = 'Stok peralatan paket belum mencukupi untuk memproses service ini.';
+                state.insufficientStock = true;
+                state.lowStock = false;
             } else {
-                state.currentStockLabel = 'Paket service akan memakai perlengkapan sesuai standar pekerjaan.';
+                state.currentStockLabel = state.peralatanItems.length
+                    ? state.peralatanItems.map((item) => `${item.nama}: ${item.stok} pcs`).join(' • ')
+                    : 'Paket service akan memakai peralatan sesuai standar pekerjaan.';
                 state.afterStockLabel = 'Stok perlengkapan akan berkurang saat admin mengonfirmasi service selesai.';
+                state.lowStock = lowStockItems.length > 0;
+                state.insufficientStock = false;
             }
         }
 
@@ -2141,57 +2258,32 @@
         }
 
         if (serviceJenisAparHidden) {
-            serviceJenisAparHidden.value = state.registeredUnits.length
-                ? [...new Set(state.registeredUnits.map((unit) => unit.jenis_apar || 'APAR'))].join(', ')
-                : (state.ukuran ? `APAR ${state.ukuran}` : '');
+            serviceJenisAparHidden.value = state.kategori === 'service' && state.unitStatus !== 'terdaftar'
+                ? getManualServiceMedia()
+                : (state.registeredUnits.length
+                    ? [...new Set(state.registeredUnits.map((unit) => displayServiceMediaLabel(unit.jenis_apar || 'APAR')))].join(', ')
+                    : '');
         }
 
         if (serviceRefillPriceNote) {
             if (state.kategori === 'refill') {
-                serviceRefillPriceNote.textContent = state.refill && state.unitPrice > 0
-                    ? `Harga standar ${state.refill.nama_label}: ${fmt(state.unitPrice)} per ${state.refill.satuan_label}. Total = ukuran APAR x jumlah unit x harga standar.`
-                    : 'Harga standar refil akan muncul otomatis saat jenis refil dan ukuran APAR dipilih.';
-            } else {
-                serviceRefillPriceNote.textContent = 'Paket service memakai harga standar per unit APAR dan rincian pekerjaan yang tetap.';
-            }
-        }
-
-        if (servicePaketInfo && servicePaketInfoContent) {
-            if (state.kategori === 'service' && state.paket) {
-                servicePaketInfoContent.innerHTML = '';
-
-                const heading = document.createElement('p');
-                heading.className = 'text-sm font-black text-slate-900';
-                heading.textContent = `${state.paket.label ? state.paket.label + ' - ' : ''}${state.paket.nama}`;
-                servicePaketInfoContent.appendChild(heading);
-
-                const pekerjaan = document.createElement('p');
-                pekerjaan.className = 'text-sm font-semibold text-slate-700';
-                pekerjaan.textContent = `Paket ini mencakup ${Math.max((state.paket.rincian || []).length, 1)} langkah pekerjaan standar untuk ${state.qty} unit APAR.`;
-                servicePaketInfoContent.appendChild(pekerjaan);
-
-                if ((state.paket.peralatans || []).length) {
-                    const perlengkapan = document.createElement('p');
-                    perlengkapan.className = 'text-sm font-semibold text-slate-700';
-                    perlengkapan.textContent = 'Estimasi barang dipakai: ' + (state.paket.peralatans || [])
-                        .map((item) => `${item.nama} (${Number(item.jumlah || 0) * state.qty} pcs total)`)
-                        .join(', ') + '.';
-                    servicePaketInfoContent.appendChild(perlengkapan);
+                if (state.unitStatus === 'terdaftar') {
+                    serviceRefillPriceNote.textContent = state.refill && state.totalPrice > 0
+                        ? `Jenis refill mengikuti unit APAR terpilih secara otomatis. Total dihitung per unit berdasarkan ukuran APAR yang dicentang.`
+                        : 'Jenis refill dan harga untuk APAR terdaftar akan mengikuti unit APAR yang dicentang.';
                 } else {
-                    const fallback = document.createElement('p');
-                    fallback.className = 'text-sm font-semibold text-slate-700';
-                    fallback.textContent = 'Paket ini dominan berisi inspeksi dan pembersihan tanpa penggantian barang standar.';
-                    servicePaketInfoContent.appendChild(fallback);
+                    serviceRefillPriceNote.textContent = state.refill && state.unitPrice > 0
+                        ? `Harga standar ${state.refill.nama_label}: ${fmt(state.unitPrice)} per unit ukuran ${state.ukuran || 'APAR'}.`
+                        : 'Harga standar refil akan muncul otomatis saat jenis refil dan ukuran APAR dipilih.';
                 }
-
-                servicePaketInfo.classList.remove('hidden');
             } else {
-                servicePaketInfo.classList.add('hidden');
-                servicePaketInfoContent.innerHTML = '';
+                serviceRefillPriceNote.textContent = state.totalPrice > 0
+                    ? 'Harga service mengikuti paket, media APAR, dan ukuran tiap unit yang dipilih.'
+                    : 'Pilih media APAR, ukuran, dan paket service untuk melihat harga otomatis.';
             }
         }
 
-        renderServicePackageDetails(state.kategori === 'service' ? state.paket : null, state.qty);
+        renderServicePackageDetails(state);
 
         if (serviceSummaryCategory) serviceSummaryCategory.textContent = state.kategori === 'service' ? 'Service APAR' : 'Refill APAR';
         if (serviceSummaryStatusRow) serviceSummaryStatusRow.classList.toggle('hidden', false);
@@ -2206,13 +2298,19 @@
         if (serviceSummaryItem) serviceSummaryItem.textContent = state.itemLabel;
         if (serviceSummarySize) serviceSummarySize.textContent = state.ukuran || '-';
         if (serviceSummaryQty) serviceSummaryQty.textContent = `${state.qty} unit`;
+        if (serviceSummaryUsageLabel) {
+            serviceSummaryUsageLabel.textContent = state.kategori === 'service' ? 'Peralatan Paket' : 'Kebutuhan Refill';
+        }
         if (serviceSummaryKg) {
-            serviceSummaryKg.textContent = state.totalKg > 0
-                ? `${formatKg(state.totalKg)} ${state.stockUnit}`
-                : '-';
+            serviceSummaryKg.textContent = state.kategori === 'service'
+                ? `${(state.peralatanItems || []).length} item`
+                : (state.totalKg > 0 ? `${formatKg(state.totalKg)} ${state.stockUnit}` : '-');
         }
         if (serviceSummaryMethod) serviceSummaryMethod.textContent = metodeLabel;
         if (serviceSummaryPrice) serviceSummaryPrice.textContent = fmt(state.totalPrice || 0);
+        if (serviceStockTitle) {
+            serviceStockTitle.textContent = state.kategori === 'service' ? 'Stok Peralatan Paket' : 'Stok Saat Ini';
+        }
         if (serviceStockCurrent) serviceStockCurrent.textContent = state.currentStockLabel;
         if (serviceStockAfter) serviceStockAfter.textContent = state.afterStockLabel;
         if (serviceRegisteredCountNote) {
@@ -2230,17 +2328,21 @@
             return;
         }
 
-        if (state.kategori === 'refill' && state.insufficientStock) {
-            setServiceAlert(serviceStockWarning, `Stok refill ${state.refill?.nama_label || 'yang dipilih'} tidak mencukupi.`);
+        if (state.insufficientStock) {
+            setServiceAlert(serviceStockWarning, state.kategori === 'service'
+                ? 'Stok peralatan paket service belum mencukupi untuk jumlah unit yang dipilih.'
+                : (state.hasMixedRegisteredRefill
+                    ? 'Unit APAR yang dipilih memiliki jenis refill berbeda. Pisahkan pesanan berdasarkan jenis APAR.'
+                    : `Stok refill ${state.refill?.nama_label || 'yang dipilih'} tidak mencukupi.`));
         } else {
             setServiceAlert(serviceStockWarning, '');
         }
 
         if (state.lowStock) {
             const targetName = state.kategori === 'service'
-                ? (state.linkedRefill?.nama_label || 'refill terkait')
+                ? 'peralatan paket service'
                 : (state.refill?.nama_label || 'refill yang dipilih');
-            setServiceAlert(serviceLowStockWarning, `Stok refill ${targetName} hampir habis.`);
+            setServiceAlert(serviceLowStockWarning, `Stok ${targetName} hampir habis.`);
         } else {
             setServiceAlert(serviceLowStockWarning, '');
         }
@@ -2257,6 +2359,9 @@
         if (serviceRefillFields) {
             serviceRefillFields.classList.toggle('hidden', !showRefillFields);
         }
+        if (serviceRefillSelectField) {
+            serviceRefillSelectField.classList.toggle('hidden', isRegisteredService && isRefill);
+        }
         if (serviceServiceFields) {
             serviceServiceFields.classList.toggle('hidden', !showServiceFields);
         }
@@ -2265,6 +2370,9 @@
         }
         if (serviceRegisteredUnitFields) {
             serviceRegisteredUnitFields.classList.toggle('hidden', !isRegisteredService);
+        }
+        if (serviceManualTypeField) {
+            serviceManualTypeField.classList.toggle('hidden', isRegisteredService || isRefill);
         }
         if (serviceManualSizeField) {
             serviceManualSizeField.classList.toggle('hidden', isRegisteredService);
@@ -2282,13 +2390,21 @@
             if (serviceRegisteredEmptyNote) serviceRegisteredEmptyNote.classList.remove('hidden');
         }
 
+        syncManualServiceSizeOptions();
+        syncServiceJenisAparValue();
+
         if (serviceJenisLayanan) serviceJenisLayanan.required = !isBeli;
         if (serviceUkuranApar) serviceUkuranApar.required = !isBeli && !isRegisteredService;
+        if (serviceJenisAparManual) {
+            serviceJenisAparManual.required = !isBeli && !isRefill && !isRegisteredService;
+            serviceJenisAparManual.disabled = isBeli || isRefill || isRegisteredService;
+        }
         if (serviceJumlahUnit) {
-            serviceJumlahUnit.required = !isBeli;
+            serviceJumlahUnit.required = !isBeli && !isRegisteredService;
             serviceJumlahUnit.readOnly = isRegisteredService;
             if (isRegisteredService) {
-                serviceJumlahUnit.value = String(Math.max(1, getSelectedRegisteredUnits().length || getUnitsByPurchaseGroup(servicePurchaseGroup?.value || '').length || 1));
+                const registeredQty = getSelectedRegisteredUnits().length;
+                serviceJumlahUnit.value = registeredQty > 0 ? String(registeredQty) : '';
             }
             serviceJumlahUnit.classList.toggle('bg-slate-100', isRegisteredService);
             serviceJumlahUnit.classList.toggle('text-slate-500', isRegisteredService);
@@ -2302,8 +2418,8 @@
             servicePurchaseGroup.disabled = !isRegisteredService;
         }
         if (serviceJenisRefill) {
-            serviceJenisRefill.required = showRefillFields;
-            serviceJenisRefill.disabled = !isRefill;
+            serviceJenisRefill.required = showRefillFields && !isRegisteredService;
+            serviceJenisRefill.disabled = !isRefill || isRegisteredService;
         }
         if (servicePaketId) {
             servicePaketId.required = showServiceFields;
@@ -2516,7 +2632,6 @@
         }
 
         normalTotal = total;
-        syncNegotiationEligibility();
         syncDisplayedTotal();
     }
 
@@ -2528,138 +2643,7 @@
         });
     }
 
-    function buildNegotiationWhatsAppMessage(kodePesanan = '') {
-        updateCombinedAddress();
-        const nama = inpNama.value.trim();
-        const noWa = normalizePhone(inpNoWa.value);
-        const alamatMaps = inpAlamatMaps.value.trim();
-        const alamatDetail = inpAlamatDetail.value.trim();
-        const perusahaan = inpPerusahaan.value.trim();
-        const items = getSelectedItems();
-        const selectedBank = inpBank.value;
-        const selectedBankName = getSelectedBankName();
-        const hargaUsulan = parseInt(inpHargaDeal.value || 0, 10) || 0;
-        const identity = perusahaan ? `${nama} (${perusahaan})` : nama;
-        const totalSistem = normalTotal + (shippingMethod === 'diantar' ? shippingCost : 0);
-        const itemLinesFormatted = items.map((item) => {
-            return `* ${item.jenis} ${item.kapasitas} (${item.merek}) x${item.jumlah}\n  Harga: ${fmt(item.harga * item.jumlah)}`;
-        }).join('\n');
-
-        let pengajuanSection = '';
-        if (hargaUsulan > 0) {
-            const selisih = hargaUsulan - totalSistem;
-            pengajuanSection = `\n*Harga Usulan di Sistem*\n${fmt(hargaUsulan)}\n(Selisih dari total normal: ${selisih >= 0 ? '+' : ''}${fmt(selisih)})\n`;
-        }
-
-        return `Halo Admin, saya ingin konsultasi dan negosiasi harga pesanan APAR.
-
-*Data Pelanggan*
-Nama: ${identity}
-No WA: ${noWa}
-Alamat: ${alamatMaps}${alamatDetail ? ` | Detail: ${alamatDetail}` : ''}${kodePesanan ? `\nRef: ${kodePesanan}` : ''}
-
-*Detail Pesanan*
-${itemLinesFormatted}
-
-*Pengiriman*
-Metode: ${shippingMethod === 'diantar' ? 'Diantar' : 'Ambil Sendiri'}
-${shippingMethod === 'diantar' ? `Ongkir: ${fmt(shippingCost)}\n` : ''}Bank Tujuan: ${selectedBankName}
-*Total Normal Sistem: ${fmt(totalSistem)}*${pengajuanSection}
-Mohon informasinya. Terima kasih.`;
-    }
-
-    async function submitNegotiationRequest() {
-        updateCombinedAddress();
-        const nama = inpNama.value.trim();
-        const noWa = normalizePhone(inpNoWa.value);
-        const alamatMaps = inpAlamatMaps.value.trim();
-        const alamatDetail = inpAlamatDetail.value.trim();
-        const perusahaan = inpPerusahaan.value.trim();
-        const items = getSelectedItems();
-        const hargaUsulan = parseInt(inpHargaDeal.value || 0, 10);
-        const selectedBank = inpBank.value;
-        const totalQty = getSelectedItemQuantityTotal();
-
-        if (!nama || !noWa || !alamatMaps || !alamatDetail) {
-            alert('Lengkapi Nama, Nomor WhatsApp, Alamat Maps, dan Detail Alamat terlebih dahulu.');
-            return;
-        }
-        if (!items.length) {
-            alert('Pilih minimal satu produk sebelum melanjutkan.');
-            return;
-        }
-        if (totalQty < 10) {
-            alert(`Harga usulan hanya bisa dipakai jika total pembelian minimal 10 unit. Saat ini jumlah pesanan Anda ${totalQty} unit.`);
-            return;
-        }
-        if (!hargaUsulan || hargaUsulan <= 0) {
-            alert('Masukkan harga usulan yang valid sebelum dikirim ke sistem.');
-            return;
-        }
-        if (shippingMethod === 'diantar' && !shippingQuoteReady) {
-            alert('Silakan cek ongkir Ekspedisi terlebih dahulu.');
-            return;
-        }
-        if (!selectedBank) {
-            showBankError('Pilih bank tujuan terlebih dahulu untuk melanjutkan.');
-            return;
-        }
-
-        const targetBtn = btnSubmitNego;
-        targetBtn.disabled = true;
-        const originalLabel = targetBtn.innerHTML;
-        targetBtn.innerHTML = '<svg class="w-5 h-5 animate-spin inline-block mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Memproses...';
-
-        let kodePesanan = '';
-        try {
-            const response = await fetch(ASK_WHATSAPP_URL, {
-                method: 'POST',
-                headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
-                credentials: 'same-origin',
-                body: JSON.stringify({ nama, no_wa: noWa, alamat_maps: alamatMaps, alamat_detail: alamatDetail, alamat_provinsi: document.getElementById('inp-provinsi')?.value, alamat_kota: document.getElementById('inp-kota')?.value, alamat_kecamatan: document.getElementById('inp-kecamatan')?.value, alamat_kode_pos: document.getElementById('inp-kodepos')?.value, alamat_lat: inpAlamatLat.value || null, alamat_lng: inpAlamatLng.value || null, metode_pengiriman: shippingMethod, ongkir: shippingMethod === 'diantar' ? shippingCost : 0, perusahaan, harga_usulan: hargaUsulan, sumber_negosiasi: 'sistem', bank: selectedBank, items: items.map((item) => ({ produk_id: item.produk_id, jumlah: item.jumlah })) }),
-            });
-            const data = await response.json();
-            if (!response.ok || !data.success) throw new Error(data.message || 'Gagal menyimpan data.');
-            kodePesanan = String(data.data?.kode_pesanan || '').trim();
-        } catch (error) {
-            alert(error.message || 'Terjadi kesalahan. Silakan coba lagi.');
-            targetBtn.disabled = false;
-            targetBtn.innerHTML = originalLabel;
-            return;
-        }
-
-        alert(`Harga usulan berhasil dikirim ke sistem dengan referensi ${kodePesanan || 'pesanan baru'}. Sekarang admin/pemilik bisa meninjau dan meng-ACC pengajuan Anda. Jika disetujui, gunakan kode penawaran untuk melanjutkan transaksi.`);
-        targetBtn.disabled = false;
-        targetBtn.innerHTML = originalLabel;
-    }
-
-    btnAskWhatsApp.addEventListener('click', function() {
-        const message = buildNegotiationWhatsAppMessage();
-        window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
-    });
-
-    if (btnSubmitNego) {
-        btnSubmitNego.addEventListener('click', submitNegotiationRequest);
-    }
-
-    if (inpDisplayHargaUsulan) {
-        inpDisplayHargaUsulan.addEventListener('input', function() {
-            const raw = this.value.replace(/\D/g, '');
-            const val = parseInt(raw || 0, 10);
-            this.value = val > 0 ? val.toLocaleString('id-ID') : '';
-            inpHargaDeal.value = String(val);
-            syncDisplayedTotal();
-        });
-    }
-
-    btnCheckNegoCode.addEventListener('click', checkNegoCode);
-
-    inpKodeNego.addEventListener('input', function() {
-        resetDealValidation(true);
-        if (!inpKodeNego.value.trim()) {
-            negoCodeError.classList.add('hidden');
-        }
-    });
+    // Negosiasi code functions and listeners have been removed
 
     orderForm.addEventListener('submit', function(event) {
         const isBeli = currentTab === 'beli';
@@ -2684,9 +2668,7 @@ Mohon informasinya. Terima kasih.`;
             const serviceState = buildServiceState();
 
             document.querySelectorAll('[name^="items["]').forEach((field) => { field.disabled = true; });
-            inpIsNegoDeal.value = '0';
             inpTipeHarga.value = 'normal';
-            inpHargaDeal.value = '';
             inpBank.value = '';
             inpOngkir.value = '0';
             inpShippingDistance.value = '0';
@@ -2704,6 +2686,12 @@ Mohon informasinya. Terima kasih.`;
                 return;
             }
 
+            if (serviceState.kategori === 'service' && serviceState.unitStatus !== 'terdaftar' && !getManualServiceMedia()) {
+                alert('Pilih jenis media APAR terlebih dahulu.');
+                event.preventDefault();
+                return;
+            }
+
             if (!serviceState.ukuran) {
                 alert(serviceState.unitStatus === 'terdaftar'
                     ? 'Unit APAR terdaftar belum memiliki data ukuran. Hubungi admin atau gunakan opsi APAR Belum Terdaftar.'
@@ -2712,10 +2700,16 @@ Mohon informasinya. Terima kasih.`;
                 return;
             }
 
-            if (serviceState.kategori === 'refill' && !serviceJenisRefill?.value) {
+            if (serviceState.kategori === 'refill' && !serviceState.refill) {
                 alert(serviceState.unitStatus === 'terdaftar'
                     ? 'Jenis refil otomatis belum ditemukan dari Unit APAR terdaftar. Pastikan master data Jenis Refil sudah sesuai dengan jenis APAR.'
                     : 'Pilih jenis refil terlebih dahulu.');
+                event.preventDefault();
+                return;
+            }
+
+            if (serviceState.kategori === 'refill' && serviceState.hasMixedRegisteredRefill) {
+                alert('Unit APAR yang dipilih memiliki jenis refill berbeda. Pisahkan pesanan refill berdasarkan jenis APAR.');
                 event.preventDefault();
                 return;
             }
@@ -2736,16 +2730,18 @@ Mohon informasinya. Terima kasih.`;
                 return;
             }
 
-            if (serviceState.kategori === 'refill' && serviceState.insufficientStock) {
-                alert('Stok refill ' + (serviceState.refill?.nama_label || 'yang dipilih') + ' tidak mencukupi.');
+            if (serviceState.insufficientStock) {
+                alert(serviceState.kategori === 'service'
+                    ? 'Stok peralatan paket service belum mencukupi untuk jumlah unit yang dipilih.'
+                    : ('Stok refill ' + (serviceState.refill?.nama_label || 'yang dipilih') + ' tidak mencukupi.'));
                 event.preventDefault();
                 return;
             }
 
             if (serviceJenisAparHidden) {
-                serviceJenisAparHidden.value = serviceState.registeredUnits.length
-                    ? [...new Set(serviceState.registeredUnits.map((unit) => unit.jenis_apar || 'APAR'))].join(', ')
-                    : (serviceState.ukuran ? `APAR ${serviceState.ukuran}` : '');
+                serviceJenisAparHidden.value = serviceState.kategori === 'service' && serviceState.unitStatus !== 'terdaftar'
+                    ? getManualServiceMedia()
+                    : [...new Set(serviceState.registeredUnits.map((unit) => displayServiceMediaLabel(unit.jenis_apar || 'APAR')))].join(', ');
             }
 
             return;
@@ -2772,17 +2768,11 @@ Mohon informasinya. Terima kasih.`;
             return;
         }
 
-        if (dealValidated) {
-            inpKodeNego.value = validatedNegoCode;
-            inpHargaDeal.value = String(validatedDealPrice);
-            inpIsNegoDeal.value = '1';
-            inpTipeHarga.value = 'deal';
-            return;
+        if (promoDiscountNominal > 0) {
+            if (inpTipeHarga) inpTipeHarga.value = 'promo';
+        } else {
+            if (inpTipeHarga) inpTipeHarga.value = 'normal';
         }
-
-        inpIsNegoDeal.value = '0';
-        inpTipeHarga.value = 'normal';
-        inpHargaDeal.value = '';
     });
 
     inpAlamatMaps.addEventListener('input', scheduleAddressSuggestSearch);
@@ -2824,7 +2814,13 @@ Mohon informasinya. Terima kasih.`;
     }
     if (serviceJenisRefill) {
         serviceJenisRefill.addEventListener('change', function() {
-            renderRegisteredUnitChecklist();
+            updateServiceSummary();
+        });
+    }
+    if (serviceJenisAparManual) {
+        serviceJenisAparManual.addEventListener('change', function() {
+            syncServiceJenisAparValue();
+            syncManualServiceSizeOptions();
             updateServiceSummary();
         });
     }
@@ -2844,31 +2840,22 @@ Mohon informasinya. Terima kasih.`;
     serviceMethodRadios.forEach((radio) => {
         radio.addEventListener('change', updateServiceSummary);
     });
-    if (btnSelectAllUnits) {
-        btnSelectAllUnits.addEventListener('click', function() {
-            serviceRegisteredUnitList?.querySelectorAll('.service-unit-checkbox').forEach((checkbox) => {
-                checkbox.checked = true;
-            });
-            updateServiceSummary();
-        });
-    }
-    if (btnClearAllUnits) {
-        btnClearAllUnits.addEventListener('click', function() {
-            serviceRegisteredUnitList?.querySelectorAll('.service-unit-checkbox').forEach((checkbox) => {
-                checkbox.checked = false;
-            });
-            updateServiceSummary();
-        });
-    }
-
-    if (btnPickup) btnPickup.addEventListener('click', function() { setShippingMethod('pickup'); });
-    if (btnLalamove) btnLalamove.addEventListener('click', function() { setShippingMethod('diantar'); });
-    if (btnCheckOngkir) btnCheckOngkir.addEventListener('click', checkShippingQuote);
-    bankOptions.forEach((option) => {
-        option.addEventListener('click', function() {
-            setSelectedBank(this.dataset.bank || '');
+    shippingMethodRadios.forEach((radio) => {
+        radio.addEventListener('change', function() {
+            setShippingMethod(this.value);
         });
     });
+    bankRadios.forEach((radio) => {
+        radio.addEventListener('change', function() {
+            setSelectedBank(this.value);
+        });
+    });
+    if (inpMetodePengiriman.value) {
+        setShippingMethod(inpMetodePengiriman.value);
+    }
+
+    if (btnCheckOngkir) btnCheckOngkir.addEventListener('click', checkShippingQuote);
+
 
     // Init map
     const initialLat = Number(inpAlamatLat.value || STORE_LAT || -6.2088);
@@ -2894,7 +2881,6 @@ Mohon informasinya. Terima kasih.`;
     setShippingMethod(inpMetodePengiriman.value || 'pickup');
     setSelectedBank(inpBank.value || '');
     switchTab(document.getElementById('inp-tipe').value || 'beli');
-    resetDealValidation();
     recalcGlobal();
 })();
 </script>

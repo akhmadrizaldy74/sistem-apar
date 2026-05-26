@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Invoice Pesanan</title>
+    <title>{{ $pesanan->invoiceTitle() }}</title>
     <style>
         body { font-family: DejaVu Sans, sans-serif; font-size: 12px; color: #1f2937; }
         h1 { font-size: 22px; margin: 0 0 6px; }
@@ -23,9 +23,9 @@
 </head>
 <body>
     @include('pdf.partials.letterhead')
-    <h1 class="doc-title">Invoice Pesanan</h1>
-    <p>No. Invoice: INV-{{ str_pad((string) $pesanan->id, 5, '0', STR_PAD_LEFT) }}</p>
-    <p>Tanggal: {{ $pesanan->tanggal->format('d-m-Y') }}</p>
+    <h1 class="doc-title">{{ $pesanan->invoiceTitle() }}</h1>
+    <p>Tanggal Transaksi: {{ $pesanan->displayTransactionDateTime() }}</p>
+    <p style="font-size: 10px; color: #cbd5e1;">Nomor referensi internal: {{ $pesanan->invoiceDisplayNumber() }}</p>
 
     <div class="row">
         <div class="col">
@@ -77,9 +77,26 @@
 
     <table>
         <tbody>
+            @php
+                $pricingSummary = $pesanan->pricingSummary();
+            @endphp
             <tr>
-                <td class="text-right total">Total Invoice</td>
-                <td class="text-right total" style="width: 180px;">Rp {{ number_format($pesanan->total, 0, ',', '.') }}</td>
+                <td class="text-right" style="padding-right: 15px;">Subtotal</td>
+                <td class="text-right" style="width: 180px;">Rp {{ number_format((float) $pricingSummary['subtotalProduk'], 0, ',', '.') }}</td>
+            </tr>
+            <tr>
+                <td class="text-right" style="padding-right: 15px;">Ongkos Kirim</td>
+                <td class="text-right" style="width: 180px;">Rp {{ number_format((float) $pricingSummary['ongkir'], 0, ',', '.') }}</td>
+            </tr>
+            @if((float) $pricingSummary['nominalDiskon'] > 0)
+            <tr>
+                <td class="text-right" style="padding-right: 15px; color: #16a34a; font-weight: bold;">Promo Diskon Pembelian Banyak</td>
+                <td class="text-right" style="width: 180px; color: #16a34a; font-weight: bold;">- Rp {{ number_format((float) $pricingSummary['nominalDiskon'], 0, ',', '.') }}</td>
+            </tr>
+            @endif
+            <tr>
+                <td class="text-right total" style="padding-right: 15px; border-top: 2px solid #000;">Total Invoice</td>
+                <td class="text-right total" style="width: 180px; border-top: 2px solid #000;">Rp {{ number_format((float) $pricingSummary['totalPembayaran'], 0, ',', '.') }}</td>
             </tr>
         </tbody>
     </table>

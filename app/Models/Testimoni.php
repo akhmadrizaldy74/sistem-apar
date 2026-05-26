@@ -41,4 +41,20 @@ class Testimoni extends Model
     {
         return $this->status === 'approved';
     }
+
+    public function displaySubmittedAt(): ?\Illuminate\Support\Carbon
+    {
+        if ($this->created_at) {
+            return $this->created_at->copy()->timezone(config('app.timezone'));
+        }
+
+        return $this->tanggal?->copy()
+            ->timezone(config('app.timezone'))
+            ->startOfDay();
+    }
+
+    public function displaySubmittedDateTime(string $format = 'd M Y, H:i'): string
+    {
+        return $this->displaySubmittedAt()?->format($format) ?? '-';
+    }
 }
