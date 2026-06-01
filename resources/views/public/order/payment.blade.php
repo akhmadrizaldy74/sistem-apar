@@ -209,13 +209,6 @@
                             </label>
                             <input type="file" name="bukti_pembayaran" id="proof-input" accept=".jpg,.jpeg,.png,.pdf" class="hidden">
 
-                            @if($errors->any())
-                                <div class="mt-4 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 flex items-start gap-3 shadow-sm">
-                                    <svg class="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                    <p class="text-sm font-semibold text-red-700">{{ $errors->first() }}</p>
-                                </div>
-                            @endif
-
                             <!-- Submit Button Moved Here for Better UX -->
                             <div class="mt-6 space-y-3 pt-6 border-t border-slate-100">
                                 <button type="button" id="submit-proof-btn" class="w-full inline-flex items-center justify-center px-5 py-4 rounded-2xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-black transition shadow-xl shadow-red-600/30 disabled:opacity-60 disabled:cursor-not-allowed text-sm tracking-wider">
@@ -460,7 +453,7 @@
 
     submitProofBtn.addEventListener('click', async () => {
         if (!proofInput.files || !proofInput.files.length) {
-            alert('Upload bukti transfer terlebih dahulu.');
+            showAppAlert('Upload bukti transfer terlebih dahulu.', 'warning', 'Peringatan');
             return;
         }
 
@@ -495,7 +488,7 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
             successOverlay.classList.remove('hidden');
         } catch (error) {
-            alert(error.message || 'Terjadi kesalahan saat mengirim bukti.');
+            showAppAlert(error.message || 'Terjadi kesalahan saat mengirim bukti.', 'error', 'Gagal');
             submitProofBtn.disabled = false;
             submitProofBtn.innerHTML = `<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>Kirim Bukti Pembayaran`;
         }

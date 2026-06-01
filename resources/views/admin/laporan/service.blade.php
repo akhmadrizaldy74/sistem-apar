@@ -72,11 +72,11 @@
                             <tr>
                                 <td class="px-8 py-6 text-sm font-bold text-gray-900">{{ $service->tgl_service->format('d M Y') }}</td>
                                 <td class="px-8 py-6">
-                                    <p class="text-sm font-black text-gray-900">{{ $service->unitApar->no_seri }}</p>
-                                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{{ $service->unitApar->produk?->nama ?? '-' }}</p>
+                                    <p class="text-sm font-black text-gray-900">{{ $service->unitApar?->no_seri ?? '-' }}</p>
+                                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{{ $service->unitApar?->produk?->nama ?? '-' }}</p>
                                 </td>
                                 <td class="px-8 py-6 text-sm font-bold text-red-700">{{ $service->jenis_service }}</td>
-                                <td class="px-8 py-6 text-sm font-bold text-gray-700">{{ $service->unitApar->pelanggan->nama }}</td>
+                                <td class="px-8 py-6 text-sm font-bold text-gray-700">{{ $service->unitApar?->pelanggan?->nama ?? '-' }}</td>
                                 <td class="px-8 py-6 text-sm font-medium text-gray-500 max-w-sm">{{ $service->keterangan }}</td>
                                 <td class="px-8 py-6 text-sm font-black text-blue-700">Rp {{ number_format($service->biaya, 0, ',', '.') }}</td>
                             </tr>

@@ -13,23 +13,10 @@
                         Semua produk APAR yang tersedia dapat dilihat dan dipilih pelanggan dari halaman produk ini.
                     </p>
                 </div>
-                <a href="{{ route('cek-apar') }}" class="px-6 py-3 bg-gray-50 border border-gray-100 text-gray-900 font-bold rounded-2xl hover:shadow-md transition">
-                    Cek APAR
+                <a href="{{ route('home') }}" class="px-6 py-3 bg-gray-50 border border-gray-100 text-gray-900 font-bold rounded-2xl hover:shadow-md transition">
+                    Kembali ke Beranda
                 </a>
             </div>
-
-            @if(session('success'))
-                <div class="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 font-semibold text-sm flex items-center gap-3" data-reveal>
-                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    {{ session('success') }}
-                </div>
-            @endif
-            @if(session('error'))
-                <div class="mt-6 p-4 bg-red-50 border border-red-200 rounded-2xl text-red-800 font-semibold text-sm flex items-center gap-3" data-reveal>
-                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    {{ session('error') }}
-                </div>
-            @endif
 
             <form method="GET" class="mt-8 bg-gray-50 border border-gray-100 rounded-[1.75rem] p-6 grid md:grid-cols-4 gap-4 items-end" data-reveal>
                 <div class="md:col-span-2">

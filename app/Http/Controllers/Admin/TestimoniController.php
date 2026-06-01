@@ -34,7 +34,7 @@ class TestimoniController extends Controller
     {
         $request->validate([
             'pelanggan_id' => 'required|exists:pelanggans,id',
-            'rating'       => 'required|integer|min=1|max=5',
+            'rating'       => 'required|integer|min:1|max:5',
             'review'       => 'required|string',
         ]);
 
@@ -52,7 +52,7 @@ class TestimoniController extends Controller
     public function update(Request $request, Testimoni $testimoni)
     {
         $request->validate([
-            'rating' => 'required|integer|min=1|max=5',
+            'rating' => 'required|integer|min:1|max:5',
             'review' => 'required|string',
             'admin_note' => 'nullable|string|max:500',
         ]);

@@ -52,6 +52,8 @@
                 <div class="bg-white/90 backdrop-blur-2xl p-6 sm:p-10 rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl shadow-black/40 border border-white/15 relative" data-reveal>
                     {{ $slot }}
                 </div>
+            </div>
         </div>
+        @include('layouts.partials.sweet-alerts')
     </body>
 </html>

@@ -14,6 +14,16 @@ use Illuminate\Support\Facades\DB;
 
 class CheckoutController extends Controller
 {
+    private function safelyBroadcastPesananBaru(Pesanan $pesanan): void
+    {
+        try {
+            $pending = broadcast(new PesananBaru($pesanan))->toOthers();
+            unset($pending);
+        } catch (\Throwable) {
+            // Abaikan jika kanal realtime lokal tidak aktif.
+        }
+    }
+
     private function pendingPaymentOrderForUser(int $userId): ?Pesanan
     {
         $pelanggan = Pelanggan::where('user_id', $userId)->first();
@@ -186,11 +196,7 @@ class CheckoutController extends Controller
             DB::commit();
 
             // Broadcast ke admin
-            try {
-                broadcast(new PesananBaru($pesanan))->toOthers();
-            } catch (\Exception $e) {
-                // Broadcast gagal bukan masalah kritis
-            }
+            $this->safelyBroadcastPesananBaru($pesanan);
 
             return redirect()->route('order.payment', $pesanan)
                 ->with('success', '🎉 Pesanan berhasil dibuat! No. Pesanan: ' . $noPesanan . '. Silakan lanjutkan pembayaran.');

@@ -12,7 +12,6 @@ use App\Models\Produk;
 use App\Models\Complain;
 use App\Models\Service;
 use App\Models\ServicePaket;
-use App\Models\StockMovement;
 use App\Models\Testimoni;
 use App\Models\UnitApar;
 use App\Services\InventoryService;
@@ -28,6 +27,16 @@ use Illuminate\Validation\ValidationException;
 
 class PublicController extends Controller
 {
+    private function safelyBroadcastPesananBaru(Pesanan $pesanan): void
+    {
+        try {
+            $pending = broadcast(new PesananBaru($pesanan))->toOthers();
+            unset($pending);
+        } catch (\Throwable) {
+            // Abaikan jika websocket lokal tidak aktif agar alur transaksi tetap sukses.
+        }
+    }
+
     private function authenticatedCustomerProfile(): ?array
     {
         if (!Auth::check()) {
@@ -839,6 +848,8 @@ class PublicController extends Controller
                     ->orWhereHas('pesanan', function ($pesananQuery) {
                         $pesananQuery->whereIn('status', [
                             Pesanan::STATUS_SELESAI,
+                            Pesanan::STATUS_SELESAI_OLEH_TEKNISI,
+                            Pesanan::STATUS_DIKONFIRMASI_ADMIN,
                             Pesanan::STATUS_SELESAI_FINAL,
                         ]);
                     });
@@ -1045,11 +1056,7 @@ class PublicController extends Controller
     ): string {
         $lines = [];
 
-        if ($purchaseLabel) {
-            $lines[] = "Unit APAR Terdaftar dari {$purchaseLabel}:";
-        } else {
-            $lines[] = 'Rincian Service ' . trim(($paket->label ?: 'Paket') . ' - ' . $paket->nama);
-        }
+        $lines[] = 'Rincian Service ' . trim(($paket->label ?: 'Paket') . ' - ' . $paket->nama);
 
         foreach (array_values($lineItems) as $index => $item) {
             $qty = max(1, (int) ($item['qty'] ?? 1));
@@ -1087,7 +1094,7 @@ class PublicController extends Controller
         string $customerNote,
         array $lineAmounts = []
     ): string {
-        $lines = ["Unit APAR Terdaftar dari {$purchaseLabel}:"];
+        $lines = [];
 
         foreach ($unitApars->values() as $index => $unitApar) {
             $amount = $lineAmounts[$unitApar->id] ?? null;
@@ -1137,21 +1144,20 @@ class PublicController extends Controller
                 ->with('warning', 'Selesaikan pembayaran sebelumnya sebelum membuat pesanan baru.');
         }
 
-        $produks = Produk::whereNotNull('gambar')
-            ->where('gambar', '!=', '')
+        $produks = Produk::with(['jenisApar', 'stokBatches'])
             ->whereHas('stokBatches', function ($q) {
                 $q->where('sisa_qty', '>', 0)
                   ->where('tgl_expired', '>=', now()->toDateString());
             })
-            ->with(['jenisApar', 'stokBatches'])
-            ->get();
+            ->get()
+            ->filter(fn (Produk $produk) => $produk->hasResolvedImage())
+            ->values();
 
         $jenisApars = JenisApar::orderBy('nama')->get();
         $jenisRefills = JenisRefill::orderBy('nama')->get();
         $servicePakets = ServicePaket::with(['peralatans', 'jenisRefill'])
             ->orderBy('harga')
             ->get()
-            ->reject(fn (ServicePaket $servicePaket) => $servicePaket->isLegacyTemplate())
             ->values();
         $serviceMediaOptions = $servicePackagePricingService->availableMediaOptions();
         $servicePackageCatalog = $servicePackagePricingService->packageCatalog($servicePakets, $serviceMediaOptions);
@@ -1187,6 +1193,7 @@ class PublicController extends Controller
                     'kapasitas' => (string) ($selectedOrderProduct->kapasitas ?? '-'),
                     'merek' => (string) ($selectedOrderProduct->merek ?? 'FIREFIX'),
                     'gambar' => (string) ($selectedOrderProduct->gambar ?? ''),
+                    'gambar_url' => (string) ($selectedOrderProduct->resolved_image_url ?? ''),
                 ]]);
                 $prefillFromProduct = true;
                 $canUseCartCheckout = false;
@@ -1391,7 +1398,7 @@ class PublicController extends Controller
 
                 $pesanan->total = 0;
                 $pesanan->status = 'pending';
-                $pesanan->tipe_harga = ((int) $draftPricing['diskonPersen']) > 0 ? 'promo' : 'normal';
+                $pesanan->tipe_harga = ((int) $draftPricing['diskonPersen']) > 0 ? 'deal' : 'normal';
                 
                 if ((int) $draftPricing['diskonPersen'] > 0) {
                     $pesanan->keterangan = "Pembelian Produk [Promo Diskon {$draftPricing['diskonPersen']}%] [Pengiriman: " . $this->shippingMethodLabel((string) $pesanan->metode_pengiriman) . "] [Bank Tujuan: {$bankTujuan}]";
@@ -1747,8 +1754,8 @@ class PublicController extends Controller
 
             DB::commit();
 
-            // Broadcast ke admin real-time
-            broadcast(new PesananBaru($pesanan))->toOthers();
+            // Broadcast ke admin real-time bila kanal tersedia.
+            $this->safelyBroadcastPesananBaru($pesanan);
 
             if ($redirectToPayment) {
                 return redirect()->route('order.payment', $pesanan)->with('success', 'Pesanan berhasil dibuat. Silakan lanjutkan pembayaran.');
@@ -1958,7 +1965,7 @@ private function fetchPhoton(string $query): array
         return view('public.order.payment', compact('pesanan', 'banks'));
     }
 
-    public function orderPaymentStore(Request $request, Pesanan $pesanan, InventoryService $inventoryService)
+    public function orderPaymentStore(Request $request, Pesanan $pesanan)
     {
         $banks = $this->bankAccounts();
 
@@ -1987,7 +1994,7 @@ private function fetchPhoton(string $query): array
 
         $payableTotal = $pesanan->payableTotal();
 
-        DB::transaction(function () use ($pesanan, $validated, $lockedBank, $isDealOrder, $proofPath, $inventoryService, $statusAfterPayment, $payableTotal) {
+        DB::transaction(function () use ($pesanan, $validated, $lockedBank, $isDealOrder, $proofPath, $statusAfterPayment, $payableTotal) {
             $pesanan->update([
                 'metode_pembayaran' => $validated['metode_pembayaran'],
                 'bank' => $lockedBank,
@@ -2000,25 +2007,6 @@ private function fetchPhoton(string $query): array
                     ? ($pesanan->kode_nego_terpakai_at ?: now())
                     : $pesanan->kode_nego_terpakai_at,
             ]);
-
-            if ($pesanan->tipe === 'produk') {
-                $pesanan->reduceStock();
-            } elseif (
-                !$pesanan->stok_dikurangi
-                && $pesanan->serviceJenisRefill
-                && (float) ($pesanan->service_total_kg ?? 0) > 0
-            ) {
-                $inventoryService->decreaseRefillStock(
-                    jenisRefill: $pesanan->serviceJenisRefill,
-                    qty: (float) $pesanan->service_total_kg,
-                    sourceType: StockMovement::SOURCE_REFILL_PELANGGAN,
-                    reference: $pesanan,
-                    keterangan: "Pemakaian {$pesanan->serviceJenisRefill->nama_label} untuk pesanan layanan #{$pesanan->id}",
-                    tanggal: now(),
-                );
-
-                $pesanan->update(['stok_dikurangi' => true]);
-            }
 
             if ($pesanan->isPackageServiceOrder()) {
                 $this->syncServiceLogForPackageOrder($pesanan);
@@ -2079,15 +2067,13 @@ private function fetchPhoton(string $query): array
                 'success' => true,
                 'message' => 'Pembayaran tersimpan.',
                 'wa_url' => $waUrl,
-                'redirect_url' => route('cek-apar'),
+                'redirect_url' => route('home'),
             ]);
         }
 
         return redirect()
-            ->route('cek-apar')
-            ->with('success', 'Pembayaran tersimpan. Bukti berhasil dikirim ke admin.')
-            ->with('pelanggan_id', $pesanan->pelanggan_id)
-            ->withInput(['no_wa' => $pesanan->pelanggan?->no_wa]);
+            ->route('home')
+            ->with('success', 'Pembayaran tersimpan. Bukti berhasil dikirim ke admin.');
     }
 
     // Removed checkNegoCode

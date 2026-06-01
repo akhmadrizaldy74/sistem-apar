@@ -15,6 +15,7 @@ use App\Models\StockMovement;
 use App\Models\UnitApar;
 use App\Models\User;
 use App\Services\InventoryService;
+use App\Services\FinalTransactionStockService;
 use App\Services\OrderPricingService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -24,6 +25,16 @@ use Illuminate\Validation\ValidationException;
 
 class PesananController extends Controller
 {
+    private function safelyBroadcast(object $event): void
+    {
+        try {
+            $pending = broadcast($event)->toOthers();
+            unset($pending);
+        } catch (\Throwable) {
+            // Abaikan kegagalan broadcast agar alur transaksi lokal tetap berjalan normal.
+        }
+    }
+
     private function greetingByTime(): string
     {
         $hour = (int) now()->setTimezone('Asia/Jakarta')->format('H');
@@ -190,7 +201,7 @@ class PesananController extends Controller
 
     private function confirmServicePackageInventory(Pesanan $pesanan, InventoryService $inventoryService): void
     {
-        if (!$pesanan->isPackageServiceOrder()) {
+        if (!$pesanan->isPackageServiceOrder() || (string) $pesanan->status !== Pesanan::STATUS_SELESAI_FINAL) {
             return;
         }
 
@@ -241,7 +252,7 @@ class PesananController extends Controller
                 qty: $jumlah,
                 sourceType: StockMovement::SOURCE_SERVICE_PELANGGAN,
                 reference: $pesanan,
-                keterangan: "Pemakaian {$peralatan->nama} untuk request service #{$pesanan->id}",
+                keterangan: 'Service APAR - ' . ($pesanan->pelanggan?->nama ?: 'Pelanggan tidak diketahui'),
                 tanggal: now(),
             );
 
@@ -308,7 +319,6 @@ class PesananController extends Controller
 
         foreach ($pendingPaidWeb as $p) {
             $p->update(['status' => 'diproses']);
-            $p->reduceStock();
         }
 
         $this->syncMissingUnitApars();
@@ -317,8 +327,8 @@ class PesananController extends Controller
 
         $pesanans = Pesanan::with(['pelanggan', 'details.produk.jenisApar', 'unitApars.produk'])
             ->where('tipe', 'produk')
-            ->latest('tanggal')
-            ->latest()
+            ->orderByDesc('tanggal')
+            ->orderByDesc('created_at')
             ->paginate(20)
             ->withQueryString();
 
@@ -484,16 +494,13 @@ class PesananController extends Controller
                 ->filter(fn ($item) => collect($item)->filter(fn ($value) => $value !== null && $value !== '')->isNotEmpty())
                 ->values()
                 ->all(),
-            'new_pelanggan_nama' => trim((string) $request->input('new_pelanggan_nama')) ?: null,
-            'new_pelanggan_no_wa' => $this->normalizeCustomerPhone($request->input('new_pelanggan_no_wa')),
+            'pelanggan_id' => $request->input('pelanggan_id'),
             'catatan_admin' => trim((string) $request->input('catatan_admin')) ?: null,
         ]);
 
         $validated = $request->validate([
             'tipe' => 'required|in:produk',
-            'new_pelanggan_nama' => 'required|string|max:255',
-            'new_pelanggan_no_wa' => 'required|string|max:20',
-            'new_pelanggan_alamat' => 'nullable|string|max:1000',
+            'pelanggan_id' => 'required|exists:pelanggans,id',
             'tanggal' => 'required|date',
             'catatan_admin' => 'nullable|string|max:1000',
             'items' => 'required|array|min:1',
@@ -508,36 +515,12 @@ class PesananController extends Controller
             'items.*.kapasitas.required' => 'Kapasitas pada item produk belum dipilih.',
             'items.*.merek.required' => 'Merek pada item produk belum dipilih.',
             'items.*.jumlah.required' => 'Jumlah pada item produk belum diisi.',
-            'new_pelanggan_nama.required' => 'Nama pelanggan wajib diisi.',
-            'new_pelanggan_no_wa.required' => 'Nomor telepon pelanggan wajib diisi.',
+            'pelanggan_id.required' => 'Pilih pelanggan terlebih dahulu.',
+            'pelanggan_id.exists' => 'Pelanggan yang dipilih tidak valid.',
         ]);
 
-        DB::transaction(function () use ($validated) {
-            // --- Resolve pelanggan: find by phone or create new ---
-            $normalizedNoWa = (string) ($validated['new_pelanggan_no_wa'] ?? '');
-            $existingPelanggan = Pelanggan::where('no_wa', $normalizedNoWa)->first();
-
-            if ($existingPelanggan) {
-                $existingPelanggan->update([
-                    'nama' => (string) $validated['new_pelanggan_nama'],
-                    'alamat' => filled($validated['new_pelanggan_alamat'] ?? null)
-                        ? (string) $validated['new_pelanggan_alamat']
-                        : $existingPelanggan->alamat,
-                    'status' => 'tetap',
-                    'sumber_data' => $existingPelanggan->sumber_data ?: 'manual',
-                ]);
-                $pelangganId = (int) $existingPelanggan->id;
-            } else {
-                $pelangganBaru = Pelanggan::create([
-                    'nama' => (string) $validated['new_pelanggan_nama'],
-                    'no_wa' => $normalizedNoWa,
-                    'alamat' => $validated['new_pelanggan_alamat'] ?? null,
-                    'status' => 'tetap',
-                    'sumber_data' => 'manual',
-                    'kategori_pelanggan' => 'baru_manual',
-                ]);
-                $pelangganId = (int) $pelangganBaru->id;
-            }
+        DB::transaction(function () use ($validated, $request) {
+            $pelangganId = (int) $validated['pelanggan_id'];
 
             // --- Create pesanan with offline defaults ---
             $pesanan = Pesanan::create([
@@ -599,8 +582,6 @@ class PesananController extends Controller
                 'total_harga' => $total,
             ]);
 
-            // Langsung kurangi stok karena offline = lunas
-            $pesanan->reduceStock();
         });
 
         return redirect()->route('admin.pesanan.index')->with('success', 'Pesanan offline berhasil disimpan. Status: Lunas & Diproses.');
@@ -628,14 +609,15 @@ class PesananController extends Controller
 
         $pesanan->status = $validated['status'];
 
-        if ($pesanan->isDirty('status') && in_array($pesanan->status, ['diproses', 'selesai', 'selesai final', 'ditugaskan ke teknisi', 'dikerjakan teknisi', 'selesai oleh teknisi', 'dikonfirmasi admin'], true) && $pesanan->tipe === 'produk') {
-            $pesanan->reduceStock();
-        }
-
+        $becameFinal = $pesanan->isDirty('status') && $pesanan->status === Pesanan::STATUS_SELESAI_FINAL;
         $pesanan->save();
 
+        if ($becameFinal) {
+            app(FinalTransactionStockService::class)->apply($pesanan);
+        }
+
         // Broadcast status terbaru ke admin dan teknisi
-        broadcast(new StatusPesananDiperbarui($pesanan))->toOthers();
+        $this->safelyBroadcast(new StatusPesananDiperbarui($pesanan));
 
         if (in_array($pesanan->status, ['diproses', 'selesai', 'selesai final'], true)) {
             $pesanan->pelanggan?->update(['status' => 'tetap']);
@@ -760,8 +742,6 @@ class PesananController extends Controller
             'pembayaran_terkonfirmasi_at' => now(),
         ]);
 
-        $pesanan->reduceStock();
-
         $pesanan->pelanggan?->update(['status' => 'tetap']);
         $this->syncUnitAparsForPesanan($pesanan->fresh(['details.produk.jenisApar', 'unitApars']));
 
@@ -774,9 +754,16 @@ class PesananController extends Controller
             return back()->with('error', 'Assign teknisi tersedia setelah pembayaran dikonfirmasi.');
         }
 
-        $teknisi = User::where('role', 'teknisi')->first();
+        // Auto-select teknisi: prioritize teknisi with least active assignments
+        $teknisi = User::where('role', 'teknisi')
+            ->get()
+            ->sortBy(function ($tek) {
+                return $tek->pesanans()->whereIn('status', ['ditugaskan ke teknisi', 'dikerjakan teknisi'])->count();
+            })
+            ->first();
+
         if (!$teknisi) {
-            return back()->with('error', 'Data teknisi belum tersedia.');
+            return back()->with('error', 'Belum ada teknisi aktif yang bisa ditugaskan.');
         }
 
         $pesanan->update([
@@ -786,10 +773,10 @@ class PesananController extends Controller
             'teknisi_catatan' => null,
         ]);
 
-        // Broadcast ke admin dan teknisi yang di-assign
-        broadcast(new TugasTeknisiDiperbarui($pesanan->fresh()))->toOthers();
+        // Broadcast ke admin dan teknisi yang di-assign bila kanal realtime tersedia.
+        $this->safelyBroadcast(new TugasTeknisiDiperbarui($pesanan->fresh()));
 
-        return back()->with('success', 'Tugas berhasil dikirim ke Teknisi: ' . $teknisi->name . '.');
+        return back()->with('success', 'Berhasil ditugaskan ke teknisi: ' . $teknisi->name . '.');
     }
 
     public function konfirmasiKePelanggan(Pesanan $pesanan)
@@ -827,14 +814,7 @@ class PesananController extends Controller
 
         try {
             DB::transaction(function () use ($pesanan) {
-                $inventoryService = app(InventoryService::class);
-
                 if ($pesanan->tipe === 'service') {
-                    // Untuk service paket (bukan refill), konfirmasi inventory
-                    if ($pesanan->isPackageServiceOrder()) {
-                        $this->confirmServicePackageInventory($pesanan, $inventoryService);
-                    }
-
                     // Untuk refill, buat record Refill di tabel refills
                     if ($pesanan->service_jenis_layanan === 'refill' && $pesanan->service_jenis_refill_id) {
                         $unitAparId = null;
@@ -897,9 +877,9 @@ class PesananController extends Controller
                                 ]
                             );
 
-                            // Update tanggal expired unit APAR
+                            // Update tanggal expired unit APAR - selalu update setelah refill selesai
                             $unitApar = UnitApar::find($unitAparId);
-                            if ($unitApar && ($unitApar->tgl_expired === null || $unitApar->tgl_expired->isPast())) {
+                            if ($unitApar) {
                                 $unitApar->update(['tgl_expired' => now()->addYear()]);
                             }
                         }
@@ -909,6 +889,8 @@ class PesananController extends Controller
                 $pesanan->update([
                     'status' => 'selesai final',
                 ]);
+
+                app(FinalTransactionStockService::class)->apply($pesanan);
 
                 if ($pesanan->tipe === 'produk') {
                     $this->syncUnitAparsForPesanan($pesanan);

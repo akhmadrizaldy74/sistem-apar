@@ -320,24 +320,7 @@
         </main>
     </div>
 
-    <!-- Toast Notification (Laravel session) -->
-    @if(session('success'))
-    <div x-data="{ show: true }" 
-         x-init="setTimeout(() => show = false, 4000)"
-         x-show="show"
-         x-transition:enter="transition ease-out duration-300"
-         x-transition:enter-start="translate-y-2 opacity-0"
-         x-transition:enter-end="translate-y-0 opacity-100"
-         x-transition:leave="transition ease-in duration-200"
-         x-transition:leave-start="opacity-100"
-         x-transition:leave-end="opacity-0"
-         class="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] w-full max-w-sm px-4">
-        <div class="bg-emerald-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4">
-            <i data-lucide="check-circle" class="w-6 h-6"></i>
-            <p class="font-bold text-sm">{{ session('success') }}</p>
-        </div>
-    </div>
-    @endif
+    @include('layouts.partials.sweet-alerts')
 
     <script>
         // Initialize Lucide icons

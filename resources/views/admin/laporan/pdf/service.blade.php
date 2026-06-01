@@ -32,9 +32,9 @@
             @foreach($services as $service)
                 <tr>
                     <td>{{ $service->tgl_service->format('d-m-Y') }}</td>
-                    <td>{{ $service->unitApar->pelanggan->nama }}</td>
+                    <td>{{ $service->unitApar?->pelanggan?->nama ?? 'Unit Manual' }}</td>
                     <td>{{ $service->jenis_service }}</td>
-                    <td>{{ $service->unitApar->no_seri }}</td>
+                    <td>{{ $service->unitApar?->no_seri ?? '-' }}</td>
                     <td>Rp {{ number_format($service->biaya, 0, ',', '.') }}</td>
                 </tr>
             @endforeach

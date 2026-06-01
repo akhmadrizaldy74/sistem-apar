@@ -275,7 +275,7 @@
                             $keterangan = $peng->nama_item ?? $peng->keterangan ?? '-';
                             $jumlah = $peng->qty ?? 1;
                             $satuan = $peng->satuan ?? 'unit';
-                            $total = $peng->total ?? $peng->nominal ?? 0;
+                            $total = $peng->effective_amount;
                         @endphp
                         <tr>
                             <td style="text-align:center;">{{ $i + 1 }}</td>
@@ -288,7 +288,7 @@
                     @endforeach
                     <tr class="summary-row">
                         <td colspan="5" style="text-align:right;"><strong>TOTAL PENGELUARAN</strong></td>
-                        <td class="money" style="color:#dc2626;"><strong>Rp {{ number_format($pengeluarans->sum('total') + $pengeluarans->sum('nominal'), 0, ',', '.') }}</strong></td>
+                        <td class="money" style="color:#dc2626;"><strong>Rp {{ number_format($pengeluarans->sum('effective_amount'), 0, ',', '.') }}</strong></td>
                     </tr>
                 </tbody>
             </table>

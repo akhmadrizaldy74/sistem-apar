@@ -13,21 +13,77 @@
     </x-slot>
 
     @php
-        $offlineServices = $requestServices->filter(fn ($service) => in_array((string) $service->sumber_pesanan, ['datang_langsung', 'offline'], true));
+        $offlineServices = $requestServices->filter(fn ($service) => in_array((string) $service->sumber_pesanan, ['datang_langsung', 'offline', 'input_admin'], true));
         $teknisiAktif = $requestServices->filter(fn ($service) => in_array((string) $service->status, ['ditugaskan ke teknisi', 'dikerjakan teknisi'], true));
         $actionButtonBase = 'inline-flex items-center justify-center px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition shadow-sm';
         $actionButtonNeutral = $actionButtonBase . ' border-gray-200 bg-white text-gray-600 hover:bg-gray-50';
         $actionButtonPrimary = $actionButtonBase . ' border-red-600 bg-red-600 text-white hover:bg-red-700 hover:border-red-700';
-        $actionButtonProof = $actionButtonBase . ' border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100';
+        $actionButtonProof = $actionButtonBase . ' min-w-[92px] border-transparent bg-blue-600 text-white hover:bg-blue-700';
+        $actionButtonProofStyle = 'background-color:#2563eb;border-color:#2563eb;color:#fff;';
         $actionButtonDanger = $actionButtonBase . ' border-red-200 bg-white text-red-600 hover:bg-red-50';
         $actionButtonSuccess = $actionButtonBase . ' border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:border-emerald-700';
         $actionButtonDisabled = $actionButtonBase . ' border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed';
+        $normalizeText = fn ($value) => filled(trim((string) $value)) ? trim((string) $value) : null;
+        $normalizePhone = fn ($value) => preg_replace('/\D+/', '', (string) $value);
+        $findCustomerByWa = function ($wa) use ($pelanggans, $normalizePhone) {
+            $needle = $normalizePhone($wa);
+            if (!$needle) {
+                return null;
+            }
+
+            return $pelanggans->first(fn ($pelanggan) => $normalizePhone($pelanggan->no_wa) === $needle);
+        };
+        $resolveCustomer = function (...$items) use ($pelanggans, $normalizeText, $findCustomerByWa) {
+            $candidatePelanggans = collect();
+            $fallbackWa = null;
+
+            foreach ($items as $item) {
+                if (!$item) {
+                    continue;
+                }
+
+                $candidatePelanggans->push(data_get($item, 'pelanggan'));
+                $candidatePelanggans->push(data_get($item, 'unitApar.pelanggan'));
+                $candidatePelanggans->push(data_get($item, 'service.unitApar.pelanggan'));
+                $candidatePelanggans->push(data_get($item, 'service.pesanan.pelanggan'));
+                $candidatePelanggans->push(data_get($item, 'pesanan.pelanggan'));
+
+                $pelangganId = data_get($item, 'pelanggan_id')
+                    ?: data_get($item, 'pesanan.pelanggan_id')
+                    ?: data_get($item, 'service.pesanan.pelanggan_id');
+                if ($pelangganId) {
+                    $candidatePelanggans->push($pelanggans->firstWhere('id', $pelangganId));
+                }
+
+                $fallbackWa = $fallbackWa
+                    ?: $normalizeText(data_get($item, 'no_wa'))
+                    ?: $normalizeText(data_get($item, 'whatsapp'))
+                    ?: $normalizeText(data_get($item, 'telepon'));
+            }
+
+            $pelanggan = $candidatePelanggans->filter()->first(fn ($pelanggan) => $normalizeText($pelanggan->nama ?? null));
+
+            if (!$pelanggan && $fallbackWa) {
+                $pelanggan = $findCustomerByWa($fallbackWa);
+            }
+
+            return [
+                'nama' => $normalizeText($pelanggan?->nama ?? null) ?? '-',
+                'wa' => $normalizeText($pelanggan?->no_wa ?? null) ?? $fallbackWa ?? '-',
+            ];
+        };
         $servicePaketOptions = collect($servicePaketCatalog ?? [])->values();
-        $serviceDetailData = $requestServices->map(function ($service) {
+        $legacyServices = $serviceLogs->filter(fn($log) => is_null($log->pesanan_id));
+        $mergedHistory = $selesaiTeknisi->concat($legacyServices)->sortByDesc(function ($item) {
+            return $item->teknisi_selesai_at ?? $item->tgl_selesai_admin ?? $item->created_at;
+        });
+
+        $serviceDetailData = $requestServices->map(function ($service) use ($resolveCustomer) {
+            $customer = $resolveCustomer($service);
             return [
                 'id' => $service->id,
-                'pelanggan' => $service->pelanggan?->nama ?? '-',
-                'no_wa' => $service->pelanggan?->no_wa ?? '-',
+                'pelanggan' => $customer['nama'],
+                'no_wa' => $customer['wa'],
                 'alamat' => $service->pelanggan?->alamat ?? '-',
                 'transaksi' => $service->transactionDisplayName(),
                 'waktu' => $service->displayTransactionDateTime(),
@@ -35,34 +91,40 @@
                 'estimasi' => number_format((float) ($service->service_estimasi_biaya ?? 0), 0, ',', '.'),
                 'ukuran' => $service->service_ukuran_apar ?? '-',
                 'unit' => (int) ($service->service_jumlah_unit ?? 0),
-                'source' => in_array((string) $service->sumber_pesanan, ['datang_langsung', 'offline'], true) ? 'Offline' : 'Online',
+                'source' => in_array((string) $service->sumber_pesanan, ['datang_langsung', 'offline', 'input_admin'], true) ? 'Offline' : 'Online',
                 'teknisi' => $service->teknisi?->name ?? 'Belum ditugaskan',
-                'catatan' => $service->catatan_admin ?: $service->service_admin_catatan ?: $service->service_keluhan ?: $service->keterangan ?: '-',
+                'catatan' => $service->catatan_admin ?: $service->service_admin_catatan ?: $service->serviceCustomerNote() ?: $service->keterangan ?: '-',
                 'status' => $service->status,
                 'is_paid' => $service->isPaymentConfirmed(),
+                'proof_url' => !empty($service->bukti_pembayaran) ? '/storage/' . ltrim($service->bukti_pembayaran, '/') : null,
                 'line_items' => $service->servicePricingBreakdown(),
                 'peralatan' => $service->servicePeralatanItems(),
             ];
-        })->concat($serviceLogs->map(function ($s) {
-            $pesanan = $s->pesanan;
+        })->concat($mergedHistory->map(function ($item) use ($resolveCustomer) {
+            $isLegacy = $item instanceof \App\Models\Service;
+            $pesanan = $isLegacy ? null : $item;
+            $service = $isLegacy ? $item : $item->service;
+            $customer = $resolveCustomer($pesanan, $service);
+            
             return [
-                'id' => 'log-' . $s->id,
-                'pelanggan' => $s->unitApar?->pelanggan?->nama ?? $pesanan?->pelanggan?->nama ?? '-',
-                'no_wa' => $s->unitApar?->pelanggan?->no_wa ?? $pesanan?->pelanggan?->no_wa ?? '-',
-                'alamat' => $s->unitApar?->pelanggan?->alamat ?? $pesanan?->pelanggan?->alamat ?? '-',
-                'transaksi' => $s->transactionDisplayName(),
-                'waktu' => $s->displayTransactionDateTime(),
-                'jenis' => $s->servicePaket?->nama ?? $pesanan?->servicePaket?->nama ?? $s->jenis_service ?? 'Service APAR',
-                'estimasi' => number_format((float) ($s->biaya ?? $pesanan?->payableTotal() ?? 0), 0, ',', '.'),
-                'ukuran' => $s->unitApar?->produk?->kapasitas ?? $pesanan?->service_ukuran_apar ?? '-',
-                'unit' => 1,
-                'source' => $pesanan ? (in_array((string) $pesanan->sumber_pesanan, ['datang_langsung', 'offline'], true) ? 'Offline' : 'Online') : 'Offline',
+                'id' => $isLegacy ? 'log-' . $service->id : $pesanan->id,
+                'pelanggan' => $customer['nama'],
+                'no_wa' => $customer['wa'],
+                'alamat' => $pesanan?->pelanggan?->alamat ?? $service?->unitApar?->pelanggan?->alamat ?? '-',
+                'transaksi' => $pesanan ? $pesanan->transactionDisplayName() : $service->transactionDisplayName(),
+                'waktu' => $pesanan ? $pesanan->displayTransactionDateTime() : $service->displayTransactionDateTime(),
+                'jenis' => $pesanan?->servicePaket?->nama ?? $service?->servicePaket?->nama ?? $service?->jenis_service ?? 'Service APAR',
+                'estimasi' => number_format((float) ($pesanan?->payableTotal() ?? $service?->biaya ?? 0), 0, ',', '.'),
+                'ukuran' => $pesanan?->service_ukuran_apar ?? $service?->unitApar?->produk?->kapasitas ?? '-',
+                'unit' => $pesanan ? (int) ($pesanan->service_jumlah_unit ?? 1) : 1,
+                'source' => $pesanan ? (in_array((string) $pesanan->sumber_pesanan, ['datang_langsung', 'offline', 'input_admin'], true) ? 'Offline' : 'Online') : 'Offline',
                 'teknisi' => $pesanan?->teknisi?->name ?? 'Selesai',
-                'catatan' => $s->keterangan ?: $pesanan?->catatan_admin ?: $pesanan?->service_keluhan ?: $pesanan?->keterangan ?: '-',
+                'catatan' => $pesanan?->catatan_admin ?: $pesanan?->serviceCustomerNote() ?: $service?->keterangan ?: '-',
                 'status' => $pesanan?->status ?? 'selesai final',
                 'is_paid' => $pesanan ? $pesanan->isPaymentConfirmed() : true,
+                'proof_url' => !empty($pesanan?->bukti_pembayaran) ? '/storage/' . ltrim($pesanan->bukti_pembayaran, '/') : (!empty($service?->pesanan?->bukti_pembayaran) ? '/storage/' . ltrim($service->pesanan->bukti_pembayaran, '/') : null),
                 'line_items' => $pesanan?->servicePricingBreakdown() ?? [],
-                'peralatan' => $pesanan?->servicePeralatanItems() ?? ($s->effective_peralatan ?? []),
+                'peralatan' => $pesanan?->servicePeralatanItems() ?? ($service?->effective_peralatan ?? []),
             ];
         }))->values();
     @endphp
@@ -71,7 +133,7 @@
         <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
             <div class="bg-white p-5 sm:p-6 lg:p-8 rounded-2xl shadow-sm border border-gray-100">
                 <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Data Service</p>
-                <p class="text-4xl font-black text-gray-900">{{ $serviceLogs->count() + $requestServices->count() }}</p>
+                <p class="text-4xl font-black text-gray-900">{{ $requestServices->count() + $selesaiTeknisi->count() + $legacyServices->count() }}</p>
             </div>
             <div class="bg-white p-5 sm:p-6 lg:p-8 rounded-2xl shadow-sm border border-gray-100">
                 <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Offline</p>
@@ -98,7 +160,8 @@
                         <tr>
                             <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Tanggal</th>
                             <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Pelanggan</th>
-                            <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Layanan</th>
+                            <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Unit APAR</th>
+                            <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Jenis Service</th>
                             <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Total</th>
                             <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
                             <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Aksi</th>
@@ -107,15 +170,16 @@
                     <tbody class="divide-y divide-gray-50">
                         @forelse($requestServices as $service)
                             @php
-                                $isOffline = in_array((string) $service->sumber_pesanan, ['datang_langsung', 'offline'], true);
+                                $serviceCustomer = $resolveCustomer($service);
+                                $isOffline = in_array((string) $service->sumber_pesanan, ['datang_langsung', 'offline', 'input_admin'], true);
                                 $canAssign = $service->isPaymentConfirmed() && !$service->teknisi_id;
                                 $statusBadge = match ((string) $service->status) {
                                     'selesai final', 'selesai' => ['bg-emerald-50 text-emerald-700', 'SELESAI FINAL'],
                                     'dikonfirmasi admin' => ['bg-cyan-50 text-cyan-700', 'DIKONFIRMASI ADMIN'],
-                                    'selesai oleh teknisi' => ['bg-emerald-50 text-emerald-700', 'SELESAI OLEH TEKNISI'],
+                                    'selesai oleh teknisi' => ['bg-cyan-50 text-cyan-700', 'SELESAI OLEH TEKNISI'],
                                     'dikerjakan teknisi' => ['bg-indigo-50 text-indigo-700', 'SEDANG DIKERJAKAN'],
                                     'ditugaskan ke teknisi' => ['bg-purple-50 text-purple-700', 'DITUGASKAN'],
-                                    'diproses' => ['bg-blue-50 text-blue-700', 'DIPROSES'],
+                                    'diproses' => ['bg-red-50 text-blue-700', 'DIPROSES'],
                                     default => ['bg-amber-50 text-amber-700', 'MENUNGGU'],
                                 };
                             @endphp
@@ -125,56 +189,49 @@
                                     <p class="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">{{ $service->transactionDisplayName() }}</p>
                                 </td>
                                 <td class="px-8 py-6">
-                                    <p class="text-sm font-black text-gray-900">{{ $service->pelanggan?->nama ?? '-' }}</p>
-                                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{{ $service->pelanggan?->no_wa ?? '-' }}</p>
+                                    <p class="text-sm font-black text-gray-900">{{ $serviceCustomer['nama'] }}</p>
+                                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{{ $serviceCustomer['wa'] }}</p>
                                 </td>
                                 <td class="px-8 py-6">
-                                    <div class="flex items-center gap-2 flex-wrap">
-                                        <span class="inline-flex px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-[10px] font-black uppercase tracking-widest">Service APAR</span>
-                                        <span class="inline-flex px-3 py-1 rounded-full {{ $isOffline ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-600' }} text-[10px] font-black uppercase tracking-widest">{{ $isOffline ? 'Offline' : 'Online' }}</span>
-                                    </div>
-                                    <p class="mt-2 text-sm font-black text-gray-900">{{ $service->servicePaket?->nama ?? 'Paket Service' }}</p>
-                                    <p class="mt-1 text-xs font-semibold text-gray-500">{{ $service->service_ukuran_apar ?? '-' }} - {{ (int) ($service->service_jumlah_unit ?? 0) }} unit</p>
+                                    @include('admin.partials.unit-apar-column', ['pesanan' => $service, 'unitApar' => $service->service?->unitApar])
                                 </td>
                                 <td class="px-8 py-6">
-                                    <p class="text-sm font-black text-gray-900">Rp {{ number_format((float) ($service->service_estimasi_biaya ?? 0), 0, ',', '.') }}</p>
+                                    <p class="text-sm font-black text-gray-900">{{ $service->servicePaket?->nama ?? 'Service APAR' }}</p>
+                                </td>
+                                <td class="px-8 py-6 whitespace-nowrap">
+                                    <span class="text-sm font-semibold text-gray-900">Rp {{ number_format((float) ($service->service_estimasi_biaya ?? 0), 0, ',', '.') }}</span>
                                 </td>
                                 <td class="px-8 py-6">
                                     <span class="inline-flex px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest {{ $statusBadge[0] }}">
                                         {{ $statusBadge[1] }}
                                     </span>
-                                    @if($service->teknisi_id)
-                                        <p class="mt-2 text-[10px] font-bold text-red-600">{{ $service->teknisi->name }}</p>
-                                    @endif
-                                    @if($service->isPaymentConfirmed())
-                                        <p class="mt-2 text-[10px] font-bold text-emerald-600">Lunas</p>
-                                    @endif
                                 </td>
                                 <td class="px-8 py-6 text-right">
                                     <div class="flex flex-wrap items-center justify-end gap-2">
-                                        @if(!empty($service->bukti_pembayaran))
-                                            <button type="button" onclick='openServiceProofModal(@js(asset("storage/" . ltrim($service->bukti_pembayaran, "/"))), @js("Bukti TF - " . $service->transactionDisplayName()))' class="{{ $actionButtonProof }}">
-                                                Bukti TF
-                                            </button>
-                                        @else
-                                            <button type="button" disabled class="{{ $actionButtonDisabled }}">
+                                        @if(!$isOffline)
+                                            <button
+                                                type="button"
+                                                onclick="openServiceProofModal(@js(!empty($service->bukti_pembayaran) ? '/storage/' . ltrim($service->bukti_pembayaran, '/') : null), @js([
+                                                    "customer" => $service->pelanggan?->nama ?? "-",
+                                                    "date" => $service->displayTransactionDateTime(),
+                                                    "type" => "Service",
+                                                ]))"
+                                                class="{{ $actionButtonProof }}"
+                                                style="{{ $actionButtonProofStyle }}"
+                                            >
                                                 Bukti TF
                                             </button>
                                         @endif
                                         @if(in_array((string) $service->status, ['selesai oleh teknisi', 'dikonfirmasi admin'], true))
-                                            <form action="{{ route('admin.pesanan.selesai-final', $service) }}" method="POST" onsubmit="return confirm('Selesaikan final service ini?')">
+                                            <form action="{{ route('admin.pesanan.selesai-final', $service) }}" method="POST" data-confirm="Selesaikan final service ini?" data-confirm-title="Konfirmasi Final" data-confirm-button="Ya, Finalkan">
                                                 @csrf
                                                 <button type="submit" class="{{ $actionButtonSuccess }}">Final</button>
                                             </form>
                                         @elseif($canAssign)
                                             <form action="{{ route('admin.pesanan.assign-teknisi', $service) }}" method="POST" class="inline">
                                                 @csrf
-                                                <button type="submit" class="{{ $actionButtonPrimary }}">Assign Teknisi</button>
+                                                <button type="submit" class="{{ $actionButtonPrimary }}">Assign</button>
                                             </form>
-                                        @else
-                                            <button type="button" disabled class="{{ $actionButtonDisabled }}">
-                                                Assign Teknisi
-                                            </button>
                                         @endif
                                         <button type="button" onclick="openServiceDetailModal({{ $service->id }})" class="{{ $actionButtonNeutral }}">
                                             Detail
@@ -185,10 +242,10 @@
                                         </a>
 
                                         @if($service->status !== 'selesai' && $service->status !== 'selesai final')
-                                            <form action="{{ route('admin.pesanan.destroy', $service) }}" method="POST" class="inline">
+                                            <form action="{{ route('admin.pesanan.destroy', $service) }}" method="POST" class="inline" data-confirm="Yakin ingin menghapus data service ini?" data-confirm-title="Konfirmasi Hapus" data-confirm-button="Ya, Hapus">
                                                 @csrf
                                                 @method('DELETE')
-                                                <button type="submit" onclick="return confirm('Yakin ingin menghapus data service ini?')" class="{{ $actionButtonDanger }}" title="Hapus">Hapus</button>
+                                                <button type="submit" class="{{ $actionButtonDanger }}" title="Hapus">Hapus</button>
                                             </form>
                                         @else
                                             <button type="button" disabled class="{{ $actionButtonDisabled }}" title="Hapus">Hapus</button>
@@ -219,67 +276,104 @@
                             <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Pelanggan</th>
                             <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Unit APAR</th>
                             <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Jenis Service</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Total</th>
                             <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
                             <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-50">
-                        @forelse($serviceLogs as $service)
+                        @forelse($mergedHistory as $item)
+                            @php
+                                $isLegacy = $item instanceof \App\Models\Service;
+                                $pesanan = $isLegacy ? null : $item;
+                                $service = $isLegacy ? $item : $item->service;
+                                
+                                $sumberPesanan = $pesanan ? (string) $pesanan->sumber_pesanan : 'offline';
+                                $serviceHistoryIsOffline = in_array($sumberPesanan, ['datang_langsung', 'offline', 'input_admin'], true);
+                                
+                                $tanggal = $pesanan ? $pesanan->displayTransactionDateTime() : $service->displayTransactionDateTime();
+                                $trxName = $pesanan ? $pesanan->transactionDisplayName() : $service->transactionDisplayName();
+                                $serviceCustomer = $resolveCustomer($pesanan, $service);
+                                $pelangganNama = $serviceCustomer['nama'];
+                                $pelangganWa = $serviceCustomer['wa'];
+                                $jenisService = $pesanan ? ($pesanan->servicePaket?->nama ?? $pesanan->jenis_service ?? 'Service APAR') : ($service->servicePaket?->nama ?? $service->jenis_service ?? 'Service APAR');
+                                $keterangan = $pesanan ? ($pesanan->catatan_admin ?: $pesanan->serviceCustomerNote() ?: '-') : ($service->keterangan ?: '-');
+                                $totalBiaya = $pesanan ? ($pesanan->total_harga ?? 0) : ($service->biaya ?? 0);
+                            @endphp
                             <tr class="hover:bg-gray-50/40 transition-colors">
                                 <td class="px-8 py-5">
-                                    <p class="text-xs font-bold text-gray-900">{{ $service->displayTransactionDateTime() }}</p>
-                                    <p class="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">{{ $service->transactionDisplayName() }}</p>
+                                    <p class="text-xs font-bold text-gray-900">{{ $tanggal }}</p>
+                                    <p class="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">{{ $trxName }}</p>
                                 </td>
                                 <td class="px-8 py-5">
-                                    <p class="text-sm font-black text-gray-900">{{ $service->display_customer_name }}</p>
+                                    <p class="text-sm font-black text-gray-900">{{ $pelangganNama }}</p>
+                                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{{ $pelangganWa }}</p>
                                 </td>
                                 <td class="px-8 py-5">
-                                    <p class="text-sm font-bold text-gray-900">{{ $service->display_unit_label }}</p>
-                                    <p class="mt-1 text-xs font-semibold text-gray-500">{{ $service->unitApar?->produk?->nama ?? 'Unit offline / belum terhubung' }}</p>
+                                    @include('admin.partials.unit-apar-column', ['pesanan' => $pesanan, 'unitApar' => $service?->unitApar])
                                 </td>
                                 <td class="px-8 py-5">
-                                    <p class="text-sm font-black text-gray-900">{{ $service->servicePaket?->nama ?? $service->jenis_service }}</p>
-                                    <p class="mt-1 text-xs font-semibold text-gray-500">Rp {{ number_format((float) ($service->biaya ?? 0), 0, ',', '.') }}</p>
+                                    <p class="text-sm font-black text-gray-900">{{ $jenisService }}</p>
+                                </td>
+                                <td class="px-8 py-5 whitespace-nowrap">
+                                    <span class="text-sm font-semibold text-gray-900">Rp {{ number_format((float) $totalBiaya, 0, ',', '.') }}</span>
                                 </td>
                                 <td class="px-8 py-5">
-                                    <span class="inline-flex px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest {{ $service->status_konfirmasi === 'confirmed' ? 'bg-emerald-100 text-emerald-700' : ($service->status_konfirmasi === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700') }}">
-                                        {{ $service->status_konfirmasi === 'confirmed' ? 'Selesai' : ($service->status_konfirmasi === 'rejected' ? 'Ditolak' : 'Menunggu') }}
+                                    <span class="inline-flex px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-700">
+                                        SELESAI FINAL
                                     </span>
                                 </td>
                                 <td class="px-8 py-5">
                                     @php
-                                        $serviceProofUrl = !empty($service->pesanan?->bukti_pembayaran)
-                                            ? asset('storage/' . ltrim($service->pesanan->bukti_pembayaran, '/'))
-                                            : null;
+                                        $serviceProofUrl = !empty($pesanan?->bukti_pembayaran)
+                                            ? '/storage/' . ltrim($pesanan->bukti_pembayaran, '/')
+                                            : (!empty($service?->pesanan?->bukti_pembayaran) ? '/storage/' . ltrim($service->pesanan->bukti_pembayaran, '/') : null);
                                     @endphp
                                     <div class="flex flex-wrap items-center justify-end gap-2">
-                                        @if($serviceProofUrl)
-                                            <button type="button" onclick='openServiceProofModal(@js($serviceProofUrl), @js("Bukti TF - " . $service->transactionDisplayName()))' class="{{ $actionButtonProof }}">
-                                                Bukti TF
-                                            </button>
-                                        @else
-                                            <button type="button" disabled class="{{ $actionButtonDisabled }}">
+                                        @if(!$serviceHistoryIsOffline && $serviceProofUrl)
+                                            <button
+                                                type="button"
+                                                onclick="openServiceProofModal(@js($serviceProofUrl), @js([
+                                                    "customer" => $pelangganNama,
+                                                    "date" => $tanggal,
+                                                    "type" => "Service",
+                                                ]))"
+                                                class="{{ $actionButtonProof }}"
+                                                style="{{ $actionButtonProofStyle }}"
+                                            >
                                                 Bukti TF
                                             </button>
                                         @endif
-                                        <button type="button" onclick="openServiceDetailModal('log-{{ $service->id }}')" class="{{ $actionButtonNeutral }}" title="Detail">
+                                        <button type="button" onclick="openServiceDetailModal('{{ $isLegacy ? 'log-' . $service->id : $pesanan->id }}')" class="{{ $actionButtonNeutral }}" title="Detail">
                                             Detail
                                         </button>
                                         
-                                        @if($service->pesanan)
+                                        @if($pesanan)
+                                            <a href="{{ route('invoice.show', $pesanan) }}" class="{{ $actionButtonPrimary }}" title="Lihat Invoice">
+                                                Lihat Invoice
+                                            </a>
+                                        @elseif($service?->pesanan)
                                             <a href="{{ route('invoice.show', $service->pesanan) }}" class="{{ $actionButtonPrimary }}" title="Lihat Invoice">
                                                 Lihat Invoice
                                             </a>
                                         @else
-                                            <button type="button" disabled class="{{ $actionButtonDisabled }}" title="Invoice tidak tersedia">
+                                            <button type="button" onclick="showAppAlert('Invoice tidak tersedia untuk data legacy ini.', 'warning', 'Peringatan')" class="{{ $actionButtonPrimary }}" title="Lihat Invoice">
                                                 Lihat Invoice
                                             </button>
                                         @endif
-                                        <form action="{{ route('admin.service.destroy', $service) }}" method="POST" class="inline">
+                                        @if($pesanan)
+                                        <form action="{{ route('admin.pesanan.destroy', $pesanan) }}" method="POST" class="inline" data-confirm="Yakin ingin menghapus data service ini?" data-confirm-title="Konfirmasi Hapus" data-confirm-button="Ya, Hapus">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" onclick="return confirm('Yakin ingin menghapus riwayat service ini?')" class="{{ $actionButtonDanger }}" title="Hapus">Hapus</button>
+                                            <button type="submit" class="{{ $actionButtonDanger }}" title="Hapus">Hapus</button>
                                         </form>
+                                        @elseif($isLegacy)
+                                        <form action="{{ route('admin.service.destroy', $service) }}" method="POST" class="inline" data-confirm="Yakin ingin menghapus riwayat service ini?" data-confirm-title="Konfirmasi Hapus" data-confirm-button="Ya, Hapus">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="{{ $actionButtonDanger }}" title="Hapus">Hapus</button>
+                                        </form>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>
@@ -314,7 +408,7 @@
             <div class="relative z-10 w-full max-w-4xl overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-2xl">
                 <div class="flex items-center justify-between border-b border-gray-100 px-6 py-5">
                     <div>
-                        <h3 class="text-lg font-black text-gray-900" id="service-proof-title">Bukti TF</h3>
+                        <h3 class="text-lg font-black text-gray-900" id="service-proof-title">Bukti Transfer</h3>
                         <p class="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">Preview bukti pembayaran pelanggan</p>
                     </div>
                     <button type="button" onclick="closeServiceProofModal()" class="rounded-xl bg-gray-50 p-2 text-gray-400 transition hover:text-red-600">
@@ -348,7 +442,18 @@
                     'jenis_apar' => old('jenis_apar', ($serviceMediaOptions[0]['label'] ?? 'Powder')),
                     'ukuran_apar' => old('ukuran_apar', '6 Kg'),
                     'jumlah_unit' => old('jumlah_unit', 1),
-                ]), @js($serviceMediaOptions ?? []))">
+                ]), @js($serviceMediaOptions ?? []), @js($pelanggans->map(fn($p) => [
+                    'id' => (string) $p->id,
+                    'no_wa' => $p->no_wa,
+                    'email' => $p->user?->email,
+                    'alamat_lengkap' => $p->alamat,
+                    'units' => $p->units->map(fn($u) => [
+                        'id' => (string) $u->id,
+                        'nama' => $u->produk?->nama ?? 'Unit Custom',
+                        'ukuran' => $u->ukuran ?? $u->produk?->kapasitas,
+                        'jenis' => $u->produk?->jenisApar?->nama ?? $u->bahan
+                    ])->values()
+                ])->values()))">
                     <form action="{{ route('admin.service.store') }}" method="POST">
                         @csrf
                         @if($errors->any())
@@ -364,20 +469,30 @@
                                         <span class="w-7 h-7 rounded-lg bg-red-50 text-red-700 font-black text-sm flex items-center justify-center shrink-0">1</span>
                                         <h4 class="font-black text-gray-900 uppercase tracking-wider text-xs">Data Pelanggan</h4>
                                     </div>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label for="new_pelanggan_nama" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Nama Pelanggan <span class="text-red-500">*</span></label>
-                                            <input type="text" name="new_pelanggan_nama" id="new_pelanggan_nama" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900" placeholder="Contoh: Budi Santoso" value="{{ old('new_pelanggan_nama') }}">
-                                        </div>
-                                        <div>
-                                            <label for="new_pelanggan_no_wa" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Nomor Telepon <span class="text-red-500">*</span></label>
-                                            <input type="text" name="new_pelanggan_no_wa" id="new_pelanggan_no_wa" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900" placeholder="081234567890" value="{{ old('new_pelanggan_no_wa') }}">
-                                            <p class="text-[9px] font-semibold text-gray-400 mt-1.5">Admin tidak perlu memilih pelanggan lama. Jika nomor sudah ada, sistem akan cocokkan otomatis di backend.</p>
-                                        </div>
+                                    <div class="space-y-4">
+                                        <label for="pelanggan_id" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Pilih Pelanggan <span class="text-red-500">*</span></label>
+                                        <select name="pelanggan_id" id="pelanggan_id" required x-model="selectedPelangganId" @change="syncPelangganProfile" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 text-sm">
+                                            <option value="">-- Pilih Pelanggan Terdaftar --</option>
+                                            @foreach($pelanggans as $pelanggan)
+                                                <option value="{{ $pelanggan->id }}">{{ $pelanggan->nama }} ({{ $pelanggan->no_wa }})</option>
+                                            @endforeach
+                                        </select>
+                                        <x-input-error :messages="$errors->get('pelanggan_id')" class="mt-2" />
                                     </div>
-                                    <div>
-                                        <label for="new_pelanggan_alamat" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Alamat <span class="text-gray-300">(Opsional)</span></label>
-                                        <input type="text" name="new_pelanggan_alamat" id="new_pelanggan_alamat" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900" placeholder="Alamat pelanggan jika perlu dicatat" value="{{ old('new_pelanggan_alamat') }}">
+
+                                    <div x-show="selectedPelangganId" x-cloak class="mt-4 rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 p-5 space-y-3">
+                                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-200/50 pb-2">Profil Pelanggan</p>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                            <div>
+                                                <p class="font-bold text-gray-500 text-xs mb-1">WhatsApp</p>
+                                                <p class="font-black text-gray-900" x-text="selectedPelangganInfo.no_wa || '-'"></p>
+                                            </div>
+
+                                            <div class="md:col-span-2">
+                                                <p class="font-bold text-gray-500 text-xs mb-1">Alamat Lengkap</p>
+                                                <p class="font-bold text-gray-900 leading-relaxed" x-text="selectedPelangganInfo.alamat_lengkap || '-'"></p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -387,9 +502,9 @@
                                         <h4 class="font-black text-gray-900 uppercase tracking-wider text-xs">Informasi Service</h4>
                                     </div>
                                     <div>
-                                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Paket Service <span class="text-red-500">*</span></label>
+                                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Jenis Service <span class="text-red-500">*</span></label>
                                         <select name="service_paket_id" x-model="servicePaketId" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900">
-                                            <option value="">Pilih paket service</option>
+                                            <option value="">Pilih jenis service</option>
                                             <template x-for="paket in pakets" :key="paket.id">
                                                 <option :value="String(paket.id)" x-text="paketOptionLabel(paket)"></option>
                                             </template>
@@ -397,30 +512,52 @@
                                     </div>
                                     <template x-if="selectedPaket()">
                                         <div class="rounded-2xl border border-gray-100 bg-gray-50/50 p-5 space-y-2">
-                                            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Rincian Paket</p>
-                                            <p class="text-sm font-semibold text-gray-700 leading-relaxed" x-text="selectedPaket()?.rincian || 'Paket ini belum memiliki rincian tambahan.'"></p>
+                                            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Rincian Service</p>
+                                            <p class="text-sm font-semibold text-gray-700 leading-relaxed" x-text="selectedPaket()?.rincian || 'Jenis service ini belum memiliki rincian tambahan.'"></p>
                                         </div>
                                     </template>
                                     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                        <div class="md:col-span-4">
+                                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Status Unit APAR <span class="text-red-500">*</span></label>
+                                            <select x-model="statusUnit" @change="syncUnitApar" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 text-sm">
+                                                <option value="belum_terdaftar">APAR Belum Terdaftar (Manual)</option>
+                                                <option value="terdaftar">APAR Terdaftar</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="md:col-span-4" x-show="statusUnit === 'terdaftar'" x-cloak>
+                                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Pilih Unit APAR <span class="text-red-500">*</span></label>
+                                            <select name="unit_apar_id" x-model="selectedUnitAparId" @change="syncUnitApar" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 text-sm">
+                                                <option value="">-- Pilih Unit APAR --</option>
+                                                <template x-for="unit in (selectedPelangganInfo?.units || [])" :key="unit.id">
+                                                    <option :value="unit.id" x-text="unit.nama + ' - ' + unit.jenis + ' ' + unit.ukuran"></option>
+                                                </template>
+                                            </select>
+                                            <p x-show="selectedPelangganId && !(selectedPelangganInfo?.units?.length)" class="text-[10px] font-bold text-red-600 mt-2">Pelanggan ini belum memiliki Unit APAR terdaftar.</p>
+                                        </div>
+
                                         <div>
                                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Jenis Media APAR <span class="text-red-500">*</span></label>
-                                            <select name="jenis_apar" x-model="jenisApar" @change="syncUkuranOptions()" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900">
+                                            <select name="jenis_apar" x-model="jenisApar" @change="syncUkuranOptions()" :disabled="statusUnit === 'terdaftar'" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 disabled:opacity-50">
                                                 <template x-for="media in mediaOptions" :key="media.key">
                                                     <option :value="media.label" x-text="media.label"></option>
                                                 </template>
                                             </select>
+                                            <input type="hidden" name="jenis_apar" :value="jenisApar" x-bind:disabled="statusUnit !== 'terdaftar'">
                                         </div>
                                         <div>
                                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Ukuran APAR <span class="text-red-500">*</span></label>
-                                            <select name="ukuran_apar" x-model="ukuranApar" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900">
+                                            <select name="ukuran_apar" x-model="ukuranApar" :disabled="statusUnit === 'terdaftar'" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 disabled:opacity-50">
                                                 <template x-for="ukuran in ukuranOptions" :key="ukuran">
                                                     <option :value="ukuran" x-text="ukuran"></option>
                                                 </template>
                                             </select>
+                                            <input type="hidden" name="ukuran_apar" :value="ukuranApar" x-bind:disabled="statusUnit !== 'terdaftar'">
                                         </div>
                                         <div>
                                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Jumlah Unit <span class="text-red-500">*</span></label>
-                                            <input type="number" name="jumlah_unit" x-model.number="jumlahUnit" min="1" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900">
+                                            <input type="number" name="jumlah_unit" x-model.number="jumlahUnit" min="1" :disabled="statusUnit === 'terdaftar'" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 disabled:opacity-50">
+                                            <input type="hidden" name="jumlah_unit" :value="jumlahUnit" x-bind:disabled="statusUnit !== 'terdaftar'">
                                         </div>
                                         <div>
                                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Tanggal Service <span class="text-red-500">*</span></label>
@@ -489,7 +626,7 @@
         const serviceDetailData = @json($serviceDetailData);
 
         function openServiceDetailModal(id) {
-            const data = serviceDetailData.find((item) => item.id === id);
+            const data = serviceDetailData.find((item) => String(item.id) === String(id));
             if (!data) return;
 
             document.getElementById('service-detail-subtitle').textContent = `${data.transaksi} - ${data.waktu}`;
@@ -509,6 +646,17 @@
                     <span class="text-xs font-semibold text-gray-500">x${Number(item.jumlah || 0)}</span>
                 </div>
             `).join('');
+            const proofHtml = data.source === 'Online'
+                ? `<div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                    <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Bukti Pembayaran</p>
+                    ${data.proof_url
+                        ? (/\.pdf($|\?)/i.test(String(data.proof_url))
+                            ? `<iframe src="${data.proof_url}" class="h-72 w-full rounded-xl border border-gray-200 bg-white" title="Preview bukti pembayaran"></iframe>`
+                            : `<img src="${data.proof_url}" alt="Preview bukti pembayaran" class="mx-auto max-h-72 rounded-xl border border-gray-200 bg-white object-contain">`)
+                        : `<div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">Bukti transfer belum tersedia atau file tidak ditemukan.</div>`
+                    }
+                </div>`
+                : '';
 
             document.getElementById('service-detail-content').innerHTML = `
                 <div class="bg-gray-50 rounded-xl p-4 grid grid-cols-2 gap-3 text-sm">
@@ -535,7 +683,7 @@
                         <div class="mt-1">${paidBadge}</div>
                     </div>
                     <div>
-                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Paket Service</p>
+                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Jenis Service</p>
                         <p class="font-black text-emerald-700">${data.jenis}</p>
                     </div>
                     <div>
@@ -552,7 +700,8 @@
                     </div>
                 </div>
                 ${lineItemsHtml ? `<div class="rounded-xl border border-gray-200 bg-gray-50 p-4"><p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Harga Per Unit</p><div class="space-y-3">${lineItemsHtml}</div></div>` : ''}
-                ${peralatanHtml ? `<div class="rounded-xl border border-gray-200 bg-gray-50 p-4"><p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Peralatan Paket</p><div class="space-y-3">${peralatanHtml}</div></div>` : ''}
+                ${peralatanHtml ? `<div class="rounded-xl border border-gray-200 bg-gray-50 p-4"><p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Peralatan Service</p><div class="space-y-3">${peralatanHtml}</div></div>` : ''}
+                ${proofHtml}
                 ${data.catatan !== '-' ? `<div class="rounded-xl border border-amber-100 bg-amber-50 p-4"><span class="text-[10px] font-black text-amber-600 uppercase">Catatan</span><p class="mt-1 text-sm font-semibold whitespace-pre-line">${data.catatan}</p></div>` : ''}
                 <div class="flex justify-center">
                     <button type="button" onclick="closeServiceDetailModal()" class="px-8 py-3 bg-gray-200 text-gray-700 font-black text-xs uppercase rounded-xl hover:bg-gray-300 transition">Tutup</button>
@@ -566,16 +715,44 @@
             document.getElementById('service-detail-modal').classList.add('hidden');
         }
 
-        function openServiceProofModal(url, title) {
+        function openServiceProofModal(url, meta = {}) {
             const modal = document.getElementById('service-proof-modal');
             const body = document.getElementById('service-proof-body');
             const heading = document.getElementById('service-proof-title');
             const isPdf = /\.pdf($|\?)/i.test(String(url || ''));
+            const infoHtml = `
+                <div class="rounded-2xl border border-gray-100 bg-gray-50 px-5 py-4">
+                    <h4 class="text-sm font-black text-gray-900">Bukti Transfer</h4>
+                    <div class="mt-3 grid gap-3 sm:grid-cols-3">
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Pelanggan</p>
+                            <p class="mt-1 text-sm font-semibold text-gray-900">${meta.customer || '-'}</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Tanggal Transaksi</p>
+                            <p class="mt-1 text-sm font-semibold text-gray-900">${meta.date || '-'}</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Jenis Transaksi</p>
+                            <p class="mt-1 text-sm font-semibold text-gray-900">${meta.type || 'Service'}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
 
-            heading.textContent = title || 'Bukti TF';
-            body.innerHTML = isPdf
-                ? `<iframe src="${url}" class="h-[70vh] w-full rounded-2xl border border-gray-200 bg-white" title="Preview bukti pembayaran"></iframe>`
-                : `<img src="${url}" alt="Preview bukti pembayaran" class="mx-auto max-h-[70vh] rounded-2xl border border-gray-200 bg-white object-contain">`;
+            heading.textContent = 'Bukti Transfer';
+            if (!url) {
+                body.innerHTML = `${infoHtml}
+                    <div class="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-700">
+                        Bukti transfer belum tersedia atau file tidak ditemukan.
+                    </div>`;
+            } else {
+                body.innerHTML = `${infoHtml}
+                    ${isPdf
+                        ? `<iframe src="${url}" class="h-[70vh] w-full rounded-2xl border border-gray-200 bg-white" title="Preview bukti pembayaran"></iframe>`
+                        : `<img src="${url}" alt="Preview bukti pembayaran" class="mx-auto max-h-[70vh] rounded-2xl border border-gray-200 bg-white object-contain">`
+                    }`;
+            }
 
             modal.classList.remove('hidden');
         }
@@ -585,10 +762,15 @@
             document.getElementById('service-proof-body').innerHTML = '';
         }
 
-        function serviceOfflineForm(pakets, initialState, mediaOptions) {
+        function serviceOfflineForm(pakets, initialState, mediaOptions, pelanggansData) {
             return {
                 pakets,
                 mediaOptions,
+                pelanggansData: pelanggansData || [],
+                selectedPelangganId: '',
+                selectedPelangganInfo: {},
+                statusUnit: 'belum_terdaftar',
+                selectedUnitAparId: '',
                 servicePaketId: String(initialState?.service_paket_id || ''),
                 jenisApar: String(initialState?.jenis_apar || ''),
                 ukuranApar: String(initialState?.ukuran_apar || ''),
@@ -599,6 +781,26 @@
                         this.jenisApar = String(this.mediaOptions[0].label || '');
                     }
                     this.syncUkuranOptions();
+                },
+                syncPelangganProfile() {
+                    const info = this.pelanggansData.find(p => p.id === this.selectedPelangganId);
+                    this.selectedPelangganInfo = info || {};
+                    this.selectedUnitAparId = '';
+                    this.syncUnitApar();
+                },
+                syncUnitApar() {
+                    if (this.statusUnit === 'terdaftar' && this.selectedUnitAparId) {
+                        const unit = (this.selectedPelangganInfo?.units || []).find(u => u.id === this.selectedUnitAparId);
+                        if (unit) {
+                            this.jenisApar = unit.jenis;
+                            this.syncUkuranOptions();
+                            this.ukuranApar = unit.ukuran;
+                            this.jumlahUnit = 1;
+                        }
+                    } else if (this.statusUnit === 'belum_terdaftar') {
+                        this.selectedUnitAparId = '';
+                        this.jumlahUnit = 1;
+                    }
                 },
                 selectedPaket() {
                     return this.pakets.find((item) => String(item.id) === String(this.servicePaketId)) || null;

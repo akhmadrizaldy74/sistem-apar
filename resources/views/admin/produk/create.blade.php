@@ -64,7 +64,7 @@
                             <label for="kapasitas" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Kapasitas</label>
                             <input type="text" name="kapasitas" id="kapasitas" value="{{ old('kapasitas') }}" required
                                 class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 placeholder:text-gray-300 transition"
-                                placeholder="Contoh: 3 kg / 6 Liter">
+                                placeholder="Contoh: 3 kg / 6 kg">
                             <x-input-error :messages="$errors->get('kapasitas')" class="mt-2" />
                         </div>
                     </div>

@@ -229,7 +229,7 @@
                                         <a :href="editUrl(unit.id)" class="p-3 bg-white text-blue-600 hover:bg-blue-50 rounded-xl border border-blue-100 hover:border-blue-200 hover:shadow-lg transition-all shadow-sm">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                         </a>
-                                        <form :action="destroyUrl(unit.id)" method="POST" class="inline" @submit="if (!confirm('Yakin ingin menghapus?')) $event.preventDefault()">
+                                        <form :action="destroyUrl(unit.id)" method="POST" class="inline" data-confirm="Yakin ingin menghapus unit APAR ini?" data-confirm-title="Konfirmasi Hapus" data-confirm-button="Ya, Hapus">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="p-3 bg-white text-red-600 hover:bg-red-50 rounded-xl border border-red-100 hover:border-red-200 hover:shadow-lg transition-all shadow-sm">
@@ -307,7 +307,7 @@
                                                         <a :href="editUrl(unit.id)" class="p-2.5 bg-white text-blue-600 hover:bg-blue-50 rounded-xl border border-blue-100 hover:border-blue-200 hover:shadow-lg transition-all shadow-sm">
                                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                                         </a>
-                                                        <form :action="destroyUrl(unit.id)" method="POST" class="inline" @submit="if (!confirm('Yakin ingin menghapus?')) $event.preventDefault()">
+                                                        <form :action="destroyUrl(unit.id)" method="POST" class="inline" data-confirm="Yakin ingin menghapus unit APAR ini?" data-confirm-title="Konfirmasi Hapus" data-confirm-button="Ya, Hapus">
                                                             @csrf
                                                             @method('DELETE')
                                                             <button type="submit" class="p-2.5 bg-white text-red-600 hover:bg-red-50 rounded-xl border border-red-100 hover:border-red-200 hover:shadow-lg transition-all shadow-sm">
@@ -450,21 +450,6 @@
             </div>
         </div>
 
-        @if(session('success'))
-            <div x-data="{show:true}" x-show="show" x-init="setTimeout(()=>show=false,4500)"
-                class="fixed bottom-6 right-6 z-[200] px-6 py-4 bg-emerald-600 text-white font-bold rounded-2xl shadow-2xl flex items-center gap-3 text-sm">
-                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                {{ session('success') }}
-            </div>
-        @endif
-
-        @if(session('error'))
-            <div x-data="{show:true}" x-show="show" x-init="setTimeout(()=>show=false,5000)"
-                class="fixed bottom-6 right-6 z-[200] px-6 py-4 bg-red-600 text-white font-bold rounded-2xl shadow-2xl flex items-center gap-3 text-sm">
-                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                {{ session('error') }}
-            </div>
-        @endif
     </div>
 
     @once

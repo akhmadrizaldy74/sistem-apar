@@ -86,16 +86,15 @@
                 @endif
             </form>
 
-            <div class="overflow-x-auto">
-                <table class="w-full text-left">
+            <div class="hidden overflow-x-auto md:block">
+                <table class="w-full min-w-[860px] text-left">
                     <thead class="bg-slate-50/80 backdrop-blur-sm border-b border-gray-100/70">
                         <tr>
                             <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Pelanggan</th>
                             <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">WhatsApp</th>
                             <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Alamat</th>
-                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Transaksi</th>
-                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Aksi</th>
+                            
+                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right sticky-action-col">Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100/70">
@@ -118,34 +117,15 @@
                                 <td class="px-8 py-6">
                                     <p class="text-xs font-medium text-slate-500 truncate max-w-xs">{{ $p->alamat }}</p>
                                 </td>
-                                <td class="px-8 py-6">
-                                    @if($p->pesanan_count > 0)
-                                        <span class="inline-flex items-center px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-emerald-50/80 text-emerald-700 border border-emerald-100 shadow-sm">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-2"></span>Aktif
-                                        </span>
-                                    @else
-                                        <span class="inline-flex items-center px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 border border-slate-200 shadow-sm">
-                                            Tidak Aktif
-                                        </span>
-                                    @endif
-                                </td>
-                                <td class="px-8 py-6">
-                                    <p class="text-sm font-black text-slate-900">{{ $p->pesanan_count }} transaksi</p>
-                                </td>
-                                <td class="px-8 py-6 text-right">
-                                    <div class="flex justify-end gap-2">
-                                        @if(($p->kategori_pelanggan ?? 'lama') !== 'lama')
-                                            <a href="{{ route('admin.pesanan.index', ['process_pelanggan' => $p->id, 'open_nego' => 1]) }}" class="px-3 py-2 bg-amber-50 text-amber-700 rounded-xl border border-amber-200 hover:bg-amber-100 hover:shadow-lg transition-all text-[10px] font-black uppercase tracking-widest">
-                                                Proses
-                                            </a>
-                                        @endif
-                                        <a href="{{ route('admin.pelanggan.edit', $p) }}" class="p-3 bg-white text-blue-600 hover:bg-blue-50 rounded-xl border border-blue-100 hover:border-blue-200 hover:shadow-lg transition-all shadow-sm">
+                                <td class="px-8 py-6 text-right sticky-action-cell whitespace-nowrap">
+                                    <div class="flex justify-end gap-2 whitespace-nowrap">
+                                        <a href="{{ route('admin.pelanggan.edit', $p) }}" class="inline-flex h-11 w-11 shrink-0 items-center justify-center bg-white text-blue-600 hover:bg-blue-50 rounded-xl border border-blue-100 hover:border-blue-200 hover:shadow-lg transition-all shadow-sm" title="Edit">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                         </a>
-                                        <form action="{{ route('admin.pelanggan.destroy', $p) }}" method="POST" class="inline">
+                                        <form action="{{ route('admin.pelanggan.destroy', $p) }}" method="POST" class="inline shrink-0" data-confirm="Yakin ingin menghapus pelanggan ini?" data-confirm-title="Konfirmasi Hapus" data-confirm-button="Ya, Hapus">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="p-3 bg-white text-red-600 hover:bg-red-50 rounded-xl border border-red-100 hover:border-red-200 hover:shadow-lg transition-all shadow-sm" onclick="return confirm('Yakin ingin menghapus?')">
+                                            <button type="submit" class="inline-flex h-11 w-11 shrink-0 items-center justify-center bg-white text-red-600 hover:bg-red-50 rounded-xl border border-red-100 hover:border-red-200 hover:shadow-lg transition-all shadow-sm" title="Hapus">
                                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                             </button>
                                         </form>
@@ -156,6 +136,54 @@
                     </tbody>
                 </table>
             </div>
+
+            <div class="block divide-y divide-gray-100/80 md:hidden">
+                @forelse($pelanggans as $p)
+                    @php
+                        $waDigits = preg_replace('/\D+/', '', (string) $p->no_wa);
+                        $waUrl = 'https://wa.me/' . preg_replace('/^0/', '62', $waDigits);
+                    @endphp
+                    <article class="p-5">
+                        <div class="flex items-start gap-4">
+                            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-red-500 to-red-700 text-sm font-black text-white shadow-lg shadow-red-500/20">
+                                {{ strtoupper(substr($p->nama, 0, 2)) }}
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <h3 class="truncate text-base font-black text-slate-900">{{ $p->nama }}</h3>
+                                <a href="{{ $waUrl }}" target="_blank" rel="noopener noreferrer" class="mt-1 inline-flex items-center gap-2 text-sm font-bold text-blue-600">
+                                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                                    {{ $p->no_wa }}
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3">
+                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Alamat</p>
+                            <p class="mt-1 text-sm font-semibold leading-relaxed text-slate-700">{{ $p->alamat ?: '-' }}</p>
+                        </div>
+
+                        <div class="mt-4 grid grid-cols-2 gap-2">
+                            <a href="{{ route('admin.pelanggan.edit', $p) }}" class="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-blue-100 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-widest text-blue-700 shadow-sm transition hover:bg-blue-50">
+                                <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                                <span>Edit</span>
+                            </a>
+                            <form action="{{ route('admin.pelanggan.destroy', $p) }}" method="POST" data-confirm="Yakin ingin menghapus pelanggan ini?" data-confirm-title="Konfirmasi Hapus" data-confirm-button="Ya, Hapus">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="w-full inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-red-100 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-700 shadow-sm transition hover:bg-red-50">
+                                    <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                    <span>Hapus</span>
+                                </button>
+                            </form>
+                        </div>
+                    </article>
+                @empty
+                    <div class="p-8 text-center text-sm font-semibold text-slate-500">
+                        Belum ada data pelanggan.
+                    </div>
+                @endforelse
+            </div>
+
             @if($pelanggans->hasPages())
                 <div class="px-8 py-5 border-t border-gray-100/70 bg-slate-50/40">
                     {{ $pelanggans->links() }}
@@ -203,13 +231,7 @@
                                     placeholder="Contoh: Budi Santoso">
                                 <x-input-error :messages="$errors->get('nama')" class="mt-2" />
                             </div>
-                            <div>
-                                <label for="perusahaan" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Nama Perusahaan <span class="text-gray-300 normal-case tracking-normal font-medium">(Opsional)</span></label>
-                                <input type="text" name="perusahaan" id="perusahaan" value="{{ old('perusahaan') }}"
-                                    class="w-full px-5 py-4 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 placeholder:text-gray-300 transition"
-                                    placeholder="PT / CV / Instansi">
-                                <x-input-error :messages="$errors->get('perusahaan')" class="mt-2" />
-                            </div>
+                            
                             <div>
                                 <label for="no_wa" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Nomor WhatsApp <span class="text-red-500">*</span></label>
                                 <input type="text" name="no_wa" id="no_wa" value="{{ old('no_wa') }}" required
@@ -415,27 +437,40 @@
         }
 
         function placeMarker(lat, lng) {
-            if (!map || !window.AppMapLibre) return;
-
-            if (marker) {
-                window.AppMapLibre.removeMarker(marker);
-            }
-
-            marker = window.AppMapLibre.createMarker(map, lat, lng, {
-                draggable: true,
-                onDrag: updateCoord,
-                onDragEnd: updateCoord,
+        if (!map) return;
+    const markerIcon = L.divIcon({
+        className: 'custom-leaflet-marker',
+        html: `
+            <div style="position: relative; width: 34px; height: 34px;">
+                <div style="position:absolute; inset:0; background:#ef4444; border-radius:9999px; border:4px solid #fff; box-shadow:0 10px 20px rgba(239,68,68,.28);"></div>
+                <div style="position:absolute; left:11px; top:11px; width:6px; height:6px; border-radius:9999px; background:#fff;"></div>
+                <div style="position:absolute; left:13px; bottom:-8px; width:0; height:0; border-left:4px solid transparent; border-right:4px solid transparent; border-top:10px solid #ef4444;"></div>
+            </div>
+        `,
+        iconSize: [34, 42],
+        iconAnchor: [17, 38],
+    });
+        if (marker) {
+            marker.setLatLng([lat, lng]);
+        } else {
+            marker = L.marker([lat, lng], {icon: markerIcon, draggable: true}).addTo(map);
+            marker.on('drag', function(e) {
+                updateCoord(e.latlng.lat, e.latlng.lng);
+            });
+            marker.on('dragend', function(e) {
+                updateCoord(e.latlng.lat, e.latlng.lng);
             });
         }
+    }
 
         function refreshMap() {
             if (!map) return;
-            window.AppMapLibre.resizeMap(map);
+            setTimeout(() => map.invalidateSize(), 300);
         }
 
         function ensureMap() {
             const els = getEls();
-            if (!hasCoreEls(els) || map || !window.AppMapLibre) return;
+            if (!hasCoreEls(els) || map) return;
 
             const oldLat = Number(els.latInput.value || 0);
             const oldLng = Number(els.lngInput.value || 0);
@@ -443,15 +478,17 @@
             const startLng = oldLng || 106.8456;
             const startZoom = oldLat && oldLng ? 17 : 13;
 
-            map = window.AppMapLibre.createMap(els.mapEl, {
-                lat: startLat,
-                lng: startLng,
+            map = L.map(els.mapEl, {
+                center: [startLat, startLng],
                 zoom: startZoom,
                 scrollWheelZoom: false,
                 zoomControl: true,
             });
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
 
             map.on('click', (event) => {
+                const lat = event.latlng.lat;
+                const lng = event.latlng.lng;
                 const currentEls = getEls();
                 if (!hasCoreEls(currentEls)) return;
 
@@ -460,8 +497,8 @@
                     return;
                 }
 
-                placeMarker(event.lngLat.lat, event.lngLat.lng);
-                updateCoord(event.lngLat.lat, event.lngLat.lng);
+                placeMarker(lat, lng);
+                updateCoord(lat, lng);
                 updateHelper('Lokasi dipilih. Geser pin merah jika perlu koreksi.', 'success');
             });
 
@@ -532,7 +569,7 @@
                 ensureMap();
                 updateCoord(lat, lng);
                 if (map) {
-                    window.AppMapLibre.setCenter(map, lat, lng, 17);
+                    map.setView([lat, lng], 17);
                     placeMarker(lat, lng);
                     refreshMap();
                 }
@@ -632,8 +669,10 @@
         });
 
         window.addEventListener('open-pelanggan-modal', () => {
-            ensureMap();
-            refreshMap();
+            setTimeout(() => {
+                ensureMap();
+                refreshMap();
+            }, 400);
         });
 
         const initialEls = getEls();

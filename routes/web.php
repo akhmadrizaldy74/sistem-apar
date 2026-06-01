@@ -27,10 +27,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', [LandingPageController::class, 'index'])->name('home');
 
-Route::get('/cek-apar', [LandingPageController::class, 'cekAparForm'])->name('cek-apar');
-Route::post('/cek-apar', [LandingPageController::class, 'cekApar'])->name('cek-apar.check');
-
 Route::middleware(['auth'])->group(function () {
+    Route::get('/riwayat', [LandingPageController::class, 'riwayatApar'])->name('riwayat');
     Route::get('/riwayat-apar', [LandingPageController::class, 'riwayatApar'])->name('riwayat-apar');
     Route::get('/riwayat-apar/status', [LandingPageController::class, 'riwayatAparStatus'])->name('riwayat-apar.status');
     
@@ -68,9 +66,9 @@ Route::middleware(['auth'])->group(function () {
 
 Route::middleware(['auth', 'teknisi'])->prefix('teknisi')->name('teknisi.')->group(function () {
     Route::get('/dashboard', [TeknisiController::class, 'dashboard'])->name('dashboard');
-    Route::get('/tugas-produk', fn () => redirect()->route('teknisi.tugas-service-refill'))->name('tugas-produk');
+    Route::get('/tugas-produk', [TeknisiController::class, 'tugasProduk'])->name('tugas-produk');
     Route::get('/tugas-service-refill', [TeknisiController::class, 'tugasServiceRefill'])->name('tugas-service-refill');
-    Route::get('/riwayat-tugas', fn () => redirect()->route('teknisi.tugas-service-refill'))->name('riwayat-tugas');
+    Route::get('/riwayat-tugas', [TeknisiController::class, 'riwayatTugas'])->name('riwayat-tugas');
     Route::post('/tugas/{pesanan}/mulai', [TeknisiController::class, 'tugasMulai'])->name('tugas.mulai');
     Route::post('/tugas/{pesanan}/selesai', [TeknisiController::class, 'tugasSelesai'])->name('tugas.selesai');
     Route::post('/tugas/{pesanan}/ajukan-tambahan', fn () => back()->with('error', 'Teknisi hanya mengerjakan dan melaporkan tugas service/refil dari admin.'))->name('tugas.ajukan-tambahan');
@@ -114,6 +112,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::resource('pesanan', PesananController::class);
     Route::resource('jenis-apar', JenisAparController::class)->except(['show']);
     Route::resource('jenis-refill', JenisRefillController::class);
+    Route::any('/service-paket/{any?}', fn () => redirect()->route('admin.service.index'))->where('any', '.*');
     Route::resource('produk', ProdukController::class);
     Route::resource('unit-apar', UnitAparController::class);
     Route::post('/service/request/{pesanan}/status', [ServiceController::class, 'updateRequestStatus'])->name('service.request.status');

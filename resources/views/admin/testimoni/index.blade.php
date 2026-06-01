@@ -100,7 +100,7 @@
                                         class="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition shadow-sm border border-blue-200">
                                         Edit
                                     </button>
-                                    <form action="{{ route('admin.testimoni.destroy', $t) }}" method="POST" onsubmit="return confirm('Hapus testimoni ini?')">
+                                    <form action="{{ route('admin.testimoni.destroy', $t) }}" method="POST" data-confirm="Hapus testimoni ini?" data-confirm-title="Konfirmasi Hapus" data-confirm-button="Ya, Hapus">
                                         @csrf @method('DELETE')
                                         <button class="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition shadow-sm border border-red-200">
                                             Hapus

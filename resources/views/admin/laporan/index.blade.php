@@ -170,18 +170,14 @@
                 <h3 class="font-bold text-gray-900 text-sm">Analitik Ringkas</h3>
                 <p class="text-[10px] text-gray-500">Komposisi pendapatan, status transaksi, dan kondisi unit APAR.</p>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4">
                 <div class="text-center">
-                    <h4 class="mb-2 text-[9px] font-bold uppercase tracking-wider text-gray-500">Komposisi Pendapatan</h4>
-                    <div id="revenue-composition-chart" class="mx-auto" style="height: 180px;"></div>
+                    <h4 class="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">Komposisi Pendapatan</h4>
+                    <div id="revenue-composition-chart" class="mx-auto" style="height: 220px; width: 220px; max-height: 220px; max-width: 220px;"></div>
                 </div>
                 <div class="text-center">
-                    <h4 class="mb-2 text-[9px] font-bold uppercase tracking-wider text-gray-500">Status Transaksi</h4>
-                    <div id="transaction-status-chart" class="mx-auto" style="height: 180px;"></div>
-                </div>
-                <div class="text-center">
-                    <h4 class="mb-2 text-[9px] font-bold uppercase tracking-wider text-gray-500">Status Unit APAR</h4>
-                    <div id="unit-status-chart" class="mx-auto" style="height: 180px;"></div>
+                    <h4 class="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">Status Unit APAR</h4>
+                    <div id="unit-status-chart" class="mx-auto" style="height: 220px; width: 220px; max-height: 220px; max-width: 220px;"></div>
                 </div>
             </div>
         </div>
@@ -268,7 +264,7 @@
                         <p class="text-[10px] text-gray-500">Detail semua pengeluaran dalam periode ini.</p>
                     </div>
                     @php
-                        $totalPengeluaran = $pengeluarans->sum('total') + $pengeluarans->sum('nominal');
+                        $totalPengeluaran = $pengeluarans->sum('effective_amount');
                     @endphp
                     <span class="px-3 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-full">
                         Total: Rp {{ number_format($totalPengeluaran, 0, ',', '.') }}
@@ -300,7 +296,7 @@
                                 $keterangan = $peng->nama_item ?? $peng->keterangan ?? '-';
                                 $jumlah = $peng->qty ?? 1;
                                 $satuan = $peng->satuan ?? 'unit';
-                                $total = $peng->total ?? $peng->nominal ?? 0;
+                                $total = $peng->effective_amount;
                             @endphp
                             <tr class="hover:bg-gray-50/30">
                                 <td class="px-4 py-2.5 text-[10px] text-gray-500">{{ $i + 1 }}</td>
@@ -330,11 +326,27 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <h3 class="font-bold text-gray-900 text-sm">Data Pengunjung Website</h3>
-                        <p class="text-[10px] text-gray-500">Aktivitas pengunjung di halaman publik.</p>
+                        <p class="text-[10px] text-gray-500">Menampilkan {{ $visitorLimit }} aktivitas terbaru di halaman publik.</p>
                     </div>
-                    <span class="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">
-                        {{ $visitorRecords->count() }} Records
-                    </span>
+                    <div class="flex items-center gap-2">
+                        <span class="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">
+                            {{ $visitorRecords->count() }} Records
+                        </span>
+                        <select
+                            onchange="window.location.href=this.value"
+                            class="rounded-full border border-gray-200 bg-white px-3 py-1 text-[10px] font-bold text-gray-600 focus:border-blue-400 focus:ring-blue-100"
+                            aria-label="Jumlah data pengunjung yang ditampilkan"
+                        >
+                            @foreach($visitorLimitOptions as $limitOption)
+                                <option
+                                    value="{{ request()->fullUrlWithQuery(['visitor_limit' => $limitOption]) }}"
+                                    @selected($visitorLimit === $limitOption)
+                                >
+                                    {{ $limitOption }} data
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
                 </div>
             </div>
             <div class="overflow-x-auto">
@@ -433,65 +445,132 @@
                 const unitStatus = parseJson('unit-status-data');
 
                 const palette = {
-                    red: '#dc2626', navy: '#1e3a8a', amber: '#f59e0b',
-                    emerald: '#059669', blue: '#2563eb', soft: '#e2e8f0', violet: '#7c3aed'
+                    red: '#dc2626',
+                    blue: '#2563eb',
+                    amber: '#f59e0b',
+                    emerald: '#059669',
+                    soft: '#e2e8f0'
                 };
 
-                const rupiah = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v || 0);
-                const numberId = (v) => new Intl.NumberFormat('id-ID').format(v || 0);
+                const makeChart = (selector, labels, series, colors, config = {}) => {
+                    const hasData = (series || []).some(v => Number(v) > 0);
+                    const total = (series || []).reduce((a, b) => a + Number(b || 0), 0);
+                    
+                    const isCurrency = config.isCurrency ?? false;
+                    const totalLabel = config.totalLabel ?? 'Total';
+                    
+                    const formatValue = (val) => {
+                        if (isCurrency) {
+                            return new Intl.NumberFormat('id-ID', {
+                                style: 'currency',
+                                currency: 'IDR',
+                                maximumFractionDigits: 0
+                            }).format(val || 0);
+                        }
+                        return new Intl.NumberFormat('id-ID').format(val || 0);
+                    };
 
-                const makeDonut = (config) => {
-                    const hasData = (config.series || []).some(v => Number(v) > 0);
-                    return {
-                        chart: { type: 'donut', height: 180, toolbar: { show: false }, animations: { enabled: true, easing: 'easeinout', speed: 800 } },
-                        series: hasData ? config.series : [1],
-                        labels: hasData ? config.labels : ['Belum Ada Data'],
-                        colors: hasData ? config.colors : [palette.soft],
-                        stroke: { width: 0 },
+                    const options = {
+                        chart: {
+                            type: 'donut',
+                            height: 220,
+                            width: 220,
+                            toolbar: { show: false },
+                            animations: { enabled: true, easing: 'easeinout', speed: 800 }
+                        },
+                        series: hasData ? series : [1],
+                        labels: hasData ? labels : ['Tidak Ada Data'],
+                        colors: hasData ? colors : [palette.soft],
+                        stroke: { width: 3, colors: ['#ffffff'] },
                         dataLabels: { enabled: false },
-                        legend: { position: 'bottom', fontSize: '10px', labels: { colors: '#64748b' } },
+                        legend: {
+                            position: 'bottom',
+                            fontSize: '10px',
+                            fontFamily: 'system-ui, sans-serif',
+                            labels: { colors: '#64748b' },
+                            markers: { width: 8, height: 8, radius: 2 },
+                            itemMargin: { horizontal: 6, vertical: 0 }
+                        },
                         plotOptions: {
                             pie: {
+                                expandOnClick: false,
+                                customScale: 1.0,
                                 donut: {
-                                    size: '70%',
+                                    size: '72%',
                                     labels: {
                                         show: true,
-                                        name: { show: true, color: '#94a3b8', fontSize: '9px' },
-                                        value: { show: true, color: '#0f172a', fontSize: '14px', fontWeight: 700, formatter: (v) => config.valueFormatter ? config.valueFormatter(v) : v },
-                                        total: { show: true, label: config.totalLabel, color: '#94a3b8', fontSize: '9px', formatter: () => config.totalFormatter(config.series || []) }
+                                        name: {
+                                            show: true,
+                                            fontSize: '11px',
+                                            fontFamily: 'system-ui, sans-serif',
+                                            fontWeight: 600,
+                                            color: '#94a3b8',
+                                            offsetY: -8
+                                        },
+                                        value: {
+                                            show: true,
+                                            fontSize: '14px',
+                                            fontFamily: 'system-ui, sans-serif',
+                                            fontWeight: 700,
+                                            color: '#0f172a',
+                                            offsetY: 6,
+                                            formatter: (val) => formatValue(val)
+                                        },
+                                        total: {
+                                            show: true,
+                                            showAlways: true,
+                                            label: totalLabel,
+                                            fontSize: '11px',
+                                            fontFamily: 'system-ui, sans-serif',
+                                            fontWeight: 600,
+                                            color: '#94a3b8',
+                                            formatter: (w) => {
+                                                const sum = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+                                                return formatValue(sum);
+                                            }
+                                        }
                                     }
                                 }
                             }
-                        }
+                        },
+                        tooltip: {
+                            enabled: true,
+                            y: {
+                                formatter: (val) => {
+                                    if (!hasData) return 'Tidak ada data';
+                                    const percent = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                                    return formatValue(val) + ' (' + percent + '%)';
+                                }
+                            }
+                        },
+                        states: {
+                            hover: { filter: { type: 'none' } },
+                            active: { filter: { type: 'none' } }
+                        },
+                        responsive: [{
+                            breakpoint: 640,
+                            options: {
+                                legend: { position: 'bottom', fontSize: '9px' }
+                            }
+                        }]
                     };
+                    const el = document.querySelector(selector);
+                    if (el) new ApexCharts(el, options).render();
                 };
 
-                new ApexCharts(document.querySelector('#revenue-composition-chart'), makeDonut({
-                    labels: revenueComposition.labels,
-                    series: revenueComposition.series,
-                    colors: [palette.red, palette.navy, palette.amber],
-                    totalLabel: 'Total',
-                    totalFormatter: (s) => rupiah(s.reduce((a, b) => a + Number(b || 0), 0)),
-                    valueFormatter: (v) => rupiah(v)
-                })).render();
+                makeChart('#revenue-composition-chart',
+                    revenueComposition.labels || [],
+                    revenueComposition.series || [],
+                    [palette.red, palette.blue, palette.amber],
+                    { isCurrency: true, totalLabel: 'Total' }
+                );
 
-                new ApexCharts(document.querySelector('#transaction-status-chart'), makeDonut({
-                    labels: transactionStatus.labels,
-                    series: transactionStatus.series,
-                    colors: [palette.amber, palette.blue, palette.emerald, palette.red],
-                    totalLabel: 'Transaksi',
-                    totalFormatter: (s) => numberId(s.reduce((a, b) => a + Number(b || 0), 0)),
-                    valueFormatter: (v) => numberId(v)
-                })).render();
-
-                new ApexCharts(document.querySelector('#unit-status-chart'), makeDonut({
-                    labels: unitStatus.labels,
-                    series: unitStatus.series,
-                    colors: [palette.emerald, palette.amber, palette.red],
-                    totalLabel: 'Unit',
-                    totalFormatter: (s) => numberId(s.reduce((a, b) => a + Number(b || 0), 0)),
-                    valueFormatter: (v) => numberId(v)
-                })).render();
+                makeChart('#unit-status-chart',
+                    unitStatus.labels || [],
+                    unitStatus.series || [],
+                    [palette.emerald, palette.amber, palette.red],
+                    { isCurrency: false, totalLabel: 'Unit' }
+                );
             });
         </script>
     @endpush

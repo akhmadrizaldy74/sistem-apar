@@ -11,6 +11,7 @@ use App\Models\ServicePaket;
 use App\Models\UnitApar;
 use App\Models\Peralatan;
 use App\Models\StockMovement;
+use App\Services\FinalTransactionStockService;
 use App\Services\InventoryService;
 use App\Services\ServicePackagePricingService;
 use Illuminate\Http\Request;
@@ -23,7 +24,6 @@ class ServiceController extends Controller
         $servicePakets = ServicePaket::with('peralatans')
             ->orderBy('harga')
             ->get()
-            ->reject(fn (ServicePaket $servicePaket) => $servicePaket->isLegacyTemplate())
             ->values();
         $serviceMediaOptions = $servicePackagePricingService->availableMediaOptions();
         $servicePaketCatalog = $servicePackagePricingService->packageCatalog($servicePakets, $serviceMediaOptions);
@@ -37,20 +37,22 @@ class ServiceController extends Controller
                           ->where('jenis_service', '!=', 'Refill');
                     });
             })
-            ->latest('tgl_service')
+            ->where('status_konfirmasi', '!=', 'pending')
+            ->orderByDesc('tgl_service')
+            ->orderByDesc('created_at')
             ->get();
 
         $units = UnitApar::with(['pelanggan', 'produk.jenisApar'])->get();
         $ukuranAparOptions = $this->buildUkuranAparOptions();
         $pelanggans = Pelanggan::with(['units.produk.jenisApar'])->orderBy('nama')->get();
 
-        $requestServices = Pesanan::with(['pelanggan', 'teknisi', 'servicePaket', 'serviceJenisRefill'])
+        $requestServices = Pesanan::with(['pelanggan', 'teknisi', 'servicePaket', 'serviceJenisRefill', 'service.unitApar.pelanggan', 'service.unitApar.produk'])
             ->where('tipe', 'service')
             ->where(function ($query) {
                 $query->whereNull('service_jenis_layanan')
                     ->orWhere('service_jenis_layanan', 'service');
             })
-            ->whereNotIn('status', ['selesai final', 'ditolak'])
+            ->whereNotIn('status', ['selesai', 'selesai final', 'ditolak'])
             ->latest()
             ->get();
 
@@ -60,8 +62,9 @@ class ServiceController extends Controller
                 $query->whereNull('service_jenis_layanan')
                     ->orWhere('service_jenis_layanan', 'service');
             })
-            ->whereIn('status', ['selesai oleh teknisi', 'dikonfirmasi admin'])
-            ->latest('teknisi_selesai_at')
+            ->whereIn('status', ['selesai', 'selesai final'])
+            ->orderByDesc('teknisi_selesai_at')
+            ->orderByDesc('created_at')
             ->get();
 
         $teknisis = \App\Models\User::where('role', 'teknisi')->orderBy('name')->get();
@@ -130,6 +133,10 @@ class ServiceController extends Controller
 
         $pesanan->update($payload);
 
+        if ($pesanan->status === Pesanan::STATUS_SELESAI_FINAL) {
+            app(FinalTransactionStockService::class)->apply($pesanan);
+        }
+
         return back()->with('success', 'Status service APAR berhasil diperbarui.');
     }
 
@@ -140,18 +147,16 @@ class ServiceController extends Controller
 
     public function store(
         Request $request,
-        InventoryService $inventoryService,
         ServicePackagePricingService $servicePackagePricingService
     )
     {
         $request->merge([
-            'new_pelanggan_no_wa' => $this->normalizePhone($request->input('new_pelanggan_no_wa')),
+            'pelanggan_id' => $request->input('pelanggan_id'),
         ]);
 
         $request->validate([
-            'new_pelanggan_nama'  => 'required|string|max:255',
-            'new_pelanggan_no_wa' => 'required|string|max:20',
-            'new_pelanggan_alamat' => 'nullable|string|max:1000',
+            'pelanggan_id'        => 'required|exists:pelanggans,id',
+            'unit_apar_id'        => 'nullable|exists:unit_apars,id',
             'service_paket_id'    => 'required|exists:service_pakets,id',
             'jenis_apar'          => 'required|string|max:120',
             'ukuran_apar'         => 'required|string|max:50',
@@ -159,9 +164,10 @@ class ServiceController extends Controller
             'tgl_service'         => 'required|date',
             'catatan_admin'       => 'nullable|string|max:1000',
         ], [
-            'new_pelanggan_nama.required'  => 'Nama pelanggan wajib diisi.',
-            'new_pelanggan_no_wa.required' => 'Nomor telepon pelanggan wajib diisi.',
-            'service_paket_id.required'    => 'Pilih paket service terlebih dahulu.',
+            'pelanggan_id.required'        => 'Pilih pelanggan terlebih dahulu.',
+            'pelanggan_id.exists'          => 'Pelanggan yang dipilih tidak valid.',
+            'unit_apar_id.exists'          => 'Unit APAR yang dipilih tidak valid.',
+            'service_paket_id.required'    => 'Pilih jenis service terlebih dahulu.',
         ]);
 
         $paket = ServicePaket::with('peralatans')->findOrFail($request->service_paket_id);
@@ -180,7 +186,7 @@ class ServiceController extends Controller
             return back()
                 ->withInput()
                 ->withErrors([
-                    'service_paket_id' => 'Harga service untuk kombinasi paket, media APAR, dan ukuran yang dipilih belum tersedia.',
+                    'service_paket_id' => 'Harga service untuk kombinasi jenis service, media APAR, dan ukuran yang dipilih belum tersedia.',
                 ]);
         }
 
@@ -193,32 +199,8 @@ class ServiceController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($request, $paket, $totalBiaya, $jumlahUnit, $teknisi, $inventoryService, $peralatanPaket) {
-            // --- Resolve pelanggan ---
-            $normalizedNoWa = (string) $request->new_pelanggan_no_wa;
-            $existingPelanggan = Pelanggan::where('no_wa', $normalizedNoWa)->first();
-
-            if ($existingPelanggan) {
-                $existingPelanggan->update([
-                    'nama' => (string) $request->new_pelanggan_nama,
-                    'alamat' => filled($request->new_pelanggan_alamat)
-                        ? (string) $request->new_pelanggan_alamat
-                        : $existingPelanggan->alamat,
-                    'status' => 'tetap',
-                    'sumber_data' => $existingPelanggan->sumber_data ?: 'manual',
-                ]);
-                $pelangganId = (int) $existingPelanggan->id;
-            } else {
-                $pelangganBaru = Pelanggan::create([
-                    'nama' => (string) $request->new_pelanggan_nama,
-                    'no_wa' => $normalizedNoWa,
-                    'alamat' => $request->new_pelanggan_alamat,
-                    'status' => 'tetap',
-                    'sumber_data' => 'manual',
-                    'kategori_pelanggan' => 'baru_manual',
-                ]);
-                $pelangganId = (int) $pelangganBaru->id;
-            }
+            DB::transaction(function () use ($request, $paket, $totalBiaya, $jumlahUnit, $teknisi, $peralatanPaket) {
+            $pelangganId = (int) $request->pelanggan_id;
 
             // --- Create Pesanan record for tracking ---
             $pesanan = Pesanan::create([
@@ -251,36 +233,9 @@ class ServiceController extends Controller
                 ),
             ]);
 
-            $history = [];
-
-            foreach ($peralatanPaket as $item) {
-                $peralatan = Peralatan::find($item['peralatan_id']);
-                if (!$peralatan) {
-                    continue;
-                }
-
-                $stokSebelum = (float) $peralatan->stok;
-
-                $inventoryService->decreasePeralatanStock(
-                    peralatan: $peralatan,
-                    qty: (float) $item['jumlah'],
-                    sourceType: StockMovement::SOURCE_SERVICE_PELANGGAN,
-                    reference: $pesanan,
-                    keterangan: "Service offline {$paket->nama} - {$item['nama']} ({$item['jumlah']} unit)",
-                    tanggal: $request->tgl_service,
-                );
-
-                $history[] = [
-                    'peralatan_id' => $peralatan->id,
-                    'nama' => $peralatan->nama,
-                    'jumlah' => (int) $item['jumlah'],
-                    'stok_sebelum' => $stokSebelum,
-                    'stok_sesudah' => (float) $peralatan->fresh()->stok,
-                ];
-            }
-
             Service::create([
                 'pesanan_id' => $pesanan->id,
+                'unit_apar_id' => $request->unit_apar_id,
                 'service_paket_id' => $paket->id,
                 'jenis_service' => $paket->nama,
                 'rincian_layanan' => $paket->rincian_layanan,
@@ -290,7 +245,6 @@ class ServiceController extends Controller
                 'estimasi_peralatan_json' => json_encode($peralatanPaket),
                 'actual_peralatan_json' => json_encode($peralatanPaket),
                 'status_konfirmasi' => 'pending',
-                'stok_kurang_history_json' => json_encode($history),
             ]);
             });
         } catch (\RuntimeException $exception) {
@@ -305,7 +259,7 @@ class ServiceController extends Controller
 
         return redirect()
             ->route('admin.service.index')
-            ->with('success', "Service offline berhasil disimpan. Status: Lunas & {$statusLabel}.");
+            ->with('success', "Service offline berhasil disimpan. Status: Lunas & {$statusLabel}. Stok peralatan akan berkurang saat status Selesai Final.");
     }
 
     private function normalizePhone(?string $value): string
@@ -332,7 +286,6 @@ class ServiceController extends Controller
         $servicePakets = ServicePaket::with('peralatans')
             ->orderBy('harga')
             ->get()
-            ->reject(fn (ServicePaket $servicePaket) => $servicePaket->isLegacyTemplate())
             ->values();
 
         return view('admin.service.edit', compact('service', 'units', 'servicePakets'));
@@ -400,6 +353,10 @@ class ServiceController extends Controller
             return back()->with('error', 'Service ini sudah dikonfirmasi.');
         }
 
+        if (!$service->pesanan || (string) $service->pesanan->status !== Pesanan::STATUS_SELESAI_FINAL) {
+            return back()->with('error', 'Stok service hanya bisa dikurangi setelah transaksi berstatus Selesai Final.');
+        }
+
         if (!empty($service->stok_kurang_history)) {
             $service->update([
                 'tgl_selesai_admin' => now(),
@@ -411,9 +368,12 @@ class ServiceController extends Controller
 
         $actualPeralatan = $service->actual_peralatan;
         $history = [];
+        $customerName = (string) ($service->pesanan?->pelanggan?->nama
+            ?: $service->unitApar?->pelanggan?->nama
+            ?: 'Pelanggan tidak diketahui');
 
         try {
-            DB::transaction(function () use ($service, $actualPeralatan, &$history, $inventoryService) {
+            DB::transaction(function () use ($service, $actualPeralatan, &$history, $inventoryService, $customerName) {
             foreach ($actualPeralatan as $item) {
                 $peralatan = Peralatan::find($item['peralatan_id'] ?? $item['id']);
                 if (!$peralatan) continue;
@@ -426,7 +386,7 @@ class ServiceController extends Controller
                     qty: $jumlah,
                     sourceType: StockMovement::SOURCE_SERVICE_PELANGGAN,
                     reference: $service,
-                    keterangan: "Pemakaian {$peralatan->nama} untuk service #{$service->id}",
+                    keterangan: 'Service APAR - ' . $customerName,
                     tanggal: now(),
                 );
 
@@ -437,13 +397,6 @@ class ServiceController extends Controller
                     'stok_sebelum' => $stokSebelum,
                     'stok_sesudah' => $peralatan->fresh()->stok,
                 ];
-
-                /*
-                    'kategori' => 'Service - ' . $service->jenis_service,
-                    'keterangan' => "Pengurangan stok {$peralatan->nama} ({$jumlah} pcs) untuk Service ID {$service->id} — {$service->unitApar?->pelanggan?->nama}",
-                    'nominal' => $peralatan->harga_standar * $jumlah,
-                    'tanggal' => now()->toDateString(),
-                */
             }
 
             $service->update([

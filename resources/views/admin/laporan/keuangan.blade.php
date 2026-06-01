@@ -157,7 +157,7 @@
                                 <td class="px-8 py-5 text-sm font-bold text-gray-900">{{ $pengeluaran->tanggal->format('d M Y') }}</td>
                                 <td class="px-8 py-5"><span class="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-bold uppercase tracking-wider">Pengeluaran</span></td>
                                 <td class="px-8 py-5 text-sm font-semibold text-gray-700">{{ $pengeluaran->keterangan }}</td>
-                                <td class="px-8 py-5 text-sm font-black text-red-700">- Rp {{ number_format($pengeluaran->nominal, 0, ',', '.') }}</td>
+                                <td class="px-8 py-5 text-sm font-black text-red-700">- Rp {{ number_format($pengeluaran->effective_amount, 0, ',', '.') }}</td>
                             </tr>
                         @endforeach
                         @if($pesanans->isEmpty() && $services->isEmpty() && $pengeluarans->isEmpty())

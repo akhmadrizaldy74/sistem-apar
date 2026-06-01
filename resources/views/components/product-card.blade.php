@@ -8,8 +8,8 @@
 <div class="group bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-lg shadow-gray-200/40 hover:shadow-2xl hover:shadow-gray-300/40 transition duration-300 hover:-translate-y-1">
     <a href="{{ route('produk.show', $produk) }}" class="block">
         <div class="aspect-[4/5] relative overflow-hidden bg-gray-50">
-            @if($produk->gambar)
-                <img src="{{ asset('storage/' . $produk->gambar) }}" alt="{{ $produk->nama }}" class="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-700">
+            @if($produk->resolved_image_url)
+                <img src="{{ $produk->resolved_image_url }}" alt="{{ $produk->nama }}" class="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-700">
             @else
                 <div class="w-full h-full flex items-center justify-center text-gray-300">
                     <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>

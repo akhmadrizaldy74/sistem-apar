@@ -51,12 +51,17 @@
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4">
                 <div class="text-center">
-                    <h4 class="mb-2 text-[9px] font-bold uppercase tracking-wider text-gray-500">Sumber Pendapatan</h4>
-                    <div id="revenue-composition-chart" class="mx-auto" style="height: 160px;"></div>
+                    <h4 class="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Sumber Pendapatan</h4>
+                    <div class="flex h-[230px] items-center justify-center overflow-hidden">
+                        <div id="revenue-composition-chart" class="mx-auto" style="height: 220px; width: 220px; max-height: 220px; max-width: 220px;"></div>
+                    </div>
+                    <div id="revenue-composition-legend" class="mx-auto mt-2 flex w-fit flex-col items-start gap-1 text-[10px] font-semibold text-slate-600"></div>
                 </div>
                 <div class="text-center">
-                    <h4 class="mb-2 text-[9px] font-bold uppercase tracking-wider text-gray-500">Status Unit APAR</h4>
-                    <div id="unit-status-chart" class="mx-auto" style="height: 160px;"></div>
+                    <h4 class="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Status Unit APAR</h4>
+                    <div class="flex h-[230px] items-center justify-center overflow-hidden">
+                        <div id="unit-status-chart" class="mx-auto" style="height: 220px; width: 220px; max-height: 220px; max-width: 220px;"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -188,31 +193,84 @@
 
                 const palette = {
                     red: '#dc2626', navy: '#1e3a8a', amber: '#f59e0b',
-                    emerald: '#059669', blue: '#2563eb', soft: '#e2e8f0'
+                    emerald: '#059669', blue: '#2563eb', soft: '#e2e8f0',
+                    rose: '#dc2626', yellow: '#f59e0b'
                 };
 
                 const rupiah = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v || 0);
                 const numberId = (v) => new Intl.NumberFormat('id-ID').format(v || 0);
+                const percentId = (v) => `${Number(v || 0).toFixed(1)}%`;
 
-                const makeDonut = (config) => {
+                const makeRevenueChart = (config) => {
                     const hasData = (config.series || []).some(v => Number(v) > 0);
+                    const total = (config.series || []).reduce((a, b) => a + Number(b || 0), 0);
+
                     return {
-                        chart: { type: 'donut', height: 160, toolbar: { show: false }, animations: { enabled: true, easing: 'easeinout', speed: 800 } },
+                        chart: {
+                            type: 'donut',
+                            height: 220,
+                            width: 220,
+                            toolbar: { show: false },
+                            animations: { enabled: true, easing: 'easeinout', speed: 800 }
+                        },
                         series: hasData ? config.series : [1],
                         labels: hasData ? config.labels : ['Belum Ada Data'],
                         colors: hasData ? config.colors : [palette.soft],
-                        stroke: { width: 0 },
+                        stroke: { width: 3, colors: ['#ffffff'] },
                         dataLabels: { enabled: false },
-                        legend: { position: 'bottom', fontSize: '10px', labels: { colors: '#64748b' } },
+                        legend: { show: false },
+                        tooltip: {
+                            enabled: true,
+                            y: {
+                                formatter: (val) => {
+                                    if (!hasData) return 'Belum ada data';
+                                    const percent = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                                    return rupiah(val) + ' (' + percent + '%)';
+                                }
+                            }
+                        },
+                        states: {
+                            hover: { filter: { type: 'none' } },
+                            active: { filter: { type: 'none' } }
+                        },
                         plotOptions: {
                             pie: {
+                                expandOnClick: false,
+                                customScale: 0.82,
                                 donut: {
-                                    size: '75%',
+                                    size: '72%',
                                     labels: {
                                         show: true,
-                                        name: { show: true, color: '#94a3b8', fontSize: '9px' },
-                                        value: { show: true, color: '#0f172a', fontSize: '14px', fontWeight: 700, formatter: (v) => config.valueFormatter ? config.valueFormatter(v) : v },
-                                        total: { show: true, label: config.totalLabel, color: '#94a3b8', fontSize: '9px', formatter: () => config.totalFormatter(config.series || []) }
+                                        name: {
+                                            show: true,
+                                            fontSize: '11px',
+                                            fontFamily: 'system-ui, sans-serif',
+                                            fontWeight: 600,
+                                            color: '#94a3b8',
+                                            offsetY: -8
+                                        },
+                                        value: {
+                                            show: true,
+                                            fontSize: '14px',
+                                            fontFamily: 'system-ui, sans-serif',
+                                            fontWeight: 700,
+                                            color: '#0f172a',
+                                            offsetY: 6,
+                                            formatter: (val) => rupiah(val)
+                                        },
+                                        total: {
+                                            show: true,
+                                            showAlways: true,
+                                            label: 'Total',
+                                            fontSize: '11px',
+                                            fontFamily: 'system-ui, sans-serif',
+                                            fontWeight: 600,
+                                            color: '#94a3b8',
+                                            formatter: (w) => {
+                                                const sum = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+                                                return rupiah(sum);
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -220,14 +278,113 @@
                     };
                 };
 
-                new ApexCharts(document.querySelector('#revenue-composition-chart'), makeDonut({
+                const makeDonut = (config) => {
+                    const hasData = (config.series || []).some(v => Number(v) > 0);
+                    return {
+                        chart: { type: 'donut', height: 220, width: 220, toolbar: { show: false }, animations: { enabled: true, easing: 'easeinout', speed: 800 } },
+                        series: hasData ? config.series : [1],
+                        labels: hasData ? config.labels : ['Belum Ada Data'],
+                        colors: hasData ? config.colors : [palette.soft],
+                        stroke: { width: 3, colors: ['#ffffff'] },
+                        dataLabels: { enabled: false },
+                        legend: { position: 'bottom', fontSize: '10px', labels: { colors: '#64748b' } },
+                        states: {
+                            hover: { filter: { type: 'none' } },
+                            active: { filter: { type: 'none' } }
+                        },
+                        plotOptions: {
+                            pie: {
+                                expandOnClick: false,
+                                customScale: 1.0,
+                                donut: {
+                                    size: '72%',
+                                    labels: {
+                                        show: true,
+                                        name: {
+                                            show: true,
+                                            fontSize: '11px',
+                                            fontFamily: 'system-ui, sans-serif',
+                                            fontWeight: 600,
+                                            color: '#94a3b8',
+                                            offsetY: -8
+                                        },
+                                        value: {
+                                            show: true,
+                                            fontSize: '14px',
+                                            fontFamily: 'system-ui, sans-serif',
+                                            fontWeight: 700,
+                                            color: '#0f172a',
+                                            offsetY: 6,
+                                            formatter: (v) => config.valueFormatter ? config.valueFormatter(v) : v
+                                        },
+                                        total: {
+                                            show: true,
+                                            showAlways: true,
+                                            label: config.totalLabel,
+                                            fontSize: '11px',
+                                            fontFamily: 'system-ui, sans-serif',
+                                            fontWeight: 600,
+                                            color: '#94a3b8',
+                                            formatter: () => config.totalFormatter(config.series || [])
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    };
+                };
+
+                const escapeHtml = (value) => String(value ?? '')
+                    .replaceAll('&', '&amp;')
+                    .replaceAll('<', '&lt;')
+                    .replaceAll('>', '&gt;')
+                    .replaceAll('"', '&quot;')
+                    .replaceAll("'", '&#039;');
+
+                const renderRevenueLegend = (container, config) => {
+                    if (!container) {
+                        return;
+                    }
+
+                    const labels = config.labels || [];
+                    const series = (config.series || []).map((value) => Number(value || 0));
+                    const colors = config.colors || [];
+                    const total = series.reduce((sum, value) => sum + value, 0);
+
+                    if (total <= 0) {
+                        container.innerHTML = `
+                            <div class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-semibold text-slate-500">
+                                Belum ada data pendapatan
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    container.innerHTML = labels.map((label, index) => {
+                        const value = series[index] || 0;
+                        const percentage = total > 0 ? (value / total) * 100 : 0;
+                        const color = colors[index] || palette.soft;
+
+                        return `
+                            <div class="flex items-center gap-2">
+                                <span class="inline-block h-2 w-2 rounded-full" style="background-color:${color}"></span>
+                                <span class="text-slate-700">${escapeHtml(label)} — ${rupiah(value)} — ${percentId(percentage)}</span>
+                            </div>
+                        `;
+                    }).join('');
+                };
+
+                new ApexCharts(document.querySelector('#revenue-composition-chart'), makeRevenueChart({
                     labels: revenueComposition.labels,
                     series: revenueComposition.series,
-                    colors: [palette.red, palette.navy, palette.amber],
-                    totalLabel: 'Total',
-                    totalFormatter: (s) => rupiah(s.reduce((a, b) => a + Number(b || 0), 0)),
-                    valueFormatter: (v) => rupiah(v)
+                    colors: [palette.rose, palette.blue, palette.yellow],
                 })).render();
+
+                renderRevenueLegend(document.querySelector('#revenue-composition-legend'), {
+                    labels: revenueComposition.labels,
+                    series: revenueComposition.series,
+                    colors: [palette.rose, palette.blue, palette.yellow],
+                });
 
                 new ApexCharts(document.querySelector('#unit-status-chart'), makeDonut({
                     labels: unitStatus.labels,

@@ -170,7 +170,7 @@
                                             Data pengeluaran tersimpan dan stok sudah diperbarui otomatis.
                                         </div>
                                     @else
-                                        <form action="{{ route('admin.pengeluaran.destroy', $item) }}" method="POST" onsubmit="return confirm('Hapus transaksi pengeluaran ini?')">
+                                        <form action="{{ route('admin.pengeluaran.destroy', $item) }}" method="POST" data-confirm="Hapus transaksi pengeluaran ini?" data-confirm-title="Konfirmasi Hapus" data-confirm-button="Ya, Hapus">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-black uppercase tracking-widest text-red-700 transition hover:bg-red-100">Hapus</button>

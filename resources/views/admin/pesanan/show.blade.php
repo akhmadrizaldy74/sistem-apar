@@ -24,13 +24,14 @@
                         <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Dokumen Transaksi</p>
                         <h3 class="mt-3 text-3xl font-black text-gray-900">{{ $pesanan->invoiceTitle() }}</h3>
                         <p class="mt-3 text-sm font-medium text-gray-500">Tanggal Transaksi: {{ $pesanan->displayTransactionDateTime() }}</p>
-                        <span class="inline-block mt-3 px-3 py-1 text-xs font-bold uppercase rounded-full 
-                            @if($pesanan->status == 'menunggu') bg-gray-100 text-gray-600 
-                            @elseif($pesanan->status == 'menunggu persetujuan') bg-amber-100 text-amber-700 
-                            @elseif($pesanan->status == 'diproses') bg-sky-100 text-sky-700 
-                            @elseif($pesanan->status == 'selesai') bg-emerald-100 text-emerald-700 
+                        <span class="inline-block mt-3 px-3 py-1 text-xs font-bold uppercase rounded-full
+                            @if(in_array($pesanan->status, ['selesai final', 'selesai', 'selesai oleh teknisi', 'dikonfirmasi admin'])) bg-emerald-100 text-emerald-700
+                            @elseif($pesanan->status == 'ditolak') bg-red-100 text-red-700
+                            @elseif($pesanan->status == 'diproses') bg-sky-100 text-sky-700
+                            @elseif(in_array($pesanan->status, ['ditugaskan ke teknisi', 'dikerjakan teknisi'])) bg-purple-100 text-purple-700
+                            @else bg-gray-100 text-gray-600
                             @endif">
-                            {{ $pesanan->status }}
+                            {{ $pesanan->publicStatusLabel() }}
                         </span>
                         <p class="mt-4 text-[10px] font-medium text-gray-300">Nomor referensi internal: {{ $pesanan->invoiceDisplayNumber() }}</p>
                     </div>
@@ -174,10 +175,10 @@
                                 <option value="diproses" {{ $pesanan->status == 'diproses' ? 'selected' : '' }}>Diproses</option>
                                 <option value="ditugaskan ke teknisi" {{ $pesanan->status == 'ditugaskan ke teknisi' ? 'selected' : '' }}>Ditugaskan ke Teknisi</option>
                                 <option value="dikerjakan teknisi" {{ $pesanan->status == 'dikerjakan teknisi' ? 'selected' : '' }}>Dikerjakan Teknisi</option>
-                                <option value="selesai oleh teknisi" {{ $pesanan->status == 'selesai oleh teknisi' ? 'selected' : '' }}>Selesai oleh Teknisi</option>
+                                <option value="selesai oleh teknisi" {{ $pesanan->status == 'selesai oleh teknisi' ? 'selected' : '' }}>Selesai Final</option>
                                 <option value="dikonfirmasi admin" {{ $pesanan->status == 'dikonfirmasi admin' ? 'selected' : '' }}>Dikonfirmasi Admin</option>
                                 <option value="selesai final" {{ $pesanan->status == 'selesai final' ? 'selected' : '' }}>Selesai Final</option>
-                                <option value="selesai" {{ $pesanan->status == 'selesai' ? 'selected' : '' }}>Selesai</option>
+                                <option value="selesai" {{ $pesanan->status == 'selesai' ? 'selected' : '' }}>Selesai Final</option>
                                 <option value="ditolak" {{ $pesanan->status == 'ditolak' ? 'selected' : '' }}>Ditolak / Batal</option>
                             </select>
                         </div>
@@ -185,7 +186,7 @@
                         @if(in_array($pesanan->status, ['selesai oleh teknisi', 'dikonfirmasi admin']))
                         <div class="bg-emerald-50 p-4 rounded-2xl border border-emerald-200">
                             <p class="text-xs font-bold text-emerald-800 mb-3">Pengerjaan selesai oleh teknisi. Klik tombol di bawah untuk menyelesaikan final.</p>
-                            <form action="{{ route('admin.pesanan.selesai-final', $pesanan) }}" method="POST" onsubmit="return confirm('Selesaikan final pesanan ini?')">
+                            <form action="{{ route('admin.pesanan.selesai-final', $pesanan) }}" method="POST" data-confirm="Selesaikan final pesanan ini?" data-confirm-title="Konfirmasi Final" data-confirm-button="Ya, Finalkan">
                                 @csrf
                                 <button type="submit" class="w-full py-3 bg-emerald-600 text-white font-black text-sm rounded-xl hover:bg-emerald-700 transition shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>

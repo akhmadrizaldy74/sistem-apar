@@ -10,24 +10,10 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
                     Kembali
                 </a>
-                <a href="{{ route('cek-apar') }}" class="hidden sm:inline-flex items-center gap-3 px-5 py-3 bg-red-700 text-white rounded-2xl font-black hover:bg-red-800 transition shadow-lg shadow-red-700/20">
-                    Cek APAR
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                <a href="{{ route('home') }}" class="hidden sm:inline-flex items-center gap-3 px-5 py-3 bg-gray-200 text-gray-900 rounded-2xl font-black hover:bg-gray-300 transition shadow-lg shadow-gray-200/50">
+                    Kembali
                 </a>
             </div>
-
-            @if(session('success'))
-                <div class="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 font-semibold text-sm flex items-center gap-3" data-reveal>
-                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    {{ session('success') }}
-                </div>
-            @endif
-            @if(session('error'))
-                <div class="mt-6 p-4 bg-red-50 border border-red-200 rounded-2xl text-red-800 font-semibold text-sm flex items-center gap-3" data-reveal>
-                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    {{ session('error') }}
-                </div>
-            @endif
 
             @php
                 $stokSiapJual = (int) ($produk->stok_tersedia ?? 0);
@@ -37,8 +23,8 @@
             <div class="mt-10 grid lg:grid-cols-2 gap-10 items-start">
                 <div class="bg-white rounded-[1.75rem] border border-gray-100 shadow-xl shadow-gray-200/60 overflow-hidden" data-reveal>
                     <div class="aspect-[4/4] bg-gray-50 overflow-hidden flex items-center justify-center">
-                        @if($produk->gambar)
-                            <img src="{{ asset('storage/' . $produk->gambar) }}" alt="{{ $produk->nama }}" class="w-full h-full object-contain p-6">
+                        @if($produk->resolved_image_url)
+                            <img src="{{ $produk->resolved_image_url }}" alt="{{ $produk->nama }}" class="w-full h-full object-contain p-6">
                         @else
                             <div class="w-full h-full flex items-center justify-center text-gray-300">
                                 <svg class="w-20 h-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>

@@ -597,6 +597,31 @@
         font-size: 22px;
     }
 
+    .feat-icon--rose {
+        background: linear-gradient(135deg, #fff1f2 0%, #fee2e2 100%);
+        color: #b91c1c;
+    }
+
+    .feat-icon--orange {
+        background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+        color: #c2410c;
+    }
+
+    .feat-icon--blue {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        color: #1d4ed8;
+    }
+
+    .feat-icon--green {
+        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+        color: #047857;
+    }
+
+    .feat-icon--slate {
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        color: #334155;
+    }
+
     .media-apar-section {
         position: relative;
         overflow: hidden;
@@ -687,6 +712,17 @@
         width: 138px;
         height: 138px;
         color: var(--brand-red-dark);
+    }
+
+    .media-main-photo {
+        position: relative;
+        z-index: 1;
+        width: calc(100% - 52px);
+        height: calc(100% - 52px);
+        object-fit: contain;
+        object-position: center;
+        padding: 14px;
+        filter: drop-shadow(0 16px 24px rgba(15, 23, 42, 0.14));
     }
 
     .media-copy {
@@ -1198,6 +1234,26 @@
         font-size: 22px;
     }
 
+    .about-icon--rose {
+        background: linear-gradient(135deg, rgba(248, 113, 113, 0.18) 0%, rgba(254, 242, 242, 0.22) 100%);
+        color: #fca5a5;
+    }
+
+    .about-icon--amber {
+        background: linear-gradient(135deg, rgba(251, 191, 36, 0.18) 0%, rgba(255, 247, 237, 0.22) 100%);
+        color: #fbbf24;
+    }
+
+    .about-icon--sky {
+        background: linear-gradient(135deg, rgba(96, 165, 250, 0.16) 0%, rgba(239, 246, 255, 0.20) 100%);
+        color: #93c5fd;
+    }
+
+    .about-icon--emerald {
+        background: linear-gradient(135deg, rgba(74, 222, 128, 0.16) 0%, rgba(236, 253, 245, 0.20) 100%);
+        color: #86efac;
+    }
+
     .about-card-title {
         color: #fff;
     }
@@ -1512,6 +1568,12 @@
             height: 116px;
         }
 
+        .media-main-photo {
+            width: calc(100% - 34px);
+            height: calc(100% - 34px);
+            padding: 8px;
+        }
+
         .media-class-list {
             grid-template-columns: 1fr;
             gap: 10px;
@@ -1597,8 +1659,8 @@
                     </div>
 
                     <div class="hero-media">
-                        @if($heroProduct && $heroProduct->gambar)
-                            <img src="{{ asset('storage/' . $heroProduct->gambar) }}" alt="{{ $heroProduct->nama }}">
+                        @if($heroProduct && $heroProduct->resolved_image_url)
+                            <img src="{{ $heroProduct->resolved_image_url }}" alt="{{ $heroProduct->nama }}">
                         @else
                             <div class="hero-placeholder">
                                 <i class="fa-solid fa-fire-extinguisher"></i>
@@ -1695,6 +1757,8 @@
                     'desc' => 'APAR dry chemical powder adalah media pemadam api serbaguna yang dapat digunakan untuk kebakaran kelas A, B, dan C. Cocok digunakan di perkantoran, sekolah, tempat ibadah, rumah sakit, hotel, pusat perbelanjaan, rumah tinggal, gudang, kendaraan, dan area usaha umum lainnya.',
                     'classes' => ['A', 'B', 'C'],
                     'reverse' => false,
+                    'image_path' => 'apar/FIREFIX/POWDER/6.jpg',
+                    'image_alt' => 'Foto APAR Dry Chemical Powder',
                 ],
                 [
                     'key' => 'foam',
@@ -1702,6 +1766,8 @@
                     'desc' => 'APAR foam banyak digunakan untuk kebakaran yang melibatkan bahan padat dan cairan mudah terbakar. Media ini bekerja dengan cara mendinginkan serta menutup permukaan sumber api sehingga membantu mempercepat proses pemadaman.',
                     'classes' => ['A', 'B'],
                     'reverse' => true,
+                    'image_path' => 'apar/GuardALL/FOAM/6.png',
+                    'image_alt' => 'Foto APAR Foam atau Busa',
                 ],
                 [
                     'key' => 'co2',
@@ -1709,6 +1775,8 @@
                     'desc' => 'APAR karbon dioksida cocok digunakan untuk kebakaran akibat peralatan elektronik dan cairan yang mudah terbakar. Media CO2 tidak meninggalkan residu sehingga sesuai untuk area yang memiliki perangkat elektronik.',
                     'classes' => ['B', 'C'],
                     'reverse' => false,
+                    'image_path' => 'apar/TONATA/CO2/5.jpg',
+                    'image_alt' => 'Foto APAR Karbon Dioksida CO2',
                 ],
             ];
         @endphp
@@ -1717,37 +1785,14 @@
             @foreach($mediaAparItems as $item)
                 <article class="media-apar-item {{ $item['reverse'] ? 'media-apar-item--reverse' : '' }}">
                     <div class="media-visual-wrap">
-                        <div class="media-visual-stage" aria-hidden="true">
-                            @if($item['key'] === 'powder')
-                                <svg class="media-main-icon" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M48 34h24l6 17v42a9 9 0 0 1-9 9H51a9 9 0 0 1-9-9V51l6-17Z" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/>
-                                    <path d="M51 24h18v10H51V24Z" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/>
-                                    <path d="M68 24c7-5 15-5 22-1" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                                    <path d="M48 56h24M48 70h24M48 84h16" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                                    <path d="M82 50c7-7 14-10 23-9M86 62c8-3 15-3 22 0M83 76c7 2 13 6 18 12" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                                    <circle cx="26" cy="39" r="4" fill="currentColor"/>
-                                    <circle cx="29" cy="62" r="3" fill="currentColor"/>
-                                    <circle cx="22" cy="83" r="4" fill="currentColor"/>
-                                </svg>
-                            @elseif($item['key'] === 'foam')
-                                <svg class="media-main-icon" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M34 82c8-8 16-8 24 0s16 8 24 0 16-8 24 0" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                                    <path d="M24 94c8-8 16-8 24 0s16 8 24 0 16-8 24 0" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                                    <circle cx="37" cy="36" r="11" stroke="currentColor" stroke-width="4"/>
-                                    <circle cx="63" cy="25" r="8" stroke="currentColor" stroke-width="4"/>
-                                    <circle cx="78" cy="49" r="13" stroke="currentColor" stroke-width="4"/>
-                                    <circle cx="52" cy="57" r="7" stroke="currentColor" stroke-width="4"/>
-                                </svg>
-                            @else
-                                <svg class="media-main-icon" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M41 62h28a18 18 0 1 1 0 36H46a20 20 0 0 1-4-39.6" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-                                    <path d="M38 54c0-15 10-27 22-27s22 12 22 27" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                                    <path d="M50 36V24M70 36V24M45 24h30" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                                    <path d="M53 73h18M53 86h12" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-                                    <circle cx="88" cy="35" r="4" fill="currentColor"/>
-                                    <circle cx="96" cy="52" r="3" fill="currentColor"/>
-                                </svg>
-                            @endif
+                        <div class="media-visual-stage">
+                            <img
+                                src="{{ \Illuminate\Support\Facades\Storage::url($item['image_path']) }}"
+                                alt="{{ $item['image_alt'] }}"
+                                class="media-main-photo"
+                                loading="lazy"
+                                decoding="async"
+                            >
                         </div>
                     </div>
 
@@ -1835,18 +1880,18 @@
 
         @php
             $feats = [
-                ['title' => 'Administrasi Lebih Cepat', 'desc' => 'Admin lebih mudah menangani konsultasi, pemesanan, dan tindak lanjut layanan pelanggan.', 'icon' => 'fa-bolt', 'bg' => 'linear-gradient(135deg, #fff1f2 0%, #fee2e2 100%)', 'color' => '#b91c1c'],
-                ['title' => 'Spesifikasi Produk Jelas', 'desc' => 'Produk APAR ditampilkan dengan jenis, ukuran, merek, dan harga yang lebih mudah dipahami.', 'icon' => 'fa-fire-extinguisher', 'bg' => 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)', 'color' => '#c2410c'],
-                ['title' => 'Harga Transparan', 'desc' => 'Harga produk dan layanan dibuat lebih jelas agar tidak membingungkan pelanggan.', 'icon' => 'fa-tags', 'bg' => 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', 'color' => '#1d4ed8'],
-                ['title' => 'Layanan End-to-End', 'desc' => 'Pembelian, refill, service, inspeksi, dan monitoring APAR tercatat dalam satu sistem.', 'icon' => 'fa-layer-group', 'bg' => 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)', 'color' => '#047857'],
-                ['title' => 'Operasional Lebih Tertata', 'desc' => 'Stok, transaksi, dan riwayat layanan lebih mudah dipantau oleh admin maupun pelanggan.', 'icon' => 'fa-chart-line', 'bg' => 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)', 'color' => '#334155'],
+                ['title' => 'Administrasi Lebih Cepat', 'desc' => 'Admin lebih mudah menangani konsultasi, pemesanan, dan tindak lanjut layanan pelanggan.', 'icon' => 'fa-bolt', 'class' => 'feat-icon--rose'],
+                ['title' => 'Spesifikasi Produk Jelas', 'desc' => 'Produk APAR ditampilkan dengan jenis, ukuran, merek, dan harga yang lebih mudah dipahami.', 'icon' => 'fa-fire-extinguisher', 'class' => 'feat-icon--orange'],
+                ['title' => 'Harga Transparan', 'desc' => 'Harga produk dan layanan dibuat lebih jelas agar tidak membingungkan pelanggan.', 'icon' => 'fa-tags', 'class' => 'feat-icon--blue'],
+                ['title' => 'Layanan End-to-End', 'desc' => 'Pembelian, refill, service, inspeksi, dan monitoring APAR tercatat dalam satu sistem.', 'icon' => 'fa-layer-group', 'class' => 'feat-icon--green'],
+                ['title' => 'Operasional Lebih Tertata', 'desc' => 'Stok, transaksi, dan riwayat layanan lebih mudah dipantau oleh admin maupun pelanggan.', 'icon' => 'fa-chart-line', 'class' => 'feat-icon--slate'],
             ];
         @endphp
 
         <div class="feat-grid">
             @foreach($feats as $feat)
                 <article class="feat-card" data-reveal>
-                    <div class="feat-icon" style="background: {{ $feat['bg'] }}; color: {{ $feat['color'] }};">
+                    <div class="feat-icon {{ $feat['class'] }}">
                         <i class="fa-solid {{ $feat['icon'] }}"></i>
                     </div>
                     <h3 class="feat-title">{{ $feat['title'] }}</h3>
@@ -1997,17 +2042,17 @@
 
             @php
                 $aboutCards = [
-                    ['icon' => 'fa-fire-extinguisher', 'title' => 'Produk APAR', 'desc' => 'Pilihan produk APAR tampil lebih rapi dengan jenis, kapasitas, merek, dan harga yang jelas.', 'bg' => 'linear-gradient(135deg, rgba(248,113,113,0.18) 0%, rgba(254,242,242,0.22) 100%)', 'color' => '#fca5a5'],
-                    ['icon' => 'fa-screwdriver-wrench', 'title' => 'Refill & Service', 'desc' => 'Layanan isi ulang dan service APAR dibuat lebih mudah dipahami dengan alur yang tertata.', 'bg' => 'linear-gradient(135deg, rgba(251,191,36,0.18) 0%, rgba(255,247,237,0.22) 100%)', 'color' => '#fbbf24'],
-                    ['icon' => 'fa-shield-halved', 'title' => 'Inspeksi Unit', 'desc' => 'Riwayat unit APAR pelanggan dapat dipantau agar status dan masa berlaku lebih mudah dicek.', 'bg' => 'linear-gradient(135deg, rgba(96,165,250,0.16) 0%, rgba(239,246,255,0.20) 100%)', 'color' => '#93c5fd'],
-                    ['icon' => 'fa-comments', 'title' => 'Konsultasi Cepat', 'desc' => 'Komunikasi dengan pelanggan lebih mudah melalui WhatsApp dan form pemesanan online.', 'bg' => 'linear-gradient(135deg, rgba(74,222,128,0.16) 0%, rgba(236,253,245,0.20) 100%)', 'color' => '#86efac'],
+                    ['icon' => 'fa-fire-extinguisher', 'title' => 'Produk APAR', 'desc' => 'Pilihan produk APAR tampil lebih rapi dengan jenis, kapasitas, merek, dan harga yang jelas.', 'class' => 'about-icon--rose'],
+                    ['icon' => 'fa-screwdriver-wrench', 'title' => 'Refill & Service', 'desc' => 'Layanan isi ulang dan service APAR dibuat lebih mudah dipahami dengan alur yang tertata.', 'class' => 'about-icon--amber'],
+                    ['icon' => 'fa-shield-halved', 'title' => 'Inspeksi Unit', 'desc' => 'Riwayat unit APAR pelanggan dapat dipantau agar status dan masa berlaku lebih mudah dicek.', 'class' => 'about-icon--sky'],
+                    ['icon' => 'fa-comments', 'title' => 'Konsultasi Cepat', 'desc' => 'Komunikasi dengan pelanggan lebih mudah melalui WhatsApp dan form pemesanan online.', 'class' => 'about-icon--emerald'],
                 ];
             @endphp
 
             <div class="about-grid">
                 @foreach($aboutCards as $card)
                     <article class="about-card" data-reveal>
-                        <div class="about-icon" style="background: {{ $card['bg'] }}; color: {{ $card['color'] }};">
+                        <div class="about-icon {{ $card['class'] }}">
                             <i class="fa-solid {{ $card['icon'] }}"></i>
                         </div>
                         <h3 class="about-card-title">{{ $card['title'] }}</h3>

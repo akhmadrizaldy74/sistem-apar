@@ -6,20 +6,28 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Pelanggan;
+use App\Models\Pengeluaran;
 use App\Models\Pesanan;
 use App\Models\Refill;
 use App\Models\Service;
 use App\Models\UnitApar;
 use App\Models\WebsiteVisit;
+use App\Services\ProductAnalyticsService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
 class LaporanController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, ProductAnalyticsService $productAnalytics)
     {
         $filters = $this->filters($request);
         $now = now();
+        $visitorLimitOptions = [10, 25, 50, 100];
+        $visitorLimit = $request->integer('visitor_limit', 10);
+        if (!in_array($visitorLimit, $visitorLimitOptions, true)) {
+            $visitorLimit = 10;
+        }
 
         // Base queries
         $pesananQuery = Pesanan::query()->where('tipe', 'produk');
@@ -50,9 +58,7 @@ class LaporanController extends Controller
             ->when($filters['tanggal_sampai'], fn($q, $s) => $q->whereDate('tgl_refill', '<=', $s))
             ->sum('biaya');
         $totalUnit = $unitQuery->count();
-        $totalPengeluaran = (float) \App\Models\Pengeluaran::when($filters['tanggal_dari'], fn($q, $d) => $q->whereDate('tanggal', '>=', $d))
-            ->when($filters['tanggal_sampai'], fn($q, $s) => $q->whereDate('tanggal', '<=', $s))
-            ->sum('nominal');
+        $totalPengeluaran = $this->sumPengeluaranAmount($this->pengeluaranQuery($filters));
         $totalPemasukan = $totalNilaiPesanan + $totalBiayaService + $totalBiayaRefill;
         $labaBersih = $totalPemasukan - $totalPengeluaran;
 
@@ -121,55 +127,21 @@ class LaporanController extends Controller
             'bulanIni' => WebsiteVisit::getThisMonthVisitors(),
         ];
 
-        // Most viewed products (from website visits)
-        $mostViewedProducts = WebsiteVisit::getMostViewedProducts($filters['tanggal_dari'], $filters['tanggal_sampai'], 10)
-            ->map(function ($item) {
-                $product = \App\Models\Produk::with('jenisApar')->find($item->product_id);
-                return [
-                    'product_id' => $item->product_id,
-                    'product_name' => $product?->nama ?? 'Produk #' . $item->product_id,
-                    'jenis_apar' => $product?->jenisApar?->nama ?? '-',
-                    'ukuran' => $product?->kapasitas ?? '-',
-                    'merek' => $product?->merek ?? '-',
-                    'view_count' => $item->view_count,
-                ];
-            });
+        $mostViewedProducts = $productAnalytics->mostViewedProducts(
+            from: $filters['tanggal_dari'],
+            to: $filters['tanggal_sampai'],
+            limit: 10,
+        );
 
-        // Most sold products (from actual orders - completed/confirmed orders only)
-        $completedOrderStatuses = ['selesai', 'dikonfirmasi admin', 'selesai final'];
-        $mostSoldProducts = \App\Models\PesananDetail::query()
-            ->selectRaw('produk_id, SUM(jumlah) as total_sold, SUM(subtotal) as total_revenue')
-            ->whereHas('pesanan', function ($q) use ($filters, $completedOrderStatuses) {
-                $q->where('tipe', 'produk')
-                    ->whereIn('status', $completedOrderStatuses);
-                if ($filters['tanggal_dari']) {
-                    $q->whereDate('tanggal', '>=', $filters['tanggal_dari']);
-                }
-                if ($filters['tanggal_sampai']) {
-                    $q->whereDate('tanggal', '<=', $filters['tanggal_sampai']);
-                }
-            })
-            ->groupBy('produk_id')
-            ->orderByDesc('total_sold')
-            ->limit(10)
-            ->get()
-            ->map(function ($item) {
-                $product = \App\Models\Produk::with('jenisApar')->find($item->produk_id);
-                return [
-                    'product_id' => $item->produk_id,
-                    'product_name' => $product?->nama ?? 'Produk #' . $item->produk_id,
-                    'jenis_apar' => $product?->jenisApar?->nama ?? '-',
-                    'ukuran' => $product?->kapasitas ?? '-',
-                    'merek' => $product?->merek ?? '-',
-                    'total_sold' => $item->total_sold,
-                    'total_revenue' => $item->total_revenue,
-                ];
-            });
+        $mostSoldProducts = $productAnalytics->mostSoldProducts(
+            from: $filters['tanggal_dari'],
+            to: $filters['tanggal_sampai'],
+            pelangganId: $filters['pelanggan_id'],
+            limit: 10,
+        );
 
         // Detailed expenditures
-        $pengeluarans = \App\Models\Pengeluaran::query()
-            ->when($filters['tanggal_dari'], fn($q, $d) => $q->whereDate('tanggal', '>=', $d))
-            ->when($filters['tanggal_sampai'], fn($q, $s) => $q->whereDate('tanggal', '<=', $s))
+        $pengeluarans = $this->pengeluaranQuery($filters)
             ->orderByDesc('tanggal')
             ->limit(50)
             ->get();
@@ -180,10 +152,10 @@ class LaporanController extends Controller
             ->when($filters['tanggal_sampai'], fn($q, $s) => $q->whereDate('visited_at', '<=', $s))
             ->orderByDesc('visited_at');
 
-        $visitorRecords = $visitorQuery->take(100)->get();
+        $visitorRecords = $visitorQuery->take($visitorLimit)->get();
 
         return view('admin.laporan.index', compact(
-            'filters', 'summary', 'revenueComposition', 'transactionStatus', 'unitStatus', 'combinedData', 'visitorStats', 'visitorRecords', 'mostViewedProducts', 'mostSoldProducts', 'pengeluarans'
+            'filters', 'summary', 'revenueComposition', 'transactionStatus', 'unitStatus', 'combinedData', 'visitorStats', 'visitorRecords', 'visitorLimit', 'visitorLimitOptions', 'mostViewedProducts', 'mostSoldProducts', 'pengeluarans'
         ));
     }
 
@@ -276,13 +248,12 @@ class LaporanController extends Controller
             ->when($filters['tanggal_sampai'], fn ($query, $tanggalSampai) => $query->whereDate('tanggal', '<=', $tanggalSampai))
             ->get();
 
-        $pengeluarans = \App\Models\Pengeluaran::when($filters['tanggal_dari'], fn ($query, $tanggalDari) => $query->whereDate('tanggal', '>=', $tanggalDari))
-            ->when($filters['tanggal_sampai'], fn ($query, $tanggalSampai) => $query->whereDate('tanggal', '<=', $tanggalSampai))
+        $pengeluarans = $this->pengeluaranQuery($filters)
             ->get();
 
         $pemasukanService = $services->sum('biaya');
         $pemasukanProduk = $pesanans->sum('total');
-        $totalPengeluaran = $pengeluarans->sum('nominal');
+        $totalPengeluaran = $pengeluarans->sum('effective_amount');
 
         $totals = [
             'total_pemasukan' => $pemasukanService + $pemasukanProduk,
@@ -309,9 +280,11 @@ class LaporanController extends Controller
                 ->whereYear('tanggal', $month->year)
                 ->sum('total');
 
-            $expense = \App\Models\Pengeluaran::whereMonth('tanggal', $month->month)
-                ->whereYear('tanggal', $month->year)
-                ->sum('nominal');
+            $expense = $this->sumPengeluaranAmount(
+                Pengeluaran::query()
+                    ->whereMonth('tanggal', $month->month)
+                    ->whereYear('tanggal', $month->year)
+            );
 
             $trendData[] = [
                 'label' => $label,
@@ -406,13 +379,12 @@ class LaporanController extends Controller
             ->when($filters['tanggal_sampai'], fn ($query, $tanggalSampai) => $query->whereDate('tanggal', '<=', $tanggalSampai))
             ->with('pelanggan')->get();
 
-        $pengeluarans = \App\Models\Pengeluaran::when($filters['tanggal_dari'], fn ($query, $tanggalDari) => $query->whereDate('tanggal', '>=', $tanggalDari))
-            ->when($filters['tanggal_sampai'], fn ($query, $tanggalSampai) => $query->whereDate('tanggal', '<=', $tanggalSampai))
+        $pengeluarans = $this->pengeluaranQuery($filters)
             ->get();
 
         $pemasukanService = $services->sum('biaya');
         $pemasukanProduk = $pesanans->sum('total');
-        $totalPengeluaran = $pengeluarans->sum('nominal');
+        $totalPengeluaran = $pengeluarans->sum('effective_amount');
 
         $totals = [
             'total_pemasukan' => $pemasukanService + $pemasukanProduk,
@@ -441,7 +413,7 @@ class LaporanController extends Controller
         ];
     }
 
-    public function indexPdf(Request $request)
+    public function indexPdf(Request $request, ProductAnalyticsService $productAnalytics)
     {
         $filters = $this->filters($request);
         $now = now();
@@ -471,8 +443,7 @@ class LaporanController extends Controller
         $totalBiayaRefill = (float) Refill::when($filters['tanggal_dari'], fn($q, $d) => $q->whereDate('tgl_refill', '>=', $d))
             ->when($filters['tanggal_sampai'], fn($q, $s) => $q->whereDate('tgl_refill', '<=', $s))->sum('biaya');
         $totalUnit = $unitQuery->count();
-        $totalPengeluaran = (float) \App\Models\Pengeluaran::when($filters['tanggal_dari'], fn($q, $d) => $q->whereDate('tanggal', '>=', $d))
-            ->when($filters['tanggal_sampai'], fn($q, $s) => $q->whereDate('tanggal', '<=', $s))->sum('nominal');
+        $totalPengeluaran = $this->sumPengeluaranAmount($this->pengeluaranQuery($filters));
         $totalPemasukan = $totalNilaiPesanan + $totalBiayaService + $totalBiayaRefill;
         $labaBersih = $totalPemasukan - $totalPengeluaran;
 
@@ -535,55 +506,21 @@ class LaporanController extends Controller
             'hariIni' => WebsiteVisit::getTodayVisitors(),
         ];
 
-        // Product analytics for PDF - Most Viewed
-        $mostViewedProductsPdf = WebsiteVisit::getMostViewedProducts($filters['tanggal_dari'], $filters['tanggal_sampai'], 10)
-            ->map(function ($item) {
-                $product = \App\Models\Produk::with('jenisApar')->find($item->product_id);
-                return [
-                    'product_id' => $item->product_id,
-                    'product_name' => $product?->nama ?? 'Produk #' . $item->product_id,
-                    'jenis_apar' => $product?->jenisApar?->nama ?? '-',
-                    'ukuran' => $product?->kapasitas ?? '-',
-                    'merek' => $product?->merek ?? '-',
-                    'view_count' => $item->view_count,
-                ];
-            });
+        $mostViewedProductsPdf = $productAnalytics->mostViewedProducts(
+            from: $filters['tanggal_dari'],
+            to: $filters['tanggal_sampai'],
+            limit: 10,
+        );
 
-        // Most Sold Products for PDF (from actual orders)
-        $completedOrderStatuses = ['selesai', 'dikonfirmasi admin', 'selesai final'];
-        $mostSoldProductsPdf = \App\Models\PesananDetail::query()
-            ->selectRaw('produk_id, SUM(jumlah) as total_sold, SUM(subtotal) as total_revenue')
-            ->whereHas('pesanan', function ($q) use ($filters, $completedOrderStatuses) {
-                $q->where('tipe', 'produk')
-                    ->whereIn('status', $completedOrderStatuses);
-                if ($filters['tanggal_dari']) {
-                    $q->whereDate('tanggal', '>=', $filters['tanggal_dari']);
-                }
-                if ($filters['tanggal_sampai']) {
-                    $q->whereDate('tanggal', '<=', $filters['tanggal_sampai']);
-                }
-            })
-            ->groupBy('produk_id')
-            ->orderByDesc('total_sold')
-            ->limit(10)
-            ->get()
-            ->map(function ($item) {
-                $product = \App\Models\Produk::with('jenisApar')->find($item->produk_id);
-                return [
-                    'product_id' => $item->produk_id,
-                    'product_name' => $product?->nama ?? 'Produk #' . $item->produk_id,
-                    'jenis_apar' => $product?->jenisApar?->nama ?? '-',
-                    'ukuran' => $product?->kapasitas ?? '-',
-                    'merek' => $product?->merek ?? '-',
-                    'total_sold' => $item->total_sold,
-                    'total_revenue' => $item->total_revenue,
-                ];
-            });
+        $mostSoldProductsPdf = $productAnalytics->mostSoldProducts(
+            from: $filters['tanggal_dari'],
+            to: $filters['tanggal_sampai'],
+            pelangganId: $filters['pelanggan_id'],
+            limit: 10,
+        );
 
         // Detailed expenditures for PDF
-        $pengeluaransPdf = \App\Models\Pengeluaran::query()
-            ->when($filters['tanggal_dari'], fn($q, $d) => $q->whereDate('tanggal', '>=', $d))
-            ->when($filters['tanggal_sampai'], fn($q, $s) => $q->whereDate('tanggal', '<=', $s))
+        $pengeluaransPdf = $this->pengeluaranQuery($filters)
             ->orderByDesc('tanggal')
             ->limit(50)
             ->get();
@@ -619,5 +556,19 @@ class LaporanController extends Controller
             return 'Sampai ' . \Carbon\Carbon::parse($filters['tanggal_sampai'])->translatedFormat('d M Y');
         }
         return 'Semua Waktu';
+    }
+
+    private function pengeluaranQuery(array $filters): Builder
+    {
+        return Pengeluaran::query()
+            ->when($filters['tanggal_dari'], fn (Builder $query, string $tanggalDari) => $query->whereDate('tanggal', '>=', $tanggalDari))
+            ->when($filters['tanggal_sampai'], fn (Builder $query, string $tanggalSampai) => $query->whereDate('tanggal', '<=', $tanggalSampai));
+    }
+
+    private function sumPengeluaranAmount(Builder $query): float
+    {
+        return (float) ((clone $query)
+            ->selectRaw('COALESCE(SUM(' . Pengeluaran::effectiveAmountSql() . '), 0) as total_pengeluaran')
+            ->value('total_pengeluaran') ?? 0);
     }
 }

@@ -29,7 +29,7 @@
                         <select name="satuan" id="satuan" required
                             class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 transition">
                             <option value="kg" {{ old('satuan') == 'kg' ? 'selected' : '' }}>Kg (Kilogram)</option>
-                            <option value="liter" {{ old('satuan') == 'liter' ? 'selected' : '' }}>Liter</option>
+                            <option value="kg" {{ old('satuan') == 'kg' ? 'selected' : '' }}>kg</option>
                         </select>
                         <x-input-error :messages="$errors->get('satuan')" class="mt-2" />
                     </div>

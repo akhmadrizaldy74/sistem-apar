@@ -12,17 +12,6 @@
     </x-slot>
 
     <div class="max-w-5xl space-y-5">
-        @if($errors->any())
-            <div class="bg-red-50 border border-red-200 rounded-2xl px-6 py-4">
-                <p class="text-sm font-black text-red-700 mb-1">Terjadi kesalahan:</p>
-                <ul class="list-disc pl-5 space-y-0.5">
-                    @foreach($errors->all() as $error)
-                        <li class="text-xs font-semibold text-red-600">{{ $error }}</li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
-
         <form action="{{ route('admin.pelanggan.store') }}" method="POST" id="create-pelanggan-form">
             @csrf
 
@@ -205,40 +194,53 @@
     }
 
     function placeMarker(lat, lng) {
-        if (!map || !window.AppMapLibre) return;
-        if (marker) window.AppMapLibre.removeMarker(marker);
-
-        marker = window.AppMapLibre.createMarker(map, lat, lng, {
-            draggable: true,
-            onDrag: updateCoord,
-            onDragEnd: updateCoord,
-        });
+        if (!map) return;
+    const markerIcon = L.divIcon({
+        className: 'custom-leaflet-marker',
+        html: `
+            <div style="position: relative; width: 34px; height: 34px;">
+                <div style="position:absolute; inset:0; background:#ef4444; border-radius:9999px; border:4px solid #fff; box-shadow:0 10px 20px rgba(239,68,68,.28);"></div>
+                <div style="position:absolute; left:11px; top:11px; width:6px; height:6px; border-radius:9999px; background:#fff;"></div>
+                <div style="position:absolute; left:13px; bottom:-8px; width:0; height:0; border-left:4px solid transparent; border-right:4px solid transparent; border-top:10px solid #ef4444;"></div>
+            </div>
+        `,
+        iconSize: [34, 42],
+        iconAnchor: [17, 38],
+    });
+        if (marker) {
+            marker.setLatLng([lat, lng]);
+        } else {
+            marker = L.marker([lat, lng], {icon: markerIcon, draggable: true}).addTo(map);
+            marker.on('drag', function(e) {
+                updateCoord(e.latlng.lat, e.latlng.lng);
+            });
+            marker.on('dragend', function(e) {
+                updateCoord(e.latlng.lat, e.latlng.lng);
+            });
+        }
     }
 
     function initMap() {
-        const waitMapLibre = (cb, attempt = 0) => {
-            if (window.AppMapLibre && window.maplibregl && typeof window.maplibregl.Map === 'function') return cb();
-            if (attempt < 50) setTimeout(() => waitMapLibre(cb, attempt + 1), 100);
-        };
-
-        waitMapLibre(() => {
+        setTimeout(() => {
             const oldLat = Number(latInput.value || 0);
             const oldLng = Number(lngInput.value || 0);
             const startLat = oldLat || -6.2088;
             const startLng = oldLng || 106.8456;
             const startZoom = oldLat && oldLng ? 17 : 13;
 
-            map = window.AppMapLibre.createMap('create-map', {
-                lat: startLat,
-                lng: startLng,
+            map = L.map('create-map', {
+                center: [startLat, startLng],
                 zoom: startZoom,
                 scrollWheelZoom: false,
                 zoomControl: true,
             });
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
 
             map.on('click', (e) => {
-                placeMarker(e.lngLat.lat, e.lngLat.lng);
-                updateCoord(e.lngLat.lat, e.lngLat.lng);
+                const lat = e.latlng.lat;
+                const lng = e.latlng.lng;
+                placeMarker(lat, lng);
+                updateCoord(lat, lng);
                 helperEl.textContent = String(alamatMaps.value || '').trim()
                     ? 'Titik dipilih dari peta. Anda bisa geser pin untuk akurasi.'
                     : 'Pilih alamat OpenStreetMap terlebih dahulu, lalu koreksi titik dari peta bila perlu.';
@@ -247,7 +249,7 @@
                     : 'text-[10px] font-semibold mt-2 text-amber-600';
             });
 
-            window.AppMapLibre.resizeMap(map);
+            setTimeout(() => map.invalidateSize(), 300);
 
             if (oldLat && oldLng) {
                 placeMarker(oldLat, oldLng);
@@ -316,9 +318,9 @@
         if (lat && lng) {
             updateCoord(lat, lng);
             if (map) {
-                window.AppMapLibre.setCenter(map, lat, lng, 17);
+                map.setView([lat, lng], 17);
                 placeMarker(lat, lng);
-                window.AppMapLibre.resizeMap(map);
+                setTimeout(() => map.invalidateSize(), 300);
             }
         }
 

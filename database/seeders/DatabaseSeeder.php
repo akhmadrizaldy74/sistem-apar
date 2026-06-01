@@ -54,8 +54,8 @@ class DatabaseSeeder extends Seeder
                     ['ukuran' => '6 Kg', 'harga' => 135000],
                     ['ukuran' => '6.8 Kg', 'harga' => 150000],
                     ['ukuran' => '9 Kg', 'harga' => 190000],
-                    ['ukuran' => '6 Liter', 'harga' => 150000],
-                    ['ukuran' => '9 Liter', 'harga' => 210000],
+                    ['ukuran' => '6 kg', 'harga' => 150000],
+                    ['ukuran' => '9 kg', 'harga' => 210000],
                 ],
             ],
             'CO2' => [
@@ -71,8 +71,8 @@ class DatabaseSeeder extends Seeder
                     ['ukuran' => '6 Kg', 'harga' => 150000],
                     ['ukuran' => '6.8 Kg', 'harga' => 170000],
                     ['ukuran' => '9 Kg', 'harga' => 230000],
-                    ['ukuran' => '6 Liter', 'harga' => 160000],
-                    ['ukuran' => '9 Liter', 'harga' => 235000],
+                    ['ukuran' => '6 kg', 'harga' => 160000],
+                    ['ukuran' => '9 kg', 'harga' => 235000],
                 ],
             ],
             'Foam' => [
@@ -88,8 +88,8 @@ class DatabaseSeeder extends Seeder
                     ['ukuran' => '6 Kg', 'harga' => 145000],
                     ['ukuran' => '6.8 Kg', 'harga' => 165000],
                     ['ukuran' => '9 Kg', 'harga' => 210000],
-                    ['ukuran' => '6 Liter', 'harga' => 160000],
-                    ['ukuran' => '9 Liter', 'harga' => 225000],
+                    ['ukuran' => '6 kg', 'harga' => 160000],
+                    ['ukuran' => '9 kg', 'harga' => 225000],
                 ],
             ],
         ];
@@ -125,8 +125,8 @@ class DatabaseSeeder extends Seeder
                 'jenis' => $foam,
                 'penggunaan' => 'Dapur, SPBU, industri cairan mudah terbakar',
                 'items' => [
-                    ['kapasitas' => '6 Liter', 'harga' => 500000],
-                    ['kapasitas' => '9 Liter', 'harga' => 650000],
+                    ['kapasitas' => '6 kg', 'harga' => 500000],
+                    ['kapasitas' => '9 kg', 'harga' => 650000],
                 ],
             ],
         ];

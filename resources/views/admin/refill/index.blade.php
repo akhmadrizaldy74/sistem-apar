@@ -13,15 +13,65 @@
     </x-slot>
 
     @php
-        $offlineRefills = $requestRefills->filter(fn ($refill) => in_array((string) $refill->sumber_pesanan, ['datang_langsung', 'offline'], true));
+        $offlineRefills = $requestRefills->filter(fn ($refill) => in_array((string) $refill->sumber_pesanan, ['datang_langsung', 'offline', 'input_admin'], true));
         $dikerjakanTeknisi = $requestRefills->filter(fn ($refill) => in_array((string) $refill->status, ['ditugaskan ke teknisi', 'dikerjakan teknisi'], true));
         $actionButtonBase = 'inline-flex items-center justify-center px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition shadow-sm';
         $actionButtonNeutral = $actionButtonBase . ' border-gray-200 bg-white text-gray-600 hover:bg-gray-50';
         $actionButtonPrimary = $actionButtonBase . ' border-red-600 bg-red-600 text-white hover:bg-red-700 hover:border-red-700';
-        $actionButtonProof = $actionButtonBase . ' border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100';
+        $actionButtonProof = $actionButtonBase . ' min-w-[92px] border-transparent bg-blue-600 text-white hover:bg-blue-700';
+        $actionButtonProofStyle = 'background-color:#2563eb;border-color:#2563eb;color:#fff;';
         $actionButtonDanger = $actionButtonBase . ' border-red-200 bg-white text-red-600 hover:bg-red-50';
         $actionButtonSuccess = $actionButtonBase . ' border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:border-emerald-700';
         $actionButtonDisabled = $actionButtonBase . ' border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed';
+        $normalizeText = fn ($value) => filled(trim((string) $value)) ? trim((string) $value) : null;
+        $normalizePhone = fn ($value) => preg_replace('/\D+/', '', (string) $value);
+        $findCustomerByWa = function ($wa) use ($pelanggans, $normalizePhone) {
+            $needle = $normalizePhone($wa);
+            if (!$needle) {
+                return null;
+            }
+
+            return $pelanggans->first(fn ($pelanggan) => $normalizePhone($pelanggan->no_wa) === $needle);
+        };
+        $resolveCustomer = function (...$items) use ($pelanggans, $normalizeText, $findCustomerByWa) {
+            $candidatePelanggans = collect();
+            $fallbackWa = null;
+
+            foreach ($items as $item) {
+                if (!$item) {
+                    continue;
+                }
+
+                $candidatePelanggans->push(data_get($item, 'pelanggan'));
+                $candidatePelanggans->push(data_get($item, 'unitApar.pelanggan'));
+                $candidatePelanggans->push(data_get($item, 'service.unitApar.pelanggan'));
+                $candidatePelanggans->push(data_get($item, 'service.pesanan.pelanggan'));
+                $candidatePelanggans->push(data_get($item, 'pesanan.pelanggan'));
+
+                $pelangganId = data_get($item, 'pelanggan_id')
+                    ?: data_get($item, 'pesanan.pelanggan_id')
+                    ?: data_get($item, 'service.pesanan.pelanggan_id');
+                if ($pelangganId) {
+                    $candidatePelanggans->push($pelanggans->firstWhere('id', $pelangganId));
+                }
+
+                $fallbackWa = $fallbackWa
+                    ?: $normalizeText(data_get($item, 'no_wa'))
+                    ?: $normalizeText(data_get($item, 'whatsapp'))
+                    ?: $normalizeText(data_get($item, 'telepon'));
+            }
+
+            $pelanggan = $candidatePelanggans->filter()->first(fn ($pelanggan) => $normalizeText($pelanggan->nama ?? null));
+
+            if (!$pelanggan && $fallbackWa) {
+                $pelanggan = $findCustomerByWa($fallbackWa);
+            }
+
+            return [
+                'nama' => $normalizeText($pelanggan?->nama ?? null) ?? '-',
+                'wa' => $normalizeText($pelanggan?->no_wa ?? null) ?? $fallbackWa ?? '-',
+            ];
+        };
         $refillOfflineOptions = $jenisRefills->map(fn ($jenisRefill) => [
             'id' => $jenisRefill->id,
             'nama' => $jenisRefill->nama_label,
@@ -32,11 +82,17 @@
                 'harga' => (float) ($rule['harga'] ?? 0),
             ])->values()->all(),
         ])->values();
-        $refillDetailData = $requestRefills->map(function ($refill) {
+        $legacyRefills = $refills->filter(fn($log) => is_null($log->service?->pesanan_id));
+        $mergedHistory = $completedRequestRefills->concat($legacyRefills)->sortByDesc(function ($item) {
+            return $item->teknisi_selesai_at ?? $item->tgl_selesai_admin ?? $item->created_at;
+        });
+
+        $refillDetailData = $requestRefills->map(function ($refill) use ($resolveCustomer) {
+            $customer = $resolveCustomer($refill);
             return [
                 'id' => $refill->id,
-                'pelanggan' => $refill->pelanggan?->nama ?? '-',
-                'no_wa' => $refill->pelanggan?->no_wa ?? '-',
+                'pelanggan' => $customer['nama'],
+                'no_wa' => $customer['wa'],
                 'alamat' => $refill->pelanggan?->alamat ?? '-',
                 'transaksi' => $refill->transactionDisplayName(),
                 'waktu' => $refill->displayTransactionDateTime(),
@@ -44,49 +100,55 @@
                 'estimasi' => number_format((float) ($refill->service_estimasi_biaya ?? 0), 0, ',', '.'),
                 'ukuran' => $refill->service_ukuran_apar ?? '-',
                 'unit' => (int) ($refill->service_jumlah_unit ?? 0),
-                'source' => in_array((string) $refill->sumber_pesanan, ['datang_langsung', 'offline'], true) ? 'Offline' : 'Online',
+                'source' => in_array((string) $refill->sumber_pesanan, ['datang_langsung', 'offline', 'input_admin'], true) ? 'Offline' : 'Online',
                 'teknisi' => $refill->teknisi?->name ?? 'Belum ditugaskan',
-                'catatan' => $refill->catatan_admin ?: $refill->service_keluhan ?: $refill->keterangan ?: '-',
+                'catatan' => $refill->catatan_admin ?: $refill->serviceCustomerNote() ?: $refill->keterangan ?: '-',
                 'status' => $refill->status,
                 'is_paid' => $refill->isPaymentConfirmed(),
+                'proof_url' => !empty($refill->bukti_pembayaran) ? '/storage/' . ltrim($refill->bukti_pembayaran, '/') : null,
             ];
-        })->concat($refills->map(function ($r) {
-            $pesanan = $r->service?->pesanan;
+        })->concat($mergedHistory->map(function ($item) use ($resolveCustomer) {
+            $isLegacy = $item instanceof \App\Models\Refill;
+            $pesanan = $isLegacy ? null : $item;
+            $refill = $isLegacy ? $item : null;
+            $customer = $resolveCustomer($pesanan, $refill);
+            
             return [
-                'id' => 'log-' . $r->id,
-                'pelanggan' => $r->unitApar?->pelanggan?->nama ?? $pesanan?->pelanggan?->nama ?? '-',
-                'no_wa' => $r->unitApar?->pelanggan?->no_wa ?? $pesanan?->pelanggan?->no_wa ?? '-',
-                'alamat' => $r->unitApar?->pelanggan?->alamat ?? $pesanan?->pelanggan?->alamat ?? '-',
-                'transaksi' => $r->transactionDisplayName(),
-                'waktu' => $r->displayTransactionDateTime(),
-                'jenis' => $r->jenisRefill?->nama_label ?? $pesanan?->serviceJenisRefill?->nama_label ?? 'Refill APAR',
-                'estimasi' => number_format((float) ($r->biaya ?? $pesanan?->payableTotal() ?? 0), 0, ',', '.'),
-                'ukuran' => $r->unitApar?->produk?->kapasitas ?? $pesanan?->service_ukuran_apar ?? '-',
-                'unit' => 1,
-                'source' => $pesanan ? (in_array((string) $pesanan->sumber_pesanan, ['datang_langsung', 'offline'], true) ? 'Offline' : 'Online') : 'Offline',
+                'id' => $isLegacy ? 'log-' . $refill->id : $pesanan->id,
+                'pelanggan' => $customer['nama'],
+                'no_wa' => $customer['wa'],
+                'alamat' => $pesanan?->pelanggan?->alamat ?? $refill?->unitApar?->pelanggan?->alamat ?? '-',
+                'transaksi' => $pesanan ? $pesanan->transactionDisplayName() : $refill->transactionDisplayName(),
+                'waktu' => $pesanan ? $pesanan->displayTransactionDateTime() : $refill->displayTransactionDateTime(),
+                'jenis' => $pesanan?->serviceJenisRefill?->nama_label ?? $refill?->jenisRefill?->nama_label ?? 'Refill APAR',
+                'estimasi' => number_format((float) ($pesanan?->payableTotal() ?? $refill?->biaya ?? 0), 0, ',', '.'),
+                'ukuran' => $pesanan?->service_ukuran_apar ?? $refill?->unitApar?->produk?->kapasitas ?? '-',
+                'unit' => $pesanan ? (int) ($pesanan->service_jumlah_unit ?? 1) : 1,
+                'source' => $pesanan ? (in_array((string) $pesanan->sumber_pesanan, ['datang_langsung', 'offline', 'input_admin'], true) ? 'Offline' : 'Online') : 'Offline',
                 'teknisi' => $pesanan?->teknisi?->name ?? 'Selesai',
-                'catatan' => $pesanan?->catatan_admin ?: $pesanan?->service_keluhan ?: $pesanan?->keterangan ?: '-',
+                'catatan' => $pesanan?->catatan_admin ?: $pesanan?->serviceCustomerNote() ?: $refill?->service?->keterangan ?: '-',
                 'status' => $pesanan?->status ?? 'selesai final',
                 'is_paid' => $pesanan ? $pesanan->isPaymentConfirmed() : true,
+                'proof_url' => !empty($pesanan?->bukti_pembayaran) ? '/storage/' . ltrim($pesanan->bukti_pembayaran, '/') : (!empty($refill?->service?->pesanan?->bukti_pembayaran) ? '/storage/' . ltrim($refill->service->pesanan->bukti_pembayaran, '/') : null),
             ];
         }))->values();
     @endphp
 
     <div class="space-y-8" x-data="{ openModal: {{ $errors->any() ? 'true' : 'false' }} }" @open-refill-modal.window="openModal = true">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+            <div class="bg-white p-5 sm:p-6 lg:p-8 rounded-2xl shadow-sm border border-gray-100">
                 <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Data Refill</p>
-                <p class="text-4xl font-black text-gray-900">{{ $refills->count() + $requestRefills->count() }}</p>
+                <p class="text-4xl font-black text-gray-900">{{ $requestRefills->count() + $completedRequestRefills->count() + $legacyRefills->count() }}</p>
             </div>
-            <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+            <div class="bg-white p-5 sm:p-6 lg:p-8 rounded-2xl shadow-sm border border-gray-100">
                 <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Offline</p>
                 <p class="text-4xl font-black text-emerald-700">{{ $offlineRefills->count() }}</p>
             </div>
-            <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+            <div class="bg-white p-5 sm:p-6 lg:p-8 rounded-2xl shadow-sm border border-gray-100">
                 <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Online</p>
                 <p class="text-4xl font-black text-amber-700">{{ $requestRefills->count() - $offlineRefills->count() }}</p>
             </div>
-            <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+            <div class="bg-white p-5 sm:p-6 lg:p-8 rounded-2xl shadow-sm border border-gray-100">
                 <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Proses Teknisi</p>
                 <p class="text-4xl font-black text-red-700">{{ $dikerjakanTeknisi->count() }}</p>
             </div>
@@ -103,7 +165,8 @@
                         <tr>
                             <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Tanggal</th>
                             <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Pelanggan</th>
-                            <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Detail</th>
+                            <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Unit APAR</th>
+                            <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Jenis Refill</th>
                             <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Total</th>
                             <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
                             <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Aksi</th>
@@ -112,15 +175,16 @@
                     <tbody class="divide-y divide-gray-50">
                         @forelse($requestRefills as $refill)
                             @php
-                                $isOffline = in_array((string) $refill->sumber_pesanan, ['datang_langsung', 'offline'], true);
+                                $refillCustomer = $resolveCustomer($refill);
+                                $isOffline = in_array((string) $refill->sumber_pesanan, ['datang_langsung', 'offline', 'input_admin'], true);
                                 $canAssign = $refill->isPaymentConfirmed() && !$refill->teknisi_id;
                                 $statusBadge = match ((string) $refill->status) {
                                     'selesai final', 'selesai' => ['bg-emerald-50 text-emerald-700', 'SELESAI FINAL'],
                                     'dikonfirmasi admin' => ['bg-cyan-50 text-cyan-700', 'DIKONFIRMASI ADMIN'],
-                                    'selesai oleh teknisi' => ['bg-emerald-50 text-emerald-700', 'SELESAI OLEH TEKNISI'],
+                                    'selesai oleh teknisi' => ['bg-cyan-50 text-cyan-700', 'SELESAI OLEH TEKNISI'],
                                     'dikerjakan teknisi' => ['bg-indigo-50 text-indigo-700', 'SEDANG DIKERJAKAN'],
                                     'ditugaskan ke teknisi' => ['bg-purple-50 text-purple-700', 'DITUGASKAN'],
-                                    'diproses' => ['bg-blue-50 text-blue-700', 'DIPROSES'],
+                                    'diproses' => ['bg-red-50 text-blue-700', 'DIPROSES'],
                                     default => ['bg-amber-50 text-amber-700', 'MENUNGGU'],
                                 };
                             @endphp
@@ -130,59 +194,52 @@
                                     <p class="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">{{ $refill->transactionDisplayName() }}</p>
                                 </td>
                                 <td class="px-8 py-6">
-                                    <p class="text-sm font-bold text-gray-900">{{ $refill->pelanggan?->nama ?? '-' }}</p>
-                                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{{ $refill->pelanggan?->no_wa ?? '-' }}</p>
+                                    <p class="text-sm font-bold text-gray-900">{{ $refillCustomer['nama'] }}</p>
+                                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{{ $refillCustomer['wa'] }}</p>
                                 </td>
                                 <td class="px-8 py-6">
-                                    <div class="flex items-center gap-2 flex-wrap">
-                                        <span class="inline-flex px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-widest">Refill APAR</span>
-                                        <span class="inline-flex px-3 py-1 rounded-full {{ $isOffline ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-600' }} text-[10px] font-black uppercase tracking-widest">{{ $isOffline ? 'Offline' : 'Online' }}</span>
-                                    </div>
-                                    <p class="text-sm font-black text-gray-900 mt-2">{{ $refill->serviceJenisRefill?->nama_label ?? 'Refill APAR' }}</p>
-                                    <p class="text-xs font-semibold text-gray-500 mt-1">{{ $refill->service_ukuran_apar ?? '-' }} - {{ (int) ($refill->service_jumlah_unit ?? 0) }} unit</p>
+                                    @include('admin.partials.unit-apar-column', ['pesanan' => $refill, 'unitApar' => $refill->service?->unitApar])
                                 </td>
                                 <td class="px-8 py-6">
-                                    <p class="text-sm font-black text-gray-900">Rp {{ number_format((float) ($refill->service_estimasi_biaya ?? 0), 0, ',', '.') }}</p>
+                                    <p class="text-sm font-black text-gray-900">{{ $refill->serviceJenisRefill?->nama_label ?? 'Refill APAR' }}</p>
+                                </td>
+                                <td class="px-8 py-6 whitespace-nowrap">
+                                    <span class="text-sm font-semibold text-gray-900">Rp {{ number_format((float) ($refill->service_estimasi_biaya ?? 0), 0, ',', '.') }}</span>
                                     @if($refill->service_total_kg)
-                                        <p class="text-[10px] font-semibold text-gray-500 mt-1">{{ rtrim(rtrim(number_format((float) $refill->service_total_kg, 2, ',', '.'), '0'), ',') }} {{ $refill->serviceJenisRefill?->satuan_label ?? 'Kg' }}</p>
+                                        <p class="text-[10px] font-semibold text-gray-400">{{ rtrim(rtrim(number_format((float) $refill->service_total_kg, 2, ',', '.'), '0'), ',') }} {{ $refill->serviceJenisRefill?->satuan_label ?? 'Kg' }}</p>
                                     @endif
                                 </td>
                                 <td class="px-8 py-6">
                                     <span class="inline-flex px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest {{ $statusBadge[0] }}">
                                         {{ $statusBadge[1] }}
                                     </span>
-                                    @if($refill->teknisi_id)
-                                        <p class="mt-2 text-[10px] font-bold text-red-600">{{ $refill->teknisi->name }}</p>
-                                    @endif
-                                    @if($refill->isPaymentConfirmed())
-                                        <p class="mt-2 text-[10px] font-bold text-emerald-600">Lunas</p>
-                                    @endif
                                 </td>
                                 <td class="px-8 py-6 text-right">
                                     <div class="flex flex-wrap items-center justify-end gap-2">
-                                        @if(!empty($refill->bukti_pembayaran))
-                                            <button type="button" onclick='openRefillProofModal(@js(asset("storage/" . ltrim($refill->bukti_pembayaran, "/"))), @js("Bukti TF - " . $refill->transactionDisplayName()))' class="{{ $actionButtonProof }}">
-                                                Bukti TF
-                                            </button>
-                                        @else
-                                            <button type="button" disabled class="{{ $actionButtonDisabled }}">
+                                        @if(!$isOffline)
+                                            <button
+                                                type="button"
+                                                onclick="openRefillProofModal(@js(!empty($refill->bukti_pembayaran) ? '/storage/' . ltrim($refill->bukti_pembayaran, '/') : null), @js([
+                                                    "customer" => $refill->pelanggan?->nama ?? "-",
+                                                    "date" => $refill->displayTransactionDateTime(),
+                                                    "type" => "Refill",
+                                                ]))"
+                                                class="{{ $actionButtonProof }}"
+                                                style="{{ $actionButtonProofStyle }}"
+                                            >
                                                 Bukti TF
                                             </button>
                                         @endif
                                         @if(in_array((string) $refill->status, ['selesai oleh teknisi', 'dikonfirmasi admin'], true))
-                                            <form action="{{ route('admin.pesanan.selesai-final', $refill) }}" method="POST" onsubmit="return confirm('Selesaikan final refill ini?')">
+                                            <form action="{{ route('admin.pesanan.selesai-final', $refill) }}" method="POST" data-confirm="Selesaikan final refill ini?" data-confirm-title="Konfirmasi Final" data-confirm-button="Ya, Finalkan">
                                                 @csrf
                                                 <button type="submit" class="{{ $actionButtonSuccess }}">Final</button>
                                             </form>
                                         @elseif($canAssign)
                                             <form action="{{ route('admin.refill.assign-teknisi', $refill) }}" method="POST" class="inline">
                                                 @csrf
-                                                <button type="submit" class="{{ $actionButtonPrimary }}">Assign Teknisi</button>
+                                                <button type="submit" class="{{ $actionButtonPrimary }}">Assign</button>
                                             </form>
-                                        @else
-                                            <button type="button" disabled class="{{ $actionButtonDisabled }}">
-                                                Assign Teknisi
-                                            </button>
                                         @endif
                                         <button type="button" onclick="openRefillDetailModal({{ $refill->id }})" class="{{ $actionButtonNeutral }}">
                                             Detail
@@ -193,10 +250,10 @@
                                         </a>
 
                                         @if($refill->status !== 'selesai' && $refill->status !== 'selesai final')
-                                            <form action="{{ route('admin.pesanan.destroy', $refill) }}" method="POST" class="inline">
+                                            <form action="{{ route('admin.pesanan.destroy', $refill) }}" method="POST" class="inline" data-confirm="Yakin ingin menghapus data refill ini?" data-confirm-title="Konfirmasi Hapus" data-confirm-button="Ya, Hapus">
                                                 @csrf
                                                 @method('DELETE')
-                                                <button type="submit" onclick="return confirm('Yakin ingin menghapus data refill ini?')" class="{{ $actionButtonDanger }}" title="Hapus">Hapus</button>
+                                                <button type="submit" class="{{ $actionButtonDanger }}" title="Hapus">Hapus</button>
                                             </form>
                                         @else
                                             <button type="button" disabled class="{{ $actionButtonDisabled }}" title="Hapus">Hapus</button>
@@ -227,58 +284,102 @@
                             <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Pelanggan</th>
                             <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Unit APAR</th>
                             <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Jenis Refill</th>
-                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Biaya</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Total</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
                             <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-50">
-                        @forelse($refills as $refill)
+                        @forelse($mergedHistory as $item)
+                            @php
+                                $isLegacy = $item instanceof \App\Models\Refill;
+                                $pesanan = $isLegacy ? null : $item;
+                                $refill = $isLegacy ? $item : null;
+                                
+                                $sumberPesanan = $pesanan ? (string) $pesanan->sumber_pesanan : 'offline';
+                                $refillHistoryIsOffline = in_array($sumberPesanan, ['datang_langsung', 'offline', 'input_admin'], true);
+                                
+                                $tanggal = $pesanan ? $pesanan->displayTransactionDateTime() : $refill->displayTransactionDateTime();
+                                $trxName = $pesanan ? $pesanan->transactionDisplayName() : $refill->transactionDisplayName();
+                                $refillCustomer = $resolveCustomer($pesanan, $refill);
+                                $pelangganNama = $refillCustomer['nama'];
+                                $pelangganWa = $refillCustomer['wa'];
+                                $jenisRefill = $pesanan ? ($pesanan->serviceJenisRefill?->nama_label ?? 'Refill APAR') : ($refill->jenisRefill?->nama_label ?? '-');
+                                $totalBiaya = $pesanan ? ($pesanan->total_harga ?? 0) : ($refill->biaya ?? 0);
+                            @endphp
                             <tr class="hover:bg-gray-50/40 transition-colors">
                                 <td class="px-8 py-5">
-                                    <p class="text-xs font-bold text-gray-900">{{ $refill->displayTransactionDateTime() }}</p>
-                                    <p class="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">{{ $refill->transactionDisplayName() }}</p>
+                                    <p class="text-xs font-bold text-gray-900">{{ $tanggal }}</p>
+                                    <p class="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">{{ $trxName }}</p>
                                 </td>
-                                <td class="px-8 py-5 text-sm font-black text-gray-900">{{ $refill->unitApar?->pelanggan?->nama ?? $refill->service?->pesanan?->pelanggan?->nama ?? '-' }}</td>
                                 <td class="px-8 py-5">
-                                    <p class="text-sm font-bold text-gray-900">{{ $refill->unitApar?->no_seri ?? 'Unit Offline / Belum Terserial' }}</p>
-                                    <p class="mt-1 text-xs font-semibold text-gray-500">{{ $refill->unitApar?->produk?->nama ?? 'Unit offline / belum terhubung' }}</p>
+                                    <p class="text-sm font-black text-gray-900">{{ $pelangganNama }}</p>
+                                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{{ $pelangganWa }}</p>
                                 </td>
-                                <td class="px-8 py-5 text-sm font-black text-gray-900">{{ $refill->jenisRefill?->nama_label ?? '-' }}</td>
-                                <td class="px-8 py-5 text-sm font-black text-gray-900">Rp {{ number_format((float) ($refill->biaya ?? 0), 0, ',', '.') }}</td>
+                                <td class="px-8 py-5">
+                                    @include('admin.partials.unit-apar-column', ['pesanan' => $pesanan ?? $refill->service?->pesanan, 'unitApar' => $refill?->unitApar ?? $refill?->service?->unitApar ?? $pesanan?->service?->unitApar])
+                                </td>
+                                <td class="px-8 py-5 text-sm font-black text-gray-900">{{ $jenisRefill }}</td>
+                                <td class="px-8 py-5 whitespace-nowrap">
+                                    <span class="text-sm font-semibold text-gray-900">Rp {{ number_format((float) $totalBiaya, 0, ',', '.') }}</span>
+                                </td>
+                                <td class="px-8 py-5">
+                                    <span class="inline-flex px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-700">
+                                        SELESAI FINAL
+                                    </span>
+                                </td>
                                 <td class="px-8 py-5">
                                     @php
-                                        $refillProofUrl = !empty($refill->service?->pesanan?->bukti_pembayaran)
-                                            ? asset('storage/' . ltrim($refill->service->pesanan->bukti_pembayaran, '/'))
-                                            : null;
+                                        $refillProofUrl = !empty($pesanan?->bukti_pembayaran)
+                                            ? '/storage/' . ltrim($pesanan->bukti_pembayaran, '/')
+                                            : (!empty($refill?->service?->pesanan?->bukti_pembayaran) ? '/storage/' . ltrim($refill->service->pesanan->bukti_pembayaran, '/') : null);
                                     @endphp
                                     <div class="flex flex-wrap items-center justify-end gap-2">
-                                        @if($refillProofUrl)
-                                            <button type="button" onclick='openRefillProofModal(@js($refillProofUrl), @js("Bukti TF - " . $refill->transactionDisplayName()))' class="{{ $actionButtonProof }}">
-                                                Bukti TF
-                                            </button>
-                                        @else
-                                            <button type="button" disabled class="{{ $actionButtonDisabled }}">
+                                        @if(!$refillHistoryIsOffline && $refillProofUrl)
+                                            <button
+                                                type="button"
+                                                onclick="openRefillProofModal(@js($refillProofUrl), @js([
+                                                    "customer" => $pelangganNama,
+                                                    "date" => $tanggal,
+                                                    "type" => "Refill",
+                                                ]))"
+                                                class="{{ $actionButtonProof }}"
+                                                style="{{ $actionButtonProofStyle }}"
+                                            >
                                                 Bukti TF
                                             </button>
                                         @endif
-                                        <button type="button" onclick="openRefillDetailModal('log-{{ $refill->id }}')" class="{{ $actionButtonNeutral }}" title="Detail">
+                                        <button type="button" onclick="openRefillDetailModal('{{ $isLegacy ? 'log-' . $refill->id : $pesanan->id }}')" class="{{ $actionButtonNeutral }}" title="Detail">
                                             Detail
                                         </button>
                                         
-                                        @if($refill->service?->pesanan)
+                                        @if($pesanan)
+                                            <a href="{{ route('invoice.show', $pesanan) }}" class="{{ $actionButtonPrimary }}" title="Lihat Invoice">
+                                                Lihat Invoice
+                                            </a>
+                                        @elseif($refill?->service?->pesanan)
                                             <a href="{{ route('invoice.show', $refill->service->pesanan) }}" class="{{ $actionButtonPrimary }}" title="Lihat Invoice">
                                                 Lihat Invoice
                                             </a>
                                         @else
-                                            <button type="button" disabled class="{{ $actionButtonDisabled }}" title="Invoice tidak tersedia">
+                                            <button type="button" onclick="showAppAlert('Invoice tidak tersedia untuk data legacy ini.', 'warning', 'Peringatan')" class="{{ $actionButtonPrimary }}" title="Lihat Invoice">
                                                 Lihat Invoice
                                             </button>
                                         @endif
-                                        <form action="{{ route('admin.refill.destroy', $refill) }}" method="POST" class="inline">
+                                        
+                                        @if($pesanan)
+                                        <form action="{{ route('admin.pesanan.destroy', $pesanan) }}" method="POST" class="inline" data-confirm="Yakin ingin menghapus data refill ini?" data-confirm-title="Konfirmasi Hapus" data-confirm-button="Ya, Hapus">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" onclick="return confirm('Yakin ingin menghapus riwayat refill ini?')" class="{{ $actionButtonDanger }}" title="Hapus">Hapus</button>
+                                            <button type="submit" class="{{ $actionButtonDanger }}" title="Hapus">Hapus</button>
                                         </form>
+                                        @elseif($isLegacy)
+                                        <form action="{{ route('admin.refill.destroy', $refill) }}" method="POST" class="inline" data-confirm="Yakin ingin menghapus riwayat refill ini?" data-confirm-title="Konfirmasi Hapus" data-confirm-button="Ya, Hapus">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="{{ $actionButtonDanger }}" title="Hapus">Hapus</button>
+                                        </form>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>
@@ -313,7 +414,7 @@
             <div class="relative z-10 w-full max-w-4xl overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-2xl">
                 <div class="flex items-center justify-between border-b border-gray-100 px-6 py-5">
                     <div>
-                        <h3 class="text-lg font-black text-gray-900" id="refill-proof-title">Bukti TF</h3>
+                        <h3 class="text-lg font-black text-gray-900" id="refill-proof-title">Bukti Transfer</h3>
                         <p class="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">Preview bukti pembayaran pelanggan</p>
                     </div>
                     <button type="button" onclick="closeRefillProofModal()" class="rounded-xl bg-gray-50 p-2 text-gray-400 transition hover:text-red-600">
@@ -346,7 +447,20 @@
                     'jenis_refill_id' => old('jenis_refill_id'),
                     'ukuran_apar' => old('ukuran_apar', '6 Kg'),
                     'jumlah_unit' => old('jumlah_unit', 1),
-                ]))">
+                    'status_unit' => old('status_unit', 'belum_terdaftar'),
+                    'pelanggan_id' => old('pelanggan_id'),
+                ]), @js($pelanggans->map(fn($p) => [
+                    'id' => (string) $p->id,
+                    'no_wa' => $p->no_wa,
+                    'email' => $p->user?->email,
+                    'alamat_lengkap' => $p->alamat,
+                    'units' => $p->units->map(fn($u) => [
+                        'id' => (string) $u->id,
+                        'nama' => $u->produk?->nama ?? 'Unit Custom',
+                        'ukuran' => $u->ukuran ?? $u->produk?->kapasitas,
+                        'jenis' => $u->produk?->jenisApar?->nama ?? $u->bahan
+                    ])->values()
+                ])->values()))">
                     <form action="{{ route('admin.refill.store') }}" method="POST">
                         @csrf
                         @if($errors->any())
@@ -362,20 +476,30 @@
                                         <span class="w-7 h-7 rounded-lg bg-red-50 text-red-700 font-black text-sm flex items-center justify-center shrink-0">1</span>
                                         <h4 class="font-black text-gray-900 uppercase tracking-wider text-xs">Data Pelanggan</h4>
                                     </div>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label for="new_pelanggan_nama" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Nama Pelanggan <span class="text-red-500">*</span></label>
-                                            <input type="text" name="new_pelanggan_nama" id="new_pelanggan_nama" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900" placeholder="Contoh: Budi Santoso" value="{{ old('new_pelanggan_nama') }}">
-                                        </div>
-                                        <div>
-                                            <label for="new_pelanggan_no_wa" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Nomor Telepon <span class="text-red-500">*</span></label>
-                                            <input type="text" name="new_pelanggan_no_wa" id="new_pelanggan_no_wa" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900" placeholder="081234567890" value="{{ old('new_pelanggan_no_wa') }}">
-                                            <p class="text-[9px] font-semibold text-gray-400 mt-1.5">Jika nomor sudah pernah ada, sistem akan menghubungkan data pelanggan itu otomatis di backend.</p>
-                                        </div>
+                                    <div class="space-y-4">
+                                        <label for="pelanggan_id" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Pilih Pelanggan <span class="text-red-500">*</span></label>
+                                        <select name="pelanggan_id" id="pelanggan_id" required x-model="selectedPelangganId" @change="syncPelangganProfile" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 text-sm">
+                                            <option value="">-- Pilih Pelanggan Terdaftar --</option>
+                                            @foreach($pelanggans as $pelanggan)
+                                                <option value="{{ $pelanggan->id }}" @selected(old('pelanggan_id') == $pelanggan->id)>{{ $pelanggan->nama }} ({{ $pelanggan->no_wa }})</option>
+                                            @endforeach
+                                        </select>
+                                        <x-input-error :messages="$errors->get('pelanggan_id')" class="mt-2" />
                                     </div>
-                                    <div>
-                                        <label for="new_pelanggan_alamat" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Alamat <span class="text-gray-300">(Opsional)</span></label>
-                                        <input type="text" name="new_pelanggan_alamat" id="new_pelanggan_alamat" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900" placeholder="Alamat pelanggan jika perlu dicatat" value="{{ old('new_pelanggan_alamat') }}">
+
+                                    <div x-show="selectedPelangganId" x-cloak class="mt-4 rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 p-5 space-y-3">
+                                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-200/50 pb-2">Profil Pelanggan</p>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                            <div>
+                                                <p class="font-bold text-gray-500 text-xs mb-1">WhatsApp</p>
+                                                <p class="font-black text-gray-900" x-text="selectedPelangganInfo.no_wa || '-'"></p>
+                                            </div>
+
+                                            <div class="md:col-span-2">
+                                                <p class="font-bold text-gray-500 text-xs mb-1">Alamat Lengkap</p>
+                                                <p class="font-bold text-gray-900 leading-relaxed" x-text="selectedPelangganInfo.alamat_lengkap || '-'"></p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -384,31 +508,59 @@
                                         <span class="w-7 h-7 rounded-lg bg-red-50 text-red-700 font-black text-sm flex items-center justify-center shrink-0">2</span>
                                         <h4 class="font-black text-gray-900 uppercase tracking-wider text-xs">Informasi Refill</h4>
                                     </div>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div>
+                                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                        <div class="md:col-span-4">
+                                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Status Unit APAR <span class="text-red-500">*</span></label>
+                                            <select x-model="statusUnit" @change="syncUnitApar" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 text-sm">
+                                                <option value="belum_terdaftar">APAR Belum Terdaftar (Manual)</option>
+                                                <option value="terdaftar">APAR Terdaftar</option>
+                                            </select>
+                                            <input type="hidden" name="status_unit" :value="statusUnit">
+                                        </div>
+
+                                        <template x-if="statusUnit === 'terdaftar'">
+                                            <div class="md:col-span-4">
+                                                <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Pilih Unit APAR <span class="text-red-500">*</span></label>
+                                                <select name="unit_apar_id" x-model="selectedUnitAparId" @change="syncUnitApar" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 text-sm">
+                                                    <option value="">-- Pilih Unit APAR --</option>
+                                                    <template x-for="unit in (selectedPelangganInfo?.units || [])" :key="unit.id">
+                                                        <option :value="unit.id" x-text="unit.nama + ' - ' + unit.jenis + ' ' + unit.ukuran"></option>
+                                                    </template>
+                                                </select>
+                                                <p x-show="selectedPelangganId && !(selectedPelangganInfo?.units?.length)" class="text-[10px] font-bold text-red-600 mt-2">Pelanggan ini belum memiliki Unit APAR terdaftar.</p>
+                                                <p x-show="selectedPelangganId && selectedPelangganInfo?.units?.length && !selectedUnitAparId" class="text-[10px] font-bold text-red-600 mt-2">Pilih unit APAR terlebih dahulu.</p>
+                                            </div>
+                                        </template>
+
+                                        <div class="md:col-span-2">
                                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Jenis Refill <span class="text-red-500">*</span></label>
-                                            <select name="jenis_refill_id" x-model="jenisRefillId" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900">
+                                            <select x-model="jenisRefillId" @change="updateUkuranOptions()" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 text-sm">
                                                 <option value="">Pilih jenis refill</option>
                                                 <template x-for="jenis in jenisRefills" :key="jenis.id">
                                                     <option :value="String(jenis.id)" x-text="jenis.nama"></option>
                                                 </template>
                                             </select>
+                                            <input type="hidden" name="jenis_refill_id" :value="jenisRefillId">
                                         </div>
-                                        <div>
+                                        <div class="md:col-span-2">
                                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Ukuran APAR <span class="text-red-500">*</span></label>
-                                            <select name="ukuran_apar" x-model="ukuranApar" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900">
+                                            {{-- Visible dropdown - always enabled --}}
+                                            <select x-model="ukuranApar" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 text-sm">
                                                 <template x-for="ukuran in ukuranOptions" :key="ukuran">
                                                     <option :value="ukuran" x-text="ukuran"></option>
                                                 </template>
                                             </select>
+                                            {{-- Hidden input for form submission - always sent --}}
+                                            <input type="hidden" name="ukuran_apar" :value="ukuranApar">
                                         </div>
-                                    </div>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div>
+                                        <div class="md:col-span-2">
                                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Jumlah Unit <span class="text-red-500">*</span></label>
-                                            <input type="number" min="1" name="jumlah_unit" x-model.number="jumlahUnit" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900">
+                                            {{-- Visible input - always enabled --}}
+                                            <input type="number" min="1" x-model.number="jumlahUnit" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 text-sm">
+                                            {{-- Hidden input for form submission - always sent --}}
+                                            <input type="hidden" name="jumlah_unit" :value="jumlahUnit">
                                         </div>
-                                        <div>
+                                        <div class="md:col-span-2">
                                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Tanggal Refill <span class="text-red-500">*</span></label>
                                             <input type="date" name="tgl_refill" value="{{ old('tgl_refill', now()->format('Y-m-d')) }}" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900">
                                         </div>
@@ -474,7 +626,7 @@
         const refillDetailData = @json($refillDetailData);
 
         function openRefillDetailModal(id) {
-            const data = refillDetailData.find((item) => item.id === id);
+            const data = refillDetailData.find((item) => String(item.id) === String(id));
             if (!data) return;
 
             document.getElementById('refill-detail-subtitle').textContent = `${data.transaksi} - ${data.waktu}`;
@@ -482,6 +634,17 @@
             const paidBadge = data.is_paid
                 ? '<span class="inline-flex px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-black uppercase">LUNAS</span>'
                 : '<span class="inline-flex px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-[10px] font-black uppercase">BELUM BAYAR</span>';
+            const proofHtml = data.source === 'Online'
+                ? `<div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                    <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Bukti Pembayaran</p>
+                    ${data.proof_url
+                        ? (/\.pdf($|\?)/i.test(String(data.proof_url))
+                            ? `<iframe src="${data.proof_url}" class="h-72 w-full rounded-xl border border-gray-200 bg-white" title="Preview bukti pembayaran"></iframe>`
+                            : `<img src="${data.proof_url}" alt="Preview bukti pembayaran" class="mx-auto max-h-72 rounded-xl border border-gray-200 bg-white object-contain">`)
+                        : `<div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">Bukti transfer belum tersedia atau file tidak ditemukan.</div>`
+                    }
+                </div>`
+                : '';
 
             document.getElementById('refill-detail-content').innerHTML = `
                 <div class="bg-gray-50 rounded-xl p-4 grid grid-cols-2 gap-3 text-sm">
@@ -524,6 +687,7 @@
                         <p class="font-semibold text-gray-900">${data.teknisi}</p>
                     </div>
                 </div>
+                ${proofHtml}
                 ${data.catatan !== '-' ? `<div class="rounded-xl border border-amber-100 bg-amber-50 p-4"><span class="text-[10px] font-black text-amber-600 uppercase">Catatan</span><p class="mt-1 text-sm font-semibold whitespace-pre-line">${data.catatan}</p></div>` : ''}
                 <div class="flex justify-center">
                     <button type="button" onclick="closeRefillDetailModal()" class="px-8 py-3 bg-gray-200 text-gray-700 font-black text-xs uppercase rounded-xl hover:bg-gray-300 transition">Tutup</button>
@@ -537,16 +701,44 @@
             document.getElementById('refill-detail-modal').classList.add('hidden');
         }
 
-        function openRefillProofModal(url, title) {
+        function openRefillProofModal(url, meta = {}) {
             const modal = document.getElementById('refill-proof-modal');
             const body = document.getElementById('refill-proof-body');
             const heading = document.getElementById('refill-proof-title');
             const isPdf = /\.pdf($|\?)/i.test(String(url || ''));
+            const infoHtml = `
+                <div class="rounded-2xl border border-gray-100 bg-gray-50 px-5 py-4">
+                    <h4 class="text-sm font-black text-gray-900">Bukti Transfer</h4>
+                    <div class="mt-3 grid gap-3 sm:grid-cols-3">
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Pelanggan</p>
+                            <p class="mt-1 text-sm font-semibold text-gray-900">${meta.customer || '-'}</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Tanggal Transaksi</p>
+                            <p class="mt-1 text-sm font-semibold text-gray-900">${meta.date || '-'}</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Jenis Transaksi</p>
+                            <p class="mt-1 text-sm font-semibold text-gray-900">${meta.type || 'Refill'}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
 
-            heading.textContent = title || 'Bukti TF';
-            body.innerHTML = isPdf
-                ? `<iframe src="${url}" class="h-[70vh] w-full rounded-2xl border border-gray-200 bg-white" title="Preview bukti pembayaran"></iframe>`
-                : `<img src="${url}" alt="Preview bukti pembayaran" class="mx-auto max-h-[70vh] rounded-2xl border border-gray-200 bg-white object-contain">`;
+            heading.textContent = 'Bukti Transfer';
+            if (!url) {
+                body.innerHTML = `${infoHtml}
+                    <div class="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-700">
+                        Bukti transfer belum tersedia atau file tidak ditemukan.
+                    </div>`;
+            } else {
+                body.innerHTML = `${infoHtml}
+                    ${isPdf
+                        ? `<iframe src="${url}" class="h-[70vh] w-full rounded-2xl border border-gray-200 bg-white" title="Preview bukti pembayaran"></iframe>`
+                        : `<img src="${url}" alt="Preview bukti pembayaran" class="mx-auto max-h-[70vh] rounded-2xl border border-gray-200 bg-white object-contain">`
+                    }`;
+            }
 
             modal.classList.remove('hidden');
         }
@@ -556,13 +748,69 @@
             document.getElementById('refill-proof-body').innerHTML = '';
         }
 
-        function refillOfflineForm(jenisRefills, initialState) {
+        function refillOfflineForm(jenisRefills, initialState, pelanggansData) {
             return {
                 jenisRefills,
+                pelanggansData: pelanggansData || [],
+                selectedPelangganId: initialState?.pelanggan_id || '',
+                selectedPelangganInfo: {},
+                statusUnit: initialState?.status_unit || 'belum_terdaftar',
+                selectedUnitAparId: '',
                 jenisRefillId: String(initialState?.jenis_refill_id || ''),
-                ukuranApar: String(initialState?.ukuran_apar || @js($ukuranAparOptions[0] ?? '')),
+                ukuranApar: String(initialState?.ukuran_apar || ''),
                 jumlahUnit: Number(initialState?.jumlah_unit || 1),
-                ukuranOptions: @js($ukuranAparOptions),
+                _allUkuranOptions: @js($ukuranAparOptions),
+                init() {
+                    // Sync pelanggan profile if already selected (from old input)
+                    if (this.selectedPelangganId) {
+                        const info = this.pelanggansData.find(p => p.id === this.selectedPelangganId);
+                        this.selectedPelangganInfo = info || {};
+                    }
+                    // Set initial ukuran if not set
+                    if (!this.ukuranApar) {
+                        this.updateUkuranOptions();
+                    }
+                },
+                get ukuranOptions() {
+                    const selected = this.selectedJenis();
+                    if (!selected || !selected.rules || !selected.rules.length) {
+                        return this._allUkuranOptions;
+                    }
+                    // Filter sizes based on selected jenis refill's rules
+                    return selected.rules.map(r => r.ukuran).filter(Boolean);
+                },
+                updateUkuranOptions() {
+                    const selected = this.selectedJenis();
+                    const sizes = (selected && selected.rules && selected.rules.length)
+                        ? selected.rules.map(r => r.ukuran).filter(Boolean)
+                        : this._allUkuranOptions;
+
+                    this.ukuranApar = sizes.includes(this.ukuranApar) ? this.ukuranApar : (sizes[0] || '');
+                },
+                syncPelangganProfile() {
+                    const info = this.pelanggansData.find(p => p.id === this.selectedPelangganId);
+                    this.selectedPelangganInfo = info || {};
+                    this.selectedUnitAparId = '';
+                    this.syncUnitApar();
+                },
+                syncUnitApar() {
+                    if (this.statusUnit === 'terdaftar' && this.selectedUnitAparId) {
+                        const unit = (this.selectedPelangganInfo?.units || []).find(u => u.id === this.selectedUnitAparId);
+                        if (unit) {
+                            // Find matching jenisRefill based on unit.jenis
+                            const matchedJenis = this.jenisRefills.find(j => (j.nama || '').toLowerCase().includes((unit.jenis || '').toLowerCase()));
+                            if (matchedJenis) {
+                                this.jenisRefillId = String(matchedJenis.id);
+                            }
+                            this.updateUkuranOptions();
+                            this.ukuranApar = unit.ukuran || '';
+                            this.jumlahUnit = 1;
+                        }
+                    } else if (this.statusUnit === 'belum_terdaftar') {
+                        this.selectedUnitAparId = '';
+                        this.jumlahUnit = 1;
+                    }
+                },
                 selectedJenis() {
                     return this.jenisRefills.find((item) => String(item.id) === String(this.jenisRefillId)) || null;
                 },

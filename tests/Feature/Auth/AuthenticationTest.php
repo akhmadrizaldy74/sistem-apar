@@ -45,7 +45,7 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect(route('admin.pesanan.index', absolute: false));
+        $response->assertRedirect(route('dashboard', absolute: false));
     }
 
     public function test_technician_users_are_redirected_to_technician_dashboard(): void

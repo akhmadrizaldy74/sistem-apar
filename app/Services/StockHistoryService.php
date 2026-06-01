@@ -49,16 +49,17 @@ class StockHistoryService
                     movementType: StockMovement::MOVE_IN,
                     qty: (float) ($pengeluaran->qty ?? 0),
                     satuan: (string) ($pengeluaran->satuan ?: 'Unit'),
-                    keterangan: $pengeluaran->keterangan,
+                    keterangan: 'Pengeluaran Stok - ' . ($pengeluaran->keterangan ?: $pengeluaran->display_item_name),
                 ));
             });
     }
 
     private function appendProductSaleEntries(Collection $entries): void
     {
-        Pesanan::with(['details.produk'])
+        Pesanan::with(['pelanggan', 'details.produk'])
             ->where('tipe', 'produk')
             ->where('stok_dikurangi', true)
+            ->where('status', Pesanan::STATUS_SELESAI_FINAL)
             ->latest('tanggal')
             ->latest()
             ->get()
@@ -72,7 +73,7 @@ class StockHistoryService
                         movementType: StockMovement::MOVE_OUT,
                         qty: (float) ($detail->jumlah ?? 0),
                         satuan: 'Unit',
-                        keterangan: 'Pesanan ' . ($pesanan->no_pesanan ?: ('#' . $pesanan->id)),
+                        keterangan: 'Pesanan Produk - ' . $this->customerName($pesanan),
                     ));
                 }
             });
@@ -80,22 +81,13 @@ class StockHistoryService
 
     private function appendRefillUsageEntries(Collection $entries): void
     {
-        Pesanan::with('serviceJenisRefill')
+        Pesanan::with(['pelanggan', 'serviceJenisRefill'])
             ->where('tipe', 'service')
             ->where('service_jenis_layanan', 'refill')
             ->whereNotNull('service_jenis_refill_id')
             ->where('service_total_kg', '>', 0)
-            ->where(function ($query) {
-                $query->whereNotNull('pembayaran_terkonfirmasi_at')
-                    ->orWhereIn('status', [
-                        Pesanan::STATUS_DITUGASKAN_KE_TEKNISI,
-                        Pesanan::STATUS_DIKERJAKAN_TEKNISI,
-                        Pesanan::STATUS_SELESAI_OLEH_TEKNISI,
-                        Pesanan::STATUS_DIKONFIRMASI_ADMIN,
-                        Pesanan::STATUS_SELESAI,
-                        Pesanan::STATUS_SELESAI_FINAL,
-                    ]);
-            })
+            ->where('status', Pesanan::STATUS_SELESAI_FINAL)
+            ->where('stok_dikurangi', true)
             ->latest('tanggal')
             ->latest()
             ->get()
@@ -108,7 +100,7 @@ class StockHistoryService
                     movementType: StockMovement::MOVE_OUT,
                     qty: (float) ($pesanan->service_total_kg ?? 0),
                     satuan: (string) ($pesanan->serviceJenisRefill?->satuan_label ?: 'Kg'),
-                    keterangan: 'Refill untuk pesanan ' . ($pesanan->no_pesanan ?: ('#' . $pesanan->id)),
+                    keterangan: 'Refill APAR - ' . $this->customerName($pesanan),
                 ));
             });
     }
@@ -117,11 +109,12 @@ class StockHistoryService
     {
         Service::query()
             ->where('status_konfirmasi', 'confirmed')
+            ->whereHas('pesanan', fn ($query) => $query->where('status', Pesanan::STATUS_SELESAI_FINAL))
             ->where(function ($query) {
                 $query->whereNotNull('actual_peralatan_json')
                     ->orWhereNotNull('estimasi_peralatan_json');
             })
-            ->with('pesanan')
+            ->with(['pesanan.pelanggan', 'unitApar.pelanggan'])
             ->latest('tgl_selesai_admin')
             ->latest()
             ->get()
@@ -140,7 +133,7 @@ class StockHistoryService
                         movementType: StockMovement::MOVE_OUT,
                         qty: $qty,
                         satuan: 'Unit',
-                        keterangan: 'Pemakaian peralatan untuk service #' . $service->id,
+                        keterangan: 'Service APAR - ' . $this->customerName($service),
                     ));
                 }
             });
@@ -189,5 +182,16 @@ class StockHistoryService
             'satuan' => $satuan,
             'keterangan' => $keterangan,
         ];
+    }
+
+    private function customerName(Pesanan|Service $source): string
+    {
+        if ($source instanceof Pesanan) {
+            return (string) ($source->pelanggan?->nama ?: 'Pelanggan tidak diketahui');
+        }
+
+        return (string) ($source->pesanan?->pelanggan?->nama
+            ?: $source->unitApar?->pelanggan?->nama
+            ?: 'Pelanggan tidak diketahui');
     }
 }

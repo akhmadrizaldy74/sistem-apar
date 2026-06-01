@@ -48,7 +48,19 @@
       "Bash(Select-Object -First 5)",
       "Bash(Format-List)",
       "Bash(findstr /n \"text-red-500\")",
-      "Bash(powershell *)"
+      "Bash(powershell *)",
+      "Bash(git pull *)",
+      "Bash(Select-String -Pattern \"assign|teknisi\")",
+      "Bash(Get-ChildItem *)",
+      "Bash(Select-String -Path \"public/build/assets/app-Cz4wvfuD.css\" -Pattern \"bg-red-700\" -Context 2,2)",
+      "Bash(Select-Object -First 10)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(Select-String \"is_active\")",
+      "Bash(git stash *)",
+      "Bash(Sort-Object LastWriteTime -Descending)",
+      "Bash(Select-Object -First 5 Name)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:8000/admin/refill)",
+      "Bash(Select-Object -Last 30)"
     ]
   }
 }

@@ -14,13 +14,13 @@
                 <div class="flex justify-between items-start gap-4 mb-4">
                     <div>
                         <span class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-[10px] font-black uppercase tracking-widest">
-                            Tipe: {{ $task->tipe === 'produk' ? 'Pesanan Produk' : (($task->service_jenis_layanan === 'refill') ? 'Refil APAR' : 'Service APAR') }}
+                            {{ $task->tipe === 'produk' ? 'Pesanan Produk' : (($task->service_jenis_layanan === 'refill') ? 'Refill APAR' : 'Service APAR') }}
                         </span>
                         <h3 class="text-lg font-black text-slate-900 mt-2">
-                            {{ $task->no_pesanan ?: 'TUGAS-'.$task->id }}
+                            {{ $task->technicianTaskDateTime() }}
                         </h3>
                         <p class="text-xs text-slate-400 font-semibold mt-0.5">
-                            Tanggal Pesanan: {{ optional($task->tanggal)->format('d M Y') ?: '-' }}
+                            Pelanggan: {{ $task->pelanggan?->nama ?? '-' }}
                         </p>
                     </div>
 
@@ -36,7 +36,7 @@
                             </span>
                         @else
                             <span class="px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest shadow-sm">
-                                Selesai oleh Teknisi
+                                Selesai Final
                             </span>
                         @endif
                     </div>

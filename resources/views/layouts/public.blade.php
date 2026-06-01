@@ -399,6 +399,7 @@
         });
     </script>
 
+    @include('layouts.partials.sweet-alerts')
     @stack('scripts')
 </body>
 </html>

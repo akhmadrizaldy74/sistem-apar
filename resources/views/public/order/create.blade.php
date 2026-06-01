@@ -255,29 +255,6 @@
         <p class="mt-2 text-slate-500 font-medium text-sm max-w-2xl mx-auto">Isi data pemesanan, cek ringkasan pesanan, lalu lanjutkan konfirmasi pembayaran sesuai alur pemesanan.</p>
     </div>
 
-    {{-- Alerts --}}
-    @if(session('success'))
-        <div class="mb-6 flex items-start gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800">
-            <svg class="w-5 h-5 mt-0.5 shrink-0 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-            <p class="font-bold text-sm">{{ session('success') }}</p>
-        </div>
-    @endif
-
-    @if(session('error') || $errors->any())
-        <div class="mb-6 flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-2xl text-red-800">
-            <svg class="w-5 h-5 mt-0.5 shrink-0 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <div>
-                @if(session('error'))<p class="font-bold text-sm">{{ session('error') }}</p>@endif
-                @if($errors->any())
-                    <p class="font-bold text-sm mb-1">Mohon periksa isian berikut:</p>
-                    <ul class="list-disc list-inside text-sm">
-                        @foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach
-                    </ul>
-                @endif
-            </div>
-        </div>
-    @endif
-
     <form method="POST" action="{{ route('order.store') }}" id="order-form" enctype="multipart/form-data">
     @csrf
     <input type="hidden" id="inp-submit-source" name="submit_source" value="normal">
@@ -525,8 +502,8 @@
                         @foreach($cartItems as $item)
                             <div class="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                                 <div class="cart-preview-thumb">
-                                    @if($item->produk?->gambar)
-                                        <img src="{{ asset('storage/' . $item->produk->gambar) }}" alt="{{ $item->produk->nama }}">
+                                    @if($item->produk?->resolved_image_url)
+                                        <img src="{{ $item->produk->resolved_image_url }}" alt="{{ $item->produk->nama }}">
                                     @else
                                         <div class="flex h-full w-full items-center justify-center text-slate-300">
                                             <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2z"/></svg>
@@ -565,7 +542,7 @@
                             <div class="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                                 <div class="cart-preview-thumb">
                                     @if(!empty($item['gambar']))
-                                        <img src="{{ asset('storage/' . $item['gambar']) }}" alt="{{ $item['nama'] ?? 'Produk' }}">
+                                        <img src="{{ $item['gambar_url'] ?? asset('storage/' . $item['gambar']) }}" alt="{{ $item['nama'] ?? 'Produk' }}">
                                     @else
                                         <div class="flex h-full w-full items-center justify-center text-slate-300">
                                             <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2z"/></svg>
@@ -2659,7 +2636,7 @@
         updateCombinedAddress();
 
         if (!inpAlamatMaps.value.trim() || !inpAlamatDetail.value.trim()) {
-            alert('Alamat Maps dan detail alamat wajib diisi.');
+            showAppAlert('Alamat Maps dan detail alamat wajib diisi.', 'warning', 'Peringatan');
             event.preventDefault();
             return;
         }
@@ -2675,65 +2652,65 @@
             document.getElementById('inp-use-cart-checkout').value = '0';
 
             if (serviceState.unitStatus === 'terdaftar' && !servicePurchaseGroup?.value) {
-                alert('Pilih Tanggal Pembelian APAR terlebih dahulu.');
+                showAppAlert('Pilih Tanggal Pembelian APAR terlebih dahulu.', 'warning', 'Peringatan');
                 event.preventDefault();
                 return;
             }
 
             if (serviceState.unitStatus === 'terdaftar' && serviceState.registeredUnits.length < 1) {
-                alert('Minimal satu Unit APAR wajib dicentang.');
+                showAppAlert('Minimal satu Unit APAR wajib dicentang.', 'warning', 'Peringatan');
                 event.preventDefault();
                 return;
             }
 
             if (serviceState.kategori === 'service' && serviceState.unitStatus !== 'terdaftar' && !getManualServiceMedia()) {
-                alert('Pilih jenis media APAR terlebih dahulu.');
+                showAppAlert('Pilih jenis media APAR terlebih dahulu.', 'warning', 'Peringatan');
                 event.preventDefault();
                 return;
             }
 
             if (!serviceState.ukuran) {
-                alert(serviceState.unitStatus === 'terdaftar'
+                showAppAlert(serviceState.unitStatus === 'terdaftar'
                     ? 'Unit APAR terdaftar belum memiliki data ukuran. Hubungi admin atau gunakan opsi APAR Belum Terdaftar.'
-                    : 'Pilih ukuran APAR terlebih dahulu.');
+                    : 'Pilih ukuran APAR terlebih dahulu.', 'warning', 'Peringatan');
                 event.preventDefault();
                 return;
             }
 
             if (serviceState.kategori === 'refill' && !serviceState.refill) {
-                alert(serviceState.unitStatus === 'terdaftar'
+                showAppAlert(serviceState.unitStatus === 'terdaftar'
                     ? 'Jenis refil otomatis belum ditemukan dari Unit APAR terdaftar. Pastikan master data Jenis Refil sudah sesuai dengan jenis APAR.'
-                    : 'Pilih jenis refil terlebih dahulu.');
+                    : 'Pilih jenis refil terlebih dahulu.', 'warning', 'Peringatan');
                 event.preventDefault();
                 return;
             }
 
             if (serviceState.kategori === 'refill' && serviceState.hasMixedRegisteredRefill) {
-                alert('Unit APAR yang dipilih memiliki jenis refill berbeda. Pisahkan pesanan refill berdasarkan jenis APAR.');
+                showAppAlert('Unit APAR yang dipilih memiliki jenis refill berbeda. Pisahkan pesanan refill berdasarkan jenis APAR.', 'warning', 'Peringatan');
                 event.preventDefault();
                 return;
             }
 
             if (serviceState.kategori === 'service' && !servicePaketId?.value) {
-                alert(serviceState.unitStatus === 'terdaftar'
+                showAppAlert(serviceState.unitStatus === 'terdaftar'
                     ? 'Paket service standar belum tersedia. Isi atau aktifkan paket service terlebih dahulu di data admin.'
-                    : 'Pilih paket service terlebih dahulu.');
+                    : 'Pilih paket service terlebih dahulu.', 'warning', 'Peringatan');
                 event.preventDefault();
                 return;
             }
 
             if (!serviceState.totalPrice || serviceState.totalPrice <= 0) {
-                alert(serviceState.unitStatus === 'terdaftar'
+                showAppAlert(serviceState.unitStatus === 'terdaftar'
                     ? 'Harga otomatis untuk Unit APAR terdaftar belum tersedia. Pastikan harga standar refil atau paket service sudah terisi.'
-                    : 'Harga layanan untuk pilihan ini belum tersedia.');
+                    : 'Harga layanan untuk pilihan ini belum tersedia.', 'warning', 'Peringatan');
                 event.preventDefault();
                 return;
             }
 
             if (serviceState.insufficientStock) {
-                alert(serviceState.kategori === 'service'
+                showAppAlert(serviceState.kategori === 'service'
                     ? 'Stok peralatan paket service belum mencukupi untuk jumlah unit yang dipilih.'
-                    : ('Stok refill ' + (serviceState.refill?.nama_label || 'yang dipilih') + ' tidak mencukupi.'));
+                    : ('Stok refill ' + (serviceState.refill?.nama_label || 'yang dipilih') + ' tidak mencukupi.'), 'warning', 'Peringatan');
                 event.preventDefault();
                 return;
             }
@@ -2749,7 +2726,7 @@
 
         if (shippingMethod === 'diantar') {
             if (!shippingQuoteReady) {
-                alert('Silakan hitung ongkir Ekspedisi terlebih dahulu.');
+                showAppAlert('Silakan hitung ongkir Ekspedisi terlebih dahulu.', 'warning', 'Peringatan');
                 event.preventDefault();
                 return;
             }

@@ -14,6 +14,22 @@ use Illuminate\Support\Facades\Auth;
 
 class LandingPageController extends Controller
 {
+    private function emptyCustomerProfile(\App\Models\User $user): Pelanggan
+    {
+        $pelanggan = new Pelanggan([
+            'user_id' => $user->id,
+            'nama' => $user->name ?: 'Pelanggan',
+            'no_wa' => $user->no_telpon,
+        ]);
+
+        $pelanggan->setRelation('units', collect());
+        $pelanggan->setRelation('pesanan', collect());
+        $pelanggan->setRelation('testimonis', collect());
+        $pelanggan->setRelation('complains', collect());
+
+        return $pelanggan;
+    }
+
     private function feedbackLinkDescription(Pelanggan $pelanggan, Pesanan $pesanan): string
     {
         return 'testimoni-order:' . $pesanan->id . ':pelanggan:' . $pelanggan->id;
@@ -63,11 +79,11 @@ class LandingPageController extends Controller
     public function index()
     {
         $produks = Produk::with('jenisApar')
-            ->whereNotNull('gambar')
-            ->where('gambar', '!=', '')
             ->latest()
+            ->get()
+            ->filter(fn (Produk $produk) => $produk->hasResolvedImage())
             ->take(4)
-            ->get();
+            ->values();
 
         $testimonis = Testimoni::with('pelanggan')
             ->where('status', 'approved')
@@ -76,53 +92,6 @@ class LandingPageController extends Controller
             ->get();
 
         return view('welcome', compact('produks', 'testimonis'));
-    }
-
-    public function cekAparForm()
-    {
-        $pelanggan = null;
-
-        if (session()->has('pelanggan_id')) {
-            $pelangganRaw = Pelanggan::find(session('pelanggan_id'));
-            if ($pelangganRaw) {
-                $this->syncUnitsForPelanggan($pelangganRaw);
-            }
-            $pelanggan = Pelanggan::with([
-                'units.produk.jenisApar',
-                'pesanan.details.produk.jenisApar',
-                'pesanan.servicePaket',
-                'pesanan.serviceJenisRefill',
-            ])
-                ->find(session('pelanggan_id'));
-        }
-
-        return view('public.cek-apar.index', compact('pelanggan'));
-    }
-
-    public function cekApar(Request $request)
-    {
-        $request->validate([
-            'no_wa' => 'required|string',
-        ]);
-
-        $normalizedNoWa = $this->normalizePhone((string) $request->no_wa);
-        $phoneCandidates = $this->phoneCandidates((string) $request->no_wa);
-
-        $pelanggan = Pelanggan::whereIn('no_wa', $phoneCandidates)->first();
-
-        if (! $pelanggan) {
-            return redirect()
-                ->route('cek-apar')
-                ->withInput()
-                ->with('error', 'Data tidak ditemukan. Pastikan nomor WhatsApp sudah benar.');
-        }
-
-        $this->syncUnitsForPelanggan($pelanggan);
-
-        return redirect()
-            ->route('cek-apar')
-            ->withInput(['no_wa' => $normalizedNoWa])
-            ->with('pelanggan_id', $pelanggan->id);
     }
 
     public function produkIndex(Request $request)
@@ -158,33 +127,43 @@ class LandingPageController extends Controller
 
     public function riwayatApar()
     {
-        /** @var \App\Models\User */
+        /** @var \App\Models\User|null */
         $user = Auth::user();
 
+        if (!$user) {
+            return redirect()->route('login');
+        }
+
         if ($user->isAdmin() || $user->isTeknisi()) {
-            return redirect()->route('home');
+            return redirect()->route($user->isTeknisi() ? 'teknisi.dashboard' : 'dashboard');
         }
 
         $pelanggan = Pelanggan::where('user_id', $user->id)->first();
+        $hasCustomerProfile = (bool) $pelanggan;
+        $historyNotice = null;
 
-        if (!$pelanggan) {
-            return redirect()->route('home')->with('error', 'Profil pelanggan tidak ditemukan.');
+        if ($pelanggan) {
+            $this->syncUnitsForPelanggan($pelanggan);
+
+            $pelanggan->load([
+                'units.produk.jenisApar',
+                'units.services',
+                'pesanan' => function ($query) {
+                    $query->orderByDesc('created_at');
+                },
+                'pesanan.details.produk.jenisApar',
+                'pesanan.servicePaket',
+                'pesanan.serviceJenisRefill',
+                'pesanan.teknisi',
+                'pesanan.unitApars',
+                'pesanan.complain',
+                'testimonis',
+                'complains.pesanan',
+            ]);
+        } else {
+            $pelanggan = $this->emptyCustomerProfile($user);
+            $historyNotice = 'Profil pelanggan Anda belum lengkap. Halaman riwayat tetap ditampilkan, tetapi data transaksi dan unit APAR masih kosong sampai profil pelanggan tersambung.';
         }
-
-        $this->syncUnitsForPelanggan($pelanggan);
-
-        $pelanggan->load([
-            'units.produk.jenisApar',
-            'units.services',
-            'pesanan.details.produk.jenisApar',
-            'pesanan.servicePaket',
-            'pesanan.serviceJenisRefill',
-            'pesanan.teknisi',
-            'pesanan.unitApars',
-            'pesanan.complain',
-            'testimonis',
-            'complains.pesanan',
-        ]);
 
         $totalTransaksi = $pelanggan->pesanan->count();
         $activeOrders = $pelanggan->pesanan
@@ -235,6 +214,8 @@ class LandingPageController extends Controller
 
         return view('public.riwayat-apar.index', compact(
             'pelanggan',
+            'hasCustomerProfile',
+            'historyNotice',
             'totalTransaksi',
             'activeOrders',
             'pendingPaymentOrder',
@@ -253,14 +234,20 @@ class LandingPageController extends Controller
         $pelanggan = Pelanggan::where('user_id', $user->id)->first();
 
         if (!$pelanggan) {
-            return response()->json(['error' => 'Pelanggan not found'], 404);
+            return response()->json([
+                'success' => true,
+                'server_time' => now()->toIso8601String(),
+                'orders' => [],
+                'units' => [],
+                'message' => 'Profil pelanggan belum lengkap.',
+            ]);
         }
 
         $since = $request->query('since');
 
         $orders = Pesanan::where('pelanggan_id', $pelanggan->id)
             ->when($since, fn($q) => $q->where('updated_at', '>', $since))
-            ->latest('updated_at')
+            ->orderByDesc('created_at')
             ->get()
             ->map(fn($p) => [
                 'id' => $p->id,

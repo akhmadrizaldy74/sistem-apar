@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Events\TugasTeknisiDiperbarui;
 use App\Models\Pesanan;
 use App\Models\StockMovement;
+use App\Services\FinalTransactionStockService;
 use App\Services\InventoryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -35,7 +36,7 @@ class TeknisiController extends Controller
             ->where('tipe', $tipe)
             ->whereIn('status', $this->activeTaskStatuses())
             ->whereNull('teknisi_selesai_at')
-            ->latest('tanggal')
+            ->orderByDesc('created_at')
             ->get();
     }
 
@@ -47,8 +48,7 @@ class TeknisiController extends Controller
                 $query->whereIn('status', $this->historyTaskStatuses())
                     ->orWhereNotNull('teknisi_selesai_at');
             })
-            ->latest('teknisi_selesai_at')
-            ->latest('updated_at')
+            ->orderByDesc('created_at')
             ->get();
     }
 
@@ -57,8 +57,8 @@ class TeknisiController extends Controller
         try {
             $broadcast = broadcast(new TugasTeknisiDiperbarui($pesanan->fresh()))->toOthers();
             unset($broadcast);
-        } catch (\Throwable $exception) {
-            report($exception);
+        } catch (\Throwable) {
+            // Abaikan kegagalan broadcast realtime agar teknisi tetap bisa menyelesaikan tugas.
         }
     }
 
@@ -69,7 +69,7 @@ class TeknisiController extends Controller
             ->with(['pelanggan', 'details.produk'])
             ->whereIn('status', $this->activeTaskStatuses())
             ->whereNull('teknisi_selesai_at')
-            ->latest('tanggal')
+            ->orderByDesc('created_at')
             ->get();
 
         $aktifService = $tasks->count();
@@ -93,20 +93,6 @@ class TeknisiController extends Controller
         ]);
     }
 
-    public function tugasProduk()
-    {
-        $teknisiId = (int) Auth::id();
-        $tasks = $this->taskBaseQuery($teknisiId)
-            ->with(['pelanggan', 'details.produk'])
-            ->where('tipe', 'produk')
-            ->whereIn('status', $this->activeTaskStatuses())
-            ->whereNull('teknisi_selesai_at')
-            ->latest('tanggal')
-            ->get();
-
-        return view('teknisi.tugas-produk', compact('tasks'));
-    }
-
     public function tugasServiceRefill()
     {
         $teknisiId = (int) Auth::id();
@@ -114,10 +100,18 @@ class TeknisiController extends Controller
             ->with(['pelanggan', 'details.produk'])
             ->whereIn('status', $this->activeTaskStatuses())
             ->whereNull('teknisi_selesai_at')
-            ->latest('tanggal')
+            ->orderByDesc('created_at')
             ->get();
 
         return view('teknisi.tugas-service-refill', compact('tasks'));
+    }
+
+    public function tugasProduk()
+    {
+        $teknisiId = (int) Auth::id();
+        $tasks = $this->activeTasksByType($teknisiId, 'produk');
+
+        return view('teknisi.tugas-produk', compact('tasks'));
     }
 
     public function riwayatTugas()
@@ -127,7 +121,6 @@ class TeknisiController extends Controller
 
         return view('teknisi.riwayat-tugas', compact('tasks'));
     }
-
     public function tugasMulai(Pesanan $pesanan)
     {
         if ($pesanan->teknisi_id !== Auth::id()) {
@@ -189,18 +182,26 @@ class TeknisiController extends Controller
             'tipe_layanan' => $pesanan->service_jenis_layanan,
         ];
 
-        $pesanan->update([
-            'status' => 'selesai oleh teknisi',
-            'teknisi_selesai_at' => now(),
-            'teknisi_catatan' => $request->input('catatan'),
-            'total' => $grandTotal,
-            'total_harga' => $grandTotal,
-            'invoice_snapshot' => json_encode($snapshot),
-        ]);
+        try {
+            DB::transaction(function () use ($pesanan, $request, $grandTotal, $snapshot) {
+                $pesanan->update([
+                    'status' => Pesanan::STATUS_SELESAI_FINAL,
+                    'teknisi_selesai_at' => now(),
+                    'teknisi_catatan' => $request->input('catatan'),
+                    'total' => $grandTotal,
+                    'total_harga' => $grandTotal,
+                    'invoice_snapshot' => json_encode($snapshot),
+                ]);
+
+                app(FinalTransactionStockService::class)->apply($pesanan);
+            });
+        } catch (\RuntimeException $exception) {
+            return back()->with('error', $exception->getMessage());
+        }
 
         $this->broadcastTaskUpdate($pesanan);
 
-        return back()->with('success', 'Laporan pekerjaan berhasil disimpan dan sudah diteruskan ke admin untuk konfirmasi.');
+        return back()->with('success', 'Laporan pekerjaan berhasil disimpan. Status menjadi Selesai Final dan stok sudah diperbarui.');
     }
 
     public function refillStock()

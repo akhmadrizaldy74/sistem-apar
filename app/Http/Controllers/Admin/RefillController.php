@@ -7,10 +7,9 @@ use App\Models\JenisRefill;
 use App\Models\Pesanan;
 use App\Models\Produk;
 use App\Models\Refill;
-use App\Models\StockMovement;
 use App\Models\UnitApar;
 use App\Models\User;
-use App\Services\InventoryService;
+use App\Services\FinalTransactionStockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -44,23 +43,27 @@ class RefillController extends Controller
             }
         }
 
-        $refills = Refill::with(['unitApar.pelanggan', 'unitApar.produk', 'jenisRefill', 'service.pesanan'])->latest('tgl_refill')->get();
+        $refills = Refill::with(['unitApar.pelanggan', 'unitApar.produk', 'jenisRefill', 'service.pesanan'])
+            ->orderByDesc('tgl_refill')
+            ->orderByDesc('created_at')
+            ->get();
         $units = UnitApar::with(['pelanggan', 'produk'])->get();
+        $pelanggans = \App\Models\Pelanggan::with(['units.produk.jenisApar'])->orderBy('nama')->get();
         $jenisRefills = JenisRefill::orderBy('nama')->get();
         $ukuranAparOptions = $this->buildUkuranAparOptions();
         $refillPackages = $this->refillPackages();
 
-        $requestRefills = Pesanan::with(['pelanggan', 'teknisi', 'serviceJenisRefill'])
+        $requestRefills = Pesanan::with(['pelanggan', 'teknisi', 'serviceJenisRefill', 'service.unitApar.pelanggan', 'service.unitApar.produk'])
             ->where('tipe', 'service')
             ->where('service_jenis_layanan', 'refill')
-            ->whereNotIn('status', ['selesai final', 'ditolak'])
+            ->whereNotIn('status', ['selesai', 'selesai final', 'ditolak'])
             ->latest()
             ->get();
 
-        $completedRequestRefills = Pesanan::with(['pelanggan', 'teknisi', 'serviceJenisRefill'])
+        $completedRequestRefills = Pesanan::with(['pelanggan', 'teknisi', 'serviceJenisRefill', 'service.unitApar.pelanggan', 'service.unitApar.produk'])
             ->where('tipe', 'service')
             ->where('service_jenis_layanan', 'refill')
-            ->whereIn('status', ['selesai final'])
+            ->whereIn('status', ['selesai', 'selesai final'])
             ->latest()
             ->get();
 
@@ -92,6 +95,7 @@ class RefillController extends Controller
             'requestRefills',
             'completedRequestRefills',
             'teknisis',
+            'pelanggans',
             'refillStatusFlow'
         ));
     }
@@ -101,24 +105,31 @@ class RefillController extends Controller
         return redirect()->route('admin.refill.index');
     }
 
-    public function store(Request $request, InventoryService $inventoryService)
+    public function store(Request $request)
     {
         $request->merge([
-            'new_pelanggan_no_wa' => $this->normalizePhone($request->input('new_pelanggan_no_wa')),
+            'pelanggan_id' => $request->input('pelanggan_id'),
         ]);
 
         $request->validate([
-            'new_pelanggan_nama'  => 'required|string|max:255',
-            'new_pelanggan_no_wa' => 'required|string|max:20',
-            'new_pelanggan_alamat' => 'nullable|string|max:1000',
+            'pelanggan_id'       => 'required|exists:pelanggans,id',
+            'unit_apar_id'       => 'nullable|exists:unit_apars,id',
             'jenis_refill_id'    => 'required|exists:jenis_refills,id',
             'ukuran_apar'        => 'required|string|max:50',
             'jumlah_unit'        => 'required|integer|min:1',
             'tgl_refill'         => 'required|date',
             'catatan_admin'      => 'nullable|string|max:1000',
         ], [
-            'new_pelanggan_nama.required' => 'Nama pelanggan wajib diisi.',
-            'new_pelanggan_no_wa.required' => 'Nomor telepon pelanggan wajib diisi.',
+            'pelanggan_id.required' => 'Pelanggan wajib dipilih.',
+            'pelanggan_id.exists'   => 'Pelanggan yang dipilih tidak valid.',
+            'unit_apar_id.exists'   => 'Unit APAR yang dipilih tidak valid.',
+            'jenis_refill_id.required' => 'Jenis refill wajib dipilih.',
+            'jenis_refill_id.exists'   => 'Jenis refill yang dipilih tidak valid.',
+            'ukuran_apar.required'     => 'Ukuran APAR wajib dipilih.',
+            'jumlah_unit.required'     => 'Jumlah unit wajib diisi.',
+            'jumlah_unit.min'          => 'Jumlah unit minimal 1.',
+            'tgl_refill.required'      => 'Tanggal refill wajib diisi.',
+            'tgl_refill.date'         => 'Format tanggal refill tidak valid.',
         ]);
 
         $jenisRefill = JenisRefill::findOrFail($request->jenis_refill_id);
@@ -150,32 +161,8 @@ class RefillController extends Controller
 
         $teknisi = User::where('role', 'teknisi')->first();
 
-        DB::transaction(function () use ($request, $inventoryService, $jenisRefill, $jumlahPakai, $jumlahUnit, $totalBiaya, $hargaPerUnit, $satuanLabel, $teknisi) {
-            // --- Resolve pelanggan ---
-            $normalizedNoWa = (string) $request->new_pelanggan_no_wa;
-            $existingPelanggan = \App\Models\Pelanggan::where('no_wa', $normalizedNoWa)->first();
-
-            if ($existingPelanggan) {
-                $existingPelanggan->update([
-                    'nama' => (string) $request->new_pelanggan_nama,
-                    'alamat' => filled($request->new_pelanggan_alamat)
-                        ? (string) $request->new_pelanggan_alamat
-                        : $existingPelanggan->alamat,
-                    'status' => 'tetap',
-                    'sumber_data' => $existingPelanggan->sumber_data ?: 'manual',
-                ]);
-                $pelangganId = (int) $existingPelanggan->id;
-            } else {
-                $pelangganBaru = \App\Models\Pelanggan::create([
-                    'nama' => (string) $request->new_pelanggan_nama,
-                    'no_wa' => $normalizedNoWa,
-                    'alamat' => $request->new_pelanggan_alamat,
-                    'status' => 'tetap',
-                    'sumber_data' => 'manual',
-                    'kategori_pelanggan' => 'baru_manual',
-                ]);
-                $pelangganId = (int) $pelangganBaru->id;
-            }
+        DB::transaction(function () use ($request, $jenisRefill, $jumlahPakai, $jumlahUnit, $totalBiaya, $teknisi) {
+            $pelangganId = (int) $request->pelanggan_id;
 
             // --- Create Pesanan record for tracking ---
             $pesanan = Pesanan::create([
@@ -204,23 +191,82 @@ class RefillController extends Controller
                 'catatan_admin' => $request->catatan_admin,
             ]);
 
-            // --- Reduce refill stock ---
-            $inventoryService->decreaseRefillStock(
-                jenisRefill: $jenisRefill,
-                qty: $jumlahPakai,
-                sourceType: StockMovement::SOURCE_REFILL_PELANGGAN,
-                reference: $pesanan,
-                keterangan: "Refill offline - {$jumlahUnit} unit x {$request->ukuran_apar}",
-                tanggal: $request->tgl_refill,
-            );
+            // --- Resolve unit_apar_id: use existing or create new ---
+            $pelanggan = \App\Models\Pelanggan::findOrFail($pelangganId);
+            $tanggalRefill = \Carbon\Carbon::parse($request->tgl_refill);
+
+            if ($request->unit_apar_id) {
+                // APAR terdaftar - use existing unit
+                $unitAparId = (int) $request->unit_apar_id;
+            } else {
+                // APAR belum terdaftar - create new unit automatically
+                $bahanLabel = $jenisRefill->nama_label;
+                $bahan = match (strtolower($bahanLabel)) {
+                    'powder' => 'Powder',
+                    'co2' => 'CO2',
+                    'foam' => 'Foam',
+                    default => $bahanLabel,
+                };
+
+                // Find produk based on ukuran and bahan
+                $produk = Produk::where('kapasitas', $request->ukuran_apar)
+                    ->whereHas('jenisApar', fn ($q) => $q->whereRaw('LOWER(nama) LIKE ?', ['%' . strtolower($bahan) . '%']))
+                    ->first();
+
+                // Fallback: find any produk matching ukuran
+                if (!$produk) {
+                    $produk = Produk::where('kapasitas', $request->ukuran_apar)->first();
+                }
+
+                $noSeri = UnitApar::generateSerialNumber($pelanggan, $tanggalRefill);
+                $tglProduksi = $tanggalRefill;
+                $tglExpired = UnitApar::calculateExpiry($tanggalRefill, $request->ukuran_apar, $bahan);
+
+                $unitApar = UnitApar::create([
+                    'pelanggan_id' => $pelangganId,
+                    'pesanan_id' => $pesanan->id,
+                    'produk_id' => $produk?->id,
+                    'no_seri' => $noSeri,
+                    'tgl_beli' => $tanggalRefill,
+                    'tgl_produksi' => $tglProduksi,
+                    'ukuran' => $request->ukuran_apar,
+                    'bahan' => $bahan,
+                    'kondisi_awal' => 'layak',
+                    'catatan_unit' => 'Unit dibuat otomatis dari refill offline/manual - ' . $jumlahUnit . ' unit',
+                    'tgl_expired' => $tglExpired,
+                ]);
+
+                if (!$unitApar || !$unitApar->id) {
+                    throw new \Exception('Gagal membuat Unit APAR baru untuk refill offline.');
+                }
+
+                $unitAparId = $unitApar->id;
+            }
+
+            // --- Create Service and Refill records ---
+            $service = \App\Models\Service::create([
+                'pesanan_id' => $pesanan->id,
+                'unit_apar_id' => $unitAparId,
+                'jenis_service' => 'Refill APAR',
+                'tgl_service' => $request->tgl_refill,
+                'biaya' => $totalBiaya,
+                'status_konfirmasi' => 'pending',
+            ]);
+
+            Refill::create([
+                'service_id' => $service->id,
+                'unit_apar_id' => $unitAparId,
+                'jenis_refill_id' => $jenisRefill->id,
+                'tgl_refill' => $request->tgl_refill,
+                'biaya' => $totalBiaya,
+            ]);
         });
 
-        $stokTerbaru = (float) $jenisRefill->fresh()->stok;
         $statusLabel = $teknisi ? 'Ditugaskan ke Teknisi' : 'Diproses';
 
         return redirect()
             ->route('admin.refill.index')
-            ->with('success', "Refill offline berhasil disimpan. Status: Lunas & {$statusLabel}. Pemakaian {$jumlahPakai} {$satuanLabel}. Stok {$jenisRefill->nama} sekarang {$stokTerbaru} {$satuanLabel}.");
+            ->with('success', "Refill offline berhasil disimpan. Status: Lunas & {$statusLabel}. Stok akan berkurang saat status Selesai Final.");
     }
 
     private function normalizePhone(?string $value): string
@@ -273,9 +319,16 @@ class RefillController extends Controller
             return back()->with('error', 'Data ini bukan refil APAR.');
         }
 
-        $teknisi = User::where('role', 'teknisi')->first();
+        // Auto-select teknisi: prioritize teknisi with least active assignments
+        $teknisi = User::where('role', 'teknisi')
+            ->get()
+            ->sortBy(function ($tek) {
+                return $tek->pesanans()->whereIn('status', ['ditugaskan ke teknisi', 'dikerjakan teknisi'])->count();
+            })
+            ->first();
+
         if (!$teknisi) {
-            return back()->with('error', 'Data teknisi belum tersedia.');
+            return back()->with('error', 'Belum ada teknisi aktif yang bisa ditugaskan.');
         }
 
         $pesanan->update([
@@ -283,7 +336,7 @@ class RefillController extends Controller
             'status' => Pesanan::STATUS_DITUGASKAN_KE_TEKNISI,
         ]);
 
-        return back()->with('success', 'Teknisi berhasil ditugaskan ke data refil.');
+        return back()->with('success', 'Berhasil ditugaskan ke teknisi: ' . $teknisi->name . '.');
     }
 
     public function updateStatus(Request $request, Pesanan $pesanan)
@@ -311,6 +364,10 @@ class RefillController extends Controller
         }
 
         $pesanan->update($payload);
+
+        if ($pesanan->status === Pesanan::STATUS_SELESAI_FINAL) {
+            app(FinalTransactionStockService::class)->apply($pesanan);
+        }
 
         return back()->with('success', 'Status refil APAR berhasil diperbarui.');
     }

@@ -5,7 +5,7 @@
         <table class="w-full text-left">
             <thead class="bg-slate-50">
                 <tr>
-                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Selesai</th>
+                    <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Transaksi</th>
                     <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Pelanggan</th>
                     <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Detail</th>
                     <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Catatan Teknisi</th>
@@ -16,8 +16,7 @@
                 @forelse($tasks as $task)
                     <tr class="hover:bg-slate-50/70 transition">
                         <td class="px-6 py-5">
-                            <p class="text-xs font-black text-slate-800">{{ optional($task->teknisi_selesai_at)->format('d M Y H:i') ?: '-' }}</p>
-                            <p class="text-[10px] font-bold text-slate-400 mt-1">ORD-{{ $task->id }}</p>
+                            <p class="text-xs font-black text-slate-800">{{ $task->technicianTaskDateTime() }}</p>
                         </td>
                         <td class="px-6 py-5">
                             <p class="text-sm font-black text-slate-900">{{ $task->pelanggan?->nama ?? '-' }}</p>
@@ -35,14 +34,23 @@
                         <td class="px-6 py-5 text-sm text-slate-700">{{ $task->teknisi_catatan ?: '-' }}</td>
                         <td class="px-6 py-5">
                             @php
+                                $statusLabel = match($task->status) {
+                                    'selesai final' => 'Selesai Final',
+                                    'dikonfirmasi admin' => 'Dikonfirmasi Admin',
+                                    'selesai oleh teknisi' => 'Selesai Final',
+                                    'selesai' => 'Selesai Final',
+                                    default => ucfirst($task->status),
+                                };
                                 $statusClass = match($task->status) {
                                     'selesai final' => 'bg-emerald-100 text-emerald-700',
                                     'dikonfirmasi admin' => 'bg-blue-100 text-blue-700',
-                                    default => 'bg-amber-100 text-amber-700',
+                                    'selesai oleh teknisi' => 'bg-emerald-100 text-emerald-700',
+                                    'selesai' => 'bg-emerald-100 text-emerald-700',
+                                    default => 'bg-slate-100 text-slate-700',
                                 };
                             @endphp
                             <span class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest {{ $statusClass }}">
-                                {{ $task->status }}
+                                {{ $statusLabel }}
                             </span>
                         </td>
                     </tr>

@@ -95,4 +95,21 @@ class Pengeluaran extends Model
 
         return (string) ($this->nama_item ?: '-');
     }
+
+    public static function effectiveAmountSql(): string
+    {
+        return 'COALESCE(NULLIF(nominal, 0), total, 0)';
+    }
+
+    public function getEffectiveAmountAttribute(): float
+    {
+        $nominal = (float) ($this->nominal ?? 0);
+        if ($nominal > 0) {
+            return $nominal;
+        }
+
+        $total = (float) ($this->total ?? 0);
+
+        return max($total, 0);
+    }
 }

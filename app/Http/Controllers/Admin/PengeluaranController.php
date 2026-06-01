@@ -27,6 +27,11 @@ class PengeluaranController extends Controller
         return view('admin.pengeluaran.index', compact('pengeluarans', 'produks', 'jenisRefills', 'peralatans'));
     }
 
+    public function create()
+    {
+        return redirect()->route('admin.pengeluaran.index');
+    }
+
     public function store(Request $request, InventoryService $inventoryService)
     {
         $jenisPengeluaran = $request->input('jenis_pengeluaran');

@@ -51,7 +51,7 @@
                     <td>{{ $pengeluaran->tanggal->format('d-m-Y') }}</td>
                     <td>Pengeluaran</td>
                     <td>{{ $pengeluaran->keterangan }}</td>
-                    <td style="color: red;">- Rp {{ number_format($pengeluaran->nominal, 0, ',', '.') }}</td>
+                    <td style="color: red;">- Rp {{ number_format($pengeluaran->effective_amount, 0, ',', '.') }}</td>
                 </tr>
             @endforeach
         </tbody>

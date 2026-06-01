@@ -79,7 +79,7 @@
             <div class="flex justify-between items-center">
                 <span class="text-sm text-slate-500 flex items-center gap-2">
                     <i class="fa-solid fa-calendar-check w-4 text-slate-400"></i>
-                    Selesai Teknisi
+                    Tanggal Selesai
                 </span>
                 <span class="text-sm font-semibold text-slate-700">
                     {{ \Carbon\Carbon::parse($pesanan->teknisi_selesai_at)->format('d M Y') }}

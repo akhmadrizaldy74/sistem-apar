@@ -1,14 +1,9 @@
 @php
-    $timelineData = $pesanan->getTimelineData();
     $isRejected = $pesanan->status === \App\Models\Pesanan::STATUS_DITOLAK;
     $totalHarga = $pesanan->payableTotal();
     $unitInfo = $pesanan->getUnitInfo();
-    $totalSteps = max(1, count($timelineData));
-    $currentStep = min($totalSteps, max(0, $pesanan->getTimelineStep()));
-    $progressPercent = $isRejected
-        ? 100
-        : max(8, min(100, ($currentStep / $totalSteps) * 100));
     $linkedTestimoni = $pesanan->linkedTestimoni ?? null;
+    $canReview = $pesanan->canGiveReview() || ($pesanan->isCompleted() && !$linkedTestimoni);
 @endphp
 
 <article
@@ -20,9 +15,6 @@
             <div class="flex flex-wrap items-center gap-2">
                 <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-slate-700">
                     {{ $pesanan->trackingTypeLabel() }}
-                </span>
-                <span class="rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-wide {{ $pesanan->publicStatusClasses() }}">
-                    {{ $pesanan->publicStatusLabel() }}
                 </span>
             </div>
 
@@ -67,19 +59,6 @@
                 <span x-text="openDetail ? 'Tutup' : 'Lihat Detail'">Lihat Detail</span>
                 <i class="fa-solid text-[10px]" :class="openDetail ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
             </button>
-        </div>
-    </div>
-
-    <div class="mt-4 rounded-lg border border-slate-100 bg-slate-50 px-3 py-3">
-        <div class="flex items-center justify-between gap-3 text-xs font-bold">
-            <span class="truncate text-slate-600">{{ $isRejected ? 'Pesanan ditolak' : $pesanan->publicStatusLabel() }}</span>
-            <span class="shrink-0 text-slate-400">{{ $isRejected ? 'Ditolak' : 'Tahap ' . $currentStep . '/' . $totalSteps }}</span>
-        </div>
-        <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-white">
-            <div
-                class="h-full rounded-full {{ $isRejected ? 'bg-red-500' : 'bg-red-600' }}"
-                style="width: {{ $progressPercent }}%"
-            ></div>
         </div>
     </div>
 
@@ -236,7 +215,7 @@
                 </a>
             @endif
 
-            @if($pesanan->isCompleted() && !$linkedTestimoni)
+            @if($canReview)
                 <a href="{{ route('testimoni.create', ['pesanan' => $pesanan->id]) }}" class="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-700 transition hover:bg-amber-100">
                     <i class="fa-solid fa-star text-[10px]"></i>
                     Beri Penilaian
@@ -248,33 +227,6 @@
                 {{ $pesanan->complain ? 'Lihat Komplain' : 'Butuh Bantuan / Komplain' }}
             </a>
 
-            @if($pesanan->complain)
-                @php
-                    $complainStatusClass = match($pesanan->complain->status_penyelesaian) {
-                        'selesai' => 'bg-emerald-50 text-emerald-700',
-                        'diproses' => 'bg-amber-50 text-amber-700',
-                        default => 'bg-red-50 text-red-700',
-                    };
-                @endphp
-                <span class="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-black {{ $complainStatusClass }}">
-                    <i class="fa-solid fa-life-ring text-[10px]"></i>
-                    Komplain {{ ucfirst($pesanan->complain->status_penyelesaian) }}
-                </span>
-            @endif
-
-            @if($linkedTestimoni)
-                @php
-                    $linkedReviewStatusClass = match($linkedTestimoni->status) {
-                        'approved' => 'bg-emerald-50 text-emerald-700',
-                        'rejected' => 'bg-red-50 text-red-700',
-                        default => 'bg-amber-50 text-amber-700',
-                    };
-                @endphp
-                <span class="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-black {{ $linkedReviewStatusClass }}">
-                    <i class="fa-solid fa-star text-[10px]"></i>
-                    Ulasan {{ ucfirst($linkedTestimoni->status) }}
-                </span>
-            @endif
         </div>
     </div>
 </article>

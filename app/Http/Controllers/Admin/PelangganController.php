@@ -69,7 +69,6 @@ class PelangganController extends Controller
 
         $request->validate([
             'nama'               => 'required|string|max:255',
-            'perusahaan'         => 'nullable|string|max:255',
             'no_wa'              => 'required|string|max:20',
             'alamat'             => 'nullable|string|max:1000',
             'alamat_maps'        => 'required|string|max:1000',
@@ -97,7 +96,6 @@ class PelangganController extends Controller
             ['no_wa' => $request->no_wa],
             [
                 'nama'               => $request->nama,
-                'perusahaan'         => $request->perusahaan,
                 'alamat'             => $alamat,
                 'alamat_maps'        => $request->alamat_maps,
                 'alamat_detail'      => $request->alamat_detail,
@@ -121,7 +119,7 @@ class PelangganController extends Controller
     public function edit(Pelanggan $pelanggan)
     {
         $pelanggan->load(['pesanan' => function ($query) {
-            $query->latest('tanggal')->latest();
+            $query->orderByDesc('tanggal')->orderByDesc('created_at');
         }]);
 
         return view('admin.pelanggan.edit', compact('pelanggan'));
@@ -139,7 +137,6 @@ class PelangganController extends Controller
         $request->validate([
             'nama'               => 'required|string|max:255',
             'no_wa'              => 'required|unique:pelanggans,no_wa,' . $pelanggan->id,
-            'perusahaan'         => 'nullable|string|max:255',
             'kategori_pelanggan' => 'nullable|in:lama,baru_manual',
             'alamat_maps'       => 'nullable|string|max:1000',
             'alamat_detail'     => 'nullable|string|max:1000',
@@ -156,7 +153,6 @@ class PelangganController extends Controller
 
         $updateData = [
             'nama'               => $request->nama,
-            'perusahaan'         => $request->perusahaan,
             'no_wa'              => $normalizedNoWa,
             'status'             => 'tetap',
             'kategori_pelanggan' => $request->input('kategori_pelanggan', $pelanggan->kategori_pelanggan ?: 'lama'),

@@ -3,9 +3,6 @@
         <h2 class="text-2xl font-black text-gray-900 tracking-tight">Masuk ke Sistem</h2>
     </div>
 
-    <!-- Session Status -->
-    <x-auth-session-status class="mb-6" :status="session('status')" />
-
     <form method="POST" action="{{ route('login') }}" class="space-y-6" data-reveal>
         @csrf
 
@@ -13,7 +10,7 @@
         <!-- Login Field -->
         <div>
             <label for="login" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Email atau Nomor Telepon</label>
-            <x-text-input id="login" class="block w-full pl-6 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-red-600/20 focus:bg-white font-bold text-gray-900 placeholder:text-gray-300 transition shadow-sm focus:shadow-md" type="text" name="login" :value="old('login')" required autofocus autocomplete="username" placeholder="Contoh: admin@sistem.com atau 08123456789" />
+            <x-text-input id="login" class="block w-full pl-6 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-red-600/20 focus:bg-white font-bold text-gray-900 placeholder:text-gray-300 transition shadow-sm focus:shadow-md" type="text" name="login" :value="old('login')" required autofocus autocomplete="username" placeholder="Contoh: example@gmail.com atau 08123456789" />
             <x-input-error :messages="$errors->get('login')" class="mt-2" />
             <x-input-error :messages="$errors->get('email')" class="mt-2" />
             <x-input-error :messages="$errors->get('no_telpon')" class="mt-2" />

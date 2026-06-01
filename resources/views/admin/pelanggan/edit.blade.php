@@ -21,30 +21,6 @@
         $isAktif = $orderCount > 0;
     @endphp
 
-    @if(session('success'))
-        <div class="mb-4 max-w-6xl">
-            <div class="bg-emerald-50 border border-emerald-200 rounded-2xl px-6 py-4 flex items-center gap-3">
-                <svg class="w-5 h-5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-                <p class="text-sm font-bold text-emerald-800">{{ session('success') }}</p>
-            </div>
-        </div>
-    @endif
-
-    @if($errors->any())
-        <div class="mb-4 max-w-6xl">
-            <div class="bg-red-50 border border-red-200 rounded-2xl px-6 py-4">
-                <p class="text-sm font-black text-red-700 mb-1">Terjadi kesalahan:</p>
-                <ul class="list-disc pl-5 space-y-0.5">
-                    @foreach($errors->all() as $error)
-                        <li class="text-xs font-semibold text-red-600">{{ $error }}</li>
-                    @endforeach
-                </ul>
-            </div>
-        </div>
-    @endif
-
     <div class="max-w-6xl space-y-6" x-data="{ tab: 'profile' }">
 
         {{-- HEADER: Info Ringkas Pelanggan --}}
@@ -96,19 +72,10 @@
                 @method('PUT')
 
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                    
-                    {{-- KIRI: Input Form --}}
                     <div class="lg:col-span-5 space-y-5">
-                        
                         <div>
                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Nama Lengkap <span class="text-red-500">*</span></label>
                             <input type="text" name="nama" value="{{ old('nama', $pelanggan->nama) }}" required
-                                   class="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500/20 font-bold text-gray-900 transition text-sm">
-                        </div>
-
-                        <div>
-                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Perusahaan / Instansi</label>
-                            <input type="text" name="perusahaan" value="{{ old('perusahaan', $pelanggan->perusahaan) }}"
                                    class="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500/20 font-bold text-gray-900 transition text-sm">
                         </div>
 
@@ -117,7 +84,6 @@
                             <input type="text" name="no_wa" value="{{ old('no_wa', $pelanggan->no_wa) }}" required placeholder="08xxxxxxxx"
                                    class="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500/20 font-bold text-gray-900 transition text-sm">
                         </div>
-
 
                         <div class="grid grid-cols-2 gap-4">
                             <div>
@@ -147,7 +113,7 @@
                             <textarea name="alamat_maps" rows="3" placeholder="Alamat lengkap tujuan pengiriman..."
                                       class="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500/20 font-bold text-gray-900 transition text-sm resize-none">{{ old('alamat_maps', $pelanggan->alamat_maps ?: $pelanggan->alamat) }}</textarea>
                         </div>
-                        
+
                         <div>
                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Detail / Patokan</label>
                             <input type="text" name="alamat_detail" value="{{ old('alamat_detail', $pelanggan->alamat_detail) }}"
@@ -161,7 +127,6 @@
                         </div>
                     </div>
 
-                    {{-- KANAN: Peta Interaktif --}}
                     <div class="lg:col-span-7 flex flex-col"
                          x-data="{
                             mapPicker: null,
@@ -175,13 +140,13 @@
                                 const defaultLng = 106.816635;
                                 const lat = parseFloat(document.getElementById('input_lat').value) || defaultLat;
                                 const lng = parseFloat(document.getElementById('input_lng').value) || defaultLng;
-                                
+
                                 this.mapPicker = L.map($refs.map).setView([lat, lng], 15);
                                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                                     attribution: '&copy; OpenStreetMap contributors',
                                     maxZoom: 19
                                 }).addTo(this.mapPicker);
-                                
+
                                 const icon = L.divIcon({
                                     html: `<div class='w-10 h-10 bg-red-600 rounded-full border-4 border-white shadow-lg flex items-center justify-center relative'><div class='w-3 h-3 bg-white rounded-full'></div><div class='absolute -bottom-2 w-0 h-0 border-l-[8px] border-r-[8px] border-t-[10px] border-l-transparent border-r-transparent border-t-red-600'></div></div>`,
                                     iconAnchor: [20, 20],
@@ -198,7 +163,7 @@
                                     document.getElementById('input_lng').value = lng.toFixed(6);
                                 }
 
-                                this.marker.on('dragend', (e) => {
+                                this.marker.on('dragend', () => {
                                     const pos = this.marker.getLatLng();
                                     document.getElementById('input_lat').value = pos.lat.toFixed(6);
                                     document.getElementById('input_lng').value = pos.lng.toFixed(6);
@@ -212,16 +177,14 @@
                             }
                          }"
                          x-init="setTimeout(() => initMap(), 200); $watch('tab', value => { if(value === 'profile') setTimeout(() => initMap(), 200) })">
-                         
+
                         <div class="flex items-center justify-between mb-4">
                             <label class="text-[12px] font-black text-gray-800 uppercase tracking-widest">Pin Lokasi Peta</label>
                             <span class="text-xs font-semibold text-gray-400">Geser pin untuk set titik koordinat</span>
                         </div>
-                        
-                        <!-- Container Map -->
+
                         <div x-ref="map" style="z-index: 10;" class="w-full h-[400px] lg:h-full min-h-[400px] rounded-2xl border-2 border-gray-200 shadow-inner flex-grow"></div>
-                        
-                        <!-- Hidden / Readonly Inputs for Coordinates -->
+
                         <div class="grid grid-cols-2 gap-4 mt-4">
                             <div>
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Latitude</label>
@@ -264,7 +227,6 @@
                                 <th class="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Total</th>
                                 <th class="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
                                 <th class="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Pengiriman</th>
-                                <th class="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Aksi</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-50">
@@ -294,12 +256,6 @@
                                     </td>
                                     <td class="px-8 py-4 text-sm font-semibold text-gray-500">
                                         {{ ucfirst($p->metode_pengiriman ?: 'pickup') }}
-                                    </td>
-                                    <td class="px-8 py-4">
-                                        <a href="{{ route('admin.pesanan.show', $p->id) }}"
-                                           class="text-[10px] font-black text-red-600 hover:text-red-800 uppercase tracking-widest transition">
-                                            Detail →
-                                        </a>
                                     </td>
                                 </tr>
                             @endforeach

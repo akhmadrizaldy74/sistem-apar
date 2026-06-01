@@ -41,10 +41,26 @@ class ServicePaket extends Model
 
     public function isLegacyTemplate(): bool
     {
-        return in_array(
+        $candidates = [
             mb_strtolower(trim((string) $this->label)),
-            ['service ringan', 'service sedang', 'service lengkap'],
-            true,
-        );
+            mb_strtolower(trim((string) $this->nama)),
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (in_array($candidate, [
+                'service ringan',
+                'service sedang',
+                'service lengkap',
+                'paket a',
+                'paket b',
+                'paket c',
+                'inspeksi ringan',
+                'service standar',
+            ], true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

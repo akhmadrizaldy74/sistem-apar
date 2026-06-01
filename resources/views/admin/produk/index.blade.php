@@ -61,8 +61,8 @@
                             <tr class="hover:bg-gray-50/30 transition-colors group">
                                 <td class="px-8 py-6">
                                     <div class="w-16 h-16 bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 shadow-inner group-hover:scale-110 transition-transform duration-500">
-                                        @if($p->gambar)
-                                            <img src="{{ asset('storage/' . $p->gambar) }}" alt="{{ $p->nama }}" class="w-full h-full object-contain p-1">
+                                        @if($p->resolved_image_url)
+                                            <img src="{{ $p->resolved_image_url }}" alt="{{ $p->nama }}" class="w-full h-full object-contain p-1">
                                         @else
                                             <div class="w-full h-full flex items-center justify-center text-gray-300">
                                                 <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
@@ -95,10 +95,10 @@
                                         <a href="{{ route('admin.produk.edit', $p) }}" class="p-3 bg-white text-gray-400 hover:text-blue-600 rounded-xl border border-gray-100 hover:border-blue-100 hover:shadow-lg transition-all">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                         </a>
-                                        <form action="{{ route('admin.produk.destroy', $p) }}" method="POST" class="inline">
+                                        <form action="{{ route('admin.produk.destroy', $p) }}" method="POST" class="inline" data-confirm="Yakin ingin menghapus produk ini?" data-confirm-title="Konfirmasi Hapus" data-confirm-button="Ya, Hapus">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="p-3 bg-white text-gray-400 hover:text-red-600 rounded-xl border border-gray-100 hover:border-red-100 hover:shadow-lg transition-all" onclick="return confirm('Yakin ingin menghapus?')">
+                                            <button type="submit" class="p-3 bg-white text-gray-400 hover:text-red-600 rounded-xl border border-gray-100 hover:border-red-100 hover:shadow-lg transition-all">
                                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                             </button>
                                         </form>
@@ -180,7 +180,7 @@
                                 <label for="kapasitas" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Kapasitas</label>
                                 <input type="text" name="kapasitas" id="kapasitas" value="{{ old('kapasitas') }}" required
                                     class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 placeholder:text-gray-300 transition"
-                                    placeholder="Contoh: 3 kg / 6 Liter">
+                                    placeholder="Contoh: 3 kg / 6 kg">
                                 <x-input-error :messages="$errors->get('kapasitas')" class="mt-2" />
                             </div>
                         </div>

@@ -294,9 +294,17 @@
                     </x-nav-link-sidebar>
 
                     @if($isTeknisi)
+                        <x-nav-link-sidebar :href="route('teknisi.tugas-produk')" :active="request()->routeIs('teknisi.tugas-produk')" class="sidebar-nav-link">
+                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V7a2 2 0 00-2-2h-3m-4 0H6a2 2 0 00-2 2v6m16 0v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4m16 0H4m5-4h6" /></svg>
+                            <span class="sidebar-label truncate">TUGAS PRODUK</span>
+                        </x-nav-link-sidebar>
                         <x-nav-link-sidebar :href="route('teknisi.tugas-service-refill')" :active="request()->routeIs('teknisi.tugas-service-refill')" class="sidebar-nav-link">
                             <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a4 4 0 00-5.656-5.656l-8.486 8.485A2 2 0 108.114 21l8.485-8.486a4 4 0 00-5.656-5.656L4.458 13.343" /></svg>
                             <span class="sidebar-label truncate">TUGAS SERVICE / REFIL</span>
+                        </x-nav-link-sidebar>
+                        <x-nav-link-sidebar :href="route('teknisi.riwayat-tugas')" :active="request()->routeIs('teknisi.riwayat-tugas')" class="sidebar-nav-link">
+                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V9m-6-4 4 4m0 0-4 4m4-4H9" /></svg>
+                            <span class="sidebar-label truncate">RIWAYAT TUGAS</span>
                         </x-nav-link-sidebar>
                     @else
                         {{-- Group: LAYANAN APAR --}}
@@ -492,66 +500,6 @@
                     </div>
                 </header>
 
-                @if (session('success'))
-                    <div
-                        x-data="{ show: true }"
-                        x-init="setTimeout(() => show = false, 3200)"
-                        x-show="show"
-                        x-transition:enter="transform ease-out duration-300"
-                        x-transition:enter-start="translate-y-4 opacity-0 sm:translate-y-0 sm:translate-x-8"
-                        x-transition:enter-end="translate-y-0 opacity-100 sm:translate-x-0"
-                        x-transition:leave="transform ease-in duration-200"
-                        x-transition:leave-start="opacity-100 sm:translate-x-0"
-                        x-transition:leave-end="opacity-0 sm:translate-x-8"
-                        class="fixed top-24 right-4 z-[70] w-[calc(100%-2rem)] max-w-md sm:right-6 sm:w-[calc(100%-3rem)]"
-                    >
-                        <div class="rounded-2xl border border-emerald-100 bg-white/95 backdrop-blur px-5 py-4 shadow-xl">
-                            <div class="flex items-start gap-4">
-                                <div class="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-                                </div>
-                                <div class="min-w-0">
-                                    <p class="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em]">Berhasil</p>
-                                    <p class="text-sm font-bold text-gray-900 mt-1">{{ session('success') }}</p>
-                                </div>
-                                <button type="button" @click="show = false" class="text-gray-300 hover:text-gray-500 transition">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                @endif
-
-                @if (session('error'))
-                    <div
-                        x-data="{ show: true }"
-                        x-init="setTimeout(() => show = false, 4200)"
-                        x-show="show"
-                        x-transition:enter="transform ease-out duration-300"
-                        x-transition:enter-start="translate-y-4 opacity-0 sm:translate-y-0 sm:translate-x-8"
-                        x-transition:enter-end="translate-y-0 opacity-100 sm:translate-x-0"
-                        x-transition:leave="transform ease-in duration-200"
-                        x-transition:leave-start="opacity-100 sm:translate-x-0"
-                        x-transition:leave-end="opacity-0 sm:translate-x-8"
-                        class="fixed top-24 right-4 z-[70] w-[calc(100%-2rem)] max-w-md sm:right-6 sm:w-[calc(100%-3rem)]"
-                    >
-                        <div class="rounded-2xl border border-red-100 bg-white/95 backdrop-blur px-5 py-4 shadow-xl">
-                            <div class="flex items-start gap-4">
-                                <div class="w-11 h-11 rounded-xl bg-red-100 text-red-700 flex items-center justify-center shrink-0">
-                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m0 3.75h.007v.008H12v-.008z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.29 3.86 1.82 18a2.25 2.25 0 0 0 1.93 3.38h16.5A2.25 2.25 0 0 0 22.18 18L13.71 3.86a2.25 2.25 0 0 0-3.42 0Z" /></svg>
-                                </div>
-                                <div class="min-w-0">
-                                    <p class="text-[10px] font-black text-red-600 uppercase tracking-[0.2em]">Perlu Dicek</p>
-                                    <p class="text-sm font-bold text-gray-900 mt-1">{{ session('error') }}</p>
-                                </div>
-                                <button type="button" @click="show = false" class="text-gray-300 hover:text-gray-500 transition">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                @endif
-
                 @isset($header)
                     <header class="flex items-start justify-between px-4 pb-4 pt-6 sm:px-6 lg:px-10 lg:pt-8">
                         <div>
@@ -600,6 +548,8 @@
 
         {{-- Reverb Real-Time Toast Container --}}
         <div id="reverb-toast-wrap" class="fixed bottom-6 right-6 z-[300] flex flex-col gap-2 items-end pointer-events-none [&>*]:pointer-events-auto max-w-xs w-full"></div>
+
+        @include('layouts.partials.sweet-alerts')
 
         @if(session('wa_url'))
             <script>

@@ -18,13 +18,14 @@
         $totalItem = $pesanans->sum(fn ($pesanan) => $pesanan->details->sum('jumlah'));
         $pesananOnline = $pesanans->filter(fn ($p) => $p->sumber_pesanan === 'website')->count();
         $pesananOffline = $pesanans->filter(fn ($p) => in_array((string) $p->sumber_pesanan, ['datang_langsung', 'offline', 'input_admin'], true))->count();
-        $closedPesananStatuses = ['selesai', 'selesai final', 'ditolak'];
-        $pesananRiwayat = $pesanans->getCollection()->filter(fn ($pesanan) => in_array((string) $pesanan->status, $closedPesananStatuses, true))->values();
-        $pesananAktif = $pesanans->getCollection()->reject(fn ($pesanan) => in_array((string) $pesanan->status, $closedPesananStatuses, true))->values();
+        $finishedStatuses = ['selesai', 'selesai final', 'ditolak'];
+        $pesananRiwayat = $pesanans->getCollection()->filter(fn ($pesanan) => in_array((string) $pesanan->status, $finishedStatuses, true))->values();
+        $pesananAktif = $pesanans->getCollection()->reject(fn ($pesanan) => in_array((string) $pesanan->status, $finishedStatuses, true))->values();
         $actionButtonBase = 'inline-flex items-center justify-center px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition shadow-sm';
         $actionButtonNeutral = $actionButtonBase . ' border-gray-200 bg-white text-gray-600 hover:bg-gray-50';
         $actionButtonPrimary = $actionButtonBase . ' border-red-600 bg-red-600 text-white hover:bg-red-700 hover:border-red-700';
-        $actionButtonProof = $actionButtonBase . ' border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100';
+        $actionButtonProof = $actionButtonBase . ' min-w-[92px] border-transparent bg-blue-600 text-white hover:bg-blue-700';
+        $actionButtonProofStyle = 'background-color:#2563eb;border-color:#2563eb;color:#fff;';
         $actionButtonDanger = $actionButtonBase . ' border-red-200 bg-white text-red-600 hover:bg-red-50';
         $actionButtonDisabled = $actionButtonBase . ' border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed';
     @endphp
@@ -40,14 +41,13 @@
                 'pelanggan_mode' => old('pelanggan_mode', 'existing'),
                 'metode_pengiriman' => old('metode_pengiriman', 'pickup'),
                 'ongkir' => old('ongkir', 0),
-                'new_pelanggan_nama' => old('new_pelanggan_nama'),
-                'new_pelanggan_perusahaan' => old('new_pelanggan_perusahaan'),
-                'new_pelanggan_no_wa' => old('new_pelanggan_no_wa'),
-                'new_pelanggan_alamat_maps' => old('new_pelanggan_alamat_maps'),
-                'new_pelanggan_alamat_detail' => old('new_pelanggan_alamat_detail'),
-                'new_pelanggan_alamat_lat' => old('new_pelanggan_alamat_lat'),
-                'new_pelanggan_alamat_lng' => old('new_pelanggan_alamat_lng'),
-            ])
+            ]),
+            @js($pelanggans->map(fn($p) => [
+                'id' => (string) $p->id,
+                'no_wa' => $p->no_wa,
+                'email' => $p->user?->email,
+                'alamat_lengkap' => $p->alamat
+            ])->values())
         )"
         @open-pesanan-modal.window="openModal = true"
     >
@@ -121,13 +121,13 @@
                                 $statusBadge = match(true) {
                                     $s === 'selesai final' => ['bg-emerald-50 text-emerald-700', 'SELESAI FINAL'],
                                     $s === 'dikonfirmasi admin' => ['bg-cyan-50 text-cyan-700', 'DIKONFIRMASI'],
-                                    $s === 'selesai oleh teknisi' => ['bg-emerald-50 text-emerald-700', 'SELESAI OLEH TEKNISI'],
+                                    $s === 'selesai oleh teknisi' => ['bg-cyan-50 text-cyan-700', 'SELESAI OLEH TEKNISI'],
                                     $s === 'dikerjakan teknisi' => ['bg-indigo-50 text-indigo-700', 'DIPROSES'],
                                     $s === 'ditugaskan ke teknisi' => ['bg-purple-50 text-purple-700', 'DITUGASKAN'],
-                                    $s === 'selesai' => ['bg-emerald-50 text-emerald-700', 'SELESAI'],
+                                    $s === 'selesai' => ['bg-emerald-50 text-emerald-700', 'SELESAI FINAL'],
                                     $s === 'ditolak' => ['bg-red-50 text-red-700', 'DITOLAK'],
                                     $s === 'diproses' && $hasProof => ['bg-emerald-50 text-emerald-700', 'DIPROSES'],
-                                    $s === 'diproses' => ['bg-blue-50 text-blue-700', 'DIPROSES'],
+                                    $s === 'diproses' => ['bg-red-50 text-blue-700', 'DIPROSES'],
                                     $s === 'pending' && $hasProof => ['bg-emerald-50 text-emerald-700', 'DIPROSES'],
                                     $s === 'pending' => ['bg-amber-50 text-amber-700', 'MENUNGGU'],
                                     default => ['bg-gray-50 text-gray-700', strtoupper($s)],
@@ -152,44 +152,46 @@
                                 </td>
                                 <td class="px-8 py-6">
                                     <div class="flex items-center gap-2 flex-wrap">
-                                        <span class="inline-flex px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-[10px] font-black uppercase tracking-widest">Pesanan Produk</span>
                                         <span class="inline-flex px-3 py-1 rounded-full {{ $isOffline ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-600' }} text-[10px] font-black uppercase tracking-widest">{{ $isOffline ? 'Offline' : 'Online' }}</span>
                                     </div>
                                     <p class="mt-2 text-sm font-black text-gray-900 max-w-[220px] leading-6">{{ $firstProdukNama }}</p>
                                     <p class="mt-1 text-xs font-semibold text-gray-500">{{ $itemCount }} item - {{ $unitCount }} unit</p>
                                 </td>
-                                <td class="px-8 py-6">
-                                    <p class="text-sm font-black text-gray-900 leading-none">Rp</p>
-                                    <p class="mt-2 text-[1.75rem] font-black text-gray-900 leading-none">{{ number_format((float) $pricingSummary['totalPembayaran'], 0, ',', '.') }}</p>
+                                <td class="px-8 py-6 whitespace-nowrap">
+                                    <span class="text-sm font-semibold text-gray-900">Rp {{ number_format((float) $pricingSummary['totalPembayaran'], 0, ',', '.') }}</span>
                                 </td>
                                 <td class="px-8 py-6">
                                     <span class="inline-flex px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest {{ $statusBadge[0] }}">
                                         {{ $statusBadge[1] }}
                                     </span>
-                                    <p class="mt-2 text-[10px] font-bold {{ $pesanan->isPaymentConfirmed() ? 'text-emerald-600' : 'text-gray-400' }}">
-                                        {{ $pesanan->isPaymentConfirmed() ? 'Lunas' : 'Belum Bayar' }}
-                                    </p>
+                                    
                                 </td>
                                 <td class="px-8 py-6 text-right">
                                     <div class="flex flex-wrap items-center justify-end gap-2">
-                                        @if(!empty($pesanan->bukti_pembayaran))
-                                            <button type="button" onclick='openPesananProofModal(@js(asset("storage/" . ltrim($pesanan->bukti_pembayaran, "/"))), @js("Bukti TF - " . $pesanan->transactionDisplayName()))' class="{{ $actionButtonProof }}">
-                                                Bukti TF
-                                            </button>
-                                        @else
-                                            <button type="button" disabled class="{{ $actionButtonDisabled }}">
+                                        @if(!$isOffline)
+                                            <button
+                                                type="button"
+                                                onclick="openPesananProofModal(@js(!empty($pesanan->bukti_pembayaran) ? '/storage/' . ltrim($pesanan->bukti_pembayaran, '/') : null), @js([
+                                                    "customer" => $pesanan->pelanggan?->nama ?? "-",
+                                                    "date" => $pesanan->displayTransactionDateTime(),
+                                                    "type" => "Pesanan",
+                                                ]))"
+                                                class="{{ $actionButtonProof }}"
+                                                style="{{ $actionButtonProofStyle }}"
+                                            >
                                                 Bukti TF
                                             </button>
                                         @endif
-                                        @if($canAssign)
+                                        @if(in_array((string) $pesanan->status, ['selesai oleh teknisi', 'dikonfirmasi admin'], true))
+                                            <form action="{{ route('admin.pesanan.selesai-final', $pesanan) }}" method="POST" class="inline" data-confirm="Selesaikan final pesanan ini dan kurangi stok?" data-confirm-title="Konfirmasi Final" data-confirm-button="Ya, Finalkan">
+                                                @csrf
+                                                <button type="submit" class="{{ $actionButtonPrimary }}">Final</button>
+                                            </form>
+                                        @elseif($canAssign)
                                             <form action="{{ route('admin.pesanan.assign-teknisi', $pesanan) }}" method="POST" class="inline">
                                                 @csrf
-                                                <button type="submit" class="{{ $actionButtonPrimary }}">Assign Teknisi</button>
+                                                <button type="submit" class="{{ $actionButtonPrimary }}">Assign</button>
                                             </form>
-                                        @else
-                                            <button type="button" disabled class="{{ $actionButtonDisabled }}">
-                                                Assign Teknisi
-                                            </button>
                                         @endif
                                         <button type="button" onclick="openPesananDetailModal({{ $pesanan->id }})" class="{{ $actionButtonNeutral }}">
                                             Detail
@@ -198,10 +200,10 @@
                                             Lihat Invoice
                                         </a>
                                         @if($pesanan->status !== 'selesai' && $pesanan->status !== 'selesai final')
-                                            <form action="{{ route('admin.pesanan.destroy', $pesanan) }}" method="POST" class="inline">
+                                            <form action="{{ route('admin.pesanan.destroy', $pesanan) }}" method="POST" class="inline" data-confirm="Yakin ingin menghapus pesanan ini?" data-confirm-title="Konfirmasi Hapus" data-confirm-button="Ya, Hapus">
                                                 @csrf
                                                 @method('DELETE')
-                                                <button type="submit" onclick="return confirm('Yakin ingin menghapus pesanan ini?')" class="{{ $actionButtonDanger }}">Hapus</button>
+                                                <button type="submit" class="{{ $actionButtonDanger }}">Hapus</button>
                                             </form>
                                         @else
                                             <button type="button" disabled class="{{ $actionButtonDisabled }}" title="Hapus">Hapus</button>
@@ -244,7 +246,9 @@
                                 $isOffline = in_array((string) $pesanan->sumber_pesanan, ['datang_langsung', 'offline', 'input_admin'], true);
                                 $statusBadge = match(true) {
                                     $s === 'selesai final' => ['bg-emerald-50 text-emerald-700', 'SELESAI FINAL'],
-                                    $s === 'selesai' => ['bg-emerald-50 text-emerald-700', 'SELESAI'],
+                                    $s === 'selesai' => ['bg-emerald-50 text-emerald-700', 'SELESAI FINAL'],
+                                    $s === 'selesai oleh teknisi' => ['bg-cyan-50 text-cyan-700', 'SELESAI OLEH TEKNISI'],
+                                    $s === 'dikonfirmasi admin' => ['bg-cyan-50 text-cyan-700', 'DIKONFIRMASI'],
                                     $s === 'ditolak' => ['bg-red-50 text-red-700', 'DITOLAK'],
                                     default => ['bg-gray-50 text-gray-700', strtoupper($s)],
                                 };
@@ -267,32 +271,33 @@
                                 </td>
                                 <td class="px-8 py-5">
                                     <div class="flex items-center gap-2 flex-wrap">
-                                        <span class="inline-flex px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-[10px] font-black uppercase tracking-widest">Pesanan Produk</span>
                                         <span class="inline-flex px-3 py-1 rounded-full {{ $isOffline ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-600' }} text-[10px] font-black uppercase tracking-widest">{{ $isOffline ? 'Offline' : 'Online' }}</span>
                                     </div>
                                     <p class="mt-2 text-sm font-black text-gray-900 max-w-[220px] leading-6">{{ $firstProdukNama }}</p>
                                     <p class="mt-1 text-xs font-semibold text-gray-500">{{ $itemCount }} item - {{ $unitCount }} unit</p>
                                 </td>
-                                <td class="px-8 py-5">
-                                    <p class="text-sm font-black text-gray-900 leading-none">Rp</p>
-                                    <p class="mt-2 text-[1.75rem] font-black text-gray-900 leading-none">{{ number_format((float) $pricingSummary['totalPembayaran'], 0, ',', '.') }}</p>
+                                <td class="px-8 py-5 whitespace-nowrap">
+                                    <span class="text-sm font-semibold text-gray-900">Rp {{ number_format((float) $pricingSummary['totalPembayaran'], 0, ',', '.') }}</span>
                                 </td>
                                 <td class="px-8 py-5">
                                     <span class="inline-flex px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest {{ $statusBadge[0] }}">
                                         {{ $statusBadge[1] }}
                                     </span>
-                                    <p class="mt-2 text-[10px] font-bold {{ $pesanan->isPaymentConfirmed() ? 'text-emerald-600' : 'text-gray-400' }}">
-                                        {{ $pesanan->isPaymentConfirmed() ? 'Lunas' : 'Belum Bayar' }}
-                                    </p>
+                                    
                                 </td>
                                 <td class="px-8 py-5 text-right">
                                     <div class="flex flex-wrap items-center justify-end gap-2">
-                                        @if(!empty($pesanan->bukti_pembayaran))
-                                            <button type="button" onclick='openPesananProofModal(@js(asset("storage/" . ltrim($pesanan->bukti_pembayaran, "/"))), @js("Bukti TF - " . $pesanan->transactionDisplayName()))' class="{{ $actionButtonProof }}">
-                                                Bukti TF
-                                            </button>
-                                        @else
-                                            <button type="button" disabled class="{{ $actionButtonDisabled }}">
+                                        @if(!$isOffline)
+                                            <button
+                                                type="button"
+                                                onclick="openPesananProofModal(@js(!empty($pesanan->bukti_pembayaran) ? '/storage/' . ltrim($pesanan->bukti_pembayaran, '/') : null), @js([
+                                                    "customer" => $pesanan->pelanggan?->nama ?? "-",
+                                                    "date" => $pesanan->displayTransactionDateTime(),
+                                                    "type" => "Pesanan",
+                                                ]))"
+                                                class="{{ $actionButtonProof }}"
+                                                style="{{ $actionButtonProofStyle }}"
+                                            >
                                                 Bukti TF
                                             </button>
                                         @endif
@@ -302,10 +307,10 @@
                                         <a href="{{ route('invoice.show', $pesanan) }}" class="{{ $actionButtonPrimary }}" title="Lihat Invoice">
                                             Lihat Invoice
                                         </a>
-                                        <form action="{{ route('admin.pesanan.destroy', $pesanan) }}" method="POST" class="inline">
+                                        <form action="{{ route('admin.pesanan.destroy', $pesanan) }}" method="POST" class="inline" data-confirm="Yakin ingin menghapus riwayat pesanan ini?" data-confirm-title="Konfirmasi Hapus" data-confirm-button="Ya, Hapus">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" onclick="return confirm('Yakin ingin menghapus riwayat pesanan ini?')" class="{{ $actionButtonDanger }}" title="Hapus">Hapus</button>
+                                            <button type="submit" class="{{ $actionButtonDanger }}" title="Hapus">Hapus</button>
                                         </form>
                                     </div>
                                 </td>
@@ -319,22 +324,6 @@
                 </table>
             </div>
         </div>
-
-        {{-- FLASH TOAST --}}
-        @if(session('success'))
-            <div x-data="{show:true}" x-show="show" x-init="setTimeout(()=>show=false,4500)"
-                class="fixed bottom-6 right-6 z-[200] px-6 py-4 bg-emerald-600 text-white font-bold rounded-2xl shadow-2xl flex items-center gap-3 text-sm">
-                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                {{ session('success') }}
-            </div>
-        @endif
-        @if(session('error'))
-            <div x-data="{show:true}" x-show="show" x-init="setTimeout(()=>show=false,5000)"
-                class="fixed bottom-6 right-6 z-[200] px-6 py-4 bg-red-600 text-white font-bold rounded-2xl shadow-2xl flex items-center gap-3 text-sm">
-                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                {{ session('error') }}
-            </div>
-        @endif
 
         {{-- MODAL DETAIL PESANAN --}}
         <div id="pesanan-detail-modal" class="hidden fixed inset-0 z-[150] flex items-center justify-center p-4">
@@ -358,7 +347,7 @@
             <div class="relative z-10 w-full max-w-4xl overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-2xl">
                 <div class="flex items-center justify-between border-b border-gray-100 px-6 py-5">
                     <div>
-                        <h3 class="text-lg font-black text-gray-900" id="pesanan-proof-title">Bukti TF</h3>
+                        <h3 class="text-lg font-black text-gray-900" id="pesanan-proof-title">Bukti Transfer</h3>
                         <p class="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">Preview bukti pembayaran pelanggan</p>
                     </div>
                     <button type="button" onclick="closePesananProofModal()" class="rounded-xl bg-gray-50 p-2 text-gray-400 transition hover:text-red-600">
@@ -413,22 +402,30 @@
                                         <span class="w-7 h-7 rounded-lg bg-red-50 text-red-700 font-black text-sm flex items-center justify-center shrink-0">1</span>
                                         <h4 class="font-black text-gray-900 uppercase tracking-wider text-xs">Data Pelanggan</h4>
                                     </div>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label for="new_pelanggan_nama" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Nama Pelanggan <span class="text-red-500">*</span></label>
-                                            <input type="text" name="new_pelanggan_nama" id="new_pelanggan_nama" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900" placeholder="Contoh: Budi Santoso" value="{{ old('new_pelanggan_nama') }}">
-                                            <x-input-error :messages="$errors->get('new_pelanggan_nama')" class="mt-2" />
-                                        </div>
-                                        <div>
-                                            <label for="new_pelanggan_no_wa" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Nomor Telepon <span class="text-red-500">*</span></label>
-                                            <input type="text" name="new_pelanggan_no_wa" id="new_pelanggan_no_wa" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900" placeholder="081234567890" value="{{ old('new_pelanggan_no_wa') }}">
-                                            <p class="text-[9px] font-semibold text-gray-400 mt-1.5">Jika nomor sudah terdaftar, data pelanggan akan otomatis terhubung.</p>
-                                            <x-input-error :messages="$errors->get('new_pelanggan_no_wa')" class="mt-2" />
-                                        </div>
+                                    <div class="space-y-4">
+                                        <label for="pelanggan_id" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Pilih Pelanggan <span class="text-red-500">*</span></label>
+                                        <select name="pelanggan_id" id="pelanggan_id" required x-model="selectedPelangganId" @change="syncPelangganProfile" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 text-sm">
+                                            <option value="">-- Pilih Pelanggan Terdaftar --</option>
+                                            @foreach($pelanggans as $pelanggan)
+                                                <option value="{{ $pelanggan->id }}">{{ $pelanggan->nama }} ({{ $pelanggan->no_wa }})</option>
+                                            @endforeach
+                                        </select>
+                                        <x-input-error :messages="$errors->get('pelanggan_id')" class="mt-2" />
                                     </div>
-                                    <div>
-                                        <label for="new_pelanggan_alamat" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Alamat <span class="text-gray-300">(Opsional)</span></label>
-                                        <input type="text" name="new_pelanggan_alamat" id="new_pelanggan_alamat" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900" placeholder="Jl. Contoh No.10, Kota" value="{{ old('new_pelanggan_alamat') }}">
+
+                                    <div x-show="selectedPelangganId" x-cloak class="mt-4 rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 p-5 space-y-3">
+                                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-200/50 pb-2">Profil Pelanggan</p>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                            <div>
+                                                <p class="font-bold text-gray-500 text-xs mb-1">WhatsApp</p>
+                                                <p class="font-black text-gray-900" x-text="selectedPelangganInfo.no_wa || '-'"></p>
+                                            </div>
+
+                                            <div class="md:col-span-2">
+                                                <p class="font-bold text-gray-500 text-xs mb-1">Alamat Lengkap</p>
+                                                <p class="font-bold text-gray-900 leading-relaxed" x-text="selectedPelangganInfo.alamat_lengkap || '-'"></p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -587,20 +584,27 @@
 
     @once
         <script>
-            function pesananForm(catalog, oldItems, initialPelangganId, initialOpen, initialForm) {
+            function pesananForm(catalog, oldItems, initialPelangganId, initialOpen, initialForm, pelanggansData) {
                 return {
                     search: '',
                     viewMode: 'all',
                     openModal: initialOpen,
                     catalog: catalog,
+                    pelanggansData: pelanggansData || [],
                     selectedPelangganId: initialPelangganId ? String(initialPelangganId) : '',
+                    selectedPelangganInfo: {},
                     rows: [],
                     grandTotal: 0,
                     totalUnit: 0,
                     init() {
                         this.rows = (oldItems.length ? oldItems : [{}]).map((item, index) => this.makeRow(item, index));
                         this.rows.forEach((row, index) => this.syncRow(index, true));
+                        if (this.selectedPelangganId) this.syncPelangganProfile();
                         this.syncTotals();
+                    },
+                    syncPelangganProfile() {
+                        const info = this.pelanggansData.find(p => p.id === this.selectedPelangganId);
+                        this.selectedPelangganInfo = info || {};
                     },
                     makeRow(item, index) {
                         const variant = this.findProductVariant(item.produk_id);
@@ -808,16 +812,44 @@
                 document.getElementById('pesanan-detail-modal').classList.add('hidden');
             }
 
-            function openPesananProofModal(url, title) {
+            function openPesananProofModal(url, meta = {}) {
                 const modal = document.getElementById('pesanan-proof-modal');
                 const body = document.getElementById('pesanan-proof-body');
                 const heading = document.getElementById('pesanan-proof-title');
                 const isPdf = /\.pdf($|\?)/i.test(String(url || ''));
+                const infoHtml = `
+                    <div class="rounded-2xl border border-gray-100 bg-gray-50 px-5 py-4">
+                        <h4 class="text-sm font-black text-gray-900">Bukti Transfer</h4>
+                        <div class="mt-3 grid gap-3 sm:grid-cols-3">
+                            <div>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Pelanggan</p>
+                                <p class="mt-1 text-sm font-semibold text-gray-900">${meta.customer || '-'}</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Tanggal Transaksi</p>
+                                <p class="mt-1 text-sm font-semibold text-gray-900">${meta.date || '-'}</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Jenis Transaksi</p>
+                                <p class="mt-1 text-sm font-semibold text-gray-900">${meta.type || 'Pesanan'}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
 
-                heading.textContent = title || 'Bukti TF';
-                body.innerHTML = isPdf
-                    ? `<iframe src="${url}" class="h-[70vh] w-full rounded-2xl border border-gray-200 bg-white" title="Preview bukti pembayaran"></iframe>`
-                    : `<img src="${url}" alt="Preview bukti pembayaran" class="mx-auto max-h-[70vh] rounded-2xl border border-gray-200 bg-white object-contain">`;
+                heading.textContent = 'Bukti Transfer';
+                if (!url) {
+                    body.innerHTML = `${infoHtml}
+                        <div class="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-700">
+                            Bukti transfer belum tersedia atau file tidak ditemukan.
+                        </div>`;
+                } else {
+                    body.innerHTML = `${infoHtml}
+                        ${isPdf
+                            ? `<iframe src="${url}" class="h-[70vh] w-full rounded-2xl border border-gray-200 bg-white" title="Preview bukti pembayaran"></iframe>`
+                            : `<img src="${url}" alt="Preview bukti pembayaran" class="mx-auto max-h-[70vh] rounded-2xl border border-gray-200 bg-white object-contain">`
+                        }`;
+                }
 
                 modal.classList.remove('hidden');
             }

@@ -33,10 +33,10 @@
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Rp {{ number_format($d->harga ?? 0, 0, ',', '.') }}/{{ $d->satuan ?? 'kg' }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                         <a href="{{ route('admin.jenis-refill.edit', $d) }}" class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</a>
-                                        <form action="{{ route('admin.jenis-refill.destroy', $d) }}" method="POST" class="inline">
+                                        <form action="{{ route('admin.jenis-refill.destroy', $d) }}" method="POST" class="inline" data-confirm="Yakin ingin menghapus jenis refill ini?" data-confirm-title="Konfirmasi Hapus" data-confirm-button="Ya, Hapus">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="text-red-600 hover:text-red-900" onclick="return confirm('Yakin?')">Hapus</button>
+                                            <button type="submit" class="text-red-600 hover:text-red-900">Hapus</button>
                                         </form>
                                     </td>
                                 </tr>

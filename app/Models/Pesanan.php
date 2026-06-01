@@ -174,9 +174,12 @@ class Pesanan extends Model
 
     public function reduceStock()
     {
-        if ($this->stok_dikurangi || $this->tipe !== 'produk') {
+        if ($this->stok_dikurangi || $this->tipe !== 'produk' || (string) $this->status !== self::STATUS_SELESAI_FINAL) {
             return;
         }
+
+        $this->loadMissing(['details.produk', 'pelanggan']);
+        $namaPelanggan = (string) ($this->pelanggan?->nama ?: 'Pelanggan tidak diketahui');
 
         foreach ($this->details as $detail) {
             if ($detail->produk) {
@@ -219,8 +222,8 @@ class Pesanan extends Model
                     stokSebelum: $stokSebelum,
                     stokSesudah: (float) $produk->fresh('stokBatches')->stok_tersedia,
                     reference: $this,
-                    keterangan: 'Penjualan produk untuk pesanan #' . $this->id,
-                    tanggal: $this->tanggal ?? now(),
+                    keterangan: 'Pesanan Produk - ' . $namaPelanggan,
+                    tanggal: now(),
                 );
             }
         }
@@ -255,6 +258,35 @@ class Pesanan extends Model
         return $this->tanggal?->copy()
             ->timezone(config('app.timezone'))
             ->startOfDay();
+    }
+
+    public function technicianTaskAt(): ?\Illuminate\Support\Carbon
+    {
+        $assignedAt = $this->getAttribute('assigned_at');
+        if ($assignedAt instanceof \Illuminate\Support\Carbon) {
+            return $assignedAt->copy()->timezone(config('app.timezone'));
+        }
+
+        if (!empty($assignedAt)) {
+            return \Illuminate\Support\Carbon::parse($assignedAt)->timezone(config('app.timezone'));
+        }
+
+        if ($this->created_at) {
+            return $this->created_at->copy()->timezone(config('app.timezone'));
+        }
+
+        if ($this->updated_at) {
+            return $this->updated_at->copy()->timezone(config('app.timezone'));
+        }
+
+        return $this->tanggal?->copy()
+            ->timezone(config('app.timezone'))
+            ->startOfDay();
+    }
+
+    public function technicianTaskDateTime(string $format = 'd M Y, H:i'): string
+    {
+        return $this->technicianTaskAt()?->format($format) ?? '-';
     }
 
     public function displayTransactionDateTime(string $format = 'd M Y, H:i'): string
@@ -301,7 +333,22 @@ class Pesanan extends Model
 
     public function isCompleted(): bool
     {
-        return in_array((string) $this->status, [self::STATUS_SELESAI, self::STATUS_SELESAI_FINAL], true);
+        return in_array((string) $this->status, [
+            self::STATUS_SELESAI,
+            self::STATUS_SELESAI_FINAL,
+            self::STATUS_SELESAI_OLEH_TEKNISI,
+            self::STATUS_DIKONFIRMASI_ADMIN,
+        ], true);
+    }
+
+    public function isFinalCompleted(): bool
+    {
+        return $this->isCompleted();
+    }
+
+    public function canGiveReview(): bool
+    {
+        return $this->isCompleted() && !$this->getAttribute('linkedTestimoni');
     }
 
     public function trackingTypeLabel(): string
@@ -495,10 +542,10 @@ class Pesanan extends Model
                 self::STATUS_MENUNGGU_KEDATANGAN_UNIT => 'Menunggu Diproses',
                 self::STATUS_DITUGASKAN_KE_TEKNISI => 'Ditugaskan ke Teknisi',
                 self::STATUS_DIKERJAKAN_TEKNISI => 'Sedang Dikerjakan',
-                self::STATUS_SELESAI_OLEH_TEKNISI => 'Selesai oleh Teknisi',
+                self::STATUS_SELESAI_OLEH_TEKNISI => 'Selesai Final',
                 self::STATUS_DIKONFIRMASI_ADMIN,
                 self::STATUS_SELESAI,
-                self::STATUS_SELESAI_FINAL => 'Selesai',
+                self::STATUS_SELESAI_FINAL => 'Selesai Final',
                 default => 'Menunggu Diproses',
             };
         }
@@ -517,7 +564,9 @@ class Pesanan extends Model
             return match ($status) {
                 self::STATUS_DIPROSES => 'Sedang Pengiriman',
                 self::STATUS_SELESAI,
-                self::STATUS_SELESAI_FINAL => 'Selesai',
+                self::STATUS_SELESAI_FINAL,
+                self::STATUS_SELESAI_OLEH_TEKNISI,
+                self::STATUS_DIKONFIRMASI_ADMIN => 'Selesai Final',
                 default => ucwords($status),
             };
         }
@@ -525,7 +574,9 @@ class Pesanan extends Model
         return match ($status) {
             self::STATUS_DIPROSES => 'Siap Diambil',
             self::STATUS_SELESAI,
-            self::STATUS_SELESAI_FINAL => 'Selesai',
+            self::STATUS_SELESAI_FINAL,
+            self::STATUS_SELESAI_OLEH_TEKNISI,
+            self::STATUS_DIKONFIRMASI_ADMIN => 'Selesai Final',
             default => ucwords($status),
         };
     }
@@ -538,8 +589,7 @@ class Pesanan extends Model
             'Menunggu Pembayaran', 'Menunggu Verifikasi Pembayaran' => 'bg-amber-100 text-amber-800 border border-amber-200',
             'Menunggu Diproses', 'Ditugaskan ke Teknisi' => 'bg-blue-100 text-blue-800 border border-blue-200',
             'Sedang Dikerjakan' => 'bg-indigo-100 text-indigo-800 border border-indigo-200',
-            'Selesai oleh Teknisi' => 'bg-purple-100 text-purple-800 border border-purple-200',
-            'Siap Diambil', 'Selesai' => 'bg-emerald-100 text-emerald-800 border border-emerald-200',
+            'Selesai Final', 'Selesai' => 'bg-emerald-100 text-emerald-800 border border-emerald-200',
             'Ditolak' => 'bg-red-100 text-red-800 border border-red-200',
             default => 'bg-slate-100 text-slate-700 border border-slate-200',
         };
@@ -557,15 +607,9 @@ class Pesanan extends Model
             return 1;
         }
 
-        if (in_array($status, [self::STATUS_SELESAI, self::STATUS_SELESAI_FINAL])) {
+        // All these statuses mean the order is complete/final
+        if (in_array($status, [self::STATUS_SELESAI, self::STATUS_SELESAI_FINAL, self::STATUS_SELESAI_OLEH_TEKNISI, self::STATUS_DIKONFIRMASI_ADMIN])) {
             return $this->tipe === 'service' ? 7 : 6;
-        }
-
-        if (in_array($status, [self::STATUS_DIKONFIRMASI_ADMIN, self::STATUS_SELESAI_OLEH_TEKNISI])) {
-            if ($this->tipe === 'service') {
-                return $this->service_metode_penanganan === 'antar sendiri' ? 6 : 6;
-            }
-            return $this->metode_pengiriman === 'diantar_internal' ? 4 : 5;
         }
 
         if ($status === self::STATUS_DIKERJAKAN_TEKNISI) {

@@ -52,27 +52,6 @@
                 </div>
             </div>
 
-            {{-- Dynamic Alert Notifications --}}
-            @if(session('success'))
-                <div class="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 flex items-center gap-3 animate-fade-in">
-                    <svg class="w-5 h-5 flex-shrink-0 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    {{ session('success') }}
-                </div>
-            @endif
-
-            @if(session('error'))
-                <div class="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800 flex items-center gap-3 animate-fade-in">
-                    <svg class="w-5 h-5 flex-shrink-0 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    {{ session('error') }}
-                </div>
-            @endif
-
-            {{-- Inline AJAX Error feedback --}}
-            <div id="ajax-error-container" class="hidden mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3.5 text-sm font-semibold text-red-800 flex items-center gap-3 animate-fade-in">
-                <svg class="w-5 h-5 flex-shrink-0 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                <span id="ajax-error-text"></span>
-            </div>
-
             @if($keranjangs->isEmpty())
                 <div class="cart-card mt-8 px-8 py-16 text-center border border-slate-200">
                     <div class="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -93,8 +72,8 @@
                                 {{-- Left Group: Thumbnail and details --}}
                                 <div class="flex items-center gap-4 w-full sm:flex-1 min-w-0">
                                     <div class="cart-thumb">
-                                        @if($item->produk->gambar)
-                                            <img src="{{ asset('storage/' . $item->produk->gambar) }}" alt="{{ $item->produk->nama }}">
+                                        @if($item->produk->resolved_image_url)
+                                            <img src="{{ $item->produk->resolved_image_url }}" alt="{{ $item->produk->nama }}">
                                         @else
                                             <div class="flex h-full w-full items-center justify-center text-slate-300">
                                                 <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
@@ -130,7 +109,7 @@
                                             <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Subtotal</p>
                                             <p class="text-base font-black text-red-600 mt-1 item-subtotal" id="subtotal-val-{{ $item->id }}">Rp {{ number_format($item->harga * $item->qty, 0, ',', '.') }}</p>
                                         </div>
-                                        <form action="{{ route('keranjang.destroy', $item->id) }}" method="POST" onsubmit="return confirm('Hapus item ini dari keranjang?')">
+                                        <form action="{{ route('keranjang.destroy', $item->id) }}" method="POST" data-confirm="Hapus item ini dari keranjang?" data-confirm-title="Konfirmasi Hapus" data-confirm-button="Ya, Hapus">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="qty-btn text-red-600 hover:bg-red-50 flex items-center justify-center" title="Hapus Item">
@@ -202,23 +181,12 @@
         document.addEventListener('DOMContentLoaded', function() {
             const csrfToken = '{{ csrf_token() }}';
             const updateUrlPattern = "{{ route('keranjang.update', ':id') }}";
-            const errorAlertContainer = document.getElementById('ajax-error-container');
-            const errorAlertText = document.getElementById('ajax-error-text');
-
             function showError(message) {
-                if (errorAlertContainer && errorAlertText) {
-                    errorAlertText.textContent = message;
-                    errorAlertContainer.classList.remove('hidden');
-                    errorAlertContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                } else {
-                    alert(message);
-                }
+                showAppAlert(message, 'error', 'Gagal');
             }
 
             function hideError() {
-                if (errorAlertContainer) {
-                    errorAlertContainer.classList.add('hidden');
-                }
+                return true;
             }
 
             async function updateQty(itemId, newQty, btnElement) {

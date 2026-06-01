@@ -86,6 +86,32 @@
             border-radius: 1.5rem;
         }
     }
+
+    /* Sticky action column for pelanggan table */
+    .sticky-action-col {
+        position: sticky;
+        right: 0;
+        z-index: 20;
+        background-color: rgba(248, 250, 252, 0.97);
+        backdrop-filter: blur(8px);
+        border-left: 1px solid rgba(229, 231, 235, 0.5);
+        box-shadow: -12px 0 15px -3px rgba(0, 0, 0, 0.04);
+    }
+
+    .sticky-action-cell {
+        position: sticky;
+        right: 0;
+        z-index: 10;
+        background-color: rgba(255, 255, 255, 0.97);
+        backdrop-filter: blur(8px);
+        border-left: 1px solid rgba(243, 244, 246, 0.5);
+        box-shadow: -12px 0 15px -3px rgba(0, 0, 0, 0.04);
+        transition: background-color 160ms ease;
+    }
+
+    tr:hover .sticky-action-cell {
+        background-color: rgba(254, 242, 242, 0.95);
+    }
 }
 
 @layer utilities {
@@ -239,13 +265,24 @@
     color: rgb(var(--ta-brand)) !important;
 }
 
-/* Admin specific background overrides */
+/* Admin specific background overrides - Premium Safety Red */
 .tailadmin-admin .bg-red-700 {
-    background-color: rgb(var(--ta-brand)) !important;
+    background-color: #dc2626 !important; /* Pure Red-600 */
 }
 
 .tailadmin-admin .hover\:bg-red-800:hover {
-    background-color: #3641f5 !important;
+    background-color: #b91c1c !important; /* Darker Red-700 on hover */
+}
+
+/* Admin primary button - keeps brand blue color for buttons that need blue */
+.tailadmin-admin .btn-admin-primary {
+    background-color: rgb(70 95 255) !important;
+    border-color: rgb(70 95 255) !important;
+}
+
+.tailadmin-admin .btn-admin-primary:hover {
+    background-color: #5a6ee0 !important;
+    border-color: #5a6ee0 !important;
 }
 
 /* Public specific background overrides - Premium Safety Red */
@@ -260,7 +297,7 @@
 .tailadmin-admin .shadow-red-700\/20,
 .tailadmin-admin .shadow-red-700\/30,
 .tailadmin-admin .shadow-red-700\/35 {
-    --tw-shadow-color: rgba(70, 95, 255, 0.18) !important;
+    --tw-shadow-color: rgba(220, 38, 38, 0.18) !important;
 }
 
 .tailadmin-public .shadow-red-700\/20,

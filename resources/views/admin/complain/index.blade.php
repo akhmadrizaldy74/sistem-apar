@@ -46,27 +46,6 @@
                             $relatedPesanan = $complain->relatedPesanan();
                             $relatedService = $complain->relatedService();
                             $relatedRefill = $complain->relatedRefill();
-                            $transactionLink = null;
-                            $transactionClass = 'text-gray-700';
-
-                            if ($relatedType === 'pesanan' && $relatedPesanan) {
-                                $transactionLink = route('admin.pesanan.show', $relatedPesanan);
-                                $transactionClass = 'text-blue-600';
-                            } elseif ($relatedType === 'service') {
-                                if ($relatedService) {
-                                    $transactionLink = route('admin.service.show', $relatedService);
-                                } elseif ($relatedPesanan) {
-                                    $transactionLink = route('admin.pesanan.show', $relatedPesanan);
-                                }
-                                $transactionClass = 'text-violet-600';
-                            } elseif ($relatedType === 'refill') {
-                                if ($relatedRefill) {
-                                    $transactionLink = route('admin.refill.show', $relatedRefill);
-                                } elseif ($relatedPesanan) {
-                                    $transactionLink = route('admin.pesanan.show', $relatedPesanan);
-                                }
-                                $transactionClass = 'text-emerald-600';
-                            }
 
                             $statusClass = match($complain->status_penyelesaian) {
                                 'menunggu' => 'bg-red-50 text-red-700',
@@ -89,17 +68,10 @@
                                 <p class="mt-1 text-[10px] font-semibold text-gray-400">Follow up utama dilakukan lewat WhatsApp.</p>
                             </td>
                             <td class="px-8 py-5">
-                                @if($transactionLink)
-                                    <a href="{{ $transactionLink }}" class="block hover:underline {{ $transactionClass }}">
-                                        <p class="text-sm font-black">{{ $complain->relatedTransactionLabel() }}</p>
-                                        <p class="mt-1 text-xs font-semibold text-gray-500">{{ $complain->relatedTransactionDateTime() }}</p>
-                                    </a>
-                                @else
-                                    <div class="block">
-                                        <p class="text-sm font-black text-gray-700">{{ $complain->relatedTransactionLabel() }}</p>
-                                        <p class="mt-1 text-xs font-semibold text-gray-500">{{ $complain->relatedTransactionDateTime() }}</p>
-                                    </div>
-                                @endif
+                                <div class="block">
+                                    <p class="text-sm font-black text-gray-700">{{ $complain->relatedTransactionLabel() }}</p>
+                                    <p class="mt-1 text-xs font-semibold text-gray-500">{{ $complain->relatedTransactionDateTime() }}</p>
+                                </div>
                             </td>
                             <td class="px-8 py-5">
                                 <p class="max-w-xs text-sm text-gray-600 line-clamp-2">{{ $complain->isi_complain }}</p>
@@ -130,7 +102,7 @@
                                             Proses & Chat
                                         </button>
                                     @endif
-                                    <form action="{{ route('admin.complain.destroy', $complain) }}" method="POST" onsubmit="return confirm('Hapus komplain ini?')">
+                                    <form action="{{ route('admin.complain.destroy', $complain) }}" method="POST" data-confirm="Hapus komplain ini?" data-confirm-title="Konfirmasi Hapus" data-confirm-button="Ya, Hapus">
                                         @csrf
                                         @method('DELETE')
                                         <button class="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 shadow-sm transition hover:bg-red-100">
@@ -207,7 +179,7 @@
                 paintStatus(select, status);
             } catch (error) {
                 select.value = previousStatus;
-                alert(error.message);
+                showAppAlert(error.message, 'error', 'Gagal');
             } finally {
                 select.disabled = false;
             }
@@ -227,7 +199,7 @@
                 window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
             } catch (error) {
                 select.value = previousStatus;
-                alert(error.message);
+                showAppAlert(error.message, 'error', 'Gagal');
             } finally {
                 button.disabled = false;
                 select.disabled = false;

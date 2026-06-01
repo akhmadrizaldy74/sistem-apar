@@ -65,7 +65,7 @@
                             <label for="kapasitas" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Kapasitas</label>
                             <input type="text" name="kapasitas" id="kapasitas" value="{{ old('kapasitas', $produk->kapasitas) }}" required
                                 class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 placeholder:text-gray-300 transition"
-                                placeholder="Contoh: 3 kg / 6 Liter">
+                                placeholder="Contoh: 3 kg / 6 kg">
                             <x-input-error :messages="$errors->get('kapasitas')" class="mt-2" />
                         </div>
                     </div>
@@ -76,11 +76,11 @@
                             <div class="relative group">
                                 <input type="file" name="gambar" id="gambar" accept="image/*" class="hidden">
                                 <label for="gambar" class="cursor-pointer flex flex-col items-center justify-center w-full h-44 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 group-hover:border-red-600/30 transition-all overflow-hidden relative">
-                                    <div class="flex flex-col items-center text-gray-400 {{ $produk->gambar ? 'hidden' : '' }} group-hover:text-red-600 transition" id="upload-placeholder">
+                                    <div class="flex flex-col items-center text-gray-400 {{ $produk->resolved_image_url ? 'hidden' : '' }} group-hover:text-red-600 transition" id="upload-placeholder">
                                         <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                         <span class="text-xs font-black uppercase tracking-widest">Ganti Foto</span>
                                     </div>
-                                    <img id="preview" src="{{ $produk->gambar ? asset('storage/' . $produk->gambar) : '' }}" class="absolute inset-0 w-full h-full object-cover {{ $produk->gambar ? '' : 'hidden' }}">
+                                    <img id="preview" src="{{ $produk->resolved_image_url ?? '' }}" class="absolute inset-0 w-full h-full object-cover {{ $produk->resolved_image_url ? '' : 'hidden' }}">
                                 </label>
                             </div>
                             <x-input-error :messages="$errors->get('gambar')" class="mt-2" />

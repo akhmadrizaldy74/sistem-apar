@@ -183,9 +183,33 @@ class ServicePackagePricingService
         $paket->loadMissing('peralatans');
 
         $qtyMultiplier = max(1, $qtyMultiplier);
-        $tierIndex = $this->packageTierIndex($paket);
         $explicitPivotMap = $paket->peralatans
             ->keyBy(fn ($peralatan) => (int) $peralatan->id);
+
+        if ($explicitPivotMap->isNotEmpty()) {
+            return $explicitPivotMap
+                ->map(function (Peralatan $peralatan) use ($qtyMultiplier) {
+                    $jumlahPerUnit = max(1, (int) ($peralatan->pivot->jumlah_estimasi ?? 1));
+
+                    return [
+                        'peralatan_id' => (int) $peralatan->id,
+                        'nama' => (string) $peralatan->nama,
+                        'jumlah_per_unit' => $jumlahPerUnit,
+                        'jumlah' => $jumlahPerUnit * $qtyMultiplier,
+                        'stok' => (float) ($peralatan->stok ?? 0),
+                        'stok_minimum' => (float) ($peralatan->stok_minimum ?? 0),
+                        'harga_standar' => (float) ($peralatan->harga_standar ?? 0),
+                    ];
+                })
+                ->values()
+                ->all();
+        }
+
+        if (! $paket->isLegacyTemplate()) {
+            return [];
+        }
+
+        $tierIndex = $this->packageTierIndex($paket);
 
         return Peralatan::query()
             ->orderBy('nama')

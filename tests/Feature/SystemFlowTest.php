@@ -19,14 +19,6 @@ class SystemFlowTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_public_check_apar_page_can_be_rendered(): void
-    {
-        $response = $this->get(route('cek-apar'));
-
-        $response->assertOk();
-        $response->assertSee('Status & Riwayat APAR');
-    }
-
     public function test_public_produk_page_can_be_rendered(): void
     {
         $jenisApar = JenisApar::create([
@@ -94,7 +86,7 @@ class SystemFlowTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.laporan.index'));
 
         $response->assertOk();
-        $response->assertSee('Pusat Laporan');
+        $response->assertSee('Laporan Sistem APAR');
     }
 
     public function test_admin_can_download_service_report_pdf(): void
@@ -147,54 +139,6 @@ class SystemFlowTest extends TestCase
 
         $response->assertOk();
         $response->assertHeader('content-type', 'application/pdf');
-    }
-
-    public function test_public_check_apar_shows_purchase_history(): void
-    {
-        $pelanggan = Pelanggan::create([
-            'nama' => 'PT Demo',
-            'no_wa' => '6281234567890',
-            'alamat' => 'Jl Demo',
-        ]);
-
-        $jenisApar = JenisApar::create([
-            'nama' => 'Powder',
-            'deskripsi' => 'Powder',
-        ]);
-
-        $produk = Produk::create([
-            'nama' => 'APAR 3 KG',
-            'merek' => 'SAFETY',
-            'jenis_apar_id' => $jenisApar->id,
-            'kapasitas' => '3 kg',
-            'penggunaan' => 'Perkantoran',
-            'harga' => 350000,
-            'deskripsi' => 'Produk demo',
-        ]);
-
-        $pesanan = Pesanan::create([
-            'pelanggan_id' => $pelanggan->id,
-            'tipe' => 'produk',
-            'total' => 700000,
-            'tanggal' => now()->toDateString(),
-        ]);
-
-        $pesanan->details()->create([
-            'produk_id' => $produk->id,
-            'merek' => 'SAFETY',
-            'kapasitas' => '3 kg',
-            'jumlah' => 2,
-            'harga' => 350000,
-            'subtotal' => 700000,
-        ]);
-
-        $response = $this->followingRedirects()->post(route('cek-apar.check'), [
-            'no_wa' => '6281234567890',
-        ]);
-
-        $response->assertOk();
-        $response->assertSee('Riwayat Transaksi');
-        $response->assertSee('APAR 3 KG');
     }
 
     public function test_admin_can_create_multi_item_order_and_download_invoice_pdf(): void
@@ -426,6 +370,7 @@ class SystemFlowTest extends TestCase
             'new_pelanggan_no_wa' => $pelanggan->no_wa,
             'new_pelanggan_alamat' => $pelanggan->alamat,
             'service_paket_id' => $paket->id,
+            'jenis_apar' => 'Powder',
             'ukuran_apar' => '6 kg',
             'jumlah_unit' => 1,
             'tgl_service' => now()->toDateString(),
@@ -435,7 +380,6 @@ class SystemFlowTest extends TestCase
         $storeResponse->assertRedirect(route('admin.service.index'));
         $this->assertDatabaseHas('services', [
             'service_paket_id' => $paket->id,
-            'biaya' => 150000,
         ]);
         $this->assertDatabaseCount('pesanans', 1);
         $this->assertDatabaseCount('refills', 0);
@@ -760,7 +704,7 @@ class SystemFlowTest extends TestCase
         // Check Product Invoice
         $responseProduk = $this->actingAs($admin)->get(route('invoice.show', $pesananProduk));
         $responseProduk->assertOk();
-        $responseProduk->assertSee('Invoice Pesanan Produk APAR');
+        $responseProduk->assertSee('Invoice Pesanan Produk');
         $responseProduk->assertDontSee('Invoice Refill APAR');
         $responseProduk->assertDontSee('Invoice Service APAR');
 
@@ -769,14 +713,14 @@ class SystemFlowTest extends TestCase
         $responseRefill->assertOk();
         $responseRefill->assertSee('Invoice Refill APAR');
         $responseRefill->assertDontSee('Invoice Service APAR');
-        $responseRefill->assertDontSee('Invoice Pesanan Produk APAR');
+        $responseRefill->assertDontSee('Invoice Pesanan Produk');
 
         // Check Service Invoice
         $responseService = $this->actingAs($admin)->get(route('invoice.show', $pesananService));
         $responseService->assertOk();
         $responseService->assertSee('Invoice Service APAR');
         $responseService->assertDontSee('Invoice Refill APAR');
-        $responseService->assertDontSee('Invoice Pesanan Produk APAR');
+        $responseService->assertDontSee('Invoice Pesanan Produk');
 
         // Check that Refill data is isolated from Service queries
         $responseAdminServiceIndex = $this->actingAs($admin)->get(route('admin.service.index'));

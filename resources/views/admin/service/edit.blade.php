@@ -165,12 +165,12 @@
                     </div>
 
                     <div class="space-y-6">
-                        {{-- PAKET --}}
+                        {{-- JENIS SERVICE --}}
                         <div>
-                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Paket Service</label>
+                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Jenis Service</label>
                             <select name="service_paket_id" x-model="selectedPaketId" required
                                 class="w-full px-6 py-4 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-red-500/30 focus:border-red-400 font-bold text-gray-900 transition">
-                                <option value="">— Pilih paket service —</option>
+                                <option value="">— Pilih jenis service —</option>
                                 <template x-for="p in pakets" :key="p.id">
                                     <option :value="p.id" x-text="p.label + ' — Rp ' + Number(p.harga).toLocaleString('id-ID')"></option>
                                 </template>
@@ -178,7 +178,7 @@
                             <x-input-error :messages="$errors->get('service_paket_id')" class="mt-2" />
                         </div>
 
-                        {{-- PAKET INFO --}}
+                        {{-- INFO JENIS SERVICE --}}
                         <template x-if="selectedPaket()">
                             <div class="rounded-2xl border border-gray-200 bg-gray-50/50 overflow-hidden">
                                 <div class="px-5 py-4 bg-slate-800/80 border-b border-slate-700">
@@ -230,7 +230,7 @@
                             <span class="text-sm font-bold text-gray-900">{{ $service->unitApar?->pelanggan?->nama ?? '-' }}</span>
                         </div>
                         <div class="flex items-center justify-between gap-4">
-                            <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Paket</span>
+                            <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Jenis Service</span>
                             <span class="text-sm font-bold text-gray-900">{{ $service->servicePaket?->nama ?? $service->jenis_service }}</span>
                         </div>
                         <div class="flex items-center justify-between gap-4">
