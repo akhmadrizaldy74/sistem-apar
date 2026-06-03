@@ -5,20 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>@yield('title', config('app.name', 'Sistem APAR'))</title>
+    <title>@yield('title', config('app.name', 'PD. ANUGRAH UTAMA'))</title>
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon-apar.svg') }}">
+    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
 
     {{-- SEO Meta --}}
-    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon-apar.svg') }}" />
-    <link rel="shortcut icon" href="{{ asset('favicon-apar.svg') }}" />
-    <meta name="description" content="PD. Anugrah Utama - Sistem Monitoring APAR (Alat Pemadam Api Ringan). Penyedia layanan penjualan, isi ulang, dan service APAR terpercaya di Bogor." />
+    <meta name="description" content="PD. ANUGRAH UTAMA - Penyedia layanan penjualan, isi ulang, dan service APAR terpercaya di Bogor." />
     <meta name="keywords" content="APAR, Alat Pemadam Api Ringan, service APAR, refill APAR, monitoring APAR, fire extinguisher, PD. Anugrah Utama, Bogor" />
-    <meta property="og:title" content="PD. Anugrah Utama - Sistem Monitoring APAR" />
-    <meta property="og:description" content="Platform pencatatan dan monitoring APAR untuk operasional toko: data pelanggan, riwayat service & refill, katalog produk." />
+    <meta property="og:title" content="PD. ANUGRAH UTAMA" />
+    <meta property="og:description" content="Layanan penjualan, refill, service, dan pemantauan riwayat APAR pelanggan." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="{{ url('/') }}" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="PD. Anugrah Utama - Sistem Monitoring APAR" />
-    <meta name="twitter:description" content="Platform pencatatan dan monitoring APAR untuk operasional toko." />
+    <meta name="twitter:title" content="PD. ANUGRAH UTAMA" />
+    <meta name="twitter:description" content="Layanan penjualan, refill, service, dan pemantauan riwayat APAR pelanggan." />
 
     {{-- Fonts --}}
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -47,6 +47,90 @@
         .nav-scrolled {
             background: rgba(255, 255, 255, 0.98) !important;
             box-shadow: 0 1px 20px rgba(0,0,0,0.08) !important;
+        }
+
+        .public-nav-home {
+            background: linear-gradient(180deg, rgba(88, 12, 12, 0.96) 0%, rgba(111, 21, 21, 0.95) 100%) !important;
+            border-bottom: 1px solid rgba(254, 202, 202, 0.10) !important;
+            box-shadow: 0 10px 30px rgba(69, 10, 10, 0.16) !important;
+            backdrop-filter: blur(18px) saturate(165%);
+            -webkit-backdrop-filter: blur(18px) saturate(165%);
+        }
+
+        .public-nav-home.nav-scrolled {
+            background: linear-gradient(180deg, rgba(69, 10, 10, 0.98) 0%, rgba(103, 16, 16, 0.97) 100%) !important;
+            box-shadow: 0 16px 40px rgba(69, 10, 10, 0.24) !important;
+            border-bottom-color: rgba(254, 202, 202, 0.12) !important;
+        }
+
+        .public-nav-home .text-gray-900,
+        .public-nav-home .text-gray-700,
+        .public-nav-home .text-gray-600 {
+            color: #ffffff !important;
+        }
+
+        .public-nav-home .text-red-600 {
+            color: #fecaca !important;
+        }
+
+        .public-nav-home .border-gray-200,
+        .public-nav-home .border-gray-100,
+        .public-nav-home .ring-red-100 {
+            border-color: rgba(255, 255, 255, 0.18) !important;
+            --tw-ring-color: rgba(255, 255, 255, 0.18) !important;
+        }
+
+        .public-nav-home .hover\:bg-red-50:hover,
+        .public-nav-home .hover\:bg-gray-50:hover,
+        .public-nav-home .hover\:bg-gray-100:hover,
+        .public-nav-home a:hover,
+        .public-nav-home button:hover {
+            background-color: rgba(255, 255, 255, 0.08) !important;
+            color: #ffffff !important;
+        }
+
+        .public-nav-home .bg-white,
+        .public-nav-home .bg-white\/90 {
+            background: transparent !important;
+        }
+
+        .public-nav-home .hover\:text-red-700:hover,
+        .public-nav-home .hover\:text-red-800:hover,
+        .public-nav-home .hover\:text-gray-900:hover {
+            color: #ffffff !important;
+        }
+
+        .public-nav-home .hover\:border-red-200:hover,
+        .public-nav-home .border-red-200 {
+            border-color: rgba(254, 202, 202, 0.22) !important;
+        }
+
+        .public-nav-home .public-nav-pill {
+            background: rgba(255, 255, 255, 0.04) !important;
+            border-color: rgba(254, 202, 202, 0.18) !important;
+            color: #ffffff !important;
+        }
+
+        .public-nav-home .public-nav-pill:hover {
+            background: rgba(255, 255, 255, 0.10) !important;
+            border-color: rgba(254, 202, 202, 0.24) !important;
+        }
+
+        .public-nav-active {
+            background-color: rgba(255, 255, 255, 0.15) !important;
+            color: #ffffff !important;
+            font-weight: 800 !important;
+        }
+
+
+        .public-nav-home .public-nav-mobile {
+            background: linear-gradient(180deg, rgba(99, 18, 18, 0.96) 0%, rgba(127, 29, 29, 0.94) 100%) !important;
+            border-top-color: rgba(254, 202, 202, 0.10) !important;
+        }
+
+        .public-nav-home .public-nav-mobile a,
+        .public-nav-home .public-nav-mobile button {
+            color: #ffffff !important;
         }
 
         /* Animate on scroll */
@@ -112,13 +196,23 @@
 <body class="antialiased bg-white text-gray-900 tailadmin-public overflow-x-hidden">
     @php
         $orderEntryUrl = auth()->check() ? route('order.create') : route('login');
+        $isHomeRoute = request()->routeIs('home');
+    @endphp
+
+    @php
+        $orderEntryUrl = auth()->check() ? route('order.create') : route('login');
+        $isHomeRoute = request()->routeIs('home');
+        $isProdukRoute = request()->routeIs('produk.*') || request()->is('produk');
+        $isRiwayatRoute = request()->routeIs('riwayat-apar*') || request()->is('riwayat-apar');
+        $isKeranjangRoute = request()->routeIs('keranjang.*') || request()->is('keranjang');
+        $isProfileRoute = request()->routeIs('profile.*') || request()->is('profile');
     @endphp
 
     {{-- ============================================================ --}}
     {{-- PUBLIC NAVBAR --}}
     {{-- ============================================================ --}}
     <header id="public-nav"
-            class="fixed top-0 inset-x-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 transition-all duration-300"
+            class="fixed top-0 inset-x-0 z-50 transition-all duration-300 public-nav-home"
             x-data="{ open: false, scrolled: false }"
             @keydown.escape.window="open = false"
             x-init="window.addEventListener('scroll', () => { scrolled = window.scrollY > 20; document.getElementById('public-nav').classList.toggle('nav-scrolled', scrolled); })">
@@ -126,19 +220,15 @@
             <div class="flex items-center justify-between h-16 sm:h-18">
 
                 {{-- Brand --}}
-                <a href="{{ url('/') }}" class="flex items-center gap-3 group">
-                    <img src="{{ asset('images/logo-anugrah.png') }}" alt="Logo PD. Anugrah Utama" class="h-10 w-10 rounded-xl object-cover shadow-sm ring-1 ring-red-100 transition-transform group-hover:scale-105">
-                    <div class="min-w-0">
-                        <p class="truncate text-xs font-black tracking-tight leading-none text-gray-900 sm:text-sm">PD. ANUGRAH UTAMA</p>
-                        <p class="mt-0.5 hidden text-[9px] font-bold uppercase tracking-widest text-red-600 sm:block">Sistem APAR</p>
-                    </div>
+                <a href="{{ url('/') }}" class="flex items-center group">
+                    <span class="truncate text-sm font-black tracking-tight leading-none uppercase text-gray-900 sm:text-base">PD. ANUGRAH UTAMA</span>
                 </a>
 
                 {{-- Desktop Nav --}}
                 <nav class="hidden md:flex items-center gap-1">
-                    <a href="{{ url('/') }}" class="px-4 py-2 text-sm font-semibold text-gray-700 hover:text-red-700 rounded-xl hover:bg-red-50 transition">Beranda</a>
-                    <a href="{{ route('produk.index') }}" class="px-4 py-2 text-sm font-semibold text-gray-700 hover:text-red-700 rounded-xl hover:bg-red-50 transition">Produk</a>
-                    <a href="{{ route('riwayat-apar') }}" class="px-4 py-2 text-sm font-semibold text-gray-700 hover:text-red-700 rounded-xl hover:bg-red-50 transition">Riwayat & Status APAR</a>
+                    <a href="{{ url('/') }}" class="px-4 py-2 text-sm font-semibold text-gray-700 hover:text-red-700 rounded-xl hover:bg-red-50 transition {{ $isHomeRoute ? 'public-nav-active' : '' }}">Beranda</a>
+                    <a href="{{ route('produk.index') }}" class="px-4 py-2 text-sm font-semibold text-gray-700 hover:text-red-700 rounded-xl hover:bg-red-50 transition {{ $isProdukRoute ? 'public-nav-active' : '' }}">Produk</a>
+                    <a href="{{ route('riwayat-apar') }}" class="px-4 py-2 text-sm font-semibold text-gray-700 hover:text-red-700 rounded-xl hover:bg-red-50 transition {{ $isRiwayatRoute ? 'public-nav-active' : '' }}">Riwayat & Status APAR</a>
                 </nav>
 
                 {{-- Desktop CTA --}}
@@ -157,7 +247,7 @@
                     @endphp
 
                     {{-- Cart Icon with Badge (Always Visible) --}}
-                    <a href="{{ auth()->check() ? route('keranjang.index') : route('login') }}" class="relative p-2.5 text-gray-600 hover:text-red-700 rounded-xl hover:bg-red-50 transition" title="Keranjang">
+                    <a href="{{ auth()->check() ? route('keranjang.index') : route('login') }}" class="relative p-2.5 text-gray-600 hover:text-red-700 rounded-xl hover:bg-red-50 transition public-nav-pill {{ $isKeranjangRoute ? 'public-nav-active' : '' }}" title="Keranjang">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                         @if($cartCount > 0)
                             <span class="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-600 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-md">{{ $cartCount > 99 ? '99+' : $cartCount }}</span>
@@ -165,7 +255,7 @@
                     </a>
 
                     @auth
-                        <a href="{{ $dashRoute }}" class="px-4 py-2 text-sm font-bold text-gray-700 hover:text-red-700 rounded-xl border border-gray-200 hover:border-red-200 transition">
+                        <a href="{{ $dashRoute }}" class="px-4 py-2 text-sm font-bold text-gray-700 hover:text-red-700 rounded-xl border border-gray-200 hover:border-red-200 transition public-nav-pill {{ $isProfileRoute ? 'public-nav-active' : '' }}">
                             {{ $dashLabel }}
                         </a>
                     @else
@@ -175,7 +265,7 @@
                     @auth
                         <form method="POST" action="{{ route('logout') }}" class="inline">
                             @csrf
-                            <button type="submit" class="px-4 py-2 text-sm font-bold text-red-600 hover:text-red-800 hover:bg-red-50 rounded-xl transition">
+                            <button type="submit" class="px-4 py-2 text-sm font-bold text-red-600 hover:text-red-800 hover:bg-red-50 rounded-xl transition public-nav-pill">
                                 <i class="fa-solid fa-right-from-bracket me-1"></i> Keluar
                             </button>
                         </form>
@@ -183,7 +273,7 @@
                 </div>
 
                 {{-- Mobile Menu Button --}}
-                <button @click="open = !open" class="md:hidden p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition">
+                <button @click="open = !open" class="md:hidden p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition public-nav-pill">
                     <svg x-show="!open" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
                     </svg>
@@ -196,13 +286,13 @@
 
         {{-- Mobile Menu --}}
         <div x-show="open" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
-             class="md:hidden border-t border-gray-100 bg-white px-4 pb-4 pt-2 space-y-2">
-            <a href="{{ url('/') }}" class="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:text-red-700 hover:bg-red-50 rounded-xl transition">Beranda</a>
-            <a href="{{ route('produk.index') }}" class="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:text-red-700 hover:bg-red-50 rounded-xl transition">Produk</a>
-            <a href="{{ route('riwayat-apar') }}" class="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:text-red-700 hover:bg-red-50 rounded-xl transition">Riwayat & Status APAR</a>
+             class="md:hidden border-t border-gray-100 bg-white px-4 pb-4 pt-2 space-y-2 public-nav-mobile">
+            <a href="{{ url('/') }}" class="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:text-red-700 hover:bg-red-50 rounded-xl transition {{ $isHomeRoute ? 'public-nav-active' : '' }}">Beranda</a>
+            <a href="{{ route('produk.index') }}" class="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:text-red-700 hover:bg-red-50 rounded-xl transition {{ $isProdukRoute ? 'public-nav-active' : '' }}">Produk</a>
+            <a href="{{ route('riwayat-apar') }}" class="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:text-red-700 hover:bg-red-50 rounded-xl transition {{ $isRiwayatRoute ? 'public-nav-active' : '' }}">Riwayat & Status APAR</a>
             <div class="pt-2 flex flex-col gap-2">
                 {{-- Mobile Cart Menu (Always Visible) --}}
-                <a href="{{ auth()->check() ? route('keranjang.index') : route('login') }}" class="w-full text-center px-4 py-2.5 text-sm font-bold text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition flex items-center justify-center gap-2">
+                <a href="{{ auth()->check() ? route('keranjang.index') : route('login') }}" class="w-full text-center px-4 py-2.5 text-sm font-bold text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition flex items-center justify-center gap-2 public-nav-pill {{ $isKeranjangRoute ? 'public-nav-active' : '' }}">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                     Keranjang
                     @auth
@@ -221,15 +311,15 @@
                             : ($mobileUser->isAdmin() ? route('dashboard') : route('profile.edit'));
                         $mobileDashLabel = $mobileUser->isAdmin() || $mobileUser->isTeknisi() ? 'Dashboard' : 'Profil Saya';
                     @endphp
-                    <a href="{{ $mobileDashRoute }}" class="w-full text-center px-4 py-2.5 text-sm font-bold text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition">{{ $mobileDashLabel }}</a>
+                    <a href="{{ $mobileDashRoute }}" class="w-full text-center px-4 py-2.5 text-sm font-bold text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition public-nav-pill {{ $isProfileRoute ? 'public-nav-active' : '' }}">{{ $mobileDashLabel }}</a>
                 @else
-                    <a href="{{ route('login') }}" class="w-full text-center px-4 py-2.5 text-sm font-bold text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition">Masuk</a>
+                    <a href="{{ route('login') }}" class="w-full text-center px-4 py-2.5 text-sm font-bold text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition public-nav-pill">Masuk</a>
                 @endauth
 
                 @auth
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
-                        <button type="submit" class="w-full text-center px-4 py-2.5 text-sm font-bold text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition">
+                        <button type="submit" class="w-full text-center px-4 py-2.5 text-sm font-bold text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition public-nav-pill">
                             <i class="fa-solid fa-right-from-bracket me-1.5"></i> Keluar
                         </button>
                     </form>
@@ -253,12 +343,8 @@
             <div class="grid grid-cols-1 gap-10 md:grid-cols-2 xl:grid-cols-4">
                 {{-- Brand --}}
                 <div class="xl:pr-6">
-                    <div class="mb-4 flex items-center gap-3">
-                        <img src="{{ asset('images/logo-anugrah.png') }}" alt="Logo PD. Anugrah Utama" class="h-11 w-11 rounded-2xl object-cover ring-1 ring-white/10">
-                        <div>
-                            <p class="text-sm font-black tracking-tight text-white">PD. ANUGRAH UTAMA</p>
-                            <p class="mt-0.5 text-[10px] font-black uppercase tracking-[0.28em] text-red-300">Sistem APAR</p>
-                        </div>
+                    <div class="mb-4">
+                        <p class="text-sm font-black tracking-tight uppercase text-white">PD. ANUGRAH UTAMA</p>
                     </div>
                     <p class="text-sm leading-7 text-slate-300">Penyedia layanan APAR untuk penjualan produk, refill, service, inspeksi, dan monitoring riwayat unit APAR pelanggan.</p>
                     <div class="mt-5 flex items-center gap-3">
@@ -329,7 +415,7 @@
 
             <div class="mt-10 flex flex-col gap-3 border-t border-slate-800 pt-6 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
                 <p>&copy; {{ date('Y') }} PD. Anugrah Utama. Hak cipta dilindungi.</p>
-                <p>Sistem APAR untuk operasional toko, layanan, dan riwayat unit pelanggan.</p>
+                <p>Operasional toko, layanan, dan riwayat unit pelanggan.</p>
             </div>
         </div>
     </footer>
@@ -403,3 +489,4 @@
     @stack('scripts')
 </body>
 </html>
+

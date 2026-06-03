@@ -3,7 +3,7 @@
         <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
             <div>
                 <p class="text-xs font-bold uppercase tracking-widest text-red-600">Laporan</p>
-                <h2 class="mt-1 text-2xl font-black text-gray-900 tracking-tight">Laporan Sistem APAR</h2>
+                <h2 class="mt-1 text-2xl font-black text-gray-900 tracking-tight">Laporan Operasional</h2>
                 <p class="mt-1 text-sm text-gray-500 font-medium">Rekap data transaksi dan keuangan untuk owner.</p>
             </div>
             <div class="flex gap-2">

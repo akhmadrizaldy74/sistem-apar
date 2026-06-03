@@ -109,21 +109,47 @@
     .hero-section {
         position: relative;
         overflow: hidden;
-        padding: 108px 0 86px;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 120px 0 96px;
         background:
-            radial-gradient(circle at 12% 18%, rgba(248, 113, 113, 0.22), transparent 22%),
-            radial-gradient(circle at 88% 16%, rgba(251, 191, 36, 0.12), transparent 20%),
-            radial-gradient(circle at 76% 74%, rgba(239, 68, 68, 0.16), transparent 24%),
-            linear-gradient(135deg, #07111f 0%, #10213a 46%, #152742 100%);
+            radial-gradient(circle at center bottom, rgba(239, 68, 68, 0.45), transparent 45%),
+            linear-gradient(180deg, #7f1d1d 0%, #991b1b 55%, #dc2626 100%);
+    }
+
+    .hero-video {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center center;
+        opacity: 0.36;
+        filter: saturate(1.08) contrast(1.08);
+        transform: scale(1.02);
+        z-index: 0;
+    }
+
+    .hero-overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        background:
+            radial-gradient(circle at center bottom, rgba(239, 68, 68, 0.40), transparent 50%),
+            linear-gradient(180deg, rgba(127, 29, 29, 0.74) 0%, rgba(153, 27, 27, 0.70) 45%, rgba(185, 28, 28, 0.76) 100%);
+        pointer-events: none;
     }
 
     .hero-section::before {
         content: "";
         position: absolute;
         inset: 0;
+        z-index: 2;
         background-image:
-            linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+            linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
         background-size: 72px 72px;
         mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent 90%);
         pointer-events: none;
@@ -132,6 +158,7 @@
     .hero-section::after {
         content: "";
         position: absolute;
+        z-index: 3;
         inset: auto 0 0;
         height: 1px;
         background: linear-gradient(90deg, rgba(220, 38, 38, 0) 0%, rgba(220, 38, 38, 0.7) 30%, rgba(248, 113, 113, 0.5) 70%, rgba(220, 38, 38, 0) 100%);
@@ -139,11 +166,17 @@
 
     .hero-inner {
         position: relative;
-        z-index: 1;
+        z-index: 5;
         display: grid;
-        grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
-        align-items: center;
-        gap: 54px;
+        grid-template-columns: minmax(0, 1fr);
+        justify-items: center;
+        gap: 24px;
+        text-align: center;
+        text-shadow: 0 8px 24px rgba(69, 10, 10, 0.35);
+    }
+
+    .hero-inner > [data-reveal] {
+        width: 100%;
     }
 
     .hero-badge {
@@ -176,7 +209,7 @@
 
     .hero-title {
         max-width: 700px;
-        margin: 0 0 20px;
+        margin: 0 auto 20px;
         color: #fff;
         font-size: 58px;
         font-weight: 900;
@@ -190,7 +223,7 @@
 
     .hero-sub {
         max-width: 610px;
-        margin: 0 0 30px;
+        margin: 0 auto 30px;
         color: rgba(226, 232, 240, 0.86);
         font-size: 17px;
         line-height: 1.78;
@@ -199,197 +232,9 @@
     .hero-cta {
         display: flex;
         flex-wrap: wrap;
+        justify-content: center;
         gap: 14px;
         margin-bottom: 0;
-    }
-
-    .hero-visual {
-        position: relative;
-    }
-
-    .hero-product-card {
-        position: relative;
-        padding: 20px;
-        border-radius: 32px;
-        background: rgba(255, 255, 255, 0.96);
-        border: 1px solid rgba(255, 255, 255, 0.75);
-        box-shadow: 0 30px 90px rgba(2, 6, 23, 0.35);
-        overflow: hidden;
-    }
-
-    .hero-product-card::before {
-        content: "";
-        position: absolute;
-        inset: -90px auto auto -40px;
-        width: 180px;
-        height: 180px;
-        border-radius: 999px;
-        background: rgba(220, 38, 38, 0.10);
-        filter: blur(18px);
-        pointer-events: none;
-    }
-
-    .hero-card-top {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        margin-bottom: 16px;
-    }
-
-    .hero-card-label,
-    .hero-card-status {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
-        border-radius: 999px;
-        font-size: 11px;
-        font-weight: 800;
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-    }
-
-    .hero-card-label {
-        background: #fff1f2;
-        color: var(--brand-red-dark);
-    }
-
-    .hero-card-status {
-        background: rgba(15, 23, 42, 0.06);
-        color: var(--brand-ink);
-    }
-
-    .hero-media {
-        position: relative;
-        min-height: 320px;
-        border-radius: 26px;
-        overflow: hidden;
-        background:
-            radial-gradient(circle at 50% 20%, rgba(248, 113, 113, 0.20), transparent 30%),
-            linear-gradient(180deg, #fff5f5 0%, #ffffff 55%, #fff7ed 100%);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 28px;
-        border: 1px solid rgba(220, 38, 38, 0.08);
-    }
-
-    .hero-media img {
-        max-width: 100%;
-        max-height: 280px;
-        width: auto;
-        height: auto;
-        object-fit: contain;
-        display: block;
-        filter: drop-shadow(0 26px 36px rgba(15, 23, 42, 0.14));
-    }
-
-    .hero-placeholder {
-        width: 100%;
-        min-height: 260px;
-        border-radius: 24px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 12px;
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 241, 242, 0.95));
-        color: var(--brand-red-dark);
-        text-align: center;
-        padding: 28px;
-    }
-
-    .hero-placeholder i {
-        font-size: 44px;
-    }
-
-    .hero-placeholder strong {
-        font-size: 16px;
-        color: var(--brand-ink);
-    }
-
-    .hero-placeholder span {
-        max-width: 220px;
-        color: var(--brand-muted);
-        font-size: 13px;
-        line-height: 1.6;
-    }
-
-    .hero-floating-note {
-        position: absolute;
-        right: 20px;
-        bottom: 20px;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 10px 14px;
-        border-radius: 18px;
-        background: rgba(7, 17, 31, 0.84);
-        color: #fff;
-        font-size: 12px;
-        font-weight: 700;
-        box-shadow: 0 18px 34px rgba(7, 17, 31, 0.20);
-    }
-
-    .hero-card-body {
-        position: relative;
-        z-index: 1;
-        padding-top: 18px;
-    }
-
-    .hero-card-kicker {
-        color: var(--brand-red-dark);
-        font-size: 11px;
-        font-weight: 800;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        margin-bottom: 8px;
-    }
-
-    .hero-card-title {
-        color: var(--brand-ink);
-        font-size: 26px;
-        font-weight: 900;
-        line-height: 1.18;
-        margin-bottom: 8px;
-    }
-
-    .hero-card-desc {
-        color: var(--brand-muted);
-        font-size: 14px;
-        line-height: 1.7;
-        margin-bottom: 18px;
-    }
-
-    .hero-spec-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-        margin-bottom: 18px;
-    }
-
-    .hero-spec-item {
-        border-radius: 18px;
-        background: #f8fafc;
-        border: 1px solid rgba(148, 163, 184, 0.12);
-        padding: 14px 16px;
-    }
-
-    .hero-spec-label {
-        color: #94a3b8;
-        font-size: 10px;
-        font-weight: 800;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        margin-bottom: 6px;
-    }
-
-    .hero-spec-value {
-        color: var(--brand-ink);
-        font-size: 14px;
-        font-weight: 800;
-        line-height: 1.4;
     }
 
     .section-head {
@@ -1459,10 +1304,6 @@
             grid-template-columns: 1fr;
         }
 
-        .hero-spec-grid {
-            grid-template-columns: 1fr;
-        }
-
         .media-apar-shell {
             border-radius: 26px;
         }
@@ -1505,7 +1346,6 @@
             width: 100%;
         }
 
-        .hero-product-card,
         .service-card,
         .step-card,
         .feat-card,
@@ -1525,11 +1365,6 @@
             min-height: 320px;
         }
 
-        .hero-floating-note {
-            position: static;
-            margin-top: 14px;
-            justify-content: center;
-        }
     }
 
     @media (max-width: 640px) {
@@ -1540,19 +1375,6 @@
         .section-title,
         .about-title {
             font-size: 28px;
-        }
-
-        .hero-product-card {
-            padding: 16px;
-        }
-
-        .hero-media {
-            min-height: 260px;
-            padding: 20px;
-        }
-
-        .hero-media img {
-            max-height: 220px;
         }
 
         .hero-point {
@@ -1619,10 +1441,15 @@
     $orderEntryUrl = auth()->check() ? route('order.create') : route('login');
     $waContact = env('WHATSAPP_CONTACT', '6285128008030');
     $heroProduct = $produks->first();
+    $heroVideoUrl = asset('storage/foto apar/1.mp4');
     $testimoniLayout = $testimonis->count() > 0 && $testimonis->count() <= 2 ? 'testi-grid testi-grid-sparse' : 'testi-grid';
 @endphp
 
 <section class="hero-section">
+    <video class="hero-video" autoplay muted loop playsinline preload="metadata">
+        <source src="{{ $heroVideoUrl }}" type="video/mp4">
+    </video>
+    <div class="hero-overlay" aria-hidden="true"></div>
     <div class="container">
         <div class="hero-inner">
             <div data-reveal>
@@ -1645,64 +1472,6 @@
                         <i class="fa-brands fa-whatsapp"></i>
                         Hubungi WhatsApp
                     </a>
-                </div>
-            </div>
-
-            <div class="hero-visual" data-reveal>
-                <div class="hero-product-card">
-                    <div class="hero-card-top">
-                        <span class="hero-card-label">Produk Unggulan</span>
-                        <span class="hero-card-status">
-                            <i class="fa-solid fa-shield-halved"></i>
-                            Siap Dipesan
-                        </span>
-                    </div>
-
-                    <div class="hero-media">
-                        @if($heroProduct && $heroProduct->resolved_image_url)
-                            <img src="{{ $heroProduct->resolved_image_url }}" alt="{{ $heroProduct->nama }}">
-                        @else
-                            <div class="hero-placeholder">
-                                <i class="fa-solid fa-fire-extinguisher"></i>
-                                <strong>Produk APAR Siap Ditampilkan</strong>
-                                <span>Tambahkan gambar produk APAR untuk menampilkan visual yang lebih kuat pada halaman utama.</span>
-                            </div>
-                        @endif
-                        <div class="hero-floating-note">
-                            <i class="fa-solid fa-store"></i>
-                            Tersedia pembelian langsung dan pemesanan online
-                        </div>
-                    </div>
-
-                    <div class="hero-card-body">
-                        <p class="hero-card-kicker">{{ $heroProduct?->jenisApar?->nama ?? 'Produk APAR Profesional' }}</p>
-                        <h2 class="hero-card-title">{{ $heroProduct?->nama ?? 'APAR Berkualitas untuk Kebutuhan Operasional Anda' }}</h2>
-                        <p class="hero-card-desc">
-                            {{ $heroProduct ? 'Produk APAR dipilih dari data sistem agar pelanggan langsung melihat spesifikasi utama, harga, dan tampilan yang lebih meyakinkan.' : 'Landing page ini disiapkan untuk menampilkan produk APAR unggulan lengkap dengan kapasitas, merek, dan harga yang jelas.' }}
-                        </p>
-                        <div class="hero-spec-grid">
-                            <div class="hero-spec-item">
-                                <p class="hero-spec-label">Jenis APAR</p>
-                                <p class="hero-spec-value">{{ $heroProduct?->jenisApar?->nama ?? 'APAR' }}</p>
-                            </div>
-                            <div class="hero-spec-item">
-                                <p class="hero-spec-label">Ukuran</p>
-                                <p class="hero-spec-value">{{ $heroProduct?->kapasitas ?: 'Ikuti data produk' }}</p>
-                            </div>
-                            <div class="hero-spec-item">
-                                <p class="hero-spec-label">Merek</p>
-                                <p class="hero-spec-value">{{ $heroProduct?->merek ?: 'Sesuai stok tersedia' }}</p>
-                            </div>
-                            <div class="hero-spec-item">
-                                <p class="hero-spec-label">Harga</p>
-                                <p class="hero-spec-value">{{ $heroProduct ? 'Rp ' . number_format($heroProduct->harga, 0, ',', '.') : 'Hubungi admin' }}</p>
-                            </div>
-                        </div>
-                        <a href="{{ $heroProduct ? route('produk.show', $heroProduct) : route('produk.index') }}" class="btn-inline">
-                            Lihat Detail Produk
-                            <i class="fa-solid fa-arrow-right"></i>
-                        </a>
-                    </div>
                 </div>
             </div>
         </div>
@@ -1963,11 +1732,16 @@
                     <p class="testi-text">{{ $testimoni->review }}</p>
                     <div class="testi-divider"></div>
                     <div class="testi-author">
+                        @php
+                            $isAnonymous = $testimoni->is_anonymous ?? false;
+                            $authorName = $isAnonymous ? 'Pelanggan Anonim' : ($testimoni->pelanggan->nama ?? 'Pelanggan');
+                            $authorInitial = \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($authorName, 0, 1));
+                        @endphp
                         <div class="testi-avatar">
-                            {{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($testimoni->pelanggan->nama ?? 'P', 0, 1)) }}
+                            {{ $authorInitial }}
                         </div>
                         <div>
-                            <p class="testi-name">{{ $testimoni->pelanggan->nama ?? 'Pelanggan' }}</p>
+                            <p class="testi-name">{{ $authorName }}</p>
                             <p class="testi-role">Pelanggan PD. Anugrah Utama</p>
                         </div>
                     </div>
@@ -1993,73 +1767,6 @@
                     </div>
                 </article>
             @endforelse
-        </div>
-    </div>
-</section>
-
-<section class="section-pad about-section">
-    <div class="container">
-        <div class="about-inner">
-            <div data-reveal>
-                <p class="about-tag">Tentang Kami</p>
-                <h2 class="about-title">PD. Anugrah Utama membantu kebutuhan APAR dengan layanan yang lebih rapi dan meyakinkan</h2>
-                <p class="about-desc">
-                    Kami fokus pada penjualan APAR, refill, service, dan pemantauan riwayat unit APAR agar pelanggan mendapat proses yang lebih jelas sejak konsultasi awal sampai transaksi selesai.
-                </p>
-                <div class="about-points">
-                    <div class="about-point">
-                        <i class="fa-solid fa-check"></i>
-                        <span>Pengalaman menangani kebutuhan APAR untuk rumah, toko, kantor, gudang, dan area operasional lainnya.</span>
-                    </div>
-                    <div class="about-point">
-                        <i class="fa-solid fa-check"></i>
-                        <span>Layanan APAR mencakup pembelian unit baru, refill, service, dan inspeksi berkala.</span>
-                    </div>
-                    <div class="about-point">
-                        <i class="fa-solid fa-check"></i>
-                        <span>Produk berkualitas dengan tampilan harga dan spesifikasi yang lebih jelas untuk pelanggan.</span>
-                    </div>
-                    <div class="about-point">
-                        <i class="fa-solid fa-check"></i>
-                        <span>Respon cepat melalui WhatsApp untuk konsultasi, pemesanan, maupun tindak lanjut layanan.</span>
-                    </div>
-                    <div class="about-point">
-                        <i class="fa-solid fa-check"></i>
-                        <span>Harga lebih transparan dengan pencatatan transaksi dan layanan yang lebih tertata.</span>
-                    </div>
-                </div>
-                <div class="about-cta">
-                    <a href="https://wa.me/{{ $waContact }}?text={{ urlencode('Halo, saya ingin konsultasi kebutuhan APAR.') }}" target="_blank" rel="noopener noreferrer" class="btn-whatsapp">
-                        <i class="fa-brands fa-whatsapp"></i>
-                        Hubungi WhatsApp
-                    </a>
-                    <a href="{{ $orderEntryUrl }}" class="btn-secondary">
-                        <i class="fa-solid fa-cart-shopping"></i>
-                        Pesan Sekarang
-                    </a>
-                </div>
-            </div>
-
-            @php
-                $aboutCards = [
-                    ['icon' => 'fa-fire-extinguisher', 'title' => 'Produk APAR', 'desc' => 'Pilihan produk APAR tampil lebih rapi dengan jenis, kapasitas, merek, dan harga yang jelas.', 'class' => 'about-icon--rose'],
-                    ['icon' => 'fa-screwdriver-wrench', 'title' => 'Refill & Service', 'desc' => 'Layanan isi ulang dan service APAR dibuat lebih mudah dipahami dengan alur yang tertata.', 'class' => 'about-icon--amber'],
-                    ['icon' => 'fa-shield-halved', 'title' => 'Inspeksi Unit', 'desc' => 'Riwayat unit APAR pelanggan dapat dipantau agar status dan masa berlaku lebih mudah dicek.', 'class' => 'about-icon--sky'],
-                    ['icon' => 'fa-comments', 'title' => 'Konsultasi Cepat', 'desc' => 'Komunikasi dengan pelanggan lebih mudah melalui WhatsApp dan form pemesanan online.', 'class' => 'about-icon--emerald'],
-                ];
-            @endphp
-
-            <div class="about-grid">
-                @foreach($aboutCards as $card)
-                    <article class="about-card" data-reveal>
-                        <div class="about-icon {{ $card['class'] }}">
-                            <i class="fa-solid {{ $card['icon'] }}"></i>
-                        </div>
-                        <h3 class="about-card-title">{{ $card['title'] }}</h3>
-                        <p class="about-card-desc">{{ $card['desc'] }}</p>
-                    </article>
-                @endforeach
-            </div>
         </div>
     </div>
 </section>

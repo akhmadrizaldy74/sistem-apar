@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Sistem APAR — PD. Anugrah Utama'),
+    'name' => env('APP_NAME', 'PD. ANUGRAH UTAMA'),
 
     /*
     |--------------------------------------------------------------------------

@@ -28,12 +28,8 @@
             <div class="p-8 sm:p-12 border-b border-slate-100">
                 <div class="flex flex-col md:flex-row justify-between items-start gap-6">
                     <div>
-                        <div class="flex items-center gap-3">
-                            <img src="{{ asset('images/logo-anugrah.png') }}" alt="Logo PD. Anugrah Utama" class="h-14 w-14 rounded-2xl object-cover ring-2 ring-slate-100">
-                            <div>
-                                <h1 class="text-xl font-black text-slate-900 tracking-tight">PD. ANUGRAH UTAMA</h1>
-                                <p class="text-xs font-black text-red-600 uppercase tracking-widest mt-0.5">Sistem Proteksi Kebakaran & APAR</p>
-                            </div>
+                        <div>
+                            <h1 class="text-xl font-black uppercase text-slate-900 tracking-tight">PD. ANUGRAH UTAMA</h1>
                         </div>
                         <p class="mt-4 text-xs font-semibold leading-relaxed text-slate-500 max-w-sm">
                             Kawasan Ruko Sentra Niaga, Jl. Utama Raya Blok B No. 12,<br>
@@ -294,7 +290,7 @@
                                     "{{ $pesanan->teknisi_catatan }}"
                                 </blockquote>
                             @else
-                                <p class="text-sm text-slate-500 font-semibold italic">Layanan refill/service telah selesai dikerjakan dengan standar keselamatan PD. Anugrah Utama.</p>
+                                <p class="text-sm text-slate-500 font-semibold italic">Layanan refill/service telah selesai dikerjakan dengan standar keselamatan PD. ANUGRAH UTAMA.</p>
                             @endif
                         </div>
                     </div>

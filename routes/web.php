@@ -51,9 +51,9 @@ Route::post('/order/{pesanan}/payment', [PublicController::class, 'orderPaymentS
         \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
     ])  
     ->name('order.payment.store');
-Route::get('/complain', [PublicController::class, 'complainCreate'])->name('complain.create');
+Route::get('/complain', fn () => redirect()->route('riwayat-apar'));
 Route::post('/complain', [PublicController::class, 'complainStore'])->name('complain.store');
-Route::get('/testimoni', [PublicController::class, 'testimoniCreate'])->name('testimoni.create');
+Route::get('/testimoni', fn () => redirect()->route('riwayat-apar'));
 Route::post('/testimoni', [PublicController::class, 'testimoniStore'])->name('testimoni.store');
 
 Route::get('/dashboard', DashboardController::class)

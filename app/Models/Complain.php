@@ -13,6 +13,7 @@ class Complain extends Model
         'pesanan_id',
         'service_id',
         'isi_complain',
+        'foto_path',
         'status_penyelesaian',
         'tanggal',
     ];

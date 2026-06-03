@@ -5,9 +5,10 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>Masuk — {{ config('app.name', 'Sistem APAR') }}</title>
-        <link rel="icon" type="image/svg+xml" href="{{ asset('favicon-apar.svg') }}" />
-        <link rel="shortcut icon" href="{{ asset('favicon-apar.svg') }}" />
+        <title>Masuk — {{ config('app.name', 'PD. ANUGRAH UTAMA') }}</title>
+
+        <link rel="icon" type="image/svg+xml" href="{{ asset('favicon-apar.svg') }}">
+        <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
@@ -42,9 +43,8 @@
                 <div class="text-center mb-8 sm:mb-10 relative" data-reveal>
                     <a href="/" class="inline-block">
                         <h1 class="text-white font-black text-xl sm:text-2xl tracking-tight uppercase leading-tight">
-                            PD. Anugrah Utama
+                            PD. ANUGRAH UTAMA
                         </h1>
-                        <p class="mt-3 text-[10px] font-bold text-white/60 uppercase tracking-[0.25em]">Sistem informasi APAR</p>
                     </a>
                 </div>
 

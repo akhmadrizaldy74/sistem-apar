@@ -77,6 +77,7 @@ return new class extends Migration
             $table->foreignId('pesanan_id')->nullable()->constrained('pesanans')->nullOnDelete();
             $table->foreignId('service_id')->nullable()->constrained('services')->nullOnDelete();
             $table->text('isi_complain');
+            $table->string('foto_path')->nullable();
             $table->enum('status_penyelesaian', ['menunggu', 'diproses', 'selesai'])->default('menunggu');
             $table->date('tanggal');
             $table->timestamps();
@@ -87,6 +88,8 @@ return new class extends Migration
             $table->foreignId('pelanggan_id')->constrained('pelanggans')->cascadeOnDelete();
             $table->unsignedTinyInteger('rating')->default(5);
             $table->text('review');
+            $table->string('foto_path')->nullable();
+            $table->boolean('is_anonymous')->default(false);
             $table->date('tanggal');
             $table->string('status')->default('pending');
             $table->text('admin_note')->nullable();

@@ -13,6 +13,8 @@ class Testimoni extends Model
         'pelanggan_id',
         'rating',
         'review',
+        'foto_path',
+        'is_anonymous',
         'tanggal',
         'status',
         'admin_note',
@@ -20,6 +22,7 @@ class Testimoni extends Model
 
     protected $casts = [
         'tanggal' => 'date',
+        'is_anonymous' => 'boolean',
     ];
 
     public function pelanggan()

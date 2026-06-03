@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div>
             <h2 class="text-3xl font-black text-gray-900 tracking-tight">Verifikasi & Pengujian Sistem</h2>
-            <p class="text-sm text-gray-500 font-medium mt-1">Halaman pengujian dan validasi seluruh modul sistem APAR secara otomatis dan manual.</p>
+            <p class="text-sm text-gray-500 font-medium mt-1">Halaman pengujian dan validasi seluruh modul aplikasi secara otomatis dan manual.</p>
         </div>
     </x-slot>
 

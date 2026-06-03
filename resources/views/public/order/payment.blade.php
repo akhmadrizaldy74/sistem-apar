@@ -40,8 +40,7 @@
         <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
                 <a href="{{ route('home') }}" class="flex items-center gap-3">
-                    <img src="{{ asset('images/logo-anugrah.png') }}" alt="Logo" class="w-9 h-9 rounded-full object-cover border-2 border-red-500/40 shadow-sm">
-                    <span class="text-red-700 font-black text-sm uppercase tracking-wide">PD. Anugrah Utama</span>
+                    <span class="text-red-700 font-black text-sm uppercase tracking-wide">PD. ANUGRAH UTAMA</span>
                 </a>
                 <div class="flex items-center gap-2 text-sm font-semibold text-slate-500">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>

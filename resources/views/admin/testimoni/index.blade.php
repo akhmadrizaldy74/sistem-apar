@@ -47,12 +47,27 @@
                 <tbody class="divide-y divide-gray-50">
                     @forelse($testimonis as $t)
                         <tr class="hover:bg-gray-50/30 transition">
-                            <td class="px-8 py-5 text-sm font-black text-gray-900">{{ $t->pelanggan->nama ?? '-' }}</td>
+                            <td class="px-8 py-5 text-sm font-black text-gray-900">
+                                {{ $t->pelanggan->nama ?? '-' }}
+                                @if($t->is_anonymous)
+                                    <span class="block mt-1 text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md w-fit">Sembunyikan Nama</span>
+                                @endif
+                            </td>
                             <td class="px-8 py-5">
                                 <x-rating-stars :rating="$t->rating" sizeClass="text-base" activeClass="text-amber-400" inactiveClass="text-slate-300" emptyClass="text-xs font-semibold text-gray-400" />
                             </td>
                             <td class="px-8 py-5">
                                 <p class="text-sm text-gray-600 max-w-xs line-clamp-2">{{ $t->review }}</p>
+                                @if(!empty($t->foto_path))
+                                    <div class="mt-2">
+                                        <button type="button" onclick="openPhotoModal('{{ asset('storage/' . $t->foto_path) }}')" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-[10px] font-bold text-gray-600 shadow-sm transition hover:bg-gray-50">
+                                            <i class="fa-regular fa-image text-gray-400"></i>
+                                            Lihat Foto
+                                        </button>
+                                    </div>
+                                @else
+                                    <p class="mt-2 text-[10px] italic text-gray-400">Tidak ada foto</p>
+                                @endif
                                 @if($t->admin_note)
                                     <p class="text-[10px] text-blue-600 mt-1 italic">
                                         {{ $t->status === 'rejected' ? 'Catatan Admin' : 'Balasan Admin' }}: {{ $t->admin_note }}
@@ -213,7 +228,35 @@
         </div>
     </div>
 
+    {{-- Modal Foto --}}
+    <div id="photoModal" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-[100] hidden items-center justify-center p-4" onclick="if(event.target===this)closePhotoModal()">
+        <div class="relative max-h-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                <h3 class="font-bold text-gray-900">Foto Testimoni</h3>
+                <button type="button" onclick="closePhotoModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="p-4 bg-gray-50 flex justify-center">
+                <img id="modalPhotoImage" src="" alt="Foto" class="max-h-[70vh] w-auto rounded-lg object-contain" />
+            </div>
+        </div>
+    </div>
+
     <script>
+        function openPhotoModal(src) {
+            document.getElementById('modalPhotoImage').src = src;
+            document.getElementById('photoModal').classList.remove('hidden');
+            document.getElementById('photoModal').classList.add('flex');
+        }
+        function closePhotoModal() {
+            document.getElementById('photoModal').classList.add('hidden');
+            document.getElementById('photoModal').classList.remove('flex');
+        }
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closePhotoModal();
+        });
+
         function setRating(value, prefix) {
             for (let i = 1; i <= 5; i++) {
                 const el = document.getElementById(prefix + '-star-' + i);
@@ -244,6 +287,8 @@
             document.getElementById('addModal').style.display = 'none';
             document.getElementById('editModal').style.display = 'none';
             document.getElementById('rejectModal').style.display = 'none';
+            document.getElementById('photoModal').classList.add('hidden');
+            document.getElementById('photoModal').classList.remove('flex');
         }
 
         document.addEventListener('click', function(e) {

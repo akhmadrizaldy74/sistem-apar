@@ -75,6 +75,16 @@
                             </td>
                             <td class="px-8 py-5">
                                 <p class="max-w-xs text-sm text-gray-600 line-clamp-2">{{ $complain->isi_complain }}</p>
+                                @if(!empty($complain->foto_path))
+                                    <div class="mt-2">
+                                        <button type="button" onclick="openPhotoModal('{{ asset('storage/' . $complain->foto_path) }}')" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-[10px] font-bold text-gray-600 shadow-sm transition hover:bg-gray-50">
+                                            <i class="fa-regular fa-image text-gray-400"></i>
+                                            Lihat Foto
+                                        </button>
+                                    </div>
+                                @else
+                                    <p class="mt-2 text-[10px] italic text-gray-400">Tidak ada foto</p>
+                                @endif
                             </td>
                             <td class="px-8 py-5">
                                 <span class="rounded-lg px-3 py-1 text-xs font-bold uppercase {{ $statusClass }}">{{ $complain->status_penyelesaian }}</span>
@@ -205,5 +215,36 @@
                 select.disabled = false;
             }
         }
+    </script>
+
+
+    <!-- Photo Modal -->
+    <div id="photoModal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-gray-900/80 backdrop-blur-sm p-4" onclick="if(event.target===this)closePhotoModal()">
+        <div class="relative max-h-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                <h3 class="font-bold text-gray-900">Foto Komplain</h3>
+                <button type="button" onclick="closePhotoModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="p-4 bg-gray-50 flex justify-center">
+                <img id="modalPhotoImage" src="" alt="Foto" class="max-h-[70vh] w-auto rounded-lg object-contain" />
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openPhotoModal(src) {
+            document.getElementById('modalPhotoImage').src = src;
+            document.getElementById('photoModal').classList.remove('hidden');
+            document.getElementById('photoModal').classList.add('flex');
+        }
+        function closePhotoModal() {
+            document.getElementById('photoModal').classList.add('hidden');
+            document.getElementById('photoModal').classList.remove('flex');
+        }
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closePhotoModal();
+        });
     </script>
 </x-app-layout>

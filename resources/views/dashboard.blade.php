@@ -8,7 +8,7 @@
         <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
             <div>
                 <p class="text-xs font-bold uppercase tracking-widest text-red-600">Dashboard</p>
-                <h2 class="mt-1 text-xl font-black text-slate-900 md:text-2xl">Ringkasan Sistem APAR</h2>
+                <h2 class="mt-1 text-xl font-black text-slate-900 md:text-2xl">Ringkasan Operasional</h2>
                 <p class="mt-0.5 text-sm text-slate-500">Pantau data utama bisnis APAR Anda.</p>
             </div>
         </div>

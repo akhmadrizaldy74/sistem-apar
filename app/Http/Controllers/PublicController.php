@@ -245,7 +245,14 @@ class PublicController extends Controller
             return null;
         }
 
-        $pesanan = Pesanan::with('complain')->find($pesananId);
+        $pesanan = Pesanan::with([
+            'complain',
+            'pelanggan',
+            'details.produk',
+            'service',
+            'serviceJenisRefill',
+            'servicePaket',
+        ])->find($pesananId);
         if (!$pesanan) {
             return null;
         }
@@ -2147,21 +2154,36 @@ private function fetchPhoton(string $query): array
             'no_wa' => 'nullable|string',
             'pesanan_id' => 'nullable|exists:pesanans,id',
             'isi_complain' => 'required|string',
+            'foto' => 'nullable|image|max:5120',
         ]);
 
         $pelanggan = $this->resolveFeedbackCustomer($request);
 
         if (!$pelanggan) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Data pelanggan tidak ditemukan. Pastikan nomor WA sudah pernah transaksi.'], 400);
+            }
             return back()->with('error', 'Data pelanggan tidak ditemukan. Pastikan nomor WA sudah pernah transaksi.')->withInput();
         }
 
         $selectedOrder = $this->resolveFeedbackOrder($request, $pelanggan);
         if ($request->filled('pesanan_id') && !$selectedOrder) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Pesanan yang dipilih tidak cocok dengan akun pelanggan ini.'], 400);
+            }
             return back()->with('error', 'Pesanan yang dipilih tidak cocok dengan akun pelanggan ini.')->withInput();
         }
 
         if ($selectedOrder?->complain) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Komplain untuk transaksi ini sudah pernah dikirim. Admin akan menindaklanjuti melalui WhatsApp.'], 400);
+            }
             return back()->with('error', 'Komplain untuk transaksi ini sudah pernah dikirim. Admin akan menindaklanjuti melalui WhatsApp.')->withInput();
+        }
+
+        $fotoPath = null;
+        if ($request->hasFile('foto')) {
+            $fotoPath = $request->file('foto')->store('complains', 'public');
         }
 
         Complain::create([
@@ -2169,10 +2191,18 @@ private function fetchPhoton(string $query): array
             'pesanan_id' => $selectedOrder?->id,
             'service_id' => $selectedOrder?->service?->id,
             'isi_complain' => $request->isi_complain,
+            'foto_path' => $fotoPath,
             'tanggal' => now(),
         ]);
 
         $redirectRoute = $this->authenticatedCustomer() ? 'riwayat-apar' : 'home';
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Komplain Anda sudah kami terima. Tim admin akan follow up melalui WhatsApp.',
+            ]);
+        }
 
         return redirect()->route($redirectRoute)->with('success', 'Komplain Anda sudah kami terima. Tim admin akan follow up melalui WhatsApp.');
     }
@@ -2201,31 +2231,52 @@ private function fetchPhoton(string $query): array
             'pesanan_id' => 'nullable|exists:pesanans,id',
             'rating' => 'required|integer|min:1|max:5',
             'review' => 'required|string',
+            'foto' => 'nullable|image|max:5120',
+            'is_anonymous' => 'nullable|boolean',
         ]);
 
         $pelanggan = $this->resolveFeedbackCustomer($request);
 
         if (!$pelanggan) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Data pelanggan tidak ditemukan. Pastikan nomor WA sudah pernah transaksi.'], 400);
+            }
             return back()->with('error', 'Data pelanggan tidak ditemukan. Pastikan nomor WA sudah pernah transaksi.')->withInput();
         }
 
         $selectedOrder = $this->resolveFeedbackOrder($request, $pelanggan);
         if ($request->filled('pesanan_id') && !$selectedOrder) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Transaksi yang dipilih tidak cocok dengan akun pelanggan ini.'], 400);
+            }
             return back()->with('error', 'Transaksi yang dipilih tidak cocok dengan akun pelanggan ini.')->withInput();
         }
 
         if ($selectedOrder && !$selectedOrder->isCompleted()) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Testimoni baru bisa diberikan setelah transaksi selesai.'], 400);
+            }
             return back()->with('error', 'Testimoni baru bisa diberikan setelah transaksi selesai.')->withInput();
         }
 
         if ($selectedOrder && $this->resolveLinkedTestimoniForOrder($pelanggan, $selectedOrder)) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Transaksi ini sudah pernah diberi penilaian.'], 400);
+            }
             return back()->with('error', 'Transaksi ini sudah pernah diberi penilaian.')->withInput();
+        }
+
+        $fotoPath = null;
+        if ($request->hasFile('foto')) {
+            $fotoPath = $request->file('foto')->store('testimonis', 'public');
         }
 
         $testimoni = Testimoni::create([
             'pelanggan_id' => $pelanggan->id,
             'rating' => $request->rating,
             'review' => $request->review,
+            'foto_path' => $fotoPath,
+            'is_anonymous' => $request->boolean('is_anonymous'),
             'tanggal' => now(),
             'status' => 'pending',
         ]);
@@ -2246,6 +2297,13 @@ private function fetchPhoton(string $query): array
         }
 
         $redirectRoute = $this->authenticatedCustomer() ? 'riwayat-apar' : 'home';
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Terima kasih. Testimoni Anda sudah dikirim dan admin bisa membalasnya setelah direview.',
+            ]);
+        }
 
         return redirect()->route($redirectRoute)->with('success', 'Terima kasih. Testimoni Anda sudah dikirim dan admin bisa membalasnya setelah direview.');
     }

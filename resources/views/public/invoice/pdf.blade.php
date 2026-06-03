@@ -30,7 +30,6 @@
     <div class="row" style="border-b: 2px solid #dc2626; padding-bottom: 15px;">
         <div class="header-brand">
             <h1 style="color: #dc2626; font-weight: 900; margin: 0;">PD. ANUGRAH UTAMA</h1>
-            <p style="font-size: 9px; font-weight: bold; uppercase: true; letter-spacing: 1px; color: #4b5563; margin-top: 2px;">Sistem Proteksi Kebakaran & APAR</p>
             <p style="font-size: 9px; color: #6b7280; margin-top: 4px; line-height: 1.3;">
                 Kawasan Ruko Sentra Niaga, Jl. Utama Raya Blok B No. 12<br>
                 Telp/WhatsApp: 0821-2471-6109
@@ -198,7 +197,7 @@
                 </p>
             @else
                 <p style="margin-top: 4px; font-style: italic; color: #6b7280;">
-                    Layanan refill/service telah selesai dikerjakan dengan standar keselamatan PD. Anugrah Utama.
+                    Layanan refill/service telah selesai dikerjakan dengan standar keselamatan PD. ANUGRAH UTAMA.
                 </p>
             @endif
         </div>

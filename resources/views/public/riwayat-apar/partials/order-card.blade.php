@@ -216,16 +216,28 @@
             @endif
 
             @if($canReview)
-                <a href="{{ route('testimoni.create', ['pesanan' => $pesanan->id]) }}" class="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-700 transition hover:bg-amber-100">
+                <button type="button" @click.prevent="openTestimoniModal({{ $pesanan->id }}, '{{ addslashes($pesanan->trackingItemLabel()) }}', '{{ addslashes($pesanan->displayTransactionDateTime()) }}', 'Rp{{ number_format($pesanan->payableTotal(), 0, ',', '.') }}', '{{ addslashes($pesanan->publicStatusLabel()) }}', '{{ addslashes($pesanan->trackingTypeLabel()) }}')" class="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-700 transition hover:bg-amber-100">
                     <i class="fa-solid fa-star text-[10px]"></i>
                     Beri Penilaian
-                </a>
+                </button>
+            @elseif($pesanan->isCompleted() && !$canReview)
+                <span class="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">
+                    <i class="fa-solid fa-circle-check text-[10px]"></i>
+                    Sudah Dinilai
+                </span>
             @endif
 
-            <a href="{{ route('complain.create', ['pesanan' => $pesanan->id]) }}" class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-50">
-                <i class="fa-solid fa-headset text-[10px] text-red-500"></i>
-                {{ $pesanan->complain ? 'Lihat Komplain' : 'Butuh Bantuan / Komplain' }}
-            </a>
+            @if($pesanan->complain)
+                <button type="button" disabled class="inline-flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-slate-400">
+                    <i class="fa-solid fa-headset text-[10px] text-slate-400"></i>
+                    Komplain Terkirim
+                </button>
+            @else
+                <button type="button" @click.prevent="openComplainModal({{ $pesanan->id }}, '{{ addslashes($pesanan->trackingItemLabel()) }}', '{{ addslashes($pesanan->displayTransactionDateTime()) }}', 'Rp{{ number_format($pesanan->payableTotal(), 0, ',', '.') }}', '{{ addslashes($pesanan->publicStatusLabel()) }}', '{{ addslashes($pesanan->trackingTypeLabel()) }}')" class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-50">
+                    <i class="fa-solid fa-headset text-[10px] text-red-500"></i>
+                    Butuh Bantuan / Komplain
+                </button>
+            @endif
 
         </div>
     </div>

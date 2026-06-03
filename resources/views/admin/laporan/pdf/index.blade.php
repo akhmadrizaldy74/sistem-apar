@@ -3,16 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laporan Sistem APAR - PD. Anugrah Utama</title>
+    <title>Laporan Operasional - PD. ANUGRAH UTAMA</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 10px; color: #1a1a1a; line-height: 1.4; }
         .page { padding: 20px 25px; }
         .header { border-bottom: 3px solid #dc2626; padding-bottom: 12px; margin-bottom: 16px; }
-        .header-top { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
-        .logo-box { width: 45px; height: 45px; background: #dc2626; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px; }
+        .header-top { display: block; margin-bottom: 8px; }
         .company-info h1 { font-size: 15px; color: #0f172a; margin-bottom: 1px; }
-        .company-info p { font-size: 8px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
         .report-title { font-size: 16px; font-weight: bold; color: #dc2626; margin: 8px 0 4px; }
         .report-meta { font-size: 9px; color: #64748b; }
         .report-meta strong { color: #334155; }
@@ -55,13 +53,11 @@
         {{-- Header --}}
         <div class="header">
             <div class="header-top">
-                <div class="logo-box">AP</div>
                 <div class="company-info">
                     <h1>PD. ANUGRAH UTAMA</h1>
-                    <p>Sistem Informasi APAR</p>
                 </div>
             </div>
-            <div class="report-title">LAPORAN SISTEM APAR</div>
+            <div class="report-title">LAPORAN OPERASIONAL</div>
             <div class="report-meta">
                 <strong>Periode:</strong> {{ $periode }}
                 @if($pelangganNama)<span> | <strong>Pelanggan:</strong> {{ $pelangganNama }}</span>@endif

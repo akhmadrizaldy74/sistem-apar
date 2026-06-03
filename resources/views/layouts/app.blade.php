@@ -9,9 +9,9 @@
         <link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}" />
         <script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
 
-        <title>{{ config('app.name', 'Sistem APAR') }}</title>
-        <link rel="icon" type="image/svg+xml" href="{{ asset('favicon-apar.svg') }}" />
-        <link rel="shortcut icon" href="{{ asset('favicon-apar.svg') }}" />
+        <title>{{ config('app.name', 'PD. ANUGRAH UTAMA') }}</title>
+        <link rel="icon" type="image/svg+xml" href="{{ asset('favicon-apar.svg') }}">
+        <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
 
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
@@ -270,8 +270,7 @@
                 <div class="flex items-center gap-3 px-4 pb-5 pt-6 sm:px-5 lg:px-0 lg:pb-7 lg:pt-8"
                     :class="(!$store.sidebar.isExpanded && !$store.sidebar.isHovered && !$store.sidebar.isMobileOpen) ? 'justify-center lg:justify-center' : 'lg:justify-start justify-between'">
 
-                    <a href="{{ $dashboardRoute }}" class="sidebar-brand-link flex items-center gap-3 min-w-0 overflow-hidden">
-                        <img src="{{ asset('images/logo-anugrah.png') }}" alt="Logo" class="w-10 h-10 rounded-full shrink-0 object-cover border-2 border-red-500/50 shadow-lg shadow-red-900/30">
+                    <a href="{{ $dashboardRoute }}" class="sidebar-brand-link flex items-center min-w-0 overflow-hidden">
                         <span class="sidebar-label truncate text-red-400 font-black text-md leading-tight tracking-tight uppercase">
                             PD. ANUGRAH UTAMA
                         </span>
@@ -403,7 +402,7 @@
                 <!-- Sidebar Footer -->
                 <div class="sidebar-footer-wrap border-t border-slate-700/50 px-4 pb-6 pt-4 sm:px-5 lg:px-2">
                     <div class="text-center">
-                        <p class="sidebar-footer-text text-[10px] font-bold text-slate-500 uppercase tracking-widest">&copy; {{ date('Y') }} PD. Anugrah Utama</p>
+                        <p class="sidebar-footer-text text-[10px] font-bold text-slate-500 uppercase tracking-widest">&copy; {{ date('Y') }} PD. ANUGRAH UTAMA</p>
                     </div>
                 </div>
                 </div>
@@ -431,9 +430,9 @@
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
                         </button>
 
-                        <!-- Mobile Logo -->
+                        <!-- Mobile Brand -->
                         <div class="lg:hidden flex items-center gap-2">
-                            <img src="{{ asset('images/logo-anugrah.png') }}" alt="Logo" class="w-8 h-8 rounded-full shrink-0 object-cover">
+                            <span class="text-sm font-black uppercase tracking-tight text-slate-900">PD. ANUGRAH UTAMA</span>
                         </div>
 
                         <!-- Search Bar like TailAdmin -->
@@ -523,8 +522,8 @@
                 <footer class="mt-auto border-t border-slate-200 bg-white px-4 py-6 sm:px-6 lg:px-10">
                     <div class="flex flex-col md:flex-row justify-between items-center gap-4">
                         <div>
-                            <p class="text-xl font-black text-slate-900 tracking-tight">PD. Anugrah Utama</p>
-                            <p class="text-sm text-slate-400 mt-1">&copy; {{ date('Y') }} PD. Anugrah Utama. Hak cipta dilindungi undang-undang.</p>
+                            <p class="text-xl font-black uppercase text-slate-900 tracking-tight">PD. ANUGRAH UTAMA</p>
+                            <p class="text-sm text-slate-400 mt-1">&copy; {{ date('Y') }} PD. ANUGRAH UTAMA. Hak cipta dilindungi undang-undang.</p>
                         </div>
                     </div>
                 </footer>
