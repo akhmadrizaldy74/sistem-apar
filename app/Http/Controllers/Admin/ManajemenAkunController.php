@@ -7,8 +7,8 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Pelanggan;
 use App\Models\User;
+use App\Support\PhoneNumber;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 
 class ManajemenAkunController extends Controller
@@ -31,13 +31,13 @@ class ManajemenAkunController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('no_telpon', 'like', "%{$search}%")
-                  ->orWhere('role', 'like', "%{$search}%")
-                  ->orWhereHas('pelanggan', function ($sub) use ($search) {
-                      $sub->where('nama', 'like', "%{$search}%")
-                          ->orWhere('no_wa', 'like', "%{$search}%");
-                  });
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('no_telpon', 'like', "%{$search}%")
+                    ->orWhere('role', 'like', "%{$search}%")
+                    ->orWhereHas('pelanggan', function ($sub) use ($search) {
+                        $sub->where('nama', 'like', "%{$search}%")
+                            ->orWhere('no_wa', 'like', "%{$search}%");
+                    });
             });
         }
 
@@ -53,12 +53,19 @@ class ManajemenAkunController extends Controller
 
     public function store(Request $request)
     {
+        $normalizedPhone = PhoneNumber::normalize((string) $request->input('no_telpon'));
+
+        $request->merge([
+            'no_telpon' => $normalizedPhone ?? $request->input('no_telpon'),
+            'email' => trim((string) $request->input('email')) ?: null,
+        ]);
+
         $rules = [
-            'name'     => 'required|string|max:255',
-            'email'    => 'nullable|email|max:255|unique:users,email',
+            'name' => 'required|string|max:255',
+            'email' => 'nullable|email|max:255|unique:users,email',
             'no_telpon' => 'nullable|string|max:20',
             'password' => 'required|string|min:6|confirmed',
-            'role'     => 'required|in:admin,teknisi,pelanggan',
+            'role' => 'required|in:admin,teknisi,pelanggan',
         ];
 
         // Alamat wajib untuk pelanggan
@@ -68,34 +75,37 @@ class ManajemenAkunController extends Controller
 
         $validated = $request->validate($rules, [
             'password.confirmed' => 'Konfirmasi password tidak cocok.',
-            'password.min'       => 'Password minimal 6 karakter.',
-            'email.unique'       => 'Email sudah digunakan akun lain.',
+            'password.min' => 'Password minimal 6 karakter.',
+            'email.unique' => 'Email sudah digunakan akun lain.',
         ]);
 
-        // Normalize phone number
-        $noTelpon = $this->normalizePhone($request->no_telpon);
+        $noTelpon = $normalizedPhone;
+
+        if ($phoneConflict = $this->phoneConflictMessage($noTelpon)) {
+            return back()->withInput()->withErrors(['no_telpon' => $phoneConflict]);
+        }
 
         $user = User::create([
-            'name'      => $validated['name'],
-            'email'     => $validated['email'] ?? null,
+            'name' => $validated['name'],
+            'email' => $validated['email'] ?? null,
             'no_telpon' => $noTelpon,
-            'password'  => $validated['password'], // auto-hashed via cast
-            'role'      => $validated['role'],
+            'password' => $validated['password'], // auto-hashed via cast
+            'role' => $validated['role'],
         ]);
 
         // If pelanggan, create/link pelanggan record
         if ($validated['role'] === 'pelanggan' && $noTelpon) {
-            Pelanggan::updateOrCreate(
-                ['no_wa' => $noTelpon],
-                [
-                    'user_id' => $user->id,
-                    'nama'    => $validated['name'],
-                    'alamat'  => $request->input('alamat', '-'),
-                    'status'  => 'tetap',
-                    'sumber_data'        => 'manual',
-                    'kategori_pelanggan' => 'baru_manual',
-                ]
-            );
+            $pelanggan = $this->resolvePelangganForUser($user, $noTelpon);
+            $pelanggan->fill([
+                'user_id' => $user->id,
+                'nama' => $validated['name'],
+                'no_wa' => $noTelpon,
+                'alamat' => $request->input('alamat', '-'),
+                'status' => 'tetap',
+                'sumber_data' => $pelanggan->sumber_data ?: 'manual',
+                'kategori_pelanggan' => $pelanggan->kategori_pelanggan ?: 'baru_manual',
+            ]);
+            $pelanggan->save();
         }
 
         return redirect()->route('admin.akun.index')
@@ -104,18 +114,25 @@ class ManajemenAkunController extends Controller
 
     public function update(Request $request, User $user)
     {
+        $normalizedPhone = PhoneNumber::normalize((string) $request->input('no_telpon'));
+
+        $request->merge([
+            'no_telpon' => $normalizedPhone ?? $request->input('no_telpon'),
+            'email' => trim((string) $request->input('email')) ?: null,
+        ]);
+
         $rules = [
-            'name'      => 'required|string|max:255',
-            'email'     => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            'name' => 'required|string|max:255',
+            'email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'no_telpon' => 'nullable|string|max:20',
-            'password'  => 'nullable|string|min:6|confirmed',
-            'role'      => 'required|in:admin,teknisi,pelanggan',
+            'password' => 'nullable|string|min:6|confirmed',
+            'role' => 'required|in:admin,teknisi,pelanggan',
         ];
 
         $validated = $request->validate($rules, [
             'password.confirmed' => 'Konfirmasi password tidak cocok.',
-            'password.min'       => 'Password minimal 6 karakter.',
-            'email.unique'       => 'Email sudah digunakan akun lain.',
+            'password.min' => 'Password minimal 6 karakter.',
+            'email.unique' => 'Email sudah digunakan akun lain.',
         ]);
 
         // Cek perubahan role dari pelanggan ke admin/teknisi
@@ -133,17 +150,21 @@ class ManajemenAkunController extends Controller
             }
         }
 
-        $noTelpon = $this->normalizePhone($request->no_telpon);
+        $noTelpon = $normalizedPhone;
+
+        if ($phoneConflict = $this->phoneConflictMessage($noTelpon, $user)) {
+            return back()->withInput()->withErrors(['no_telpon' => $phoneConflict]);
+        }
 
         $updateData = [
-            'name'      => $validated['name'],
-            'email'     => $validated['email'] ?? null,
+            'name' => $validated['name'],
+            'email' => $validated['email'] ?? null,
             'no_telpon' => $noTelpon,
-            'role'      => $validated['role'],
+            'role' => $validated['role'],
         ];
 
         // Password opsional
-        if (!empty($validated['password'])) {
+        if (! empty($validated['password'])) {
             $updateData['password'] = $validated['password']; // auto-hashed via cast
         }
 
@@ -151,20 +172,23 @@ class ManajemenAkunController extends Controller
 
         // If role changed to pelanggan, ensure pelanggan record exists
         if ($validated['role'] === 'pelanggan' && $noTelpon) {
-            Pelanggan::updateOrCreate(
-                ['user_id' => $user->id],
-                [
-                    'nama'  => $validated['name'],
-                    'no_wa' => $noTelpon,
-                    'status' => 'tetap',
-                ]
-            );
+            $pelanggan = $this->resolvePelangganForUser($user->fresh(), $noTelpon);
+            $pelanggan->fill([
+                'user_id' => $user->id,
+                'nama' => $validated['name'],
+                'no_wa' => $noTelpon,
+                'status' => $pelanggan->status ?: 'tetap',
+                'sumber_data' => $pelanggan->sumber_data ?: 'manual',
+            ]);
+            $pelanggan->save();
         }
 
         // If pelanggan has linked data, update nama there too
+        $user->load('pelanggan');
+
         if ($user->pelanggan) {
             $user->pelanggan->update([
-                'nama'  => $validated['name'],
+                'nama' => $validated['name'],
                 'no_wa' => $noTelpon ?: $user->pelanggan->no_wa,
             ]);
         }
@@ -210,7 +234,7 @@ class ManajemenAkunController extends Controller
     private function pelangganHasTransactions(User $user): bool
     {
         $pelanggan = $user->pelanggan;
-        if (!$pelanggan) {
+        if (! $pelanggan) {
             return false;
         }
 
@@ -238,22 +262,58 @@ class ManajemenAkunController extends Controller
     }
 
     /**
-     * Normalize phone number to local format.
+     * Reuse pelanggan data by phone when it is not yet linked to an account.
      */
-    private function normalizePhone(?string $phone): ?string
+    private function resolvePelangganForUser(User $user, ?string $phone): Pelanggan
     {
-        if (!$phone) {
+        $user->loadMissing('pelanggan');
+
+        if ($user->pelanggan) {
+            return $user->pelanggan;
+        }
+
+        if ($phone) {
+            $pelanggan = Pelanggan::query()
+                ->where('no_wa', $phone)
+                ->where(function ($query) use ($user) {
+                    $query->whereNull('user_id')
+                        ->orWhere('user_id', $user->id);
+                })
+                ->first();
+
+            if ($pelanggan) {
+                return $pelanggan;
+            }
+        }
+
+        return new Pelanggan;
+    }
+
+    private function phoneConflictMessage(?string $phone, ?User $ignoreUser = null): ?string
+    {
+        if (! $phone) {
             return null;
         }
 
-        $clean = preg_replace('/\D+/', '', $phone);
+        $userConflict = User::query()
+            ->where('no_telpon', $phone)
+            ->when($ignoreUser, fn ($query) => $query->whereKeyNot($ignoreUser->id))
+            ->exists();
 
-        if (str_starts_with($clean, '62')) {
-            $clean = '0' . substr($clean, 2);
-        } elseif (str_starts_with($clean, '8')) {
-            $clean = '0' . $clean;
+        if ($userConflict) {
+            return 'Nomor WhatsApp/HP sudah digunakan akun lain.';
         }
 
-        return $clean ?: null;
+        $pelangganConflict = Pelanggan::query()
+            ->where('no_wa', $phone)
+            ->whereNotNull('user_id')
+            ->when($ignoreUser, fn ($query) => $query->where('user_id', '!=', $ignoreUser->id))
+            ->exists();
+
+        if ($pelangganConflict) {
+            return 'Nomor WhatsApp/HP sudah terhubung ke akun pelanggan lain.';
+        }
+
+        return null;
     }
 }

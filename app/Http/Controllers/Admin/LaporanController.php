@@ -8,67 +8,76 @@ use App\Http\Controllers\Controller;
 use App\Models\Pelanggan;
 use App\Models\Pengeluaran;
 use App\Models\Pesanan;
-use App\Models\Refill;
 use App\Models\Service;
 use App\Models\UnitApar;
 use App\Models\WebsiteVisit;
+use App\Services\FinalRevenueService;
 use App\Services\ProductAnalyticsService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
 class LaporanController extends Controller
 {
-    public function index(Request $request, ProductAnalyticsService $productAnalytics)
+    public function index(Request $request, ProductAnalyticsService $productAnalytics, FinalRevenueService $finalRevenue)
     {
         $filters = $this->filters($request);
         $now = now();
         $visitorLimitOptions = [10, 25, 50, 100];
         $visitorLimit = $request->integer('visitor_limit', 10);
-        if (!in_array($visitorLimit, $visitorLimitOptions, true)) {
+
+        if (! in_array($visitorLimit, $visitorLimitOptions, true)) {
             $visitorLimit = 10;
         }
 
-        // Base queries
-        $pesananQuery = Pesanan::query()->where('tipe', 'produk');
-        $serviceQuery = Service::query()->where('jenis_service', '!=', 'Refill');
+        $pesananQuery = $finalRevenue->productOrdersQuery(
+            $filters['tanggal_dari'],
+            $filters['tanggal_sampai'],
+            $filters['pelanggan_id']
+        );
+        $serviceQuery = $finalRevenue->serviceTransactionsQuery(
+            $filters['tanggal_dari'],
+            $filters['tanggal_sampai'],
+            $filters['pelanggan_id']
+        );
+        $refillQuery = $finalRevenue->refillTransactionsQuery(
+            $filters['tanggal_dari'],
+            $filters['tanggal_sampai'],
+            $filters['pelanggan_id']
+        );
         $unitQuery = UnitApar::query();
 
-        // Apply date filters
         if ($filters['tanggal_dari']) {
-            $pesananQuery->whereDate('tanggal', '>=', $filters['tanggal_dari']);
-            $serviceQuery->whereDate('tgl_service', '>=', $filters['tanggal_dari']);
             $unitQuery->whereDate('tgl_produksi', '>=', $filters['tanggal_dari']);
         }
+
         if ($filters['tanggal_sampai']) {
-            $pesananQuery->whereDate('tanggal', '<=', $filters['tanggal_sampai']);
-            $serviceQuery->whereDate('tgl_service', '<=', $filters['tanggal_sampai']);
             $unitQuery->whereDate('tgl_produksi', '<=', $filters['tanggal_sampai']);
         }
 
-        // Summary stats
-        $totalPesanan = $pesananQuery->count();
-        $totalNilaiPesanan = (float) $pesananQuery->sum('total');
-        $totalService = $serviceQuery->count();
-        $totalBiayaService = (float) $serviceQuery->sum('biaya');
-        $totalRefill = Refill::when($filters['tanggal_dari'], fn($q, $d) => $q->whereDate('tgl_refill', '>=', $d))
-            ->when($filters['tanggal_sampai'], fn($q, $s) => $q->whereDate('tgl_refill', '<=', $s))
-            ->count();
-        $totalBiayaRefill = (float) Refill::when($filters['tanggal_dari'], fn($q, $d) => $q->whereDate('tgl_refill', '>=', $d))
-            ->when($filters['tanggal_sampai'], fn($q, $s) => $q->whereDate('tgl_refill', '<=', $s))
-            ->sum('biaya');
+        $revenueBreakdown = $finalRevenue->breakdown(
+            $filters['tanggal_dari'],
+            $filters['tanggal_sampai'],
+            $filters['pelanggan_id']
+        );
+
+        $totalPesanan = (clone $pesananQuery)->count();
+        $totalNilaiPesanan = $revenueBreakdown['product'];
+        $totalService = (clone $serviceQuery)->count();
+        $totalBiayaService = $revenueBreakdown['service'];
+        $totalRefill = (clone $refillQuery)->count();
+        $totalBiayaRefill = $revenueBreakdown['refill'];
         $totalUnit = $unitQuery->count();
         $totalPengeluaran = $this->sumPengeluaranAmount($this->pengeluaranQuery($filters));
-        $totalPemasukan = $totalNilaiPesanan + $totalBiayaService + $totalBiayaRefill;
+        $totalPemasukan = $revenueBreakdown['total'];
         $labaBersih = $totalPemasukan - $totalPengeluaran;
 
-        // Charts data
         $revenueComposition = [
             'labels' => ['Penjualan Produk', 'Service APAR', 'Refill APAR'],
             'series' => [$totalNilaiPesanan, $totalBiayaService, $totalBiayaRefill],
         ];
 
-        // Transaction status
         $pendingCount = Pesanan::where('tipe', 'produk')->whereIn('status', ['pending', 'menunggu', 'menunggu persetujuan'])->count();
         $diprosesCount = Pesanan::where('tipe', 'produk')->whereIn('status', ['diproses', 'ditugaskan ke teknisi', 'dikerjakan teknisi'])->count();
         $selesaiCount = Pesanan::where('tipe', 'produk')->whereIn('status', ['selesai', 'dikonfirmasi admin', 'selesai final'])->count();
@@ -78,7 +87,6 @@ class LaporanController extends Controller
             'series' => [$pendingCount, $diprosesCount, $selesaiCount, $ditolakCount],
         ];
 
-        // Unit status
         $expiringLimit = $now->copy()->addDays(30);
         $unitAktif = UnitApar::whereDate('tgl_expired', '>', $expiringLimit)->count();
         $unitAkanExpired = UnitApar::whereBetween('tgl_expired', [$now, $expiringLimit])->count();
@@ -88,38 +96,66 @@ class LaporanController extends Controller
             'series' => [$unitAktif, $unitAkanExpired, $unitExpired],
         ];
 
-        // Combined table data
         $combinedData = collect();
-        Pesanan::with('pelanggan')->where('tipe', 'produk')
-            ->when($filters['tanggal_dari'], fn($q, $d) => $q->whereDate('tanggal', '>=', $d))
-            ->when($filters['tanggal_sampai'], fn($q, $s) => $q->whereDate('tanggal', '<=', $s))
-            ->latest('tanggal')->take(20)->each(fn($p) => $combinedData->push([
-                'tanggal' => $p->tanggal,
+
+        (clone $pesananQuery)
+            ->with('pelanggan')
+            ->latest('tanggal')
+            ->take(20)
+            ->get()
+            ->each(fn ($pesanan) => $combinedData->push([
+                'tanggal' => $pesanan->tanggal,
                 'jenis' => 'Pesanan',
-                'pelanggan' => $p->pelanggan?->nama ?? '-',
-                'keterangan' => $p->transactionDisplayName() . ' • ' . $p->displayTransactionDateTime(),
-                'status' => $p->status,
-                'pemasukan' => (float) $p->total,
+                'pelanggan' => $pesanan->pelanggan?->nama ?? '-',
+                'keterangan' => $pesanan->transactionDisplayName().' - '.$pesanan->displayTransactionDateTime(),
+                'status' => $pesanan->status,
+                'pemasukan' => (float) $pesanan->total,
                 'pengeluaran' => 0,
             ]));
-        Service::with('unitApar.pelanggan')
-            ->when($filters['tanggal_dari'], fn($q, $d) => $q->whereDate('tgl_service', '>=', $d))
-            ->when($filters['tanggal_sampai'], fn($q, $s) => $q->whereDate('tgl_service', '<=', $s))
-            ->where('jenis_service', '!=', 'Refill')
-            ->latest('tgl_service')->take(20)->each(fn($s) => $combinedData->push([
-                'tanggal' => $s->tgl_service,
+
+        (clone $serviceQuery)
+            ->with(['unitApar.pelanggan', 'pesanan.pelanggan'])
+            ->latest('tgl_service')
+            ->take(20)
+            ->get()
+            ->each(fn ($service) => $combinedData->push([
+                'tanggal' => $service->tgl_service,
                 'jenis' => 'Service',
-                'pelanggan' => $s->unitApar?->pelanggan?->nama ?? $s->display_customer_name ?? '-',
-                'keterangan' => $s->transactionDisplayName() . ' • ' . $s->displayTransactionDateTime(),
-                'status' => $s->status_konfirmasi ?? '-',
-                'pemasukan' => (float) $s->biaya,
+                'pelanggan' => $service->unitApar?->pelanggan?->nama ?? $service->display_customer_name ?? '-',
+                'keterangan' => $service->transactionDisplayName().' - '.$service->displayTransactionDateTime(),
+                'status' => $service->pesanan?->status ?? $service->status_konfirmasi ?? '-',
+                'pemasukan' => (float) $service->biaya,
                 'pengeluaran' => 0,
             ]));
 
-        $summary = compact('totalPesanan', 'totalNilaiPesanan', 'totalService', 'totalBiayaService',
-            'totalRefill', 'totalBiayaRefill', 'totalUnit', 'totalPengeluaran', 'totalPemasukan', 'labaBersih');
+        (clone $refillQuery)
+            ->with(['unitApar.pelanggan', 'service.pesanan.pelanggan', 'jenisRefill'])
+            ->latest('tgl_refill')
+            ->take(20)
+            ->get()
+            ->each(fn ($refill) => $combinedData->push([
+                'tanggal' => $refill->tgl_refill,
+                'jenis' => 'Refill',
+                'pelanggan' => $refill->unitApar?->pelanggan?->nama ?? $refill->service?->pesanan?->pelanggan?->nama ?? '-',
+                'keterangan' => $refill->transactionDisplayName().' - '.$refill->displayTransactionDateTime(),
+                'status' => $refill->service?->pesanan?->status ?? '-',
+                'pemasukan' => (float) $refill->biaya,
+                'pengeluaran' => 0,
+            ]));
 
-        // Visitor stats
+        $summary = compact(
+            'totalPesanan',
+            'totalNilaiPesanan',
+            'totalService',
+            'totalBiayaService',
+            'totalRefill',
+            'totalBiayaRefill',
+            'totalUnit',
+            'totalPengeluaran',
+            'totalPemasukan',
+            'labaBersih'
+        );
+
         $visitorStats = [
             'totalUnik' => WebsiteVisit::getUniqueVisitors($filters['tanggal_dari'], $filters['tanggal_sampai']),
             'totalKunjungan' => WebsiteVisit::getTotalPageViews($filters['tanggal_dari'], $filters['tanggal_sampai']),
@@ -140,22 +176,32 @@ class LaporanController extends Controller
             limit: 10,
         );
 
-        // Detailed expenditures
         $pengeluarans = $this->pengeluaranQuery($filters)
             ->orderByDesc('tanggal')
             ->limit(50)
             ->get();
 
-        // Detailed visitor records
         $visitorQuery = WebsiteVisit::query()
-            ->when($filters['tanggal_dari'], fn($q, $d) => $q->whereDate('visited_at', '>=', $d))
-            ->when($filters['tanggal_sampai'], fn($q, $s) => $q->whereDate('visited_at', '<=', $s))
+            ->when($filters['tanggal_dari'], fn ($query, $tanggalDari) => $query->whereDate('visited_at', '>=', $tanggalDari))
+            ->when($filters['tanggal_sampai'], fn ($query, $tanggalSampai) => $query->whereDate('visited_at', '<=', $tanggalSampai))
             ->orderByDesc('visited_at');
 
         $visitorRecords = $visitorQuery->take($visitorLimit)->get();
 
         return view('admin.laporan.index', compact(
-            'filters', 'summary', 'revenueComposition', 'transactionStatus', 'unitStatus', 'combinedData', 'visitorStats', 'visitorRecords', 'visitorLimit', 'visitorLimitOptions', 'mostViewedProducts', 'mostSoldProducts', 'pengeluarans'
+            'filters',
+            'summary',
+            'revenueComposition',
+            'transactionStatus',
+            'unitStatus',
+            'combinedData',
+            'visitorStats',
+            'visitorRecords',
+            'visitorLimit',
+            'visitorLimitOptions',
+            'mostViewedProducts',
+            'mostSoldProducts',
+            'pengeluarans'
         ));
     }
 
@@ -229,56 +275,58 @@ class LaporanController extends Controller
         return view('admin.laporan.pesanan', compact('pesanans', 'stats', 'filters', 'pelanggans'));
     }
 
-    public function keuangan(Request $request)
+    public function keuangan(Request $request, FinalRevenueService $finalRevenue)
     {
         $filters = $this->filters($request);
 
-        $services = Service::with(['unitApar.pelanggan', 'unitApar.produk'])
-            ->where('jenis_service', '!=', 'Refill')
-            ->when($filters['pelanggan_id'], function ($query, $pelangganId) {
-                $query->whereHas('unitApar', fn ($unitQuery) => $unitQuery->where('pelanggan_id', $pelangganId));
-            })
-            ->when($filters['tanggal_dari'], fn ($query, $tanggalDari) => $query->whereDate('tgl_service', '>=', $tanggalDari))
-            ->when($filters['tanggal_sampai'], fn ($query, $tanggalSampai) => $query->whereDate('tgl_service', '<=', $tanggalSampai))
+        $services = $finalRevenue->serviceTransactionsQuery(
+            $filters['tanggal_dari'],
+            $filters['tanggal_sampai'],
+            $filters['pelanggan_id']
+        )
+            ->with(['unitApar.pelanggan', 'unitApar.produk', 'pesanan.pelanggan'])
             ->get();
 
-        $pesanans = Pesanan::whereIn('status', ['selesai', 'dikonfirmasi admin', 'selesai final'])
-            ->when($filters['pelanggan_id'], fn ($query, $pelangganId) => $query->where('pelanggan_id', $pelangganId))
-            ->when($filters['tanggal_dari'], fn ($query, $tanggalDari) => $query->whereDate('tanggal', '>=', $tanggalDari))
-            ->when($filters['tanggal_sampai'], fn ($query, $tanggalSampai) => $query->whereDate('tanggal', '<=', $tanggalSampai))
+        $pesanans = $finalRevenue->productOrdersQuery(
+            $filters['tanggal_dari'],
+            $filters['tanggal_sampai'],
+            $filters['pelanggan_id']
+        )
+            ->with('pelanggan')
             ->get();
 
-        $pengeluarans = $this->pengeluaranQuery($filters)
+        $refills = $finalRevenue->refillTransactionsQuery(
+            $filters['tanggal_dari'],
+            $filters['tanggal_sampai'],
+            $filters['pelanggan_id']
+        )
+            ->with(['unitApar.pelanggan', 'service.pesanan.pelanggan', 'jenisRefill'])
             ->get();
+
+        $pengeluarans = $this->pengeluaranQuery($filters)->get();
 
         $pemasukanService = $services->sum('biaya');
         $pemasukanProduk = $pesanans->sum('total');
+        $pemasukanRefill = $refills->sum('biaya');
         $totalPengeluaran = $pengeluarans->sum('effective_amount');
 
         $totals = [
-            'total_pemasukan' => $pemasukanService + $pemasukanProduk,
+            'total_pemasukan' => $pemasukanService + $pemasukanProduk + $pemasukanRefill,
             'total_pengeluaran' => $totalPengeluaran,
-            'laba_bersih' => ($pemasukanService + $pemasukanProduk) - $totalPengeluaran,
-            'total_transaksi' => $services->count() + $pesanans->count(),
+            'laba_bersih' => ($pemasukanService + $pemasukanProduk + $pemasukanRefill) - $totalPengeluaran,
+            'total_transaksi' => $services->count() + $pesanans->count() + $refills->count(),
         ];
 
         $pelanggans = Pelanggan::orderBy('nama')->get();
 
-        // Monthly trend (last 6 months)
         $trendData = [];
         for ($i = 5; $i >= 0; $i--) {
             $month = now()->copy()->subMonths($i);
-            $label = $month->format('M Y');
-
-            $serviceIncome = Service::where('jenis_service', '!=', 'Refill')
-                ->whereMonth('tgl_service', $month->month)
-                ->whereYear('tgl_service', $month->year)
-                ->sum('biaya');
-
-            $productIncome = Pesanan::whereIn('status', ['selesai', 'dikonfirmasi admin', 'selesai final'])
-                ->whereMonth('tanggal', $month->month)
-                ->whereYear('tanggal', $month->year)
-                ->sum('total');
+            $monthBreakdown = $finalRevenue->breakdown(
+                $month->copy()->startOfMonth()->toDateString(),
+                $month->copy()->endOfMonth()->toDateString(),
+                $filters['pelanggan_id']
+            );
 
             $expense = $this->sumPengeluaranAmount(
                 Pengeluaran::query()
@@ -287,18 +335,28 @@ class LaporanController extends Controller
             );
 
             $trendData[] = [
-                'label' => $label,
+                'label' => $month->format('M Y'),
                 'bulan' => $month->month,
                 'tahun' => $month->year,
-                'pemasukan_service' => (int) $serviceIncome,
-                'pemasukan_produk' => (int) $productIncome,
-                'total_pemasukan' => (int) ($serviceIncome + $productIncome),
+                'pemasukan_service' => (int) $monthBreakdown['service'],
+                'pemasukan_produk' => (int) $monthBreakdown['product'],
+                'pemasukan_refill' => (int) $monthBreakdown['refill'],
+                'total_pemasukan' => (int) $monthBreakdown['total'],
                 'pengeluaran' => (int) $expense,
-                'laba' => (int) (($serviceIncome + $productIncome) - $expense),
+                'laba' => (int) ($monthBreakdown['total'] - $expense),
             ];
         }
 
-        return view('admin.laporan.keuangan', compact('services', 'pesanans', 'pengeluarans', 'totals', 'filters', 'pelanggans', 'trendData'));
+        return view('admin.laporan.keuangan', compact(
+            'services',
+            'pesanans',
+            'refills',
+            'pengeluarans',
+            'totals',
+            'filters',
+            'pelanggans',
+            'trendData'
+        ));
     }
 
     public function aparPdf(Request $request)
@@ -360,142 +418,177 @@ class LaporanController extends Controller
         ])->download('laporan-pesanan.pdf');
     }
 
-    public function keuanganPdf(Request $request)
+    public function keuanganPdf(Request $request, FinalRevenueService $finalRevenue)
     {
         $filters = $this->filters($request);
-        
-        $services = Service::with(['unitApar.pelanggan', 'unitApar.produk'])
-            ->where('jenis_service', '!=', 'Refill')
-            ->when($filters['pelanggan_id'], function ($query, $pelangganId) {
-                $query->whereHas('unitApar', fn ($unitQuery) => $unitQuery->where('pelanggan_id', $pelangganId));
-            })
-            ->when($filters['tanggal_dari'], fn ($query, $tanggalDari) => $query->whereDate('tgl_service', '>=', $tanggalDari))
-            ->when($filters['tanggal_sampai'], fn ($query, $tanggalSampai) => $query->whereDate('tgl_service', '<=', $tanggalSampai))
+
+        $services = $finalRevenue->serviceTransactionsQuery(
+            $filters['tanggal_dari'],
+            $filters['tanggal_sampai'],
+            $filters['pelanggan_id']
+        )
+            ->with(['unitApar.pelanggan', 'unitApar.produk', 'pesanan.pelanggan'])
             ->get();
 
-        $pesanans = Pesanan::whereIn('status', ['selesai', 'dikonfirmasi admin', 'selesai final'])
-            ->when($filters['pelanggan_id'], fn ($query, $pelangganId) => $query->where('pelanggan_id', $pelangganId))
-            ->when($filters['tanggal_dari'], fn ($query, $tanggalDari) => $query->whereDate('tanggal', '>=', $tanggalDari))
-            ->when($filters['tanggal_sampai'], fn ($query, $tanggalSampai) => $query->whereDate('tanggal', '<=', $tanggalSampai))
-            ->with('pelanggan')->get();
-
-        $pengeluarans = $this->pengeluaranQuery($filters)
+        $pesanans = $finalRevenue->productOrdersQuery(
+            $filters['tanggal_dari'],
+            $filters['tanggal_sampai'],
+            $filters['pelanggan_id']
+        )
+            ->with('pelanggan')
             ->get();
+
+        $refills = $finalRevenue->refillTransactionsQuery(
+            $filters['tanggal_dari'],
+            $filters['tanggal_sampai'],
+            $filters['pelanggan_id']
+        )
+            ->with(['unitApar.pelanggan', 'service.pesanan.pelanggan', 'jenisRefill'])
+            ->get();
+
+        $pengeluarans = $this->pengeluaranQuery($filters)->get();
 
         $pemasukanService = $services->sum('biaya');
         $pemasukanProduk = $pesanans->sum('total');
+        $pemasukanRefill = $refills->sum('biaya');
         $totalPengeluaran = $pengeluarans->sum('effective_amount');
 
         $totals = [
-            'total_pemasukan' => $pemasukanService + $pemasukanProduk,
+            'total_pemasukan' => $pemasukanService + $pemasukanProduk + $pemasukanRefill,
             'total_pengeluaran' => $totalPengeluaran,
-            'laba_bersih' => ($pemasukanService + $pemasukanProduk) - $totalPengeluaran,
-            'total_transaksi' => $services->count() + $pesanans->count(),
+            'laba_bersih' => ($pemasukanService + $pemasukanProduk + $pemasukanRefill) - $totalPengeluaran,
+            'total_transaksi' => $services->count() + $pesanans->count() + $refills->count(),
         ];
 
         return Pdf::loadView('admin.laporan.pdf.keuangan', [
             'services' => $services,
             'pesanans' => $pesanans,
+            'refills' => $refills,
             'pengeluarans' => $pengeluarans,
             'filters' => $filters,
             'totals' => $totals,
         ])->download('laporan-keuangan.pdf');
     }
 
-
-
     protected function filters(Request $request): array
     {
         return [
-            'tanggal_dari'   => $request->string('tanggal_dari')->toString() ?: null,
+            'tanggal_dari' => $request->string('tanggal_dari')->toString() ?: null,
             'tanggal_sampai' => $request->string('tanggal_sampai')->toString() ?: null,
-            'pelanggan_id'   => $request->filled('pelanggan_id') ? (int) $request->pelanggan_id : null,
+            'pelanggan_id' => $request->filled('pelanggan_id') ? (int) $request->pelanggan_id : null,
         ];
     }
 
-    public function indexPdf(Request $request, ProductAnalyticsService $productAnalytics)
+    public function indexPdf(Request $request, ProductAnalyticsService $productAnalytics, FinalRevenueService $finalRevenue)
     {
         $filters = $this->filters($request);
         $now = now();
 
-        // Base data with same logic as index
-        $pesananQuery = Pesanan::query()->where('tipe', 'produk');
-        $serviceQuery = Service::query()->where('jenis_service', '!=', 'Refill');
+        $pesananQuery = $finalRevenue->productOrdersQuery(
+            $filters['tanggal_dari'],
+            $filters['tanggal_sampai'],
+            $filters['pelanggan_id']
+        );
+        $serviceQuery = $finalRevenue->serviceTransactionsQuery(
+            $filters['tanggal_dari'],
+            $filters['tanggal_sampai'],
+            $filters['pelanggan_id']
+        );
+        $refillQuery = $finalRevenue->refillTransactionsQuery(
+            $filters['tanggal_dari'],
+            $filters['tanggal_sampai'],
+            $filters['pelanggan_id']
+        );
         $unitQuery = UnitApar::query();
 
         if ($filters['tanggal_dari']) {
-            $pesananQuery->whereDate('tanggal', '>=', $filters['tanggal_dari']);
-            $serviceQuery->whereDate('tgl_service', '>=', $filters['tanggal_dari']);
             $unitQuery->whereDate('tgl_produksi', '>=', $filters['tanggal_dari']);
         }
+
         if ($filters['tanggal_sampai']) {
-            $pesananQuery->whereDate('tanggal', '<=', $filters['tanggal_sampai']);
-            $serviceQuery->whereDate('tgl_service', '<=', $filters['tanggal_sampai']);
             $unitQuery->whereDate('tgl_produksi', '<=', $filters['tanggal_sampai']);
         }
 
-        $totalPesanan = $pesananQuery->count();
-        $totalNilaiPesanan = (float) $pesananQuery->sum('total');
-        $totalService = $serviceQuery->count();
-        $totalBiayaService = (float) $serviceQuery->sum('biaya');
-        $totalRefill = Refill::when($filters['tanggal_dari'], fn($q, $d) => $q->whereDate('tgl_refill', '>=', $d))
-            ->when($filters['tanggal_sampai'], fn($q, $s) => $q->whereDate('tgl_refill', '<=', $s))->count();
-        $totalBiayaRefill = (float) Refill::when($filters['tanggal_dari'], fn($q, $d) => $q->whereDate('tgl_refill', '>=', $d))
-            ->when($filters['tanggal_sampai'], fn($q, $s) => $q->whereDate('tgl_refill', '<=', $s))->sum('biaya');
+        $revenueBreakdown = $finalRevenue->breakdown(
+            $filters['tanggal_dari'],
+            $filters['tanggal_sampai'],
+            $filters['pelanggan_id']
+        );
+
+        $totalPesanan = (clone $pesananQuery)->count();
+        $totalNilaiPesanan = $revenueBreakdown['product'];
+        $totalService = (clone $serviceQuery)->count();
+        $totalBiayaService = $revenueBreakdown['service'];
+        $totalRefill = (clone $refillQuery)->count();
+        $totalBiayaRefill = $revenueBreakdown['refill'];
         $totalUnit = $unitQuery->count();
         $totalPengeluaran = $this->sumPengeluaranAmount($this->pengeluaranQuery($filters));
-        $totalPemasukan = $totalNilaiPesanan + $totalBiayaService + $totalBiayaRefill;
+        $totalPemasukan = $revenueBreakdown['total'];
         $labaBersih = $totalPemasukan - $totalPengeluaran;
 
-        // Visitor stats
         $totalUnik = WebsiteVisit::getUniqueVisitors($filters['tanggal_dari'], $filters['tanggal_sampai']);
         $totalKunjungan = WebsiteVisit::getTotalPageViews($filters['tanggal_dari'], $filters['tanggal_sampai']);
 
-        // Transaction status
         $pendingCount = Pesanan::where('tipe', 'produk')->whereIn('status', ['pending', 'menunggu', 'menunggu persetujuan'])->count();
         $diprosesCount = Pesanan::where('tipe', 'produk')->whereIn('status', ['diproses', 'ditugaskan ke teknisi', 'dikerjakan teknisi'])->count();
         $selesaiCount = Pesanan::where('tipe', 'produk')->whereIn('status', ['selesai', 'dikonfirmasi admin', 'selesai final'])->count();
         $ditolakCount = Pesanan::where('tipe', 'produk')->whereIn('status', ['ditolak', 'batal'])->count();
 
-        // Unit status
         $expiringLimit = $now->copy()->addDays(30);
         $unitAktif = UnitApar::whereDate('tgl_expired', '>', $expiringLimit)->count();
         $unitAkanExpired = UnitApar::whereBetween('tgl_expired', [$now, $expiringLimit])->count();
         $unitExpired = UnitApar::whereDate('tgl_expired', '<', $now)->count();
 
-        // Combined table data
         $combinedData = collect();
-        Pesanan::with('pelanggan')->where('tipe', 'produk')
-            ->when($filters['tanggal_dari'], fn($q, $d) => $q->whereDate('tanggal', '>=', $d))
-            ->when($filters['tanggal_sampai'], fn($q, $s) => $q->whereDate('tanggal', '<=', $s))
-            ->latest('tanggal')->take(50)->each(fn($p) => $combinedData->push([
-                'tanggal' => $p->tanggal,
+
+        (clone $pesananQuery)
+            ->with('pelanggan')
+            ->latest('tanggal')
+            ->take(50)
+            ->get()
+            ->each(fn ($pesanan) => $combinedData->push([
+                'tanggal' => $pesanan->tanggal,
                 'jenis' => 'Pesanan',
-                'pelanggan' => $p->pelanggan?->nama ?? '-',
-                'keterangan' => $p->transactionDisplayName() . ' • ' . $p->displayTransactionDateTime(),
-                'status' => $p->status,
-                'pemasukan' => (float) $p->total,
+                'pelanggan' => $pesanan->pelanggan?->nama ?? '-',
+                'keterangan' => $pesanan->transactionDisplayName().' - '.$pesanan->displayTransactionDateTime(),
+                'status' => $pesanan->status,
+                'pemasukan' => (float) $pesanan->total,
             ]));
-        Service::with('unitApar.pelanggan')
-            ->when($filters['tanggal_dari'], fn($q, $d) => $q->whereDate('tgl_service', '>=', $d))
-            ->when($filters['tanggal_sampai'], fn($q, $s) => $q->whereDate('tgl_service', '<=', $s))
-            ->where('jenis_service', '!=', 'Refill')
-            ->latest('tgl_service')->take(50)->each(fn($s) => $combinedData->push([
-                'tanggal' => $s->tgl_service,
+
+        (clone $serviceQuery)
+            ->with(['unitApar.pelanggan', 'pesanan.pelanggan'])
+            ->latest('tgl_service')
+            ->take(50)
+            ->get()
+            ->each(fn ($service) => $combinedData->push([
+                'tanggal' => $service->tgl_service,
                 'jenis' => 'Service',
-                'pelanggan' => $s->unitApar?->pelanggan?->nama ?? $s->display_customer_name ?? '-',
-                'keterangan' => $s->transactionDisplayName() . ' • ' . $s->displayTransactionDateTime(),
-                'status' => $s->status_konfirmasi ?? '-',
-                'pemasukan' => (float) $s->biaya,
+                'pelanggan' => $service->unitApar?->pelanggan?->nama ?? $service->display_customer_name ?? '-',
+                'keterangan' => $service->transactionDisplayName().' - '.$service->displayTransactionDateTime(),
+                'status' => $service->pesanan?->status ?? $service->status_konfirmasi ?? '-',
+                'pemasukan' => (float) $service->biaya,
+            ]));
+
+        (clone $refillQuery)
+            ->with(['unitApar.pelanggan', 'service.pesanan.pelanggan', 'jenisRefill'])
+            ->latest('tgl_refill')
+            ->take(50)
+            ->get()
+            ->each(fn ($refill) => $combinedData->push([
+                'tanggal' => $refill->tgl_refill,
+                'jenis' => 'Refill',
+                'pelanggan' => $refill->unitApar?->pelanggan?->nama ?? $refill->service?->pesanan?->pelanggan?->nama ?? '-',
+                'keterangan' => $refill->transactionDisplayName().' - '.$refill->displayTransactionDateTime(),
+                'status' => $refill->service?->pesanan?->status ?? '-',
+                'pemasukan' => (float) $refill->biaya,
             ]));
 
         $pelangganNama = $filters['pelanggan_id'] ? (Pelanggan::find($filters['pelanggan_id'])?->nama ?? null) : null;
         $periode = $this->buildPeriodeLabel($filters);
 
-        // Visitor records for PDF
         $visitorRecordsPdf = WebsiteVisit::query()
-            ->when($filters['tanggal_dari'], fn($q, $d) => $q->whereDate('visited_at', '>=', $d))
-            ->when($filters['tanggal_sampai'], fn($q, $s) => $q->whereDate('visited_at', '<=', $s))
+            ->when($filters['tanggal_dari'], fn ($query, $tanggalDari) => $query->whereDate('visited_at', '>=', $tanggalDari))
+            ->when($filters['tanggal_sampai'], fn ($query, $tanggalSampai) => $query->whereDate('visited_at', '<=', $tanggalSampai))
             ->orderByDesc('visited_at')
             ->take(50)
             ->get();
@@ -519,7 +612,6 @@ class LaporanController extends Controller
             limit: 10,
         );
 
-        // Detailed expenditures for PDF
         $pengeluaransPdf = $this->pengeluaranQuery($filters)
             ->orderByDesc('tanggal')
             ->limit(50)
@@ -529,8 +621,18 @@ class LaporanController extends Controller
             'filters' => $filters,
             'periode' => $periode,
             'pelangganNama' => $pelangganNama,
-            'summary' => compact('totalPesanan', 'totalNilaiPesanan', 'totalService', 'totalBiayaService',
-                'totalRefill', 'totalBiayaRefill', 'totalUnit', 'totalPengeluaran', 'totalPemasukan', 'labaBersih'),
+            'summary' => compact(
+                'totalPesanan',
+                'totalNilaiPesanan',
+                'totalService',
+                'totalBiayaService',
+                'totalRefill',
+                'totalBiayaRefill',
+                'totalUnit',
+                'totalPengeluaran',
+                'totalPemasukan',
+                'labaBersih'
+            ),
             'revenueComposition' => [$totalNilaiPesanan, $totalBiayaService, $totalBiayaRefill],
             'transactionStatus' => compact('pendingCount', 'diprosesCount', 'selesaiCount', 'ditolakCount'),
             'unitStatus' => compact('unitAktif', 'unitAkanExpired', 'unitExpired'),
@@ -541,20 +643,23 @@ class LaporanController extends Controller
             'pengeluarans' => $pengeluaransPdf,
             'combinedData' => $combinedData->sortByDesc('tanggal')->values(),
             'printedAt' => now(),
-        ])->download('laporan-apar-' . now()->format('Y-m-d') . '.pdf');
+        ])->download('laporan-apar-'.now()->format('Y-m-d').'.pdf');
     }
 
     private function buildPeriodeLabel(array $filters): string
     {
         if ($filters['tanggal_dari'] && $filters['tanggal_sampai']) {
-            return \Carbon\Carbon::parse($filters['tanggal_dari'])->translatedFormat('d M Y') . ' - ' . \Carbon\Carbon::parse($filters['tanggal_sampai'])->translatedFormat('d M Y');
+            return Carbon::parse($filters['tanggal_dari'])->translatedFormat('d M Y').' - '.Carbon::parse($filters['tanggal_sampai'])->translatedFormat('d M Y');
         }
+
         if ($filters['tanggal_dari']) {
-            return 'Dari ' . \Carbon\Carbon::parse($filters['tanggal_dari'])->translatedFormat('d M Y');
+            return 'Dari '.Carbon::parse($filters['tanggal_dari'])->translatedFormat('d M Y');
         }
+
         if ($filters['tanggal_sampai']) {
-            return 'Sampai ' . \Carbon\Carbon::parse($filters['tanggal_sampai'])->translatedFormat('d M Y');
+            return 'Sampai '.Carbon::parse($filters['tanggal_sampai'])->translatedFormat('d M Y');
         }
+
         return 'Semua Waktu';
     }
 
@@ -568,7 +673,7 @@ class LaporanController extends Controller
     private function sumPengeluaranAmount(Builder $query): float
     {
         return (float) ((clone $query)
-            ->selectRaw('COALESCE(SUM(' . Pengeluaran::effectiveAmountSql() . '), 0) as total_pengeluaran')
+            ->selectRaw('COALESCE(SUM('.Pengeluaran::effectiveAmountSql().'), 0) as total_pengeluaran')
             ->value('total_pengeluaran') ?? 0);
     }
 }

@@ -3,7 +3,7 @@
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
                 <h2 class="text-3xl font-black text-gray-900 tracking-tight">Laporan Keuangan</h2>
-                <p class="text-sm text-gray-500 font-medium">Ringkasan pemasukan service sesuai filter laporan</p>
+                <p class="text-sm text-gray-500 font-medium">Ringkasan pemasukan transaksi final sesuai filter laporan</p>
             </div>
             <a href="{{ route('admin.laporan.index') }}" class="px-6 py-3 bg-white border border-gray-100 text-gray-900 font-bold rounded-2xl hover:shadow-md transition">
                 Kembali ke Pusat Laporan
@@ -47,7 +47,7 @@
             <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
                 <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Pemasukan</p>
                 <p class="text-3xl font-black text-emerald-700 mt-3">Rp {{ number_format($totals['total_pemasukan'], 0, ',', '.') }}</p>
-                <p class="text-xs font-semibold text-gray-500 mt-2">Dari Penjualan & Service</p>
+                <p class="text-xs font-semibold text-gray-500 mt-2">Dari produk, service, dan refill final</p>
             </div>
             <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
                 <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Pengeluaran</p>
@@ -152,6 +152,14 @@
                                 <td class="px-8 py-5 text-sm font-black text-blue-700">Rp {{ number_format($service->biaya, 0, ',', '.') }}</td>
                             </tr>
                         @endforeach
+                        @foreach($refills as $refill)
+                            <tr>
+                                <td class="px-8 py-5 text-sm font-bold text-gray-900">{{ $refill->displayTransactionDateTime() }}</td>
+                                <td class="px-8 py-5"><span class="px-3 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-bold uppercase tracking-wider">Refill</span></td>
+                                <td class="px-8 py-5 text-sm font-semibold text-gray-700">{{ $refill->jenisRefill?->nama_label ?? 'Refill APAR' }} - {{ $refill->unitApar?->pelanggan?->nama ?? $refill->service?->pesanan?->pelanggan?->nama ?? '-' }}</td>
+                                <td class="px-8 py-5 text-sm font-black text-amber-700">Rp {{ number_format($refill->biaya, 0, ',', '.') }}</td>
+                            </tr>
+                        @endforeach
                         @foreach($pengeluarans as $pengeluaran)
                             <tr>
                                 <td class="px-8 py-5 text-sm font-bold text-gray-900">{{ $pengeluaran->tanggal->format('d M Y') }}</td>
@@ -160,7 +168,7 @@
                                 <td class="px-8 py-5 text-sm font-black text-red-700">- Rp {{ number_format($pengeluaran->effective_amount, 0, ',', '.') }}</td>
                             </tr>
                         @endforeach
-                        @if($pesanans->isEmpty() && $services->isEmpty() && $pengeluarans->isEmpty())
+                        @if($pesanans->isEmpty() && $services->isEmpty() && $refills->isEmpty() && $pengeluarans->isEmpty())
                             <tr>
                                 <td colspan="4" class="px-8 py-12 text-center text-sm font-medium text-gray-500">Belum ada transaksi sesuai filter.</td>
                             </tr>

@@ -13,9 +13,15 @@
             <x-input-error :messages="$errors->get('name')" class="mt-2" />
         </div>
 
+        <!-- Email -->
+        <div class="mt-4">
+            <x-text-input id="email" class="block mt-1 w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-2xl focus:ring-red-700 focus:border-red-700 block w-full p-4 font-medium transition" type="email" name="email" :value="old('email')" autocomplete="username" placeholder="Email (opsional, untuk login & reset password)" />
+            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+        </div>
+
         <!-- Phone Number -->
         <div class="mt-4">
-            <x-text-input id="no_telpon" class="block mt-1 w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-2xl focus:ring-red-700 focus:border-red-700 block w-full p-4 font-medium transition" type="tel" name="no_telpon" :value="old('no_telpon')" required autocomplete="tel" placeholder="Nomor Telepon / WhatsApp" />
+            <x-text-input id="no_telpon" class="block mt-1 w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-2xl focus:ring-red-700 focus:border-red-700 block w-full p-4 font-medium transition" type="tel" name="no_telpon" :value="old('no_telpon')" required autocomplete="tel" placeholder="Nomor WhatsApp" />
             <x-input-error :messages="$errors->get('no_telpon')" class="mt-2" />
         </div>
 

@@ -293,17 +293,13 @@
                     </x-nav-link-sidebar>
 
                     @if($isTeknisi)
-                        <x-nav-link-sidebar :href="route('teknisi.tugas-produk')" :active="request()->routeIs('teknisi.tugas-produk')" class="sidebar-nav-link">
+                        <x-nav-link-sidebar :href="route('teknisi.pekerjaan-aktif')" :active="request()->routeIs('teknisi.pekerjaan-aktif') || request()->routeIs('teknisi.tugas-produk') || request()->routeIs('teknisi.tugas-service-refill')" class="sidebar-nav-link">
                             <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V7a2 2 0 00-2-2h-3m-4 0H6a2 2 0 00-2 2v6m16 0v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4m16 0H4m5-4h6" /></svg>
-                            <span class="sidebar-label truncate">TUGAS PRODUK</span>
+                            <span class="sidebar-label truncate">PEKERJAAN AKTIF</span>
                         </x-nav-link-sidebar>
-                        <x-nav-link-sidebar :href="route('teknisi.tugas-service-refill')" :active="request()->routeIs('teknisi.tugas-service-refill')" class="sidebar-nav-link">
-                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a4 4 0 00-5.656-5.656l-8.486 8.485A2 2 0 108.114 21l8.485-8.486a4 4 0 00-5.656-5.656L4.458 13.343" /></svg>
-                            <span class="sidebar-label truncate">TUGAS SERVICE / REFIL</span>
-                        </x-nav-link-sidebar>
-                        <x-nav-link-sidebar :href="route('teknisi.riwayat-tugas')" :active="request()->routeIs('teknisi.riwayat-tugas')" class="sidebar-nav-link">
-                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V9m-6-4 4 4m0 0-4 4m4-4H9" /></svg>
-                            <span class="sidebar-label truncate">RIWAYAT TUGAS</span>
+                        <x-nav-link-sidebar :href="route('teknisi.riwayat-pekerjaan')" :active="request()->routeIs('teknisi.riwayat-pekerjaan') || request()->routeIs('teknisi.riwayat-tugas')" class="sidebar-nav-link">
+                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <span class="sidebar-label truncate">RIWAYAT PEKERJAAN</span>
                         </x-nav-link-sidebar>
                     @else
                         {{-- Group: LAYANAN APAR --}}
@@ -636,10 +632,10 @@
                         })
                         .listen('.tugas.diperbarui', (event) => {
                             const payload = event.payload || event;
-                            renderToast('Update Teknisi', `Tugas pesanan diperbarui (${payload.status}).`, 'red');
+                            renderToast('Update Teknisi', `Pekerjaan pesanan diperbarui (${payload.status}).`, 'red');
                             dispatchRealtime('realtime:tugas-teknisi', payload);
                             if (shouldRefreshAdminPage) {
-                                scheduleRefresh('Tugas teknisi diperbarui.');
+                                scheduleRefresh('Pekerjaan teknisi diperbarui.');
                             }
                         });
                 }
@@ -648,18 +644,18 @@
                     window.Echo.channel(`teknisi-${userId}`)
                         .listen('.tugas.diperbarui', (event) => {
                             const payload = event.payload || event;
-                            renderToast('Tugas Masuk', `Transaksi ${payload.pelanggan} diperbarui (${payload.status}).`, 'emerald');
+                            renderToast('Pekerjaan Masuk', `Transaksi ${payload.pelanggan} diperbarui (${payload.status}).`, 'emerald');
                             dispatchRealtime('realtime:tugas-teknisi', payload);
                             if (shouldRefreshTeknisiPage) {
-                                scheduleRefresh('Ada perubahan tugas teknisi.');
+                                scheduleRefresh('Ada perubahan pekerjaan teknisi.');
                             }
                         })
                         .listen('.pesanan.status-diperbarui', (event) => {
                             const payload = event.payload || event;
-                            renderToast('Status Tugas', `Transaksi berubah ke status ${payload.status}.`, 'amber');
+                            renderToast('Status Pekerjaan', `Transaksi berubah ke status ${payload.status}.`, 'amber');
                             dispatchRealtime('realtime:status-pesanan', payload);
                             if (shouldRefreshTeknisiPage) {
-                                scheduleRefresh('Status tugas berubah.');
+                                scheduleRefresh('Status pekerjaan berubah.');
                             }
                         });
                 }

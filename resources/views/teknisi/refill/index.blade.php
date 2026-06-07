@@ -2,7 +2,7 @@
     <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div class="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-                <h1 class="text-3xl font-black text-slate-900 tracking-tight">Tugas Refill Internal</h1>
+                <h1 class="text-3xl font-black text-slate-900 tracking-tight">Pekerjaan Refill Internal</h1>
                 <p class="text-slate-500 mt-2 font-medium">Daftar stok APAR expired yang perlu Anda refill.</p>
             </div>
         </div>
@@ -63,8 +63,8 @@
                     <div class="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
                         <svg class="w-10 h-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
                     </div>
-                    <h3 class="text-lg font-black text-slate-900">Tidak ada tugas refill</h3>
-                    <p class="text-slate-500 font-medium mt-1">Saat ini tidak ada tugas refill internal yang perlu dikerjakan.</p>
+                    <h3 class="text-lg font-black text-slate-900">Tidak ada pekerjaan refill</h3>
+                    <p class="text-slate-500 font-medium mt-1">Saat ini tidak ada pekerjaan refill internal yang perlu dikerjakan.</p>
                 </div>
             @endforelse
 

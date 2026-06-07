@@ -18,6 +18,12 @@ class ProfileUpdateRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
+            'email' => [
+                'nullable',
+                'email',
+                'max:255',
+                Rule::unique(User::class)->ignore($this->user()->id),
+            ],
             'no_telpon' => [
                 'required',
                 'string',
@@ -38,6 +44,7 @@ class ProfileUpdateRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'email.unique' => 'Email sudah digunakan akun lain.',
             'alamat_maps.required_with' => 'Pilih alamat dari saran peta agar lokasi tersimpan.',
             'alamat_detail.required_with' => 'Detail alamat atau patokan wajib diisi.',
             'alamat_lat.required_with' => 'Titik koordinat belum tersimpan. Pilih alamat dari saran peta.',

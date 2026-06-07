@@ -1,8 +1,8 @@
 <x-app-layout>
     <x-slot name="header">
         <div>
-            <h2 class="text-3xl font-black text-slate-900 tracking-tight">Riwayat Tugas</h2>
-            <p class="text-sm font-semibold text-slate-500 mt-1">Riwayat seluruh tugas pesanan, service, dan refill yang sudah Anda selesaikan.</p>
+            <h2 class="text-3xl font-black text-slate-900 tracking-tight">Riwayat Pekerjaan</h2>
+            <p class="text-sm font-semibold text-slate-500 mt-1">Riwayat seluruh pekerjaan pesanan, service, dan refill yang sudah Anda selesaikan.</p>
         </div>
     </x-slot>
 
@@ -14,7 +14,7 @@
 
         @include('teknisi.partials.history-tasks-table', [
             'tasks' => $tasks,
-            'emptyMessage' => 'Belum ada riwayat tugas selesai.'
+            'emptyMessage' => 'Belum ada pekerjaan yang diberikan oleh admin.'
         ])
     </div>
 </x-app-layout>

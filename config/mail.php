@@ -1,5 +1,20 @@
 <?php
 
+$mailEncryption = env('MAIL_ENCRYPTION');
+$mailScheme = env('MAIL_SCHEME');
+
+if ($mailScheme === 'null') {
+    $mailScheme = null;
+}
+
+if ($mailEncryption === 'null') {
+    $mailEncryption = null;
+}
+
+if (! $mailScheme && $mailEncryption === 'ssl') {
+    $mailScheme = 'smtps';
+}
+
 return [
 
     /*
@@ -39,7 +54,9 @@ return [
 
         'smtp' => [
             'transport' => 'smtp',
-            'scheme' => env('MAIL_SCHEME'),
+            // Gmail port 587 uses SMTP + STARTTLS, so MAIL_ENCRYPTION=tls should
+            // not be passed as the URL scheme. Only ssl maps to smtps here.
+            'scheme' => $mailScheme,
             'url' => env('MAIL_URL'),
             'host' => env('MAIL_HOST', '127.0.0.1'),
             'port' => env('MAIL_PORT', 2525),

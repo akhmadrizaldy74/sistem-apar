@@ -17,7 +17,7 @@
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <p class="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Panel Teknisi</p>
-                    <h1 class="text-xl sm:text-2xl font-black text-slate-900">Tugas Lapangan</h1>
+                    <h1 class="text-xl sm:text-2xl font-black text-slate-900">Pekerjaan Lapangan</h1>
                 </div>
                 <div class="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
                     <div class="hidden sm:block text-right">

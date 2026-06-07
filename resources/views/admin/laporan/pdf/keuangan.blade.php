@@ -15,7 +15,7 @@
 </head>
 <body>
     @include('pdf.partials.letterhead')
-    <h1>Laporan Keuangan Service</h1>
+    <h1>Laporan Keuangan</h1>
     <p>Total pemasukan: Rp {{ number_format($totals['total_pemasukan'], 0, ',', '.') }}</p>
     <p>Total transaksi: {{ $totals['total_transaksi'] }}</p>
     <p>Total pengeluaran: Rp {{ number_format($totals['total_pengeluaran'], 0, ',', '.') }}</p>
@@ -44,6 +44,14 @@
                     <td>Service</td>
                     <td>{{ $service->jenis_service }} - {{ $service->unitApar->pelanggan->nama ?? '-' }}</td>
                     <td style="color: green;">Rp {{ number_format($service->biaya, 0, ',', '.') }}</td>
+                </tr>
+            @endforeach
+            @foreach($refills as $refill)
+                <tr>
+                    <td>{{ $refill->displayTransactionDateTime() }}</td>
+                    <td>Refill</td>
+                    <td>{{ $refill->jenisRefill?->nama_label ?? 'Refill APAR' }} - {{ $refill->unitApar?->pelanggan?->nama ?? $refill->service?->pesanan?->pelanggan?->nama ?? '-' }}</td>
+                    <td style="color: green;">Rp {{ number_format($refill->biaya, 0, ',', '.') }}</td>
                 </tr>
             @endforeach
             @foreach($pengeluarans as $pengeluaran)

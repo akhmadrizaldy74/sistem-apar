@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
 use App\Models\Pelanggan;
+use App\Support\PhoneNumber;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -12,21 +13,6 @@ use Illuminate\View\View;
 
 class ProfileController extends Controller
 {
-    private function normalizePhone(string $phone): string
-    {
-        $digits = preg_replace('/\D+/', '', $phone);
-
-        if (str_starts_with($digits, '62')) {
-            return '0' . substr($digits, 2);
-        }
-
-        if (str_starts_with($digits, '8')) {
-            return '0' . $digits;
-        }
-
-        return $digits;
-    }
-
     private function combineAddress(?string $mapsAddress, ?string $detailAddress): ?string
     {
         $parts = array_filter([
@@ -59,7 +45,7 @@ class ProfileController extends Controller
             })
             ->first();
 
-        return $pelanggan ?: new Pelanggan();
+        return $pelanggan ?: new Pelanggan;
     }
 
     /**
@@ -85,10 +71,14 @@ class ProfileController extends Controller
     {
         $validated = $request->validated();
         $user = $request->user();
-        $normalizedPhone = $this->normalizePhone((string) $validated['no_telpon']);
+        $normalizedPhone = PhoneNumber::normalize((string) $validated['no_telpon']) ?? (string) $validated['no_telpon'];
+        $email = array_key_exists('email', $validated)
+            ? (trim((string) $validated['email']) ?: null)
+            : $user->email;
 
         $user->fill([
             'name' => $validated['name'],
+            'email' => $email,
             'no_telpon' => $normalizedPhone,
         ]);
 

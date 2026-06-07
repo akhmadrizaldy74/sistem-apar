@@ -100,11 +100,12 @@
 
             {{-- Desktop Table --}}
             <div class="hidden overflow-x-auto md:block">
-                <table class="w-full min-w-[860px] text-left">
+                <table class="w-full min-w-[980px] text-left">
                     <thead class="bg-slate-50/80 backdrop-blur-sm border-b border-gray-100/70">
                         <tr>
                             <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama</th>
-                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Email / WhatsApp</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Email</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">WhatsApp / HP</th>
                             <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Role</th>
                             <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Terdaftar</th>
                             <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Aksi</th>
@@ -114,11 +115,11 @@
                         @forelse($users as $u)
                             @php
                                 $displayName = $u->name;
-                                $displayContact = $u->email ?: $u->no_telpon ?: ($u->pelanggan?->no_wa ?? '-');
                                 if ($u->role === 'pelanggan' && $u->pelanggan) {
                                     $displayName = $u->pelanggan->nama ?: $u->name;
-                                    $displayContact = $u->email ?: $u->pelanggan->no_wa ?: $u->no_telpon ?: '-';
                                 }
+                                $displayEmail = $u->email;
+                                $displayPhone = $u->pelanggan?->no_wa ?: $u->no_telpon;
                                 $roleBadge = match($u->role) {
                                     'admin' => 'bg-red-50 text-red-700 border-red-100',
                                     'teknisi' => 'bg-blue-50 text-blue-700 border-blue-100',
@@ -150,10 +151,14 @@
                                     </div>
                                 </td>
                                 <td class="px-8 py-6">
-                                    <p class="text-xs font-bold text-slate-600">{{ $displayContact }}</p>
-                                    @if($u->role === 'pelanggan' && $u->email && $u->pelanggan?->no_wa)
-                                        <p class="text-[10px] font-medium text-slate-400 mt-0.5">WA: {{ $u->pelanggan->no_wa }}</p>
+                                    @if($displayEmail)
+                                        <p class="text-xs font-bold text-slate-600">{{ $displayEmail }}</p>
+                                    @else
+                                        <p class="text-xs font-semibold text-slate-400">Belum ada email</p>
                                     @endif
+                                </td>
+                                <td class="px-8 py-6">
+                                    <p class="text-xs font-bold text-slate-600">{{ $displayPhone ?: '-' }}</p>
                                 </td>
                                 <td class="px-8 py-6">
                                     <span class="inline-flex px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border {{ $roleBadge }}">
@@ -192,7 +197,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="px-8 py-12 text-center text-sm font-semibold text-slate-500">
+                                <td colspan="6" class="px-8 py-12 text-center text-sm font-semibold text-slate-500">
                                     Belum ada data akun.
                                 </td>
                             </tr>
@@ -206,11 +211,11 @@
                 @forelse($users as $u)
                     @php
                         $displayName = $u->name;
-                        $displayContact = $u->email ?: $u->no_telpon ?: ($u->pelanggan?->no_wa ?? '-');
                         if ($u->role === 'pelanggan' && $u->pelanggan) {
                             $displayName = $u->pelanggan->nama ?: $u->name;
-                            $displayContact = $u->email ?: $u->pelanggan->no_wa ?: $u->no_telpon ?: '-';
                         }
+                        $displayEmail = $u->email;
+                        $displayPhone = $u->pelanggan?->no_wa ?: $u->no_telpon;
                         $roleBadge = match($u->role) {
                             'admin' => 'bg-red-50 text-red-700 border-red-100',
                             'teknisi' => 'bg-blue-50 text-blue-700 border-blue-100',
@@ -236,7 +241,8 @@
                                     <h3 class="truncate text-base font-black text-slate-900">{{ $displayName }}</h3>
                                     <span class="inline-flex px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border {{ $roleBadge }} shrink-0">{{ $roleLabel }}</span>
                                 </div>
-                                <p class="mt-1 text-sm font-bold text-slate-500">{{ $displayContact }}</p>
+                                <p class="mt-1 text-sm font-bold text-slate-500">{{ $displayPhone ?: '-' }}</p>
+                                <p class="mt-1 text-xs {{ $displayEmail ? 'text-slate-500' : 'text-slate-400' }}">{{ $displayEmail ?: 'Belum ada email' }}</p>
                                 <p class="mt-0.5 text-xs text-slate-400">Terdaftar: {{ $u->created_at ? $u->created_at->format('d M Y') : '-' }}</p>
                             </div>
                         </div>

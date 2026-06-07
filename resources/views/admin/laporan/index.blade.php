@@ -209,6 +209,8 @@
                                 <td class="px-4 py-3">
                                     @if($row['jenis'] === 'Pesanan')
                                         <span class="px-2 py-0.5 bg-blue-50 text-blue-700 text-[9px] font-bold uppercase rounded">Pesanan</span>
+                                    @elseif($row['jenis'] === 'Refill')
+                                        <span class="px-2 py-0.5 bg-amber-50 text-amber-700 text-[9px] font-bold uppercase rounded">Refill</span>
                                     @else
                                         <span class="px-2 py-0.5 bg-violet-50 text-violet-700 text-[9px] font-bold uppercase rounded">Service</span>
                                     @endif
@@ -514,7 +516,7 @@
                                             fontWeight: 700,
                                             color: '#0f172a',
                                             offsetY: 6,
-                                            formatter: (val) => formatValue(val)
+                                            formatter: (val) => hasData ? formatValue(val) : formatValue(0)
                                         },
                                         total: {
                                             show: true,
@@ -525,6 +527,7 @@
                                             fontWeight: 600,
                                             color: '#94a3b8',
                                             formatter: (w) => {
+                                                if (!hasData) return formatValue(0);
                                                 const sum = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
                                                 return formatValue(sum);
                                             }

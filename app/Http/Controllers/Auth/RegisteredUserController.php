@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\PhoneNumber;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,16 +31,26 @@ class RegisteredUserController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        $normalizedPhone = PhoneNumber::normalize((string) $request->input('no_telpon'));
+
+        $request->merge([
+            'no_telpon' => $normalizedPhone ?? $request->input('no_telpon'),
+            'email' => trim((string) $request->input('email')) ?: null,
+        ]);
+
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'email' => ['nullable', 'email', 'max:255', 'unique:users,email'],
             'no_telpon' => ['required', 'string', 'max:20', 'unique:'.User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ], [
             'no_telpon.unique' => 'Nomor WhatsApp sudah terdaftar.',
+            'email.unique' => 'Email sudah digunakan akun lain.',
         ]);
 
         $user = User::create([
             'name' => $request->name,
+            'email' => $request->input('email'),
             'no_telpon' => $request->no_telpon,
             'password' => Hash::make($request->password),
         ]);

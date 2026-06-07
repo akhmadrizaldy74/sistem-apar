@@ -52,6 +52,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4">
                 <div class="text-center">
                     <h4 class="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Sumber Pendapatan</h4>
+                    <p class="mb-2 text-[10px] text-slate-400">{{ $charts['revenueComposition']['scopeLabel'] ?? 'Semua transaksi selesai final' }}</p>
                     <div class="flex h-[230px] items-center justify-center overflow-hidden">
                         <div id="revenue-composition-chart" class="mx-auto" style="height: 220px; width: 220px; max-height: 220px; max-width: 220px;"></div>
                     </div>
@@ -256,7 +257,7 @@
                                             fontWeight: 700,
                                             color: '#0f172a',
                                             offsetY: 6,
-                                            formatter: (val) => rupiah(val)
+                                            formatter: (val) => hasData ? rupiah(val) : rupiah(0)
                                         },
                                         total: {
                                             show: true,
@@ -267,6 +268,7 @@
                                             fontWeight: 600,
                                             color: '#94a3b8',
                                             formatter: (w) => {
+                                                if (!hasData) return rupiah(0);
                                                 const sum = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
                                                 return rupiah(sum);
                                             }

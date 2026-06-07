@@ -15,35 +15,50 @@ class TeknisiController extends Controller
 {
     private function activeTaskStatuses(): array
     {
-        return ['ditugaskan ke teknisi', 'dikerjakan teknisi'];
+        return [
+            Pesanan::STATUS_DITUGASKAN_KE_TEKNISI,
+            Pesanan::STATUS_DIKERJAKAN_TEKNISI,
+        ];
     }
 
     private function historyTaskStatuses(): array
     {
-        return ['selesai oleh teknisi', 'dikonfirmasi admin', 'selesai final', 'selesai'];
+        return [
+            Pesanan::STATUS_SELESAI_OLEH_TEKNISI,
+            Pesanan::STATUS_DIKONFIRMASI_ADMIN,
+            Pesanan::STATUS_SELESAI_FINAL,
+            Pesanan::STATUS_SELESAI,
+        ];
     }
 
     private function taskBaseQuery(int $teknisiId)
     {
         return Pesanan::query()
-            ->where('teknisi_id', $teknisiId);
+            ->where('teknisi_id', $teknisiId)
+            ->with(['pelanggan', 'details.produk', 'servicePaket', 'serviceJenisRefill']);
     }
 
-    private function activeTasksByType(int $teknisiId, string $tipe)
+    private function activeTasks(int $teknisiId)
     {
         return $this->taskBaseQuery($teknisiId)
-            ->with(['pelanggan', 'details.produk'])
-            ->where('tipe', $tipe)
             ->whereIn('status', $this->activeTaskStatuses())
             ->whereNull('teknisi_selesai_at')
             ->orderByDesc('created_at')
             ->get();
     }
 
+    private function filterActiveTasks($tasks, string $filter)
+    {
+        return match ($filter) {
+            'produk' => $tasks->filter(fn (Pesanan $task) => $task->isProductOrder())->values(),
+            'service-refill' => $tasks->filter(fn (Pesanan $task) => !$task->isProductOrder())->values(),
+            default => $tasks,
+        };
+    }
+
     private function historyTasks(int $teknisiId)
     {
         return $this->taskBaseQuery($teknisiId)
-            ->with(['pelanggan', 'details.produk'])
             ->where(function ($query) {
                 $query->whereIn('status', $this->historyTaskStatuses())
                     ->orWhereNotNull('teknisi_selesai_at');
@@ -65,14 +80,8 @@ class TeknisiController extends Controller
     public function dashboard()
     {
         $teknisiId = (int) Auth::id();
-        $tasks = $this->taskBaseQuery($teknisiId)
-            ->with(['pelanggan', 'details.produk'])
-            ->whereIn('status', $this->activeTaskStatuses())
-            ->whereNull('teknisi_selesai_at')
-            ->orderByDesc('created_at')
-            ->get();
-
-        $aktifService = $tasks->count();
+        $activeTasks = $this->activeTasks($teknisiId);
+        $activeCount = $activeTasks->count();
 
         $selesaiBulanIni = $this->taskBaseQuery($teknisiId)
             ->whereIn('status', $this->historyTaskStatuses())
@@ -80,60 +89,75 @@ class TeknisiController extends Controller
             ->whereYear('teknisi_selesai_at', now()->year)
             ->count();
 
-        $historyTasks = $this->historyTasks($teknisiId);
-
         return view('teknisi.dashboard', [
-            'tasks' => $tasks,
-            'historyTasks' => $historyTasks,
             'summary' => [
-                'aktif_service' => $aktifService,
-                'total' => $aktifService,
+                'pekerjaan_aktif' => $activeCount,
+                'sedang_dikerjakan' => $activeTasks->where('status', Pesanan::STATUS_DIKERJAKAN_TEKNISI)->count(),
                 'selesai_bulan_ini' => $selesaiBulanIni,
             ],
         ]);
     }
 
-    public function tugasServiceRefill()
+    public function pekerjaanAktif(Request $request)
     {
         $teknisiId = (int) Auth::id();
-        $tasks = $this->taskBaseQuery($teknisiId)
-            ->with(['pelanggan', 'details.produk'])
-            ->whereIn('status', $this->activeTaskStatuses())
-            ->whereNull('teknisi_selesai_at')
-            ->orderByDesc('created_at')
-            ->get();
+        $filter = (string) $request->query('filter', 'semua');
+        if (!in_array($filter, ['semua', 'produk', 'service-refill'], true)) {
+            $filter = 'semua';
+        }
 
-        return view('teknisi.tugas-service-refill', compact('tasks'));
+        $allTasks = $this->activeTasks($teknisiId);
+        $tasks = $this->filterActiveTasks($allTasks, $filter);
+
+        return view('teknisi.pekerjaan-aktif', [
+            'tasks' => $tasks,
+            'activeFilter' => $filter,
+            'tabCounts' => [
+                'semua' => $allTasks->count(),
+                'produk' => $allTasks->filter(fn (Pesanan $task) => $task->isProductOrder())->count(),
+                'service-refill' => $allTasks->filter(fn (Pesanan $task) => !$task->isProductOrder())->count(),
+            ],
+        ]);
     }
 
-    public function tugasProduk()
-    {
-        $teknisiId = (int) Auth::id();
-        $tasks = $this->activeTasksByType($teknisiId, 'produk');
-
-        return view('teknisi.tugas-produk', compact('tasks'));
-    }
-
-    public function riwayatTugas()
+    public function riwayatPekerjaan()
     {
         $teknisiId = (int) Auth::id();
         $tasks = $this->historyTasks($teknisiId);
 
-        return view('teknisi.riwayat-tugas', compact('tasks'));
+        return view('teknisi.riwayat-pekerjaan', compact('tasks'));
     }
+
+    public function tugasServiceRefill(Request $request)
+    {
+        $request->merge(['filter' => 'service-refill']);
+
+        return $this->pekerjaanAktif($request);
+    }
+
+    public function tugasProduk()
+    {
+        return redirect()->route('teknisi.pekerjaan-aktif', ['filter' => 'produk']);
+    }
+
+    public function riwayatTugas()
+    {
+        return $this->riwayatPekerjaan();
+    }
+
     public function tugasMulai(Pesanan $pesanan)
     {
         if ($pesanan->teknisi_id !== Auth::id()) {
-            return back()->with('error', 'Anda tidak memiliki akses ke tugas ini.');
+            return back()->with('error', 'Anda tidak memiliki akses ke pekerjaan ini.');
         }
 
         $pesanan->update([
-            'status' => 'dikerjakan teknisi',
+            'status' => Pesanan::STATUS_DIKERJAKAN_TEKNISI,
         ]);
 
         $this->broadcastTaskUpdate($pesanan);
 
-        return back()->with('success', 'Tugas berhasil diterima dan status diperbarui menjadi dikerjakan teknisi.');
+        return back()->with('success', 'Pekerjaan berhasil diproses dan status diperbarui menjadi sedang dikerjakan.');
     }
 
     public function ajukanTambahan(Request $request, Pesanan $pesanan)
@@ -144,7 +168,7 @@ class TeknisiController extends Controller
         ]);
 
         if ($pesanan->teknisi_id !== Auth::id() || $pesanan->tipe !== 'service') {
-            return back()->with('error', 'Anda tidak memiliki akses ke tugas ini.');
+            return back()->with('error', 'Anda tidak memiliki akses ke pekerjaan ini.');
         }
 
         $pesanan->update([
@@ -165,7 +189,7 @@ class TeknisiController extends Controller
         ]);
 
         if ($pesanan->teknisi_id !== Auth::id()) {
-            return back()->with('error', 'Anda tidak memiliki akses ke tugas ini.');
+            return back()->with('error', 'Anda tidak memiliki akses ke pekerjaan ini.');
         }
 
         $baseBiaya = (float)($pesanan->service_estimasi_biaya ?? $pesanan->total_harga ?? 0);
@@ -221,7 +245,7 @@ class TeknisiController extends Controller
     public function mulaiRefill(Request $request, \App\Models\TugasRefill $tugasRefill)
     {
         if ($tugasRefill->status !== 'menunggu') {
-            return back()->with('error', 'Tugas sudah dikerjakan atau selesai.');
+            return back()->with('error', 'Pekerjaan sudah dikerjakan atau selesai.');
         }
 
         $tugasRefill->update([
@@ -229,7 +253,7 @@ class TeknisiController extends Controller
             'status' => 'diproses',
         ]);
 
-        return back()->with('success', 'Tugas refill mulai diproses.');
+        return back()->with('success', 'Pekerjaan refill mulai diproses.');
     }
 
     public function selesaiRefill(Request $request, \App\Models\TugasRefill $tugasRefill)
@@ -241,7 +265,7 @@ class TeknisiController extends Controller
         ]);
 
         if ($tugasRefill->teknisi_id !== \Illuminate\Support\Facades\Auth::id()) {
-            return back()->with('error', 'Anda tidak memiliki akses ke tugas ini.');
+            return back()->with('error', 'Anda tidak memiliki akses ke pekerjaan ini.');
         }
 
         $path = null;

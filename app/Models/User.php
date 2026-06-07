@@ -3,7 +3,9 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Support\PhoneNumber;
 use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -49,6 +51,33 @@ class User extends Authenticatable
     public function pesanans()
     {
         return $this->hasMany(Pesanan::class, 'teknisi_id');
+    }
+
+    public static function findForLogin(string $identifier): ?self
+    {
+        $identifier = trim($identifier);
+
+        if ($identifier === '') {
+            return null;
+        }
+
+        if (filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
+            return static::query()
+                ->whereRaw('LOWER(email) = ?', [mb_strtolower($identifier)])
+                ->first();
+        }
+
+        return static::findByPhone($identifier);
+    }
+
+    public static function findByPhone(string $phone): ?self
+    {
+        return static::query()
+            ->where(fn (Builder $query) => PhoneNumber::applyMatchQuery($query, 'users.no_telpon', $phone))
+            ->first()
+            ?? static::query()
+                ->whereHas('pelanggan', fn (Builder $query) => PhoneNumber::applyMatchQuery($query, 'no_wa', $phone))
+                ->first();
     }
 
     /**

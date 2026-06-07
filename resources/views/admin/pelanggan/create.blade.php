@@ -42,6 +42,14 @@
                         <x-input-error :messages="$errors->get('no_wa')" class="mt-2" />
                     </div>
 
+                    <div class="sm:col-span-2">
+                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Email</label>
+                        <input type="email" name="email" value="{{ old('email') }}"
+                            class="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 transition"
+                            placeholder="email@contoh.com">
+                        <p class="mt-2 text-[10px] font-semibold text-slate-400">Opsional. Jika diisi, email ini dipakai sebagai email pemulihan pelanggan.</p>
+                        <x-input-error :messages="$errors->get('email')" class="mt-2" />
+                    </div>
 
                 </div>
             </div>

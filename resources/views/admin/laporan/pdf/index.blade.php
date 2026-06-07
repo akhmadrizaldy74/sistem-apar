@@ -219,6 +219,8 @@
                             <td>
                                 @if($row['jenis'] === 'Pesanan')
                                     <span class="badge badge-info">Pesanan</span>
+                                @elseif($row['jenis'] === 'Refill')
+                                    <span class="badge" style="background:#fef3c7;color:#92400e;">Refill</span>
                                 @else
                                     <span class="badge" style="background:#f3e8ff;color:#6b21a8;">Service</span>
                                 @endif

@@ -2,10 +2,12 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -42,33 +44,20 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        $login = (string) $this->input('login');
+        $user = User::findForLogin((string) $this->input('login'));
 
-        if (str_contains($login, '@')) {
-            if (Auth::attempt(['email' => $login, 'password' => $this->input('password')], $this->boolean('remember'))) {
-                RateLimiter::clear($this->throttleKey());
-                return;
-            }
-        } else {
-            $loginPhone = preg_replace('/\D+/', '', $login) ?? '';
-            $candidates = array_values(array_unique(array_filter([
-                $loginPhone,
-                str_starts_with($loginPhone, '62') ? '0'.substr($loginPhone, 2) : null,
-                str_starts_with($loginPhone, '0') ? '62'.substr($loginPhone, 1) : null,
-            ])));
+        if ($user && Hash::check((string) $this->input('password'), $user->password)) {
+            Auth::login($user, $this->boolean('remember'));
 
-            foreach ($candidates as $candidate) {
-                if (Auth::attempt(['no_telpon' => $candidate, 'password' => $this->input('password')], $this->boolean('remember'))) {
-                    RateLimiter::clear($this->throttleKey());
-                    return;
-                }
-            }
+            RateLimiter::clear($this->throttleKey());
+
+            return;
         }
 
         RateLimiter::hit($this->throttleKey());
 
         throw ValidationException::withMessages([
-            'login' => 'Email/Nomor telepon atau kata sandi tidak valid.',
+            'login' => 'Email/Nomor WhatsApp atau password tidak sesuai.',
         ]);
     }
 

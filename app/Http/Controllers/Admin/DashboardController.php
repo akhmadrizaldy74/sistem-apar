@@ -9,16 +9,18 @@ use App\Models\Produk;
 use App\Models\Refill;
 use App\Models\Service;
 use App\Models\UnitApar;
+use App\Models\User;
 use App\Models\WebsiteVisit;
+use App\Services\FinalRevenueService;
 use App\Services\ProductAnalyticsService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 
 class DashboardController extends Controller
 {
-    public function __invoke(ProductAnalyticsService $productAnalytics)
+    public function __invoke(ProductAnalyticsService $productAnalytics, FinalRevenueService $finalRevenue)
     {
-        /** @var \App\Models\User|null $user */
+        /** @var User|null $user */
         $user = auth()->user();
 
         if (! $user) {
@@ -37,6 +39,11 @@ class DashboardController extends Controller
         $now = now();
         $expiringLimit = $today->copy()->addDays(30);
 
+        $monthStart = $now->copy()->startOfMonth()->toDateString();
+        $monthEnd = $now->copy()->endOfMonth()->toDateString();
+        $monthlyRevenue = $finalRevenue->breakdown($monthStart, $monthEnd);
+        $overallRevenue = $finalRevenue->breakdown();
+
         $paidProductOrders = Pesanan::query()
             ->where('tipe', 'produk')
             ->whereNotIn('status', [Pesanan::STATUS_DITOLAK])
@@ -45,40 +52,6 @@ class DashboardController extends Controller
                     ->orWhereNotNull('bukti_pembayaran')
                     ->orWhere('metode_pembayaran', 'cash');
             });
-
-        $serviceRevenueQuery = Service::query()
-            ->where(function (Builder $query) {
-                $query->whereNull('jenis_service')
-                    ->orWhere(function (Builder $nested) {
-                        $nested->where('jenis_service', '!=', 'Refill')
-                            ->where('jenis_service', 'not like', '%Refill%');
-                    });
-            });
-
-        $refillRevenueQuery = Refill::query();
-
-        $productRevenueMonth = $this->sumPesananAmount(
-            (clone $paidProductOrders)->whereBetween('tanggal', [
-                $now->copy()->startOfMonth()->toDateString(),
-                $now->copy()->endOfMonth()->toDateString(),
-            ])
-        );
-
-        $serviceRevenueMonth = $this->sumAmount(
-            (clone $serviceRevenueQuery)->whereBetween('tgl_service', [
-                $now->copy()->startOfMonth()->toDateString(),
-                $now->copy()->endOfMonth()->toDateString(),
-            ]),
-            'biaya'
-        );
-
-        $refillRevenueMonth = $this->sumAmount(
-            (clone $refillRevenueQuery)->whereBetween('tgl_refill', [
-                $now->copy()->startOfMonth()->toDateString(),
-                $now->copy()->endOfMonth()->toDateString(),
-            ]),
-            'biaya'
-        );
 
         $waitingStatuses = [
             Pesanan::STATUS_PERMINTAAN_MASUK,
@@ -123,31 +96,18 @@ class DashboardController extends Controller
             'Expired' => UnitApar::query()->whereDate('tgl_expired', '<', $today)->count(),
         ];
 
-        $months = collect(range(5, 0))->map(function (int $offset) use ($now, $paidProductOrders, $serviceRevenueQuery, $refillRevenueQuery) {
+        $months = collect(range(5, 0))->map(function (int $offset) use ($now, $finalRevenue) {
             $month = $now->copy()->subMonths($offset)->startOfMonth();
             $start = $month->copy()->startOfMonth()->toDateString();
             $end = $month->copy()->endOfMonth()->toDateString();
-
-            $product = $this->sumPesananAmount(
-                (clone $paidProductOrders)->whereBetween('tanggal', [$start, $end])
-            );
-
-            $service = $this->sumAmount(
-                (clone $serviceRevenueQuery)->whereBetween('tgl_service', [$start, $end]),
-                'biaya'
-            );
-
-            $refill = $this->sumAmount(
-                (clone $refillRevenueQuery)->whereBetween('tgl_refill', [$start, $end]),
-                'biaya'
-            );
+            $breakdown = $finalRevenue->breakdown($start, $end);
 
             return [
                 'label' => $month->translatedFormat('M Y'),
-                'product' => $product,
-                'service' => $service,
-                'refill' => $refill,
-                'total' => $product + $service + $refill,
+                'product' => $breakdown['product'],
+                'service' => $breakdown['service'],
+                'refill' => $breakdown['refill'],
+                'total' => $breakdown['total'],
             ];
         });
 
@@ -186,14 +146,15 @@ class DashboardController extends Controller
                 'totalProduk' => Produk::count(),
                 'totalPelanggan' => Pelanggan::count(),
                 'totalUnitApar' => UnitApar::count(),
-                'pendapatanBulanIni' => $productRevenueMonth + $serviceRevenueMonth + $refillRevenueMonth,
+                'pendapatanBulanIni' => $monthlyRevenue['total'],
                 'unitAkanExpired' => $unitStatusChart['Akan Expired'],
                 'unitExpired' => $unitStatusChart['Expired'],
             ],
             'charts' => [
                 'revenueComposition' => [
                     'labels' => ['Penjualan Produk', 'Service APAR', 'Refill APAR'],
-                    'series' => [$productRevenueMonth, $serviceRevenueMonth, $refillRevenueMonth],
+                    'series' => [$overallRevenue['product'], $overallRevenue['service'], $overallRevenue['refill']],
+                    'scopeLabel' => 'Semua transaksi selesai final',
                 ],
                 'transactionStatus' => [
                     'labels' => array_keys($transactionStatusChart),
@@ -274,19 +235,4 @@ class DashboardController extends Controller
             return (int) ($counts[strtolower($key)] ?? 0);
         });
     }
-
-    private function sumPesananAmount(Builder $query): float
-    {
-        return (float) ($query
-            ->selectRaw('COALESCE(SUM(COALESCE(total_harga, total, 0)), 0) as total_amount')
-            ->value('total_amount') ?? 0);
-    }
-
-    private function sumAmount(Builder $query, string $column): float
-    {
-        return (float) ($query
-            ->selectRaw("COALESCE(SUM({$column}), 0) as total_amount")
-            ->value('total_amount') ?? 0);
-    }
-
 }

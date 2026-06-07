@@ -85,6 +85,14 @@
                                    class="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500/20 font-bold text-gray-900 transition text-sm">
                         </div>
 
+                        <div>
+                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Email</label>
+                            <input type="email" name="email" value="{{ old('email', $pelanggan->user?->email) }}" placeholder="email@contoh.com"
+                                   class="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500/20 font-bold text-gray-900 transition text-sm">
+                            <p class="mt-2 text-[10px] font-semibold text-slate-400">Opsional. Jika kosong, akun pelanggan belum memiliki email pemulihan.</p>
+                            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+                        </div>
+
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Provinsi</label>
