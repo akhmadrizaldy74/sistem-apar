@@ -1115,15 +1115,17 @@
     }
 
     .lokasi-info {
-        display: grid;
-        gap: 16px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 24px;
     }
 
     .lokasi-card {
         background: #fff;
         border: 1px solid rgba(148, 163, 184, 0.16);
         border-radius: 24px;
-        padding: 20px;
+        padding: 24px;
         display: flex;
         align-items: flex-start;
         gap: 14px;
@@ -1468,7 +1470,7 @@
                         <i class="fa-solid fa-cart-shopping"></i>
                         Pesan Sekarang
                     </a>
-                    <a href="https://wa.me/{{ $waContact }}?text={{ urlencode('Halo, saya ingin konsultasi dan pemesanan APAR.') }}" target="_blank" rel="noopener noreferrer" class="btn-whatsapp">
+                    <a href="https://wa.me/6285128008030?text=Halo%20PD.%20Anugrah%20Utama%2C%20saya%20ingin%20konsultasi%20mengenai%20APAR." target="_blank" rel="noopener noreferrer" class="btn-whatsapp">
                         <i class="fa-brands fa-whatsapp"></i>
                         Hubungi WhatsApp
                     </a>
@@ -1639,34 +1641,91 @@
     </div>
 </section>
 
-<section class="section-pad section-soft">
+<section class="py-16 md:py-24 bg-slate-50 border-y border-slate-100">
     <div class="container">
-        <div class="section-head" data-reveal>
-            <p class="section-tag">Keunggulan</p>
-            <h2 class="section-title">Alasan Pelanggan Lebih Percaya Menggunakan Layanan Kami</h2>
-            <p class="section-sub">Tampilan dibuat lebih rapi agar keunggulan usaha APAR terlihat jelas dan terasa lebih profesional bagi calon pelanggan.</p>
+        <div class="text-center max-w-2xl mx-auto mb-12" data-reveal>
+            <p class="text-red-600 font-bold text-sm tracking-widest uppercase mb-3">Keunggulan</p>
+            <h2 class="text-3xl md:text-4xl font-black text-slate-900 mb-4 tracking-tight">Kenapa Memilih PD. Anugrah Utama?</h2>
+            <p class="text-slate-500 text-base">Layanan APAR lebih mudah, jelas, dan tercatat dalam satu sistem.</p>
         </div>
 
-        @php
-            $feats = [
-                ['title' => 'Administrasi Lebih Cepat', 'desc' => 'Admin lebih mudah menangani konsultasi, pemesanan, dan tindak lanjut layanan pelanggan.', 'icon' => 'fa-bolt', 'class' => 'feat-icon--rose'],
-                ['title' => 'Spesifikasi Produk Jelas', 'desc' => 'Produk APAR ditampilkan dengan jenis, ukuran, merek, dan harga yang lebih mudah dipahami.', 'icon' => 'fa-fire-extinguisher', 'class' => 'feat-icon--orange'],
-                ['title' => 'Harga Transparan', 'desc' => 'Harga produk dan layanan dibuat lebih jelas agar tidak membingungkan pelanggan.', 'icon' => 'fa-tags', 'class' => 'feat-icon--blue'],
-                ['title' => 'Layanan End-to-End', 'desc' => 'Pembelian, refill, service, inspeksi, dan monitoring APAR tercatat dalam satu sistem.', 'icon' => 'fa-layer-group', 'class' => 'feat-icon--green'],
-                ['title' => 'Operasional Lebih Tertata', 'desc' => 'Stok, transaksi, dan riwayat layanan lebih mudah dipantau oleh admin maupun pelanggan.', 'icon' => 'fa-chart-line', 'class' => 'feat-icon--slate'],
-            ];
-        @endphp
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            <article class="flex flex-col items-center text-center group" data-reveal>
+                <div class="w-16 h-16 rounded-full bg-white border border-slate-200 text-red-600 flex items-center justify-center text-2xl mb-5 shadow-sm group-hover:scale-110 group-hover:border-red-200 group-hover:bg-red-50 transition-all duration-300">
+                    <i class="fa-solid fa-bolt"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-900 mb-2">Layanan Cepat</h3>
+                <p class="text-sm text-slate-500 leading-relaxed px-4">Pesanan, refill, dan service diproses lebih mudah.</p>
+            </article>
+            
+            <article class="flex flex-col items-center text-center group" data-reveal>
+                <div class="w-16 h-16 rounded-full bg-white border border-slate-200 text-red-600 flex items-center justify-center text-2xl mb-5 shadow-sm group-hover:scale-110 group-hover:border-red-200 group-hover:bg-red-50 transition-all duration-300">
+                    <i class="fa-solid fa-tags"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-900 mb-2">Harga Jelas</h3>
+                <p class="text-sm text-slate-500 leading-relaxed px-4">Produk dan layanan ditampilkan dengan harga yang transparan.</p>
+            </article>
 
-        <div class="feat-grid">
-            @foreach($feats as $feat)
-                <article class="feat-card" data-reveal>
-                    <div class="feat-icon {{ $feat['class'] }}">
-                        <i class="fa-solid {{ $feat['icon'] }}"></i>
-                    </div>
-                    <h3 class="feat-title">{{ $feat['title'] }}</h3>
-                    <p class="feat-desc">{{ $feat['desc'] }}</p>
-                </article>
-            @endforeach
+            <article class="flex flex-col items-center text-center group" data-reveal>
+                <div class="w-16 h-16 rounded-full bg-white border border-slate-200 text-red-600 flex items-center justify-center text-2xl mb-5 shadow-sm group-hover:scale-110 group-hover:border-red-200 group-hover:bg-red-50 transition-all duration-300">
+                    <i class="fa-solid fa-clipboard-list"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-900 mb-2">Riwayat Tercatat</h3>
+                <p class="text-sm text-slate-500 leading-relaxed px-4">Pelanggan dapat melihat riwayat pembelian, refill, dan service.</p>
+            </article>
+        </div>
+    </div>
+</section>
+
+<section class="py-16 md:py-24 bg-white">
+    <div class="container max-w-6xl mx-auto">
+        <div class="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
+            {{-- Left: Text Content --}}
+            <div class="w-full lg:w-1/2" data-reveal>
+                <p class="text-red-600 font-bold text-sm tracking-widest uppercase mb-3">Tutorial APAR</p>
+                <h2 class="text-3xl md:text-4xl font-black text-slate-900 mb-4 tracking-tight">Pelajari Cara Menggunakan APAR dengan Benar</h2>
+                <p class="text-slate-500 text-base leading-relaxed mb-8">
+                    APAR perlu digunakan dengan langkah yang tepat agar proses pemadaman awal lebih aman dan efektif. Simak video tutorial singkat berikut untuk memahami penggunaan APAR secara praktis.
+                </p>
+                
+                <ul class="space-y-4 mb-8">
+                    <li class="flex items-start gap-3">
+                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold text-sm">1</span>
+                        <span class="text-slate-700 font-medium pt-0.5">Tarik pin pengaman</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold text-sm">2</span>
+                        <span class="text-slate-700 font-medium pt-0.5">Arahkan nozzle ke sumber api</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold text-sm">3</span>
+                        <span class="text-slate-700 font-medium pt-0.5">Tekan tuas APAR</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold text-sm">4</span>
+                        <span class="text-slate-700 font-medium pt-0.5">Sapukan media pemadam dari sisi ke sisi</span>
+                    </li>
+                </ul>
+
+                <div class="bg-red-50 border border-red-100 rounded-xl p-4 flex items-start gap-3 text-red-800 text-sm font-medium">
+                    <i class="fa-solid fa-circle-info mt-0.5"></i>
+                    <p>Gunakan APAR hanya untuk kebakaran awal dan tetap utamakan keselamatan.</p>
+                </div>
+            </div>
+
+            {{-- Right: Video Embed --}}
+            <div class="w-full lg:w-1/2" data-reveal>
+                <div class="relative w-full rounded-2xl overflow-hidden shadow-2xl shadow-slate-200/50 border border-slate-100 bg-slate-100" style="padding-top: 56.25%;">
+                    <iframe 
+                        src="https://www.youtube.com/embed/GVBamXXVD30" 
+                        title="Tutorial Penggunaan APAR" 
+                        class="absolute top-0 left-0 w-full h-full"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                        allowfullscreen 
+                        loading="lazy">
+                    </iframe>
+                </div>
+            </div>
         </div>
     </div>
 </section>
@@ -1799,16 +1858,6 @@
                         <p class="lokasi-label">WhatsApp</p>
                         <a href="https://wa.me/{{ $waContact }}" target="_blank" rel="noopener noreferrer" class="lokasi-text">+62 851-2800-8030</a>
                         <p class="lokasi-sub">Gunakan WhatsApp untuk konsultasi, tanya stok, permintaan harga, dan penjadwalan layanan.</p>
-                    </div>
-                </article>
-                <article class="lokasi-card" data-reveal>
-                    <div class="lokasi-icon bg-blue-50 text-blue-600">
-                        <i class="fa-solid fa-clock"></i>
-                    </div>
-                    <div>
-                        <p class="lokasi-label">Jam Operasional</p>
-                        <p class="lokasi-text">Senin - Sabtu</p>
-                        <p class="lokasi-sub">08.00 - 17.00 WIB. Admin akan membalas pesan secepat mungkin pada jam operasional.</p>
                     </div>
                 </article>
             </div>

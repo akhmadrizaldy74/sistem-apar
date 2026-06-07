@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\LaporanController;
 use App\Http\Controllers\Admin\JenisAparController;
 use App\Http\Controllers\Admin\JenisRefillController;
+use App\Http\Controllers\Admin\ManajemenAkunController;
 use App\Http\Controllers\Admin\PelangganController;
 use App\Http\Controllers\Admin\PesananController;
 use App\Http\Controllers\Admin\ProdukController;
@@ -101,6 +102,10 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::put('/stok/peralatan/{peralatan}', [StokController::class, 'updatePeralatan'])->name('stok.peralatan.update');
     Route::delete('/stok/peralatan/{peralatan}', [StokController::class, 'destroyPeralatan'])->name('stok.peralatan.destroy');
     Route::resource('pelanggan', PelangganController::class);
+    Route::get('/akun', [ManajemenAkunController::class, 'index'])->name('akun.index');
+    Route::post('/akun', [ManajemenAkunController::class, 'store'])->name('akun.store');
+    Route::put('/akun/{user}', [ManajemenAkunController::class, 'update'])->name('akun.update');
+    Route::delete('/akun/{user}', [ManajemenAkunController::class, 'destroy'])->name('akun.destroy');
     Route::get('/pesanan/{pesanan}/invoice/pdf', [PesananController::class, 'invoicePdf'])->name('pesanan.invoice.pdf');
     Route::get('/pesanan/notifikasi/pembayaran', [PesananController::class, 'paymentNotifications'])->name('pesanan.payment-notifications');
     Route::post('/pesanan/{pesanan}/kirim-link-pembayaran', [PesananController::class, 'kirimLinkPembayaran'])->name('pesanan.kirim-link-pembayaran');

@@ -347,13 +347,6 @@
                         <p class="text-sm font-black tracking-tight uppercase text-white">PD. ANUGRAH UTAMA</p>
                     </div>
                     <p class="text-sm leading-7 text-slate-300">Penyedia layanan APAR untuk penjualan produk, refill, service, inspeksi, dan monitoring riwayat unit APAR pelanggan.</p>
-                    <div class="mt-5 flex items-center gap-3">
-                        <a href="https://wa.me/{{ env('WHATSAPP_CONTACT', '6285128008030') }}" target="_blank" rel="noopener noreferrer"
-                           class="flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-500/10 text-emerald-300 transition hover:bg-emerald-500 hover:text-white">
-                            <i class="fa-brands fa-whatsapp text-lg"></i>
-                        </a>
-                        <span class="rounded-2xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-300">Bogor, Jawa Barat</span>
-                    </div>
                 </div>
 
                 {{-- Links --}}
@@ -398,15 +391,6 @@
                             <div>
                                 <p class="font-bold text-white">WhatsApp</p>
                                 <a href="https://wa.me/{{ env('WHATSAPP_CONTACT', '6285128008030') }}" target="_blank" rel="noopener noreferrer" class="mt-1 inline-block leading-6 text-slate-300 transition hover:text-white">+62 851-2800-8030</a>
-                            </div>
-                        </li>
-                        <li class="flex items-start gap-3">
-                            <span class="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-300">
-                                <i class="fa-solid fa-clock"></i>
-                            </span>
-                            <div>
-                                <p class="font-bold text-white">Jam Operasional</p>
-                                <p class="mt-1 leading-6 text-slate-300">Senin - Sabtu, 08.00 - 17.00 WIB</p>
                             </div>
                         </li>
                     </ul>

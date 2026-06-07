@@ -36,6 +36,11 @@ class User extends Authenticatable
         return $this->role === 'teknisi';
     }
 
+    public function isPelanggan(): bool
+    {
+        return $this->role === 'pelanggan';
+    }
+
     public function pelanggan()
     {
         return $this->hasOne(Pelanggan::class);
