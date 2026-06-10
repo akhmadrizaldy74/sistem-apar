@@ -20,6 +20,9 @@
                         <x-nav-link :href="route('admin.akun.index')" :active="request()->routeIs('admin.akun.*')">
                             Manajemen Akun
                         </x-nav-link>
+                        <x-nav-link :href="route('admin.pelanggan.index')" :active="request()->routeIs('admin.pelanggan.*')">
+                            Pelanggan
+                        </x-nav-link>
                         <x-nav-link :href="route('admin.unit-apar.index')" :active="request()->routeIs('admin.unit-apar.*')">
                             Unit APAR
                         </x-nav-link>

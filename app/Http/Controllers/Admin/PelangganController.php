@@ -6,8 +6,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Pelanggan;
+use App\Models\Pesanan;
 use App\Models\User;
 use App\Support\PhoneNumber;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -37,24 +39,47 @@ class PelangganController extends Controller
 
     public function index(Request $request)
     {
-        $query = Pelanggan::with('user')->withCount(['pesanan' => function ($query) {
-            $query->whereIn('status', ['diproses', 'selesai', 'selesai final', 'ditugaskan ke teknisi', 'dikerjakan teknisi', 'selesai oleh teknisi', 'dikonfirmasi admin']);
-        }]);
+        $search = trim((string) $request->input('search'));
+        $summaryQuery = $this->pelangganDirectoryQuery();
+        $query = $this->pelangganDirectoryQuery()
+            ->with('user')
+            ->withCount([
+                'pesanan as product_orders_count' => fn (Builder $query) => $query->where('tipe', 'produk'),
+            ]);
 
-        if ($request->filled('search')) {
-            $query->where(function ($q) use ($request) {
-                $q->where('nama', 'like', '%'.$request->search.'%')
-                    ->orWhere('no_wa', 'like', '%'.$request->search.'%')
-                    ->orWhere('perusahaan', 'like', '%'.$request->search.'%')
-                    ->orWhereHas('user', function ($userQuery) use ($request) {
-                        $userQuery->where('email', 'like', '%'.$request->search.'%');
-                    });
-            });
+        if ($search !== '') {
+            $this->applyDirectorySearch($query, $search);
         }
 
         $pelanggans = $query->latest()->paginate(15)->withQueryString();
+        $summary = [
+            'totalPelanggan' => (clone $summaryQuery)->count(),
+            'pelangganAktif' => (clone $summaryQuery)
+                ->whereHas('pesanan', fn (Builder $query) => $query->where('tipe', 'produk'))
+                ->count(),
+            'totalTransaksiPelanggan' => Pesanan::query()
+                ->where('tipe', 'produk')
+                ->whereIn('pelanggan_id', $this->pelangganDirectoryQuery()->select('pelanggans.id'))
+                ->count(),
+        ];
 
-        return view('admin.pelanggan.index', compact('pelanggans'));
+        return view('admin.pelanggan.index', compact('pelanggans', 'summary', 'search'));
+    }
+
+    public function show(Pelanggan $pelanggan)
+    {
+        abort_unless($this->isDirectoryPelanggan($pelanggan), 404);
+
+        $pelanggan->load('user');
+
+        $riwayatPembelian = $pelanggan->pesanan()
+            ->where('tipe', 'produk')
+            ->with(['details.produk'])
+            ->orderByDesc('tanggal')
+            ->orderByDesc('created_at')
+            ->get();
+
+        return view('admin.pelanggan.show', compact('pelanggan', 'riwayatPembelian'));
     }
 
     public function create()
@@ -144,15 +169,17 @@ class PelangganController extends Controller
 
     public function edit(Pelanggan $pelanggan)
     {
-        $pelanggan->load(['user', 'pesanan' => function ($query) {
-            $query->orderByDesc('tanggal')->orderByDesc('created_at');
-        }]);
+        abort_unless($this->isDirectoryPelanggan($pelanggan), 404);
+
+        $pelanggan->load('user');
 
         return view('admin.pelanggan.edit', compact('pelanggan'));
     }
 
     public function update(Request $request, Pelanggan $pelanggan)
     {
+        abort_unless($this->isDirectoryPelanggan($pelanggan), 404);
+
         $normalizedNoWa = PhoneNumber::normalize((string) $request->no_wa) ?? '';
         $email = trim((string) $request->input('email')) ?: null;
         $linkedUser = $this->resolvePelangganUserByIdentity($pelanggan, $normalizedNoWa, $email);
@@ -238,10 +265,44 @@ class PelangganController extends Controller
 
     public function destroy(Pelanggan $pelanggan)
     {
+        abort_unless($this->isDirectoryPelanggan($pelanggan), 404);
+
         $pelanggan->delete();
 
         return redirect()->route('admin.pelanggan.index')
             ->with('success', 'Pelanggan berhasil dihapus.');
+    }
+
+    private function pelangganDirectoryQuery(): Builder
+    {
+        return Pelanggan::query()
+            ->where(function (Builder $query) {
+                $query->whereNull('user_id')
+                    ->orWhereHas('user', fn (Builder $userQuery) => $userQuery->where('role', 'pelanggan'));
+            });
+    }
+
+    private function applyDirectorySearch(Builder $query, string $search): void
+    {
+        $query->where(function (Builder $builder) use ($search) {
+            $builder->where('nama', 'like', '%'.$search.'%')
+                ->orWhere('no_wa', 'like', '%'.$search.'%')
+                ->orWhere('alamat', 'like', '%'.$search.'%')
+                ->orWhere('alamat_maps', 'like', '%'.$search.'%')
+                ->orWhere('alamat_detail', 'like', '%'.$search.'%')
+                ->orWhere('alamat_provinsi', 'like', '%'.$search.'%')
+                ->orWhere('alamat_kota', 'like', '%'.$search.'%')
+                ->orWhere('alamat_kecamatan', 'like', '%'.$search.'%')
+                ->orWhere('alamat_kode_pos', 'like', '%'.$search.'%')
+                ->orWhereHas('user', fn (Builder $userQuery) => $userQuery->where('email', 'like', '%'.$search.'%'));
+        });
+    }
+
+    private function isDirectoryPelanggan(Pelanggan $pelanggan): bool
+    {
+        $pelanggan->loadMissing('user');
+
+        return ! $pelanggan->user || $pelanggan->user->role === 'pelanggan';
     }
 
     private function resolvePelangganUserByIdentity(?Pelanggan $pelanggan, ?string $phone, ?string $email): ?User
