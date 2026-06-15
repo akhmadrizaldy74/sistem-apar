@@ -1,9 +1,11 @@
 {{-- Detail Section Partial for Transaction --}}
 
 @php
+    $pricingSummary = $pesanan->pricingSummary();
     $totalHarga = $pesanan->payableTotal();
     $ongkir = (float) ($pesanan->ongkir ?: 0);
     $subtotal = $totalHarga - $ongkir;
+    $purchasePriceLabel = $pesanan->purchasePriceStatusLabel();
 @endphp
 
 <div class="grid md:grid-cols-2 gap-6">
@@ -61,31 +63,6 @@
             </div>
             @endif
 
-            {{-- Assigned Technician --}}
-            @if($pesanan->teknisi)
-            <div class="flex justify-between items-center">
-                <span class="text-sm text-slate-500 flex items-center gap-2">
-                    <i class="fa-solid fa-wrench w-4 text-slate-400"></i>
-                    Teknisi
-                </span>
-                <span class="text-sm font-semibold text-slate-700">
-                    {{ $pesanan->teknisi->name }}
-                </span>
-            </div>
-            @endif
-
-            {{-- Technician Completion --}}
-            @if($pesanan->teknisi_selesai_at)
-            <div class="flex justify-between items-center">
-                <span class="text-sm text-slate-500 flex items-center gap-2">
-                    <i class="fa-solid fa-calendar-check w-4 text-slate-400"></i>
-                    Tanggal Selesai
-                </span>
-                <span class="text-sm font-semibold text-slate-700">
-                    {{ \Carbon\Carbon::parse($pesanan->teknisi_selesai_at)->format('d M Y') }}
-                </span>
-            </div>
-            @endif
         </div>
 
         {{-- Service specific info --}}
@@ -99,17 +76,6 @@
         </div>
         @endif
 
-        {{-- Technician Notes --}}
-        @if($pesanan->teknisi_catatan)
-        <div class="bg-blue-50 rounded-xl border border-blue-200 p-4">
-            <p class="text-xs font-bold text-blue-600 uppercase tracking-widest mb-2 flex items-center gap-1">
-                <i class="fa-solid fa-clipboard"></i>
-                Catatan Teknisi
-            </p>
-            <p class="text-sm text-slate-700 leading-relaxed">{{ $pesanan->teknisi_catatan }}</p>
-        </div>
-        @endif
-
         {{-- Admin Notes --}}
         @if($pesanan->catatan_admin)
         <div class="bg-purple-50 rounded-xl border border-purple-200 p-4">
@@ -118,6 +84,35 @@
                 Catatan Admin
             </p>
             <p class="text-sm text-slate-700 leading-relaxed">{{ $pesanan->catatan_admin }}</p>
+        </div>
+        @endif
+
+        @if($purchasePriceLabel)
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <p class="text-xs font-bold uppercase tracking-widest text-slate-500">Pengajuan Harga Pembelian</p>
+                <span class="rounded-full px-2.5 py-1 text-[11px] font-black {{ $pesanan->purchasePriceStatusClasses() }}">
+                    {{ $purchasePriceLabel }}
+                </span>
+            </div>
+            <div class="mt-3 space-y-2 text-sm">
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-500">Harga Pengajuan</span>
+                    <span class="font-semibold text-slate-800">Rp {{ number_format((float) ($pricingSummary['hargaPengajuan'] ?? 0), 0, ',', '.') }}</span>
+                </div>
+                @if(!empty($pricingSummary['specialPriceActive']))
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-500">Harga Final</span>
+                        <span class="font-semibold text-emerald-700">Rp {{ number_format((float) ($pricingSummary['hargaFinal'] ?? 0), 0, ',', '.') }}</span>
+                    </div>
+                @endif
+                @if($pesanan->purchasePriceCustomerNote())
+                    <div class="rounded-lg border border-slate-200 bg-white px-3 py-3">
+                        <p class="text-[11px] font-black uppercase tracking-wide text-slate-400">Catatan Pelanggan</p>
+                        <p class="mt-1 text-sm font-semibold leading-6 text-slate-700">{{ $pesanan->purchasePriceCustomerNote() }}</p>
+                    </div>
+                @endif
+            </div>
         </div>
         @endif
     </div>
@@ -144,7 +139,7 @@
                             </p>
                             <p class="text-xs text-slate-400 mt-1">
                                 @if($pesanan->service_jenis_layanan === 'refill')
-                                    Refill {{ $pesanan->serviceJenisRefill?->nama ?? '' }}
+                                    Refill {{ $pesanan->serviceJenisRefill?->nama_label ?? '' }}
                                 @else
                                     {{ $pesanan->servicePaket ? ucfirst($pesanan->servicePaket->jenis_layanan) : '-' }}
                                 @endif
@@ -168,7 +163,7 @@
                     <div class="flex justify-between items-center py-2 border-b border-slate-100">
                         <span class="text-sm text-slate-500">Jenis Refill</span>
                         <span class="text-sm font-semibold text-slate-700">
-                            {{ $pesanan->serviceJenisRefill?->nama ?? '-' }}
+                            {{ $pesanan->serviceJenisRefill?->nama_label ?? '-' }}
                         </span>
                     </div>
                     @endif

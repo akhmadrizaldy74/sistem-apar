@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Throwable;
 
 class WebsiteVisit extends Model
 {
@@ -25,16 +26,20 @@ class WebsiteVisit extends Model
         ?int $productId = null,
         ?string $pageTitle = null
     ): void {
-        self::create([
-            'visitor_id' => $visitorId,
-            'page_url' => $pageUrl,
-            'event_type' => $eventType,
-            'product_id' => $productId,
-            'page_title' => $pageTitle,
-            'ip_address' => request()->ip(),
-            'user_agent' => substr(request()->userAgent(), 0, 500),
-            'visited_at' => now(),
-        ]);
+        try {
+            self::create([
+                'visitor_id' => $visitorId,
+                'page_url' => $pageUrl,
+                'event_type' => $eventType,
+                'product_id' => $productId,
+                'page_title' => $pageTitle,
+                'ip_address' => request()->ip(),
+                'user_agent' => substr((string) request()->userAgent(), 0, 500),
+                'visited_at' => now(),
+            ]);
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 
     public static function trackProductView(string $visitorId, int $productId, string $productName): void

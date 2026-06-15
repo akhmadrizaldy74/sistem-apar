@@ -72,6 +72,25 @@
                 'wa' => $normalizeText($pelanggan?->no_wa ?? null) ?? $fallbackWa ?? '-',
             ];
         };
+        $resolveUnitDisplay = function ($record = null, $unitApar = null) {
+            if ($record instanceof \App\Models\Pesanan) {
+                return $record->serviceUnitDisplay();
+            }
+
+            if ($record instanceof \App\Models\Service) {
+                return \App\Support\ServiceUnitDisplay::forService($record);
+            }
+
+            if ($record instanceof \App\Models\Refill) {
+                return \App\Support\ServiceUnitDisplay::forRefill($record);
+            }
+
+            if ($unitApar instanceof \App\Models\UnitApar) {
+                return \App\Support\ServiceUnitDisplay::forUnitApar($unitApar);
+            }
+
+            return \App\Support\ServiceUnitDisplay::empty();
+        };
         $servicePaketOptions = collect($servicePaketCatalog ?? [])->values();
         $legacyServices = $serviceLogs->filter(fn($log) => is_null($log->pesanan_id));
         $mergedHistory = $selesaiTeknisi->concat($legacyServices)->sortByDesc(function ($item) {
@@ -80,6 +99,7 @@
 
         $serviceDetailData = $requestServices->map(function ($service) use ($resolveCustomer) {
             $customer = $resolveCustomer($service);
+            $unitDisplay = $service->serviceUnitDisplay();
             return [
                 'id' => $service->id,
                 'pelanggan' => $customer['nama'],
@@ -95,16 +115,22 @@
                 'teknisi' => $service->teknisi?->name ?? 'Belum ditugaskan',
                 'catatan' => $service->catatan_admin ?: $service->service_admin_catatan ?: $service->serviceCustomerNote() ?: $service->keterangan ?: '-',
                 'status' => $service->status,
+                'status_label' => $service->publicStatusLabel(),
+                'hide_payment_badge' => $service->shouldHidePaymentStatusBadge(),
                 'is_paid' => $service->isPaymentConfirmed(),
                 'proof_url' => !empty($service->bukti_pembayaran) ? '/storage/' . ltrim($service->bukti_pembayaran, '/') : null,
                 'line_items' => $service->servicePricingBreakdown(),
                 'peralatan' => $service->servicePeralatanItems(),
+                'unit_display' => $unitDisplay,
             ];
-        })->concat($mergedHistory->map(function ($item) use ($resolveCustomer) {
+        })->concat($mergedHistory->map(function ($item) use ($resolveCustomer, $resolveUnitDisplay) {
             $isLegacy = $item instanceof \App\Models\Service;
             $pesanan = $isLegacy ? null : $item;
             $service = $isLegacy ? $item : $item->service;
             $customer = $resolveCustomer($pesanan, $service);
+            $unitDisplay = $isLegacy
+                ? $resolveUnitDisplay($service, $service?->unitApar)
+                : $resolveUnitDisplay($pesanan, $pesanan?->service?->unitApar);
             
             return [
                 'id' => $isLegacy ? 'log-' . $service->id : $pesanan->id,
@@ -121,10 +147,13 @@
                 'teknisi' => $pesanan?->teknisi?->name ?? 'Selesai',
                 'catatan' => $pesanan?->catatan_admin ?: $pesanan?->serviceCustomerNote() ?: $service?->keterangan ?: '-',
                 'status' => $pesanan?->status ?? 'selesai final',
+                'status_label' => $pesanan?->publicStatusLabel() ?? 'Selesai Final',
+                'hide_payment_badge' => $pesanan ? $pesanan->shouldHidePaymentStatusBadge() : true,
                 'is_paid' => $pesanan ? $pesanan->isPaymentConfirmed() : true,
                 'proof_url' => !empty($pesanan?->bukti_pembayaran) ? '/storage/' . ltrim($pesanan->bukti_pembayaran, '/') : (!empty($service?->pesanan?->bukti_pembayaran) ? '/storage/' . ltrim($service->pesanan->bukti_pembayaran, '/') : null),
                 'line_items' => $pesanan?->servicePricingBreakdown() ?? [],
                 'peralatan' => $pesanan?->servicePeralatanItems() ?? ($service?->effective_peralatan ?? []),
+                'unit_display' => $unitDisplay,
             ];
         }))->values();
     @endphp
@@ -438,10 +467,13 @@
                 </div>
 
                 <div class="app-modal-body flex-1 p-5 sm:p-6 lg:p-8" x-data="serviceOfflineForm(@js($servicePaketOptions), @js([
+                    'pelanggan_id' => old('pelanggan_id'),
+                    'status_unit' => old('status_unit', 'belum_terdaftar'),
                     'service_paket_id' => old('service_paket_id'),
                     'jenis_apar' => old('jenis_apar', ($serviceMediaOptions[0]['label'] ?? 'Powder')),
                     'ukuran_apar' => old('ukuran_apar', '6 Kg'),
                     'jumlah_unit' => old('jumlah_unit', 1),
+                    'selected_unit_ids' => collect(old('unit_apar_ids', old('unit_apar_id') ? [old('unit_apar_id')] : []))->map(fn ($id) => (string) $id)->values(),
                 ]), @js($serviceMediaOptions ?? []), @js($pelanggans->map(fn($p) => [
                     'id' => (string) $p->id,
                     'no_wa' => $p->no_wa,
@@ -449,9 +481,11 @@
                     'alamat_lengkap' => $p->alamat,
                     'units' => $p->units->map(fn($u) => [
                         'id' => (string) $u->id,
+                        'code' => $u->no_seri,
                         'nama' => $u->produk?->nama ?? 'Unit Custom',
                         'ukuran' => $u->ukuran ?? $u->produk?->kapasitas,
-                        'jenis' => $u->produk?->jenisApar?->nama ?? $u->bahan
+                        'jenis' => $u->produk?->jenisApar?->nama ?? $u->bahan,
+                        'display_label' => trim(($u->no_seri ? $u->no_seri . ' - ' : '') . ($u->produk?->nama ?? 'APAR') . ' ' . ($u->produk?->jenisApar?->nama ?? $u->bahan ?? '') . ' ' . ($u->ukuran ?? $u->produk?->kapasitas ?? '')),
                     ])->values()
                 ])->values()))">
                     <form action="{{ route('admin.service.store') }}" method="POST">
@@ -477,6 +511,10 @@
                                                 <option value="{{ $pelanggan->id }}">{{ $pelanggan->nama }} ({{ $pelanggan->no_wa }})</option>
                                             @endforeach
                                         </select>
+                                        <p class="text-[10px] font-semibold leading-relaxed text-slate-500">
+                                            Pelanggan service offline harus berasal dari akun role pelanggan. Jika belum ada, buat akun pelanggan terlebih dahulu melalui
+                                            <a href="{{ route('admin.akun.index') }}" class="font-black text-red-700 hover:underline">Manajemen Akun</a>.
+                                        </p>
                                         <x-input-error :messages="$errors->get('pelanggan_id')" class="mt-2" />
                                     </div>
 
@@ -527,37 +565,45 @@
 
                                         <div class="md:col-span-4" x-show="statusUnit === 'terdaftar'" x-cloak>
                                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Pilih Unit APAR <span class="text-red-500">*</span></label>
-                                            <select name="unit_apar_id" x-model="selectedUnitAparId" @change="syncUnitApar" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 text-sm">
-                                                <option value="">-- Pilih Unit APAR --</option>
+                                            <div class="space-y-2 rounded-2xl border border-gray-200 bg-gray-50 p-3">
                                                 <template x-for="unit in (selectedPelangganInfo?.units || [])" :key="unit.id">
-                                                    <option :value="unit.id" x-text="unit.nama + ' - ' + unit.jenis + ' ' + unit.ukuran"></option>
+                                                    <label class="flex items-start gap-3 rounded-2xl border border-white bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm">
+                                                        <input type="checkbox" name="unit_apar_ids[]" :value="unit.id" x-model="selectedUnitAparIds" @change="syncUnitApar" class="mt-1 h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500">
+                                                        <div class="min-w-0">
+                                                            <p class="font-black text-gray-900" x-text="unit.code || unit.nama"></p>
+                                                            <p class="mt-1 text-xs font-semibold text-gray-500" x-text="'APAR ' + (unit.jenis || '-') + ' ' + (unit.ukuran || '-')"></p>
+                                                        </div>
+                                                    </label>
                                                 </template>
-                                            </select>
+                                            </div>
                                             <p x-show="selectedPelangganId && !(selectedPelangganInfo?.units?.length)" class="text-[10px] font-bold text-red-600 mt-2">Pelanggan ini belum memiliki Unit APAR terdaftar.</p>
+                                            <p x-show="selectedPelangganId && selectedPelangganInfo?.units?.length && !selectedUnitAparIds.length" class="text-[10px] font-bold text-red-600 mt-2">Centang minimal satu unit APAR terlebih dahulu.</p>
+                                            <x-input-error :messages="$errors->get('unit_apar_ids')" class="mt-2" />
                                         </div>
 
-                                        <div>
+                                        <div x-show="statusUnit === 'belum_terdaftar'" x-cloak>
                                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Jenis Media APAR <span class="text-red-500">*</span></label>
-                                            <select name="jenis_apar" x-model="jenisApar" @change="syncUkuranOptions()" :disabled="statusUnit === 'terdaftar'" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 disabled:opacity-50">
+                                            <select name="jenis_apar" x-model="jenisApar" @change="syncUkuranOptions()" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900">
                                                 <template x-for="media in mediaOptions" :key="media.key">
                                                     <option :value="media.label" x-text="media.label"></option>
                                                 </template>
                                             </select>
-                                            <input type="hidden" name="jenis_apar" :value="jenisApar" x-bind:disabled="statusUnit !== 'terdaftar'">
                                         </div>
-                                        <div>
+                                        <div x-show="statusUnit === 'belum_terdaftar'" x-cloak>
                                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Ukuran APAR <span class="text-red-500">*</span></label>
-                                            <select name="ukuran_apar" x-model="ukuranApar" :disabled="statusUnit === 'terdaftar'" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 disabled:opacity-50">
+                                            <select name="ukuran_apar" x-model="ukuranApar" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900">
                                                 <template x-for="ukuran in ukuranOptions" :key="ukuran">
                                                     <option :value="ukuran" x-text="ukuran"></option>
                                                 </template>
                                             </select>
-                                            <input type="hidden" name="ukuran_apar" :value="ukuranApar" x-bind:disabled="statusUnit !== 'terdaftar'">
                                         </div>
-                                        <div>
+                                        <div x-show="statusUnit === 'belum_terdaftar'" x-cloak>
                                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Jumlah Unit <span class="text-red-500">*</span></label>
-                                            <input type="number" name="jumlah_unit" x-model.number="jumlahUnit" min="1" :disabled="statusUnit === 'terdaftar'" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 disabled:opacity-50">
-                                            <input type="hidden" name="jumlah_unit" :value="jumlahUnit" x-bind:disabled="statusUnit !== 'terdaftar'">
+                                            <input type="number" name="jumlah_unit" x-model.number="jumlahUnit" min="1" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900">
+                                        </div>
+                                        <div x-show="statusUnit === 'terdaftar'" x-cloak>
+                                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Jumlah Unit Terpilih</label>
+                                            <div class="w-full rounded-2xl bg-gray-50 px-6 py-4 text-sm font-black text-gray-900" x-text="displayJumlahUnit() + ' unit'"></div>
                                         </div>
                                         <div>
                                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Tanggal Service <span class="text-red-500">*</span></label>
@@ -586,20 +632,16 @@
                                             <span class="font-black text-red-700">Service Offline</span>
                                         </div>
                                         <div class="flex items-center justify-between text-xs font-semibold text-gray-600">
-                                            <span>Harga per Unit</span>
-                                            <span class="font-bold text-gray-900" x-text="currency(hargaPaket())"></span>
+                                            <span>Harga Ringkasan</span>
+                                            <span class="font-bold text-gray-900" x-text="currency(hargaRingkasan())"></span>
                                         </div>
                                         <div class="flex items-center justify-between text-xs font-semibold text-gray-600">
-                                            <span>Media APAR</span>
-                                            <span class="font-bold text-gray-900" x-text="jenisApar || '-'"></span>
+                                            <span>Detail APAR</span>
+                                            <span class="font-bold text-gray-900 text-right" x-text="displayDetailApar()"></span>
                                         </div>
                                         <div class="flex items-center justify-between text-xs font-semibold text-gray-600">
                                             <span>Jumlah Unit</span>
-                                            <span class="font-bold text-gray-900" x-text="jumlahUnit + ' unit'"></span>
-                                        </div>
-                                        <div class="flex items-center justify-between text-xs font-semibold text-gray-600">
-                                            <span>Ukuran</span>
-                                            <span class="font-bold text-gray-900" x-text="ukuranApar"></span>
+                                            <span class="font-bold text-gray-900" x-text="displayJumlahUnit() + ' unit'"></span>
                                         </div>
                                         <div class="pt-4 border-t border-gray-200 flex items-center justify-between">
                                             <span class="text-xs font-black text-gray-900 uppercase tracking-widest">Total Akhir</span>
@@ -612,7 +654,7 @@
 
                         <div class="app-modal-footer mt-8 flex flex-col-reverse gap-3 border-t border-gray-100 pt-6 sm:flex-row sm:justify-end">
                             <button type="button" @click="openModal = false" class="w-full px-8 py-4 text-xs font-black text-gray-400 uppercase tracking-widest hover:text-gray-900 transition sm:w-auto">Batal</button>
-                            <button type="submit" class="w-full px-10 py-4 bg-red-700 text-white font-black rounded-2xl hover:bg-red-800 transition shadow-xl shadow-red-700/30 uppercase tracking-widest text-xs sm:w-auto">
+                            <button type="submit" :disabled="!canSubmit()" :class="!canSubmit() ? 'bg-gray-300 text-gray-500 shadow-none cursor-not-allowed' : 'bg-red-700 text-white hover:bg-red-800 shadow-xl shadow-red-700/30'" class="w-full px-10 py-4 font-black rounded-2xl transition uppercase tracking-widest text-xs sm:w-auto">
                                 Simpan Service Offline
                             </button>
                         </div>
@@ -630,10 +672,25 @@
             if (!data) return;
 
             document.getElementById('service-detail-subtitle').textContent = `${data.transaksi} - ${data.waktu}`;
+            const shouldHidePaymentBadge = data.hide_payment_badge === true;
 
             const paidBadge = data.is_paid
                 ? '<span class="inline-flex px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-black uppercase">LUNAS</span>'
                 : '<span class="inline-flex px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-[10px] font-black uppercase">BELUM BAYAR</span>';
+            const paymentStatusHtml = shouldHidePaymentBadge
+                ? ''
+                : `
+                    <div>
+                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Status Bayar</p>
+                        <div class="mt-1">${paidBadge}</div>
+                    </div>
+                `;
+            const unitEntries = (data.unit_display?.entries || []).map((entry) => `
+                <div class="rounded-xl border border-gray-200 bg-white px-4 py-3">
+                    <p class="font-semibold text-gray-900">${entry.label || '-'}</p>
+                    ${entry.code ? `<p class="mt-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400">${entry.code}</p>` : ''}
+                </div>
+            `).join('');
             const lineItemsHtml = (data.line_items || []).map((item) => `
                 <div class="rounded-xl border border-gray-200 bg-white px-4 py-3">
                     <p class="font-bold text-gray-900">${item.label}</p>
@@ -678,9 +735,18 @@
                         <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Sumber</p>
                         <p class="font-black text-slate-900">${data.source}</p>
                     </div>
+                    ${paymentStatusHtml}
                     <div>
-                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Status Bayar</p>
-                        <div class="mt-1">${paidBadge}</div>
+                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Status</p>
+                        <p class="font-semibold text-gray-900">${data.status_label}</p>
+                    </div>
+                    <div class="col-span-2">
+                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">${data.unit_display?.heading || 'Unit APAR'}</p>
+                        <div class="space-y-3">${unitEntries || `<div class="rounded-xl border border-gray-200 bg-white px-4 py-3"><p class="font-semibold text-gray-900">${data.unit_display?.detail_label || data.unit_display?.summary || '-'}</p></div>`}</div>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Jumlah Unit</p>
+                        <p class="font-black text-gray-900">${data.unit_display?.quantity || data.unit || 0} unit</p>
                     </div>
                     <div>
                         <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Jenis Service</p>
@@ -689,14 +755,6 @@
                     <div>
                         <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total</p>
                         <p class="font-black text-gray-900">Rp ${data.estimasi}</p>
-                    </div>
-                    <div>
-                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Ukuran / Unit</p>
-                        <p class="font-semibold text-gray-900">${data.ukuran} - ${data.unit} unit</p>
-                    </div>
-                    <div>
-                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Teknisi</p>
-                        <p class="font-semibold text-gray-900">${data.teknisi}</p>
                     </div>
                 </div>
                 ${lineItemsHtml ? `<div class="rounded-xl border border-gray-200 bg-gray-50 p-4"><p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Harga Per Unit</p><div class="space-y-3">${lineItemsHtml}</div></div>` : ''}
@@ -767,16 +825,21 @@
                 pakets,
                 mediaOptions,
                 pelanggansData: pelanggansData || [],
-                selectedPelangganId: '',
+                selectedPelangganId: initialState?.pelanggan_id || '',
                 selectedPelangganInfo: {},
-                statusUnit: 'belum_terdaftar',
-                selectedUnitAparId: '',
+                statusUnit: initialState?.status_unit || 'belum_terdaftar',
+                selectedUnitAparIds: Array.isArray(initialState?.selected_unit_ids)
+                    ? initialState.selected_unit_ids.map(String)
+                    : [],
                 servicePaketId: String(initialState?.service_paket_id || ''),
                 jenisApar: String(initialState?.jenis_apar || ''),
                 ukuranApar: String(initialState?.ukuran_apar || ''),
                 jumlahUnit: Number(initialState?.jumlah_unit || 1),
                 ukuranOptions: [],
                 init() {
+                    if (this.selectedPelangganId) {
+                        this.syncPelangganProfile();
+                    }
                     if (!this.jenisApar && this.mediaOptions.length) {
                         this.jenisApar = String(this.mediaOptions[0].label || '');
                     }
@@ -785,25 +848,25 @@
                 syncPelangganProfile() {
                     const info = this.pelanggansData.find(p => p.id === this.selectedPelangganId);
                     this.selectedPelangganInfo = info || {};
-                    this.selectedUnitAparId = '';
+                    this.selectedUnitAparIds = [];
                     this.syncUnitApar();
                 },
                 syncUnitApar() {
-                    if (this.statusUnit === 'terdaftar' && this.selectedUnitAparId) {
-                        const unit = (this.selectedPelangganInfo?.units || []).find(u => u.id === this.selectedUnitAparId);
-                        if (unit) {
-                            this.jenisApar = unit.jenis;
-                            this.syncUkuranOptions();
-                            this.ukuranApar = unit.ukuran;
-                            this.jumlahUnit = 1;
-                        }
+                    if (this.statusUnit === 'terdaftar') {
+                        const availableIds = new Set((this.selectedPelangganInfo?.units || []).map(unit => String(unit.id)));
+                        this.selectedUnitAparIds = this.selectedUnitAparIds.filter(id => availableIds.has(String(id)));
+                        this.jumlahUnit = Math.max(1, this.selectedRegisteredUnits().length || 1);
                     } else if (this.statusUnit === 'belum_terdaftar') {
-                        this.selectedUnitAparId = '';
+                        this.selectedUnitAparIds = [];
                         this.jumlahUnit = 1;
                     }
                 },
                 selectedPaket() {
                     return this.pakets.find((item) => String(item.id) === String(this.servicePaketId)) || null;
+                },
+                selectedRegisteredUnits() {
+                    const selectedIds = new Set(this.selectedUnitAparIds.map(String));
+                    return (this.selectedPelangganInfo?.units || []).filter(unit => selectedIds.has(String(unit.id)));
                 },
                 normalizeMediaKey(value) {
                     const text = String(value || '').toLowerCase().trim();
@@ -827,20 +890,67 @@
                     const label = String(paket.label || '').trim();
                     return (label ? label + ' - ' : '') + paket.nama + ' - Harga mengikuti media & ukuran';
                 },
-                hargaPaket() {
+                hargaPaketFor(mediaLabel, ukuranLabel) {
                     const paket = this.selectedPaket();
                     if (!paket) return 0;
-                    const mediaKey = this.normalizeMediaKey(this.jenisApar);
+                    const mediaKey = this.normalizeMediaKey(mediaLabel);
                     const mediaPrices = paket.price_matrix?.[mediaKey] || {};
-                    const direct = Number(mediaPrices?.[this.ukuranApar] || 0);
+                    const direct = Number(mediaPrices?.[ukuranLabel] || 0);
                     if (direct > 0) return direct;
 
-                    const ukuranKg = Number(String(this.ukuranApar || '').replace(',', '.').match(/(\d+(?:\.\d+)?)/)?.[1] || 0);
+                    const ukuranKg = Number(String(ukuranLabel || '').replace(',', '.').match(/(\d+(?:\.\d+)?)/)?.[1] || 0);
                     const matchedSize = Object.keys(mediaPrices).find((size) => Number(String(size || '').replace(',', '.').match(/(\d+(?:\.\d+)?)/)?.[1] || 0) === ukuranKg);
                     return matchedSize ? Number(mediaPrices[matchedSize] || 0) : 0;
                 },
+                hargaPaket() {
+                    return this.hargaPaketFor(this.jenisApar, this.ukuranApar);
+                },
+                hargaRingkasan() {
+                    if (this.statusUnit === 'terdaftar') {
+                        const units = this.selectedRegisteredUnits();
+                        if (units.length === 0) return 0;
+                        return units.reduce((total, unit) => total + this.hargaPaketFor(unit.jenis, unit.ukuran), 0);
+                    }
+
+                    return this.hargaPaket();
+                },
                 totalBiaya() {
+                    if (this.statusUnit === 'terdaftar') {
+                        return this.selectedRegisteredUnits().reduce(
+                            (total, unit) => total + this.hargaPaketFor(unit.jenis, unit.ukuran),
+                            0
+                        );
+                    }
+
                     return this.hargaPaket() * Math.max(1, Number(this.jumlahUnit || 0));
+                },
+                displayJumlahUnit() {
+                    return this.statusUnit === 'terdaftar'
+                        ? this.selectedRegisteredUnits().length
+                        : Math.max(1, Number(this.jumlahUnit || 0));
+                },
+                displayDetailApar() {
+                    if (this.statusUnit === 'terdaftar') {
+                        const details = this.selectedRegisteredUnits()
+                            .map(unit => `APAR ${unit.jenis || '-'} ${unit.ukuran || '-'}`)
+                            .filter(Boolean);
+
+                        return details.length ? Array.from(new Set(details)).join(', ') : '-';
+                    }
+
+                    return `APAR ${this.jenisApar || '-'} ${this.ukuranApar || '-'}`.trim();
+                },
+                canSubmit() {
+                    if (!this.selectedPelangganId || !this.servicePaketId) {
+                        return false;
+                    }
+
+                    if (this.statusUnit === 'terdaftar') {
+                        return this.selectedRegisteredUnits().length > 0
+                            && this.selectedRegisteredUnits().every(unit => this.hargaPaketFor(unit.jenis, unit.ukuran) > 0);
+                    }
+
+                    return !!this.jenisApar && !!this.ukuranApar && Number(this.jumlahUnit || 0) > 0 && this.hargaPaket() > 0;
                 },
                 currency(value) {
                     return 'Rp ' + Number(value || 0).toLocaleString('id-ID');

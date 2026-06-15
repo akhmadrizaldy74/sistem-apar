@@ -1,123 +1,136 @@
-@props(['tasks', 'emptyMessage' => 'Belum ada pekerjaan yang diberikan oleh admin.'])
+@props([
+    'tasks',
+    'emptyMessage' => 'Belum ada pekerjaan aktif.',
+    'emptyDescription' => 'Pekerjaan dari admin akan muncul di halaman ini.',
+])
 
-<div class="space-y-4">
+<div class="space-y-3">
     @forelse($tasks as $task)
         @php
             $isProduct = $task->isProductOrder();
-            $jobCategory = $isProduct ? 'Pesanan Produk' : 'Service / Refill';
-            $statusLabel = $task->publicStatusLabel();
+            $jobCategory = $isProduct
+                ? 'Pesanan Produk'
+                : ($task->isRefillOrder() ? 'Refill APAR' : 'Service APAR');
+            $statusLabel = $task->technicianStatusLabel();
+            $customerName = $task->pelanggan?->nama ?? $task->nama_penerima ?? '-';
+            $customerPhone = $task->pelanggan?->no_wa ?? $task->nomor_wa_penerima ?? '-';
+            $customerAddress = trim((string) ($task->pelanggan?->alamat ?? $task->alamat_pengiriman ?? '')) ?: '-';
+            $serviceUnitDisplay = $task->serviceUnitDisplay();
+            $serviceType = $task->isRefillOrder()
+                ? ($task->serviceJenisRefill?->nama_label ?? $task->trackingItemLabel())
+                : ($task->servicePaket?->nama ?? $task->trackingItemLabel());
         @endphp
 
-        <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/40">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div class="space-y-4 flex-1">
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div class="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/40 sm:p-5">
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="inline-flex rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-slate-700">
+                    {{ $jobCategory }}
+                </span>
+                <span class="inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] {{ $task->publicStatusClasses() }}">
+                    {{ $statusLabel }}
+                </span>
+                <span class="text-xs font-semibold text-slate-500 sm:ml-auto">
+                    {{ $task->technicianTaskDateTime('d M Y, H:i') }}
+                </span>
+            </div>
+
+            <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                <div class="space-y-4">
+                    <div class="grid gap-3 sm:grid-cols-2">
                         <div>
-                            <p class="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Tanggal Transaksi</p>
-                            <h3 class="mt-1 text-lg font-black text-slate-900">{{ $task->displayTransactionDateTime('d M Y, H:i') }}</h3>
+                            <p class="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Pelanggan</p>
+                            <p class="mt-1 text-sm font-bold text-slate-900">{{ $customerName }}</p>
                         </div>
 
-                        <span class="inline-flex w-fit rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-widest {{ $task->publicStatusClasses() }}">
-                            {{ $statusLabel }}
-                        </span>
-                    </div>
-
-                    <div class="grid gap-4 md:grid-cols-2">
-                        <div class="rounded-2xl bg-slate-50 p-4">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Nama Pelanggan</p>
-                            <p class="mt-1 text-sm font-bold text-slate-900">{{ $task->pelanggan?->nama ?? $task->nama_penerima ?? '-' }}</p>
+                        <div>
+                            <p class="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">WhatsApp</p>
+                            <p class="mt-1 text-sm font-semibold text-slate-700">{{ $customerPhone }}</p>
                         </div>
 
-                        <div class="rounded-2xl bg-slate-50 p-4">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Jenis Pekerjaan</p>
-                            <p class="mt-1 text-sm font-bold text-slate-900">{{ $jobCategory }}</p>
+                        <div class="sm:col-span-2">
+                            <p class="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Alamat</p>
+                            <p class="mt-1 text-sm font-medium leading-6 text-slate-700">{{ $customerAddress }}</p>
                         </div>
                     </div>
 
-                    <div class="rounded-2xl bg-slate-50 p-4">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Alamat Pelanggan</p>
-                        <p class="mt-1 text-sm font-medium leading-6 text-slate-700">{{ $task->pelanggan?->alamat ?? $task->alamat_pengiriman ?? '-' }}</p>
-                    </div>
+                    <div class="border-t border-slate-200 pt-4">
+                        <p class="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Detail Pekerjaan</p>
 
-                    <div class="rounded-2xl bg-slate-50 p-4">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Detail Produk / Layanan</p>
-                        <div class="mt-2 space-y-2 text-sm text-slate-700">
-                            @if($isProduct)
+                        @if($isProduct)
+                            <div class="mt-2 space-y-2 text-sm text-slate-700">
                                 @forelse($task->details as $detail)
-                                    <div class="flex flex-col gap-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                                        <span class="font-semibold text-slate-900">{{ $detail->produk?->nama ?? '-' }}</span>
-                                        <span class="text-xs font-bold uppercase tracking-wide text-slate-500">{{ $detail->jumlah }} unit</span>
+                                    <div class="flex flex-col gap-1 sm:flex-row sm:items-start sm:gap-3">
+                                        <span class="font-black text-slate-500 sm:w-32 sm:shrink-0">
+                                            {{ $loop->first ? 'Produk' : 'Produk Lain' }}
+                                        </span>
+                                        <div class="min-w-0">
+                                            <p class="font-semibold text-slate-900">{{ $detail->produk?->nama ?? '-' }}</p>
+                                            <p class="text-slate-600">Jumlah: {{ $detail->jumlah }} unit</p>
+                                        </div>
                                     </div>
                                 @empty
-                                    <p class="font-medium text-slate-500">Detail produk tidak tersedia.</p>
+                                    <div class="flex flex-col gap-1 sm:flex-row sm:gap-3">
+                                        <span class="font-black text-slate-500 sm:w-32 sm:shrink-0">Produk</span>
+                                        <span class="text-slate-600">Detail produk tidak tersedia.</span>
+                                    </div>
                                 @endforelse
-                            @else
-                                <div class="space-y-2 rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                                    <p class="font-semibold text-slate-900">
-                                        {{ $task->isRefillOrder() ? 'Refill APAR' : 'Service APAR' }}
-                                    </p>
-                                    <p>
-                                        {{ $task->trackingItemLabel() }}
-                                        @if($task->service_jenis_apar || $task->service_ukuran_apar)
-                                            - {{ trim(collect([$task->service_jenis_apar, $task->service_ukuran_apar])->filter()->implode(' ')) }}
+                            </div>
+                        @else
+                            <div class="mt-2 space-y-2 text-sm text-slate-700">
+                                <div class="flex flex-col gap-1 sm:flex-row sm:gap-3">
+                                    <span class="font-black text-slate-500 sm:w-32 sm:shrink-0">Unit APAR</span>
+                                    <div class="min-w-0 space-y-1">
+                                        <p class="font-semibold text-slate-900">{{ $serviceUnitDisplay['summary'] ?? '-' }}</p>
+                                        @if(($serviceUnitDisplay['is_registered'] ?? false))
+                                            @foreach(array_slice($serviceUnitDisplay['entries'] ?? [], 0, 2) as $entry)
+                                                @if(!empty($entry['code']))
+                                                    <p class="text-xs text-slate-500">{{ $entry['code'] }}</p>
+                                                @endif
+                                            @endforeach
                                         @endif
-                                    </p>
-                                    @if($task->service_jumlah_unit)
-                                        <p>{{ $task->service_jumlah_unit }} unit</p>
-                                    @endif
-                                    @if($task->service_metode_penanganan)
-                                        <p>Metode: {{ ucwords((string) $task->service_metode_penanganan) }}</p>
-                                    @endif
+                                        @if(count($serviceUnitDisplay['entries'] ?? []) > 1)
+                                            <p class="text-xs text-slate-500">+{{ count($serviceUnitDisplay['entries']) - 1 }} unit lainnya</p>
+                                        @endif
+                                        @if((int) ($serviceUnitDisplay['quantity'] ?? 0) > 1)
+                                            <p class="text-xs font-bold uppercase tracking-wide text-slate-500">{{ $serviceUnitDisplay['quantity_label'] }}</p>
+                                        @endif
+                                    </div>
                                 </div>
-                            @endif
-                        </div>
-                    </div>
 
-                    <div class="grid gap-4 md:grid-cols-2">
-                        <div class="rounded-2xl bg-slate-50 p-4">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Status Pekerjaan</p>
-                            <p class="mt-1 text-sm font-bold text-slate-900">{{ $statusLabel }}</p>
-                        </div>
-
-                        <div class="rounded-2xl bg-slate-50 p-4">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Catatan Teknisi</p>
-                            <p class="mt-1 text-sm font-medium text-slate-700">{{ $task->teknisi_catatan ?: '-' }}</p>
-                        </div>
+                                <div class="flex flex-col gap-1 sm:flex-row sm:gap-3">
+                                    <span class="font-black text-slate-500 sm:w-32 sm:shrink-0">
+                                        {{ $task->isRefillOrder() ? 'Jenis Refill' : 'Jenis Service' }}
+                                    </span>
+                                    <span>{{ $serviceType ?: '-' }}</span>
+                                </div>
+                            </div>
+                        @endif
                     </div>
                 </div>
 
-                <div class="w-full lg:max-w-sm" x-data="{ showDone: false }">
+                <div class="flex items-center gap-2 lg:pl-4">
                     @if($task->status === \App\Models\Pesanan::STATUS_DITUGASKAN_KE_TEKNISI)
                         <form action="{{ route('teknisi.tugas.mulai', $task) }}" method="POST">
                             @csrf
-                            <button type="submit" class="w-full rounded-2xl bg-blue-600 px-5 py-3 text-sm font-black uppercase tracking-widest text-white transition hover:bg-blue-700">
-                                Proses
+                            <button type="submit" class="inline-flex min-w-[116px] justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white transition hover:bg-blue-700">
+                                Kerjakan
                             </button>
                         </form>
                     @elseif($task->status === \App\Models\Pesanan::STATUS_DIKERJAKAN_TEKNISI)
-                        <button type="button" @click="showDone = !showDone" class="w-full rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black uppercase tracking-widest text-white transition hover:bg-emerald-700">
-                            Selesai
-                        </button>
-
-                        <div x-show="showDone" x-cloak class="mt-4 rounded-3xl border border-emerald-200 bg-emerald-50 p-4">
-                            <form action="{{ route('teknisi.tugas.selesai', $task) }}" method="POST" class="space-y-3">
-                                @csrf
-                                <label for="catatan-{{ $task->id }}" class="block text-[10px] font-black uppercase tracking-widest text-emerald-800">
-                                    Catatan Teknisi
-                                </label>
-                                <textarea id="catatan-{{ $task->id }}" name="catatan" rows="4" class="w-full rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400" placeholder="Tambahkan catatan teknisi jika ada."></textarea>
-                                <button type="submit" class="w-full rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-black uppercase tracking-widest text-white transition hover:bg-emerald-700">
-                                    Simpan Selesai
-                                </button>
-                            </form>
-                        </div>
+                        <form action="{{ route('teknisi.tugas.selesai', $task) }}" method="POST" data-confirm="Tandai pekerjaan ini sebagai selesai?" data-confirm-title="Konfirmasi Selesai" data-confirm-button="Ya, Selesaikan">
+                            @csrf
+                            <button type="submit" class="inline-flex min-w-[116px] justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white transition hover:bg-emerald-700">
+                                Selesai
+                            </button>
+                        </form>
                     @endif
                 </div>
             </div>
         </div>
     @empty
-        <div class="rounded-3xl border border-slate-200 bg-white p-12 text-center text-sm font-semibold text-slate-500">
-            {{ $emptyMessage }}
+        <div class="rounded-[1.75rem] border border-dashed border-slate-300 bg-white px-6 py-10 text-center shadow-sm shadow-slate-200/30 sm:px-8 sm:py-12">
+            <p class="text-lg font-black text-slate-900">{{ $emptyMessage }}</p>
+            <p class="mx-auto mt-2 max-w-md text-sm font-medium leading-6 text-slate-500">{{ $emptyDescription }}</p>
         </div>
     @endforelse
 </div>

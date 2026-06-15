@@ -28,13 +28,13 @@
             <a href="{{ route('teknisi.pekerjaan-aktif') }}" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/40 transition hover:border-slate-300 hover:shadow-md">
                 <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Halaman Utama</p>
                 <h3 class="mt-2 text-2xl font-black text-slate-900">Pekerjaan Aktif</h3>
-                <p class="mt-2 text-sm font-medium leading-6 text-slate-600">Lihat semua pekerjaan aktif, termasuk Pesanan Produk dan Service / Refill, dalam satu daftar.</p>
+                <p class="mt-2 text-sm font-medium leading-6 text-slate-600">Lihat daftar pekerjaan aktif dan lanjutkan proses teknisi dengan cepat.</p>
             </a>
 
             <a href="{{ route('teknisi.riwayat-pekerjaan') }}" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/40 transition hover:border-slate-300 hover:shadow-md">
                 <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Arsip</p>
                 <h3 class="mt-2 text-2xl font-black text-slate-900">Riwayat Pekerjaan</h3>
-                <p class="mt-2 text-sm font-medium leading-6 text-slate-600">Cek pekerjaan yang sudah berstatus Selesai Final beserta catatan teknisi.</p>
+                <p class="mt-2 text-sm font-medium leading-6 text-slate-600">Cek pekerjaan yang sudah diselesaikan teknisi beserta catatan yang tersimpan.</p>
             </a>
         </div>
     </div>

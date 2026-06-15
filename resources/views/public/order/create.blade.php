@@ -125,6 +125,12 @@
 
 @section('content')
 
+@php
+    $specialPriceRequestOpen = old('submit_source') === 'special_price_request'
+        || $errors->has('harga_pengajuan')
+        || $errors->has('catatan_pelanggan');
+@endphp
+
 <script>
     const PRODUK_DB = {!! json_encode($produks->load('jenisApar')) !!};
 
@@ -155,6 +161,7 @@
     const CART_HAS_ITEMS = {{ !empty($cartItemCount) ? 'true' : 'false' }};
     const PREFILLED_ORDER_ITEMS = {!! json_encode(($prefilledOrderItems ?? collect())->values()) !!};
     const INITIAL_PRODUCT_SUMMARY = {!! json_encode($orderSummary ?? []) !!};
+    const INITIAL_SPECIAL_PRICE_REQUEST_OPEN = {{ $specialPriceRequestOpen ? 'true' : 'false' }};
     const USING_DIRECT_PRODUCT_SELECTION = {{ !empty($prefillFromProduct) ? 'true' : 'false' }};
     const JENIS_REFILL_DB = {!! json_encode(($jenisRefills ?? collect())->map(function ($jenisRefill) {
         return [
@@ -882,7 +889,8 @@
                     </div>
                     <div class="shipping-action-row">
                     <button type="button" id="btn-check-ongkir"
-                        class="btn-shipping-quote hidden">
+                        class="btn-shipping-quote {{ $selectedShippingMethod === 'pickup' ? 'hidden' : '' }}"
+                        {{ $selectedShippingMethod === 'pickup' ? 'disabled' : '' }}>
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
                         Hitung Ongkir
                     </button>
@@ -972,6 +980,77 @@
                                 @endif
                             </p>
                         </div>
+
+                        <div id="purchase-price-request-box" class="mt-4 {{ $prefilledOrderTotal > 5000000 ? '' : 'hidden' }}">
+                            <div class="rounded-2xl border border-slate-200 bg-white p-4">
+                                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div>
+                                        <p class="text-sm font-black text-slate-900">Pengajuan Harga Pembelian</p>
+                                        <p class="mt-1 text-xs font-semibold leading-relaxed text-slate-500">Ajukan harga khusus untuk total pembelian APAR jika subtotal produk sudah lebih dari Rp 5.000.000.</p>
+                                    </div>
+                                    <button type="button" id="btn-toggle-price-request" class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-black uppercase tracking-wider text-slate-700 transition hover:bg-slate-100">
+                                        Ajukan Harga Khusus
+                                    </button>
+                                </div>
+
+                                <div id="purchase-price-request-form" class="mt-4 {{ $specialPriceRequestOpen ? '' : 'hidden' }}">
+                                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                                        <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Subtotal Harga Dasar</p>
+                                            <p id="request-base-subtotal" class="mt-2 text-sm font-black text-slate-900">Rp {{ number_format((float) ($orderSummary['subtotalProduk'] ?? 0), 0, ',', '.') }}</p>
+                                        </div>
+                                        <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Diskon Promo Otomatis</p>
+                                            <p id="request-promo-discount" class="mt-2 text-sm font-black text-emerald-700">- Rp {{ number_format((float) ($orderSummary['nominalDiskon'] ?? 0), 0, ',', '.') }}</p>
+                                        </div>
+                                        <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Setelah Promo</p>
+                                            <p id="request-after-promo" class="mt-2 text-sm font-black text-red-600">Rp {{ number_format((float) ($orderSummary['totalSetelahPromo'] ?? ($orderSummary['totalPembayaran'] ?? 0)), 0, ',', '.') }}</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-4 space-y-4">
+                                        <div>
+                                            <label for="inp-harga-pengajuan" class="order-label">Harga Pengajuan <span>*</span></label>
+                                            <input
+                                                type="text"
+                                                id="inp-harga-pengajuan"
+                                                name="harga_pengajuan"
+                                                value="{{ old('harga_pengajuan') }}"
+                                                placeholder="Rp 0"
+                                                inputmode="numeric"
+                                                class="order-input"
+                                            >
+                                            <p id="request-price-hint" class="mt-2 text-[11px] font-semibold text-slate-500">Harga Pengajuan tidak boleh lebih besar dari subtotal harga dasar.</p>
+                                            @error('harga_pengajuan')
+                                                <p class="error-msg">{{ $message }}</p>
+                                            @enderror
+                                        </div>
+                                        <div>
+                                            <label for="inp-catatan-pelanggan" class="order-label">Catatan Pelanggan</label>
+                                            <textarea
+                                                id="inp-catatan-pelanggan"
+                                                name="catatan_pelanggan"
+                                                rows="3"
+                                                placeholder="Opsional. Contoh: kebutuhan pengadaan kantor atau jumlah pembelian rutin."
+                                                class="order-input resize-none"
+                                            >{{ old('catatan_pelanggan') }}</textarea>
+                                            @error('catatan_pelanggan')
+                                                <p class="error-msg">{{ $message }}</p>
+                                            @enderror
+                                        </div>
+                                        <button
+                                            type="submit"
+                                            id="btn-submit-price-request"
+                                            data-submit-source="special_price_request"
+                                            class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:bg-slate-50"
+                                        >
+                                            Ajukan Harga Khusus
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -1012,7 +1091,7 @@
 
                     {{-- Action Buttons --}}
                     <div class="mt-4 space-y-2.5">
-                        <button type="submit" id="btn-submit" class="btn-primary-action submit w-full justify-center">
+                        <button type="submit" id="btn-submit" data-submit-source="normal" class="btn-primary-action submit w-full justify-center">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                             <span id="btn-submit-label">Checkout</span>
                         </button>
@@ -1086,6 +1165,7 @@
     let shippingDistanceKm = 0;
     let shippingQuoteReady = shippingMethod === 'pickup' || shippingCost > 0;
     let rowIndex = 0;
+    let purchasePriceRequestOpen = INITIAL_SPECIAL_PRICE_REQUEST_OPEN;
 
     const itemsContainer = document.getElementById('items-container');
     const tmplRow = document.getElementById('tmpl-row');
@@ -1100,6 +1180,15 @@
     const activePromoStatus = document.getElementById('active-promo-status');
     const promoStatusText = document.getElementById('promo-status-text');
     const promoStatusSubtext = document.getElementById('promo-status-subtext');
+    const purchasePriceRequestBox = document.getElementById('purchase-price-request-box');
+    const purchasePriceRequestForm = document.getElementById('purchase-price-request-form');
+    const btnTogglePriceRequest = document.getElementById('btn-toggle-price-request');
+    const requestBaseSubtotal = document.getElementById('request-base-subtotal');
+    const requestPromoDiscount = document.getElementById('request-promo-discount');
+    const requestAfterPromo = document.getElementById('request-after-promo');
+    const requestPriceHint = document.getElementById('request-price-hint');
+    const inpHargaPengajuan = document.getElementById('inp-harga-pengajuan');
+    const btnSubmitPriceRequest = document.getElementById('btn-submit-price-request');
     const shippingMethodRadios = [...document.querySelectorAll('input[name="metode_pengiriman"]')];
     const shippingCards = [...document.querySelectorAll('[data-shipping-card]')];
     const bankRadios = [...document.querySelectorAll('input[name="bank_tujuan"]')];
@@ -1179,6 +1268,22 @@
 
     function fmt(n) {
         return 'Rp ' + Number(n || 0).toLocaleString('id-ID');
+    }
+
+    function moneyDigits(value) {
+        return String(value || '').replace(/\D+/g, '');
+    }
+
+    function moneyValue(value) {
+        const digits = moneyDigits(value);
+        return digits ? Number(digits) : 0;
+    }
+
+    function formatMoneyInput(input) {
+        if (!input) return 0;
+        const value = moneyValue(input.value);
+        input.value = value > 0 ? fmt(value) : '';
+        return value;
     }
 
     function formatDistance(distance) {
@@ -1285,7 +1390,7 @@
             shippingStatusNote.className = 'shipping-status-note show compact';
             shippingStatusNote.innerHTML = `
                 <span class="shipping-status-label">Ongkir</span>
-                <span class="shipping-status-meta">Rp0 karena pesanan diambil sendiri.</span>
+                <span class="shipping-status-meta">Ongkir Rp 0 karena pesanan diambil sendiri.</span>
             `;
         } else {
             shippingStatusNote.className = 'shipping-status-note show compact';
@@ -1308,7 +1413,10 @@
             card.classList.toggle('active', isActive);
         });
 
-        btnCheckOngkir.classList.toggle('hidden', isPickup);
+        if (btnCheckOngkir) {
+            btnCheckOngkir.classList.toggle('hidden', isPickup);
+            btnCheckOngkir.disabled = isPickup;
+        }
     }
 
     function setShippingMethod(method) {
@@ -1321,7 +1429,7 @@
             shippingQuoteReady = true;
             inpOngkir.value = '0';
             inpShippingDistance.value = '0';
-            setShippingStatus('Metode: Ambil sendiri — tanpa biaya ongkir.', 'info');
+            setShippingStatus('Ongkir Rp 0 karena pesanan diambil sendiri.', 'info');
         } else {
             shippingCost = 0;
             shippingDistanceKm = 0;
@@ -1582,6 +1690,30 @@
         return getSelectedItems().reduce((totalQty, item) => totalQty + Number(item.jumlah || 0), 0);
     }
 
+    function syncPurchasePriceRequestState() {
+        if (!purchasePriceRequestBox) return;
+
+        const isEligible = currentTab === 'beli' && normalTotal > 5000000 && getSelectedItems().length > 0;
+        purchasePriceRequestBox.classList.toggle('hidden', !isEligible);
+
+        if (!isEligible) {
+            purchasePriceRequestOpen = false;
+            purchasePriceRequestForm?.classList.add('hidden');
+            if (btnTogglePriceRequest) btnTogglePriceRequest.textContent = 'Ajukan Harga Khusus';
+            return;
+        }
+
+        if (requestBaseSubtotal) requestBaseSubtotal.textContent = fmt(normalTotal);
+        if (requestPromoDiscount) requestPromoDiscount.textContent = '- ' + fmt(promoDiscountNominal);
+        if (requestAfterPromo) requestAfterPromo.textContent = fmt(Math.max(0, normalTotal - promoDiscountNominal));
+        if (requestPriceHint) requestPriceHint.textContent = `Harga Pengajuan tidak boleh lebih besar dari ${fmt(normalTotal)}.`;
+        purchasePriceRequestForm?.classList.toggle('hidden', !purchasePriceRequestOpen);
+
+        if (btnTogglePriceRequest) {
+            btnTogglePriceRequest.textContent = purchasePriceRequestOpen ? 'Tutup Form' : 'Ajukan Harga Khusus';
+        }
+    }
+
     function syncDisplayedTotal() {
         const totalQty = getSelectedItemQuantityTotal();
         const totalOngkir = shippingMethod === 'diantar' ? shippingCost : 0;
@@ -1656,6 +1788,8 @@
             discountRow.classList.toggle('text-emerald-700', promoDiscountNominal > 0);
             discountRow.style.display = 'flex';
         }
+
+        syncPurchasePriceRequestState();
     }
 
     function invalidatePricingByItemChange() {
@@ -2625,6 +2759,7 @@
     orderForm.addEventListener('submit', function(event) {
         const isBeli = currentTab === 'beli';
         const hasDirectProductSelection = PREFILLED_ORDER_ITEMS.length > 0 || hasSelectedProduct();
+        const submitSource = event.submitter?.dataset.submitSource || 'normal';
 
         if (isBeli && !(CAN_USE_CART_CHECKOUT && CART_HAS_ITEMS) && !hasDirectProductSelection) {
             event.preventDefault();
@@ -2632,7 +2767,7 @@
             return;
         }
 
-        inpSubmitSource.value = 'normal';
+        inpSubmitSource.value = submitSource;
         updateCombinedAddress();
 
         if (!inpAlamatMaps.value.trim() || !inpAlamatDetail.value.trim()) {
@@ -2750,7 +2885,42 @@
         } else {
             if (inpTipeHarga) inpTipeHarga.value = 'normal';
         }
+
+        if (submitSource === 'special_price_request') {
+            if (normalTotal <= 5000000) {
+                showAppAlert('Ajukan Harga Khusus hanya tersedia jika subtotal produk lebih dari Rp 5.000.000.', 'warning', 'Peringatan');
+                event.preventDefault();
+                return;
+            }
+
+            const hargaPengajuan = formatMoneyInput(inpHargaPengajuan);
+            if (!hargaPengajuan || hargaPengajuan <= 0) {
+                showAppAlert('Isi Harga Pengajuan terlebih dahulu.', 'warning', 'Peringatan');
+                event.preventDefault();
+                return;
+            }
+
+            if (hargaPengajuan > normalTotal) {
+                showAppAlert('Harga Pengajuan tidak boleh lebih besar dari subtotal harga dasar.', 'warning', 'Peringatan');
+                event.preventDefault();
+                return;
+            }
+        }
     });
+
+    if (btnTogglePriceRequest) {
+        btnTogglePriceRequest.addEventListener('click', function() {
+            purchasePriceRequestOpen = !purchasePriceRequestOpen;
+            syncPurchasePriceRequestState();
+        });
+    }
+
+    if (inpHargaPengajuan) {
+        inpHargaPengajuan.addEventListener('input', function() {
+            formatMoneyInput(this);
+        });
+        formatMoneyInput(inpHargaPengajuan);
+    }
 
     inpAlamatMaps.addEventListener('input', scheduleAddressSuggestSearch);
     inpAlamatMaps.addEventListener('focus', function() {

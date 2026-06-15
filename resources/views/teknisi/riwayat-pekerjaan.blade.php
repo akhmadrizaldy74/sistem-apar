@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div>
             <h2 class="text-3xl font-black tracking-tight text-slate-900">Riwayat Pekerjaan</h2>
-            <p class="mt-1 text-sm font-semibold text-slate-500">Daftar pekerjaan yang sudah berstatus Selesai Final.</p>
+            <p class="mt-1 text-sm font-semibold text-slate-500">Daftar pekerjaan yang sudah diselesaikan teknisi.</p>
         </div>
     </x-slot>
 

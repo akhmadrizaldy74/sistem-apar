@@ -72,6 +72,25 @@
                 'wa' => $normalizeText($pelanggan?->no_wa ?? null) ?? $fallbackWa ?? '-',
             ];
         };
+        $resolveUnitDisplay = function ($record = null, $unitApar = null) {
+            if ($record instanceof \App\Models\Pesanan) {
+                return $record->serviceUnitDisplay();
+            }
+
+            if ($record instanceof \App\Models\Refill) {
+                return \App\Support\ServiceUnitDisplay::forRefill($record);
+            }
+
+            if ($record instanceof \App\Models\Service) {
+                return \App\Support\ServiceUnitDisplay::forService($record);
+            }
+
+            if ($unitApar instanceof \App\Models\UnitApar) {
+                return \App\Support\ServiceUnitDisplay::forUnitApar($unitApar);
+            }
+
+            return \App\Support\ServiceUnitDisplay::empty();
+        };
         $refillOfflineOptions = $jenisRefills->map(fn ($jenisRefill) => [
             'id' => $jenisRefill->id,
             'nama' => $jenisRefill->nama_label,
@@ -89,6 +108,7 @@
 
         $refillDetailData = $requestRefills->map(function ($refill) use ($resolveCustomer) {
             $customer = $resolveCustomer($refill);
+            $unitDisplay = $refill->serviceUnitDisplay();
             return [
                 'id' => $refill->id,
                 'pelanggan' => $customer['nama'],
@@ -104,14 +124,20 @@
                 'teknisi' => $refill->teknisi?->name ?? 'Belum ditugaskan',
                 'catatan' => $refill->catatan_admin ?: $refill->serviceCustomerNote() ?: $refill->keterangan ?: '-',
                 'status' => $refill->status,
+                'status_label' => $refill->publicStatusLabel(),
+                'hide_payment_badge' => $refill->shouldHidePaymentStatusBadge(),
                 'is_paid' => $refill->isPaymentConfirmed(),
                 'proof_url' => !empty($refill->bukti_pembayaran) ? '/storage/' . ltrim($refill->bukti_pembayaran, '/') : null,
+                'unit_display' => $unitDisplay,
             ];
-        })->concat($mergedHistory->map(function ($item) use ($resolveCustomer) {
+        })->concat($mergedHistory->map(function ($item) use ($resolveCustomer, $resolveUnitDisplay) {
             $isLegacy = $item instanceof \App\Models\Refill;
             $pesanan = $isLegacy ? null : $item;
             $refill = $isLegacy ? $item : null;
             $customer = $resolveCustomer($pesanan, $refill);
+            $unitDisplay = $isLegacy
+                ? $resolveUnitDisplay($refill, $refill?->unitApar)
+                : $resolveUnitDisplay($pesanan, $pesanan?->service?->unitApar);
             
             return [
                 'id' => $isLegacy ? 'log-' . $refill->id : $pesanan->id,
@@ -128,8 +154,11 @@
                 'teknisi' => $pesanan?->teknisi?->name ?? 'Selesai',
                 'catatan' => $pesanan?->catatan_admin ?: $pesanan?->serviceCustomerNote() ?: $refill?->service?->keterangan ?: '-',
                 'status' => $pesanan?->status ?? 'selesai final',
+                'status_label' => $pesanan?->publicStatusLabel() ?? 'Selesai Final',
+                'hide_payment_badge' => $pesanan ? $pesanan->shouldHidePaymentStatusBadge() : true,
                 'is_paid' => $pesanan ? $pesanan->isPaymentConfirmed() : true,
                 'proof_url' => !empty($pesanan?->bukti_pembayaran) ? '/storage/' . ltrim($pesanan->bukti_pembayaran, '/') : (!empty($refill?->service?->pesanan?->bukti_pembayaran) ? '/storage/' . ltrim($refill->service->pesanan->bukti_pembayaran, '/') : null),
+                'unit_display' => $unitDisplay,
             ];
         }))->values();
     @endphp
@@ -205,9 +234,6 @@
                                 </td>
                                 <td class="px-8 py-6 whitespace-nowrap">
                                     <span class="text-sm font-semibold text-gray-900">Rp {{ number_format((float) ($refill->service_estimasi_biaya ?? 0), 0, ',', '.') }}</span>
-                                    @if($refill->service_total_kg)
-                                        <p class="text-[10px] font-semibold text-gray-400">{{ rtrim(rtrim(number_format((float) $refill->service_total_kg, 2, ',', '.'), '0'), ',') }} {{ $refill->serviceJenisRefill?->satuan_label ?? 'Kg' }}</p>
-                                    @endif
                                 </td>
                                 <td class="px-8 py-6">
                                     <span class="inline-flex px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest {{ $statusBadge[0] }}">
@@ -449,6 +475,7 @@
                     'jumlah_unit' => old('jumlah_unit', 1),
                     'status_unit' => old('status_unit', 'belum_terdaftar'),
                     'pelanggan_id' => old('pelanggan_id'),
+                    'selected_unit_ids' => collect(old('unit_apar_ids', old('unit_apar_id') ? [old('unit_apar_id')] : []))->map(fn ($id) => (string) $id)->values(),
                 ]), @js($pelanggans->map(fn($p) => [
                     'id' => (string) $p->id,
                     'no_wa' => $p->no_wa,
@@ -456,9 +483,11 @@
                     'alamat_lengkap' => $p->alamat,
                     'units' => $p->units->map(fn($u) => [
                         'id' => (string) $u->id,
+                        'code' => $u->no_seri,
                         'nama' => $u->produk?->nama ?? 'Unit Custom',
                         'ukuran' => $u->ukuran ?? $u->produk?->kapasitas,
-                        'jenis' => $u->produk?->jenisApar?->nama ?? $u->bahan
+                        'jenis' => $u->produk?->jenisApar?->nama ?? $u->bahan,
+                        'display_label' => trim(($u->no_seri ? $u->no_seri . ' - ' : '') . ($u->produk?->nama ?? 'APAR') . ' ' . ($u->produk?->jenisApar?->nama ?? $u->bahan ?? '') . ' ' . ($u->ukuran ?? $u->produk?->kapasitas ?? '')),
                     ])->values()
                 ])->values()))">
                     <form action="{{ route('admin.refill.store') }}" method="POST">
@@ -484,6 +513,10 @@
                                                 <option value="{{ $pelanggan->id }}" @selected(old('pelanggan_id') == $pelanggan->id)>{{ $pelanggan->nama }} ({{ $pelanggan->no_wa }})</option>
                                             @endforeach
                                         </select>
+                                        <p class="text-[10px] font-semibold leading-relaxed text-slate-500">
+                                            Pelanggan refill offline harus berasal dari akun role pelanggan. Jika belum ada, buat akun pelanggan terlebih dahulu melalui
+                                            <a href="{{ route('admin.akun.index') }}" class="font-black text-red-700 hover:underline">Manajemen Akun</a>.
+                                        </p>
                                         <x-input-error :messages="$errors->get('pelanggan_id')" class="mt-2" />
                                     </div>
 
@@ -521,14 +554,20 @@
                                         <template x-if="statusUnit === 'terdaftar'">
                                             <div class="md:col-span-4">
                                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Pilih Unit APAR <span class="text-red-500">*</span></label>
-                                                <select name="unit_apar_id" x-model="selectedUnitAparId" @change="syncUnitApar" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 text-sm">
-                                                    <option value="">-- Pilih Unit APAR --</option>
+                                                <div class="space-y-2 rounded-2xl border border-gray-200 bg-gray-50 p-3">
                                                     <template x-for="unit in (selectedPelangganInfo?.units || [])" :key="unit.id">
-                                                        <option :value="unit.id" x-text="unit.nama + ' - ' + unit.jenis + ' ' + unit.ukuran"></option>
+                                                        <label class="flex items-start gap-3 rounded-2xl border border-white bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm">
+                                                            <input type="checkbox" name="unit_apar_ids[]" :value="unit.id" x-model="selectedUnitAparIds" @change="syncUnitApar" class="mt-1 h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500">
+                                                            <div class="min-w-0">
+                                                                <p class="font-black text-gray-900" x-text="unit.code || unit.nama"></p>
+                                                                <p class="mt-1 text-xs font-semibold text-gray-500" x-text="'APAR ' + (unit.jenis || '-') + ' ' + (unit.ukuran || '-')"></p>
+                                                            </div>
+                                                        </label>
                                                     </template>
-                                                </select>
+                                                </div>
                                                 <p x-show="selectedPelangganId && !(selectedPelangganInfo?.units?.length)" class="text-[10px] font-bold text-red-600 mt-2">Pelanggan ini belum memiliki Unit APAR terdaftar.</p>
-                                                <p x-show="selectedPelangganId && selectedPelangganInfo?.units?.length && !selectedUnitAparId" class="text-[10px] font-bold text-red-600 mt-2">Pilih unit APAR terlebih dahulu.</p>
+                                                <p x-show="selectedPelangganId && selectedPelangganInfo?.units?.length && !selectedUnitAparIds.length" class="text-[10px] font-bold text-red-600 mt-2">Centang minimal satu unit APAR terlebih dahulu.</p>
+                                                <x-input-error :messages="$errors->get('unit_apar_ids')" class="mt-2" />
                                             </div>
                                         </template>
 
@@ -542,23 +581,23 @@
                                             </select>
                                             <input type="hidden" name="jenis_refill_id" :value="jenisRefillId">
                                         </div>
-                                        <div class="md:col-span-2">
+                                        <div class="md:col-span-2" x-show="statusUnit === 'belum_terdaftar'" x-cloak>
                                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Ukuran APAR <span class="text-red-500">*</span></label>
-                                            {{-- Visible dropdown - always enabled --}}
                                             <select x-model="ukuranApar" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 text-sm">
                                                 <template x-for="ukuran in ukuranOptions" :key="ukuran">
                                                     <option :value="ukuran" x-text="ukuran"></option>
                                                 </template>
                                             </select>
-                                            {{-- Hidden input for form submission - always sent --}}
-                                            <input type="hidden" name="ukuran_apar" :value="ukuranApar">
+                                            <input type="hidden" name="ukuran_apar" :value="ukuranApar" x-bind:disabled="statusUnit !== 'belum_terdaftar'">
                                         </div>
-                                        <div class="md:col-span-2">
+                                        <div class="md:col-span-2" x-show="statusUnit === 'belum_terdaftar'" x-cloak>
                                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Jumlah Unit <span class="text-red-500">*</span></label>
-                                            {{-- Visible input - always enabled --}}
                                             <input type="number" min="1" x-model.number="jumlahUnit" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 text-sm">
-                                            {{-- Hidden input for form submission - always sent --}}
-                                            <input type="hidden" name="jumlah_unit" :value="jumlahUnit">
+                                            <input type="hidden" name="jumlah_unit" :value="jumlahUnit" x-bind:disabled="statusUnit !== 'belum_terdaftar'">
+                                        </div>
+                                        <div class="md:col-span-2" x-show="statusUnit === 'terdaftar'" x-cloak>
+                                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Jumlah Unit Terpilih</label>
+                                            <div class="w-full rounded-2xl bg-gray-50 px-6 py-4 text-sm font-black text-gray-900" x-text="displayJumlahUnit() + ' unit'"></div>
                                         </div>
                                         <div class="md:col-span-2">
                                             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Tanggal Refill <span class="text-red-500">*</span></label>
@@ -573,7 +612,7 @@
                                         <textarea name="catatan_admin" id="catatan_admin" rows="4" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 placeholder:text-gray-300 transition text-sm resize-none" placeholder="Catatan tambahan untuk teknisi atau administrasi...">{{ old('catatan_admin') }}</textarea>
                                     </div>
                                     <div class="px-4 py-3 bg-emerald-50 rounded-xl border border-emerald-200">
-                                        <p class="text-xs font-bold text-emerald-800">Transaksi offline langsung dianggap <span class="font-black">lunas</span>, tanpa metode penanganan, dan stok refill otomatis berkurang.</p>
+                                        <p class="text-xs font-bold text-emerald-800">Transaksi offline langsung dianggap <span class="font-black">lunas</span>, tanpa metode penanganan, dan stok refill baru berkurang saat status <span class="font-black">Selesai Final</span>.</p>
                                     </div>
                                 </div>
                             </div>
@@ -591,15 +630,15 @@
                                         </div>
                                         <div class="flex items-center justify-between text-xs font-semibold text-gray-600">
                                             <span>Harga Standar</span>
-                                            <span class="font-bold text-gray-900" x-text="currency(hargaPerUnit())"></span>
+                                            <span class="font-bold text-gray-900" x-text="currency(hargaRingkasan())"></span>
                                         </div>
                                         <div class="flex items-center justify-between text-xs font-semibold text-gray-600">
                                             <span>Jumlah Unit</span>
-                                            <span class="font-bold text-gray-900" x-text="jumlahUnit + ' unit'"></span>
+                                            <span class="font-bold text-gray-900" x-text="displayJumlahUnit() + ' unit'"></span>
                                         </div>
                                         <div class="flex items-center justify-between text-xs font-semibold text-gray-600">
-                                            <span>Ukuran</span>
-                                            <span class="font-bold text-gray-900" x-text="ukuranApar"></span>
+                                            <span>Detail APAR</span>
+                                            <span class="font-bold text-gray-900 text-right" x-text="displayDetailApar()"></span>
                                         </div>
                                         <div class="pt-4 border-t border-gray-200 flex items-center justify-between">
                                             <span class="text-xs font-black text-gray-900 uppercase tracking-widest">Total Akhir</span>
@@ -612,7 +651,7 @@
 
                         <div class="app-modal-footer mt-8 flex flex-col-reverse gap-3 border-t border-gray-100 pt-6 sm:flex-row sm:justify-end">
                             <button type="button" @click="openModal = false" class="w-full px-8 py-4 text-xs font-black uppercase tracking-widest text-gray-400 transition hover:text-gray-900 sm:w-auto">Batal</button>
-                            <button type="submit" :disabled="hargaTidakTersedia()" :class="hargaTidakTersedia() ? 'bg-gray-300 text-gray-500 shadow-none cursor-not-allowed' : 'bg-red-700 text-white hover:bg-red-800 shadow-xl shadow-red-700/30'" class="w-full rounded-2xl px-10 py-4 text-xs font-black uppercase tracking-widest transition sm:w-auto">
+                            <button type="submit" :disabled="!canSubmit()" :class="!canSubmit() ? 'bg-gray-300 text-gray-500 shadow-none cursor-not-allowed' : 'bg-red-700 text-white hover:bg-red-800 shadow-xl shadow-red-700/30'" class="w-full rounded-2xl px-10 py-4 text-xs font-black uppercase tracking-widest transition sm:w-auto">
                                 Simpan Refill Offline
                             </button>
                         </div>
@@ -630,10 +669,25 @@
             if (!data) return;
 
             document.getElementById('refill-detail-subtitle').textContent = `${data.transaksi} - ${data.waktu}`;
+            const shouldHidePaymentBadge = data.hide_payment_badge === true;
 
             const paidBadge = data.is_paid
                 ? '<span class="inline-flex px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-black uppercase">LUNAS</span>'
                 : '<span class="inline-flex px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-[10px] font-black uppercase">BELUM BAYAR</span>';
+            const paymentStatusHtml = shouldHidePaymentBadge
+                ? ''
+                : `
+                    <div>
+                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Status Bayar</p>
+                        <div class="mt-1">${paidBadge}</div>
+                    </div>
+                `;
+            const unitEntries = (data.unit_display?.entries || []).map((entry) => `
+                <div class="rounded-xl border border-gray-200 bg-white px-4 py-3">
+                    <p class="font-semibold text-gray-900">${entry.label || '-'}</p>
+                    ${entry.code ? `<p class="mt-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400">${entry.code}</p>` : ''}
+                </div>
+            `).join('');
             const proofHtml = data.source === 'Online'
                 ? `<div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
                     <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Bukti Pembayaran</p>
@@ -666,9 +720,18 @@
                         <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Sumber</p>
                         <p class="font-black text-slate-900">${data.source}</p>
                     </div>
+                    ${paymentStatusHtml}
                     <div>
-                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Status Bayar</p>
-                        <div class="mt-1">${paidBadge}</div>
+                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Status</p>
+                        <p class="font-semibold text-gray-900">${data.status_label}</p>
+                    </div>
+                    <div class="col-span-2">
+                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">${data.unit_display?.heading || 'Unit APAR'}</p>
+                        <div class="space-y-3">${unitEntries || `<div class="rounded-xl border border-gray-200 bg-white px-4 py-3"><p class="font-semibold text-gray-900">${data.unit_display?.detail_label || data.unit_display?.summary || '-'}</p></div>`}</div>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Jumlah Unit</p>
+                        <p class="font-black text-gray-900">${data.unit_display?.quantity || data.unit || 0} unit</p>
                     </div>
                     <div>
                         <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Jenis Refill</p>
@@ -677,14 +740,6 @@
                     <div>
                         <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total</p>
                         <p class="font-black text-gray-900">Rp ${data.estimasi}</p>
-                    </div>
-                    <div>
-                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Ukuran / Unit</p>
-                        <p class="font-semibold text-gray-900">${data.ukuran} - ${data.unit} unit</p>
-                    </div>
-                    <div>
-                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Teknisi</p>
-                        <p class="font-semibold text-gray-900">${data.teknisi}</p>
                     </div>
                 </div>
                 ${proofHtml}
@@ -755,28 +810,29 @@
                 selectedPelangganId: initialState?.pelanggan_id || '',
                 selectedPelangganInfo: {},
                 statusUnit: initialState?.status_unit || 'belum_terdaftar',
-                selectedUnitAparId: '',
+                selectedUnitAparIds: Array.isArray(initialState?.selected_unit_ids)
+                    ? initialState.selected_unit_ids.map(String)
+                    : [],
                 jenisRefillId: String(initialState?.jenis_refill_id || ''),
                 ukuranApar: String(initialState?.ukuran_apar || ''),
                 jumlahUnit: Number(initialState?.jumlah_unit || 1),
                 _allUkuranOptions: @js($ukuranAparOptions),
                 init() {
-                    // Sync pelanggan profile if already selected (from old input)
                     if (this.selectedPelangganId) {
                         const info = this.pelanggansData.find(p => p.id === this.selectedPelangganId);
                         this.selectedPelangganInfo = info || {};
                     }
-                    // Set initial ukuran if not set
                     if (!this.ukuranApar) {
                         this.updateUkuranOptions();
                     }
+                    this.syncUnitApar();
                 },
                 get ukuranOptions() {
                     const selected = this.selectedJenis();
                     if (!selected || !selected.rules || !selected.rules.length) {
                         return this._allUkuranOptions;
                     }
-                    // Filter sizes based on selected jenis refill's rules
+
                     return selected.rules.map(r => r.ukuran).filter(Boolean);
                 },
                 updateUkuranOptions() {
@@ -790,42 +846,45 @@
                 syncPelangganProfile() {
                     const info = this.pelanggansData.find(p => p.id === this.selectedPelangganId);
                     this.selectedPelangganInfo = info || {};
-                    this.selectedUnitAparId = '';
+                    this.selectedUnitAparIds = [];
                     this.syncUnitApar();
                 },
                 syncUnitApar() {
-                    if (this.statusUnit === 'terdaftar' && this.selectedUnitAparId) {
-                        const unit = (this.selectedPelangganInfo?.units || []).find(u => u.id === this.selectedUnitAparId);
-                        if (unit) {
-                            // Find matching jenisRefill based on unit.jenis
+                    if (this.statusUnit === 'terdaftar') {
+                        const availableIds = new Set((this.selectedPelangganInfo?.units || []).map(unit => String(unit.id)));
+                        this.selectedUnitAparIds = this.selectedUnitAparIds.filter(id => availableIds.has(String(id)));
+                        this.jumlahUnit = Math.max(1, this.selectedRegisteredUnits().length || 1);
+                        if (!this.jenisRefillId && this.selectedRegisteredUnits().length === 1) {
+                            const unit = this.selectedRegisteredUnits()[0];
                             const matchedJenis = this.jenisRefills.find(j => (j.nama || '').toLowerCase().includes((unit.jenis || '').toLowerCase()));
                             if (matchedJenis) {
                                 this.jenisRefillId = String(matchedJenis.id);
                             }
-                            this.updateUkuranOptions();
-                            this.ukuranApar = unit.ukuran || '';
-                            this.jumlahUnit = 1;
                         }
                     } else if (this.statusUnit === 'belum_terdaftar') {
-                        this.selectedUnitAparId = '';
+                        this.selectedUnitAparIds = [];
                         this.jumlahUnit = 1;
                     }
                 },
                 selectedJenis() {
                     return this.jenisRefills.find((item) => String(item.id) === String(this.jenisRefillId)) || null;
                 },
-                hargaPerUnit() {
+                selectedRegisteredUnits() {
+                    const selectedIds = new Set(this.selectedUnitAparIds.map(String));
+                    return (this.selectedPelangganInfo?.units || []).filter(unit => selectedIds.has(String(unit.id)));
+                },
+                resolveHargaUntukUkuran(ukuran) {
                     const jenis = this.selectedJenis();
                     if (!jenis) return 0;
                     const rules = Array.isArray(jenis.rules) ? jenis.rules : [];
 
-                    const ukuran = String(this.ukuranApar || '').trim().toLowerCase();
-                    const exactRule = rules.find((rule) => String(rule.ukuran || '').trim().toLowerCase() === ukuran);
+                    const ukuranNormalized = String(ukuran || '').trim().toLowerCase();
+                    const exactRule = rules.find((rule) => String(rule.ukuran || '').trim().toLowerCase() === ukuranNormalized);
                     if (exactRule && Number(exactRule.harga) > 0) {
                         return Number(exactRule.harga);
                     }
 
-                    const ukuranMatch = ukuran.match(/(\d+(?:[.,]\d+)?)/);
+                    const ukuranMatch = ukuranNormalized.match(/(\d+(?:[.,]\d+)?)/);
                     if (ukuranMatch) {
                         const ukuranAngka = Number(String(ukuranMatch[1]).replace(',', '.'));
                         const numericRule = rules.find((rule) => {
@@ -845,11 +904,66 @@
                     const fallback = Number(jenis.harga || 0);
                     return fallback > 0 ? fallback : 0;
                 },
+                hargaPerUnit() {
+                    return this.resolveHargaUntukUkuran(this.ukuranApar);
+                },
+                hargaRingkasan() {
+                    if (this.statusUnit === 'terdaftar') {
+                        const units = this.selectedRegisteredUnits();
+                        if (units.length === 0) return 0;
+                        return units.reduce((total, unit) => total + this.resolveHargaUntukUkuran(unit.ukuran), 0);
+                    }
+
+                    return this.hargaPerUnit();
+                },
                 hargaTidakTersedia() {
-                    return !!this.selectedJenis() && this.hargaPerUnit() <= 0;
+                    if (!this.selectedJenis()) {
+                        return false;
+                    }
+
+                    if (this.statusUnit === 'terdaftar') {
+                        const units = this.selectedRegisteredUnits();
+                        return units.length > 0 && units.some(unit => this.resolveHargaUntukUkuran(unit.ukuran) <= 0);
+                    }
+
+                    return this.hargaPerUnit() <= 0;
                 },
                 totalBiaya() {
+                    if (this.statusUnit === 'terdaftar') {
+                        return this.selectedRegisteredUnits().reduce(
+                            (total, unit) => total + this.resolveHargaUntukUkuran(unit.ukuran),
+                            0
+                        );
+                    }
+
                     return this.hargaPerUnit() * Math.max(1, Number(this.jumlahUnit || 0));
+                },
+                displayJumlahUnit() {
+                    return this.statusUnit === 'terdaftar'
+                        ? this.selectedRegisteredUnits().length
+                        : Math.max(1, Number(this.jumlahUnit || 0));
+                },
+                displayDetailApar() {
+                    if (this.statusUnit === 'terdaftar') {
+                        const details = this.selectedRegisteredUnits()
+                            .map(unit => `APAR ${unit.jenis || '-'} ${unit.ukuran || '-'}`)
+                            .filter(Boolean);
+
+                        return details.length ? Array.from(new Set(details)).join(', ') : '-';
+                    }
+
+                    return `APAR ${this.selectedJenis()?.nama || '-'} ${this.ukuranApar || '-'}`.trim();
+                },
+                canSubmit() {
+                    if (!this.selectedPelangganId || !this.jenisRefillId) {
+                        return false;
+                    }
+
+                    if (this.statusUnit === 'terdaftar') {
+                        return this.selectedRegisteredUnits().length > 0 && !this.hargaTidakTersedia();
+                    }
+
+                    return !!this.ukuranApar && Number(this.jumlahUnit || 0) > 0 && !this.hargaTidakTersedia();
                 },
                 currency(value) {
                     return 'Rp ' + Number(value || 0).toLocaleString('id-ID');

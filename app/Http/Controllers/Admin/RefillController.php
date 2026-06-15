@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\JenisRefill;
+use App\Models\Pelanggan;
 use App\Models\Pesanan;
 use App\Models\Produk;
 use App\Models\Refill;
@@ -15,6 +16,14 @@ use Illuminate\Support\Facades\DB;
 
 class RefillController extends Controller
 {
+    private function linkedPelangganSelection()
+    {
+        return Pelanggan::query()
+            ->visibleInDirectory()
+            ->with(['user', 'units.produk.jenisApar'])
+            ->orderBy('nama');
+    }
+
     public function index()
     {
         // Self-heal orphan refills that have null service_id
@@ -48,7 +57,7 @@ class RefillController extends Controller
             ->orderByDesc('created_at')
             ->get();
         $units = UnitApar::with(['pelanggan', 'produk'])->get();
-        $pelanggans = \App\Models\Pelanggan::with(['units.produk.jenisApar'])->orderBy('nama')->get();
+        $pelanggans = $this->linkedPelangganSelection()->get();
         $jenisRefills = JenisRefill::orderBy('nama')->get();
         $ukuranAparOptions = $this->buildUkuranAparOptions();
         $refillPackages = $this->refillPackages();
@@ -109,32 +118,212 @@ class RefillController extends Controller
     {
         $request->merge([
             'pelanggan_id' => $request->input('pelanggan_id'),
+            'status_unit' => $request->input('status_unit', $request->filled('unit_apar_id') ? 'terdaftar' : 'belum_terdaftar'),
         ]);
 
         $request->validate([
             'pelanggan_id'       => 'required|exists:pelanggans,id',
+            'status_unit'        => 'required|in:terdaftar,belum_terdaftar',
             'unit_apar_id'       => 'nullable|exists:unit_apars,id',
+            'unit_apar_ids'      => 'nullable|array',
+            'unit_apar_ids.*'    => 'integer|exists:unit_apars,id',
             'jenis_refill_id'    => 'required|exists:jenis_refills,id',
-            'ukuran_apar'        => 'required|string|max:50',
-            'jumlah_unit'        => 'required|integer|min:1',
+            'ukuran_apar'        => 'nullable|string|max:50',
+            'jumlah_unit'        => 'nullable|integer|min:1',
             'tgl_refill'         => 'required|date',
             'catatan_admin'      => 'nullable|string|max:1000',
         ], [
             'pelanggan_id.required' => 'Pelanggan wajib dipilih.',
             'pelanggan_id.exists'   => 'Pelanggan yang dipilih tidak valid.',
+            'status_unit.required'  => 'Status unit APAR wajib dipilih.',
             'unit_apar_id.exists'   => 'Unit APAR yang dipilih tidak valid.',
+            'unit_apar_ids.*.exists' => 'Ada unit APAR terdaftar yang tidak valid.',
             'jenis_refill_id.required' => 'Jenis refill wajib dipilih.',
             'jenis_refill_id.exists'   => 'Jenis refill yang dipilih tidak valid.',
-            'ukuran_apar.required'     => 'Ukuran APAR wajib dipilih.',
-            'jumlah_unit.required'     => 'Jumlah unit wajib diisi.',
-            'jumlah_unit.min'          => 'Jumlah unit minimal 1.',
             'tgl_refill.required'      => 'Tanggal refill wajib diisi.',
             'tgl_refill.date'         => 'Format tanggal refill tidak valid.',
         ]);
 
-        $jenisRefill = JenisRefill::findOrFail($request->jenis_refill_id);
+        $pelanggan = Pelanggan::query()
+            ->visibleInDirectory()
+            ->with('user')
+            ->find((int) $request->pelanggan_id);
 
-        $hargaPerUnit = $this->resolveOfflineRefillPrice($jenisRefill, (string) $request->ukuran_apar);
+        if (! $pelanggan) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'pelanggan_id' => 'Pelanggan belum memiliki akun. Silakan buat akun pelanggan terlebih dahulu melalui menu Manajemen Akun.',
+                ]);
+        }
+
+        $jenisRefill = JenisRefill::findOrFail($request->jenis_refill_id);
+        $statusUnit = (string) $request->input('status_unit', 'belum_terdaftar');
+        $teknisi = User::where('role', 'teknisi')->first();
+        $tanggalRefill = \Carbon\Carbon::parse($request->tgl_refill);
+
+        if ($statusUnit === 'terdaftar') {
+            $selectedUnitIds = collect((array) $request->input('unit_apar_ids', []))
+                ->merge($request->filled('unit_apar_id') ? [$request->input('unit_apar_id')] : [])
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn ($id) => $id > 0)
+                ->unique()
+                ->values();
+
+            if ($selectedUnitIds->isEmpty()) {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'unit_apar_ids' => 'Minimal satu Unit APAR terdaftar wajib dicentang.',
+                    ]);
+            }
+
+            $selectedUnits = UnitApar::query()
+                ->with(['produk.jenisApar'])
+                ->where('pelanggan_id', $pelanggan->id)
+                ->whereIn('id', $selectedUnitIds->all())
+                ->get()
+                ->sortBy(fn (UnitApar $unit) => $selectedUnitIds->search((int) $unit->id))
+                ->values();
+
+            if ($selectedUnits->count() !== $selectedUnitIds->count()) {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'unit_apar_ids' => 'Ada unit APAR terdaftar yang tidak valid atau bukan milik pelanggan terpilih.',
+                    ]);
+            }
+
+            $registeredPayloads = $selectedUnits->map(function (UnitApar $unit) use ($jenisRefill) {
+                $ukuran = trim((string) ($unit->ukuran ?: $unit->produk?->kapasitas ?: ''));
+                if ($ukuran === '') {
+                    return ['error' => 'Ada unit APAR terdaftar yang belum memiliki ukuran.'];
+                }
+
+                $harga = $this->resolveOfflineRefillPrice($jenisRefill, $ukuran);
+                if (is_null($harga) || $harga <= 0) {
+                    return ['error' => "Harga refill {$jenisRefill->nama_label} untuk ukuran {$ukuran} belum tersedia."];
+                }
+
+                return [
+                    'unit' => $unit,
+                    'ukuran' => $ukuran,
+                    'apar_label' => $this->normalizeOfflineRefillBahan(
+                        (string) ($unit->produk?->jenisApar?->nama ?: $unit->bahan ?: $jenisRefill->nama_label)
+                    ),
+                    'usage' => $this->extractUnitUsage($unit),
+                    'price' => (float) $harga,
+                ];
+            });
+
+            if ($error = $registeredPayloads->firstWhere('error')) {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'unit_apar_ids' => $error['error'],
+                    ]);
+            }
+
+            $totalUsage = (float) $registeredPayloads->sum('usage');
+            if ($jenisRefill->stok < $totalUsage) {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'jenis_refill_id' => "Stok bahan {$jenisRefill->nama} tidak cukup. Dibutuhkan {$totalUsage} {$jenisRefill->satuan_label}, tersedia {$jenisRefill->stok} {$jenisRefill->satuan_label}.",
+                    ]);
+            }
+
+            DB::transaction(function () use ($registeredPayloads, $pelanggan, $jenisRefill, $teknisi, $request) {
+                foreach ($registeredPayloads as $payload) {
+                    /** @var UnitApar $unit */
+                    $unit = $payload['unit'];
+                    $biaya = (float) $payload['price'];
+
+                    $pesanan = Pesanan::create([
+                        'pelanggan_id' => $pelanggan->id,
+                        'user_id' => $pelanggan->user_id,
+                        'nama_penerima' => $pelanggan->nama,
+                        'nomor_wa_penerima' => $pelanggan->no_wa,
+                        'alamat_pengiriman' => $pelanggan->alamat,
+                        'tipe' => 'service',
+                        'service_jenis_layanan' => 'refill',
+                        'service_jenis_refill_id' => $jenisRefill->id,
+                        'service_jenis_apar' => $payload['apar_label'],
+                        'service_ukuran_apar' => $payload['ukuran'],
+                        'service_jumlah_unit' => 1,
+                        'service_total_kg' => (float) $payload['usage'],
+                        'service_metode_penanganan' => 'antar sendiri',
+                        'sumber_pesanan' => 'datang_langsung',
+                        'tanggal' => $request->tgl_refill,
+                        'total' => $biaya,
+                        'total_harga' => $biaya,
+                        'service_estimasi_biaya' => $biaya,
+                        'status' => $teknisi
+                            ? Pesanan::STATUS_DITUGASKAN_KE_TEKNISI
+                            : Pesanan::STATUS_DIPROSES,
+                        'teknisi_id' => $teknisi?->id,
+                        'metode_pembayaran' => 'cash',
+                        'metode_pengiriman' => 'pickup',
+                        'ongkir' => 0,
+                        'pembayaran_terkonfirmasi_at' => now(),
+                        'catatan_admin' => $request->catatan_admin,
+                        'keterangan' => 'Status Unit: APAR Terdaftar | Unit: ' . ($unit->no_seri ?: ('UNIT-' . $unit->id)),
+                    ]);
+
+                    $service = \App\Models\Service::create([
+                        'pesanan_id' => $pesanan->id,
+                        'unit_apar_id' => $unit->id,
+                        'jenis_service' => 'Refill APAR',
+                        'tgl_service' => $request->tgl_refill,
+                        'keterangan' => $request->catatan_admin,
+                        'biaya' => $biaya,
+                        'status_konfirmasi' => 'pending',
+                    ]);
+
+                    Refill::create([
+                        'service_id' => $service->id,
+                        'unit_apar_id' => $unit->id,
+                        'jenis_refill_id' => $jenisRefill->id,
+                        'tgl_refill' => $request->tgl_refill,
+                        'biaya' => $biaya,
+                    ]);
+                }
+            });
+
+            $statusLabel = $teknisi ? 'Ditugaskan ke Teknisi' : 'Diproses';
+            $jumlahTransaksi = $registeredPayloads->count();
+            $totalBiaya = (float) $registeredPayloads->sum('price');
+
+            return redirect()
+                ->route('admin.refill.index')
+                ->with(
+                    'success',
+                    "Refill offline untuk {$jumlahTransaksi} unit APAR terdaftar berhasil disimpan. Total Rp "
+                    . number_format($totalBiaya, 0, ',', '.')
+                    . ". Status: Lunas & {$statusLabel}. Stok akan berkurang saat status Selesai Final."
+                );
+        }
+
+        $ukuranApar = trim((string) $request->input('ukuran_apar', ''));
+        $jumlahUnit = (int) $request->input('jumlah_unit', 0);
+
+        if ($ukuranApar === '') {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'ukuran_apar' => 'Ukuran APAR wajib dipilih untuk APAR tidak terdaftar.',
+                ]);
+        }
+
+        if ($jumlahUnit < 1) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'jumlah_unit' => 'Jumlah unit wajib diisi minimal 1.',
+                ]);
+        }
+
+        $hargaPerUnit = $this->resolveOfflineRefillPrice($jenisRefill, $ukuranApar);
         if (is_null($hargaPerUnit) || $hargaPerUnit <= 0) {
             return back()
                 ->withInput()
@@ -143,35 +332,40 @@ class RefillController extends Controller
                 ]);
         }
 
-        $jumlahUnit = (int) $request->jumlah_unit;
         $totalBiaya = $hargaPerUnit * $jumlahUnit;
-
-        // Calculate material usage based on ukuran
-        $angka = (float) filter_var($request->ukuran_apar, FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+        $angka = (float) filter_var($ukuranApar, FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
         $jumlahPakai = ($angka > 0 ? $angka : 1.0) * $jumlahUnit;
-        $satuanLabel = $jenisRefill->satuan_label;
+        $bahanRefill = $this->normalizeOfflineRefillBahan($jenisRefill->nama_label);
+        $produkUntukUnitBaru = $this->resolveOfflineUnitProduct($ukuranApar, $bahanRefill);
+
+        if (! $produkUntukUnitBaru) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'ukuran_apar' => 'Produk APAR dengan media dan ukuran yang dipilih belum tersedia. Tambahkan produk yang sesuai terlebih dahulu agar unit APAR otomatis bisa dibuat saat finalisasi.',
+                ]);
+        }
 
         if ($jenisRefill->stok < $jumlahPakai) {
             return back()
                 ->withInput()
                 ->withErrors([
-                    'jenis_refill_id' => "Stok bahan {$jenisRefill->nama} tidak cukup. Dibutuhkan {$jumlahPakai} {$satuanLabel}, tersedia {$jenisRefill->stok} {$satuanLabel}.",
+                    'jenis_refill_id' => "Stok bahan {$jenisRefill->nama} tidak cukup. Dibutuhkan {$jumlahPakai} {$jenisRefill->satuan_label}, tersedia {$jenisRefill->stok} {$jenisRefill->satuan_label}.",
                 ]);
         }
 
-        $teknisi = User::where('role', 'teknisi')->first();
-
-        DB::transaction(function () use ($request, $jenisRefill, $jumlahPakai, $jumlahUnit, $totalBiaya, $teknisi) {
-            $pelangganId = (int) $request->pelanggan_id;
-
-            // --- Create Pesanan record for tracking ---
+        DB::transaction(function () use ($request, $jenisRefill, $jumlahPakai, $jumlahUnit, $totalBiaya, $teknisi, $pelanggan, $bahanRefill, $ukuranApar, $tanggalRefill) {
             $pesanan = Pesanan::create([
-                'pelanggan_id' => $pelangganId,
+                'pelanggan_id' => $pelanggan->id,
+                'user_id' => $pelanggan->user_id,
+                'nama_penerima' => $pelanggan->nama,
+                'nomor_wa_penerima' => $pelanggan->no_wa,
+                'alamat_pengiriman' => $pelanggan->alamat,
                 'tipe' => 'service',
                 'service_jenis_layanan' => 'refill',
                 'service_jenis_refill_id' => $jenisRefill->id,
-                'service_jenis_apar' => 'APAR ' . $request->ukuran_apar,
-                'service_ukuran_apar' => $request->ukuran_apar,
+                'service_jenis_apar' => $bahanRefill,
+                'service_ukuran_apar' => $ukuranApar,
                 'service_jumlah_unit' => $jumlahUnit,
                 'service_total_kg' => $jumlahPakai,
                 'service_metode_penanganan' => 'antar sendiri',
@@ -189,84 +383,28 @@ class RefillController extends Controller
                 'ongkir' => 0,
                 'pembayaran_terkonfirmasi_at' => now(),
                 'catatan_admin' => $request->catatan_admin,
+                'keterangan' => "Status Unit: APAR Tidak Terdaftar | Detail: APAR {$bahanRefill} {$ukuranApar} | Jumlah Unit: {$jumlahUnit} unit",
             ]);
 
-            // --- Resolve unit_apar_id: use existing or create new ---
-            $pelanggan = \App\Models\Pelanggan::findOrFail($pelangganId);
-            $tanggalRefill = \Carbon\Carbon::parse($request->tgl_refill);
-
-            if ($request->unit_apar_id) {
-                // APAR terdaftar - use existing unit
-                $unitAparId = (int) $request->unit_apar_id;
-            } else {
-                // APAR belum terdaftar - create new unit automatically
-                $bahanLabel = $jenisRefill->nama_label;
-                $bahan = match (strtolower($bahanLabel)) {
-                    'powder' => 'Powder',
-                    'co2' => 'CO2',
-                    'foam' => 'Foam',
-                    default => $bahanLabel,
-                };
-
-                // Find produk based on ukuran and bahan
-                $produk = Produk::where('kapasitas', $request->ukuran_apar)
-                    ->whereHas('jenisApar', fn ($q) => $q->whereRaw('LOWER(nama) LIKE ?', ['%' . strtolower($bahan) . '%']))
-                    ->first();
-
-                // Fallback: find any produk matching ukuran
-                if (!$produk) {
-                    $produk = Produk::where('kapasitas', $request->ukuran_apar)->first();
-                }
-
-                $noSeri = UnitApar::generateSerialNumber($pelanggan, $tanggalRefill);
-                $tglProduksi = $tanggalRefill;
-                $tglExpired = UnitApar::calculateExpiry($tanggalRefill, $request->ukuran_apar, $bahan);
-
-                $unitApar = UnitApar::create([
-                    'pelanggan_id' => $pelangganId,
-                    'pesanan_id' => $pesanan->id,
-                    'produk_id' => $produk?->id,
-                    'no_seri' => $noSeri,
-                    'tgl_beli' => $tanggalRefill,
-                    'tgl_produksi' => $tglProduksi,
-                    'ukuran' => $request->ukuran_apar,
-                    'bahan' => $bahan,
-                    'kondisi_awal' => 'layak',
-                    'catatan_unit' => 'Unit dibuat otomatis dari refill offline/manual - ' . $jumlahUnit . ' unit',
-                    'tgl_expired' => $tglExpired,
-                ]);
-
-                if (!$unitApar || !$unitApar->id) {
-                    throw new \Exception('Gagal membuat Unit APAR baru untuk refill offline.');
-                }
-
-                $unitAparId = $unitApar->id;
-            }
-
-            // --- Create Service and Refill records ---
             $service = \App\Models\Service::create([
                 'pesanan_id' => $pesanan->id,
-                'unit_apar_id' => $unitAparId,
+                'unit_apar_id' => null,
                 'jenis_service' => 'Refill APAR',
-                'tgl_service' => $request->tgl_refill,
+                'tgl_service' => $tanggalRefill,
+                'keterangan' => $request->catatan_admin,
                 'biaya' => $totalBiaya,
                 'status_konfirmasi' => 'pending',
             ]);
 
-            Refill::create([
-                'service_id' => $service->id,
-                'unit_apar_id' => $unitAparId,
-                'jenis_refill_id' => $jenisRefill->id,
-                'tgl_refill' => $request->tgl_refill,
-                'biaya' => $totalBiaya,
-            ]);
+            // Untuk APAR tidak terdaftar, Unit APAR baru belum ada pada tahap input awal.
+            // Log refill akan dibentuk aman saat status transaksi mencapai Selesai Final.
         });
 
         $statusLabel = $teknisi ? 'Ditugaskan ke Teknisi' : 'Diproses';
 
         return redirect()
             ->route('admin.refill.index')
-            ->with('success', "Refill offline berhasil disimpan. Status: Lunas & {$statusLabel}. Stok akan berkurang saat status Selesai Final.");
+            ->with('success', "Refill offline berhasil disimpan. Status: Lunas & {$statusLabel}. Unit APAR untuk transaksi tidak terdaftar akan dibuat saat status Selesai Final, dan stok akan berkurang pada tahap tersebut.");
     }
 
     private function normalizePhone(?string $value): string
@@ -363,9 +501,13 @@ class RefillController extends Controller
             $payload['service_estimasi_biaya'] = $estimasiBiaya;
         }
 
+        $previousStatus = (string) $pesanan->status;
         $pesanan->update($payload);
 
-        if ($pesanan->status === Pesanan::STATUS_SELESAI_FINAL) {
+        if (
+            $pesanan->status === Pesanan::STATUS_SELESAI_FINAL
+            && ($previousStatus !== Pesanan::STATUS_SELESAI_FINAL || ! $pesanan->stok_dikurangi)
+        ) {
             app(FinalTransactionStockService::class)->apply($pesanan);
         }
 
@@ -406,6 +548,30 @@ class RefillController extends Controller
         $hargaDefault = (float) ($jenisRefill->harga ?? 0);
 
         return $hargaDefault > 0 ? $hargaDefault : null;
+    }
+
+    protected function normalizeOfflineRefillBahan(string $label): string
+    {
+        return match (strtolower(trim($label))) {
+            'powder' => 'Powder',
+            'co2' => 'CO2',
+            'foam' => 'Foam',
+            default => trim($label),
+        };
+    }
+
+    protected function resolveOfflineUnitProduct(string $ukuran, string $bahan): ?Produk
+    {
+        $ukuran = trim($ukuran);
+        $bahan = trim($bahan);
+
+        return Produk::query()
+            ->where('kapasitas', $ukuran)
+            ->whereHas('jenisApar', fn ($query) => $query->whereRaw('LOWER(nama) LIKE ?', ['%' . strtolower($bahan) . '%']))
+            ->first()
+            ?? Produk::query()
+                ->where('kapasitas', $ukuran)
+                ->first();
     }
 
     protected function buildUkuranAparOptions(): array

@@ -5,6 +5,13 @@
 @section('content')
 <div class="min-h-screen bg-slate-50/60 py-12">
     <div class="max-w-4xl mx-auto px-4 sm:px-6">
+        @php
+            $hidePaymentBadge = $pesanan->shouldHidePaymentStatusBadge();
+            $customerName = $pesanan->pelanggan?->nama ?: $pesanan->nama_penerima ?: '-';
+            $customerCompany = $pesanan->pelanggan?->perusahaan;
+            $customerPhone = $pesanan->pelanggan?->no_wa ?: $pesanan->nomor_wa_penerima ?: '-';
+            $customerAddress = $pesanan->alamat_pengiriman ?: $pesanan->pelanggan?->alamat ?: '-';
+        @endphp
         
         <!-- Action Buttons Top -->
         <div class="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
@@ -13,7 +20,7 @@
                 Kembali
             </a>
             
-            <a href="{{ route('invoice.pdf', $pesanan) }}" class="inline-flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md shadow-red-600/10 transition text-xs uppercase tracking-wider">
+            <a href="{{ route('invoice.pdf', ['pesanan' => $pesanan->id]) }}" class="inline-flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md shadow-red-600/10 transition text-xs uppercase tracking-wider">
                 <i class="fa-solid fa-file-pdf"></i>
                 Cetak / Unduh PDF
             </a>
@@ -45,7 +52,12 @@
                         </div>
                         
                         <div class="mt-4 md:mt-0 flex items-center gap-3">
-                            @if($isLunas)
+                            @if($hidePaymentBadge)
+                                <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-black bg-emerald-50 border border-emerald-200 text-emerald-700 shadow-sm">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                    SELESAI FINAL
+                                </span>
+                            @elseif($isLunas)
                                 <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-black bg-emerald-50 border border-emerald-200 text-emerald-700 shadow-sm">
                                     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                                     LUNAS / PAID
@@ -67,18 +79,18 @@
                     <!-- Client Details -->
                     <div>
                         <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Ditagihkan Kepada</h3>
-                        <p class="text-base font-black text-slate-900">{{ $pesanan->pelanggan->nama }}</p>
-                        @if($pesanan->pelanggan->perusahaan)
-                            <p class="text-xs font-bold text-slate-600 mt-0.5">{{ $pesanan->pelanggan->perusahaan }}</p>
+                        <p class="text-base font-black text-slate-900">{{ $customerName }}</p>
+                        @if($customerCompany)
+                            <p class="text-xs font-bold text-slate-600 mt-0.5">{{ $customerCompany }}</p>
                         @endif
                         <p class="text-xs font-semibold text-slate-500 mt-2">
                             <i class="fa-solid fa-phone text-slate-400 mr-1.5"></i>
-                            {{ $pesanan->pelanggan->no_wa }}
+                            {{ $customerPhone }}
                         </p>
-                        @if($pesanan->alamat_pengiriman || $pesanan->pelanggan->alamat)
+                        @if($customerAddress !== '-')
                             <p class="text-xs font-semibold leading-relaxed text-slate-500 mt-2 max-w-sm">
                                 <i class="fa-solid fa-location-dot text-slate-400 mr-2"></i>
-                                {{ $pesanan->alamat_pengiriman ?: $pesanan->pelanggan->alamat }}
+                                {{ $customerAddress }}
                             </p>
                         @endif
                     </div>
@@ -96,12 +108,14 @@
                                 <dt class="font-bold text-slate-400">Metode Pembayaran:</dt>
                                 <dd class="font-black text-slate-800 uppercase">{{ $pesanan->getPaymentMethodLabel() }}</dd>
                             </div>
-                            <div class="flex md:justify-end gap-4">
-                                <dt class="font-bold text-slate-400">Status Pembayaran:</dt>
-                                <dd class="font-black {{ $isLunas ? 'text-emerald-700' : 'text-amber-700' }}">
-                                    {{ $isLunas ? 'Lunas / Paid' : 'Belum Lunas' }}
-                                </dd>
-                            </div>
+                            @unless($hidePaymentBadge)
+                                <div class="flex md:justify-end gap-4">
+                                    <dt class="font-bold text-slate-400">Status Pembayaran:</dt>
+                                    <dd class="font-black {{ $isLunas ? 'text-emerald-700' : 'text-amber-700' }}">
+                                        {{ $isLunas ? 'Lunas / Paid' : 'Belum Lunas' }}
+                                    </dd>
+                                </div>
+                            @endunless
                             <div class="flex md:justify-end gap-4">
                                 <dt class="font-bold text-slate-400">Status Transaksi:</dt>
                                 <dd class="font-black text-slate-800 uppercase">{{ $pesanan->publicStatusLabel() }}</dd>
@@ -153,8 +167,9 @@
                             </tbody>
                         </table>
                     </div>
+                @endif
 
-                @elseif($pesanan->isRefillOrder())
+                @if($pesanan->isRefillOrder())
                     <!-- REFILL APAR TABLE -->
                     <div class="overflow-hidden rounded-2xl border border-slate-100">
                         <table class="w-full text-left text-sm border-collapse">
@@ -170,7 +185,7 @@
                                 <tr class="hover:bg-slate-50/30 transition-colors">
                                     <td class="px-6 py-4">
                                         <p class="font-black text-slate-900">Refill / Pengisian Ulang APAR</p>
-                                        <p class="text-[10px] text-slate-400 font-bold uppercase mt-1">Jenis Refill: {{ $pesanan->serviceJenisRefill?->nama ?? $pesanan->service_jenis_apar ?? 'Dry Chemical Powder' }}</p>
+                                        <p class="text-[10px] text-slate-400 font-bold uppercase mt-1">Jenis Refill: {{ $pesanan->serviceJenisRefill?->nama_label ?? $pesanan->service_jenis_apar ?? 'Dry Chemical Powder' }}</p>
                                     </td>
                                     <td class="px-6 py-4 text-center">
                                         <span class="inline-block px-2.5 py-1 text-[10px] font-black uppercase tracking-wider bg-slate-100 rounded text-slate-700">
@@ -190,8 +205,9 @@
                             </tbody>
                         </table>
                     </div>
+                @endif
 
-                @elseif($pesanan->isServiceOrder())
+                @if($pesanan->isServiceOrder())
                     @php
                         $serviceLines = $pesanan->servicePricingBreakdown();
                         $servicePeralatan = $pesanan->servicePeralatanItems();
@@ -250,7 +266,15 @@
                         <p class="text-3xl font-black text-slate-900 mt-1">Rp {{ number_format($pesanan->payableTotal(), 0, ',', '.') }}</p>
                     </div>
 
-                    @if($isLunas)
+                    @if($hidePaymentBadge)
+                        <div class="flex items-center gap-2.5 px-5 py-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+                            <i class="fa-solid fa-circle-check text-emerald-600 text-lg"></i>
+                            <div>
+                                <p class="text-xs font-black text-emerald-800 uppercase tracking-wider">Status Transaksi</p>
+                                <p class="text-[11px] font-semibold text-emerald-600">Selesai Final</p>
+                            </div>
+                        </div>
+                    @elseif($isLunas)
                         <div class="flex items-center gap-2.5 px-5 py-3 bg-emerald-50 border border-emerald-100 rounded-xl">
                             <i class="fa-solid fa-circle-check text-emerald-600 text-lg"></i>
                             <div>

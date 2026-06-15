@@ -287,14 +287,14 @@ class LandingPageController extends Controller
         Pesanan::with(['details.produk.jenisApar', 'unitApars'])
             ->where('pelanggan_id', $pelanggan->id)
             ->where('tipe', 'produk')
-            ->whereIn('status', ['diproses', 'selesai', 'selesai final'])
+            ->where('status', 'selesai final')
             ->get()
             ->each(fn (Pesanan $pesanan) => $this->syncUnitAparsForPesanan($pesanan));
     }
 
     private function syncUnitAparsForPesanan(Pesanan $pesanan): void
     {
-        if ($pesanan->tipe !== 'produk' || !in_array($pesanan->status, ['diproses', 'selesai', 'selesai final'], true)) {
+        if ($pesanan->tipe !== 'produk' || !in_array($pesanan->status, ['selesai final'], true)) {
             return;
         }
 

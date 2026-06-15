@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\PengeluaranController;
 use App\Http\Controllers\Admin\UnitAparController;
 use App\Http\Controllers\Admin\ComplainController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\AdminRealtimeController;
 use App\Http\Controllers\Admin\TestimoniController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\KeranjangController;
@@ -86,6 +87,14 @@ Route::middleware(['auth', 'teknisi'])->prefix('teknisi')->name('teknisi.')->gro
 });
 
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::prefix('realtime')->name('realtime.')->group(function () {
+        Route::get('/dashboard', [AdminRealtimeController::class, 'dashboard'])->name('dashboard');
+        Route::get('/pesanan', [AdminRealtimeController::class, 'pesanan'])->name('pesanan');
+        Route::get('/pelanggan', [AdminRealtimeController::class, 'pelanggan'])->name('pelanggan');
+        Route::get('/complain', [AdminRealtimeController::class, 'complain'])->name('complain');
+        Route::get('/testimoni', [AdminRealtimeController::class, 'testimoni'])->name('testimoni');
+    });
+
     Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');
     Route::get('/laporan/pdf', [LaporanController::class, 'indexPdf'])->name('laporan.index.pdf');
     Route::get('/laporan/apar', [LaporanController::class, 'apar'])->name('laporan.apar');
@@ -103,7 +112,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/stok/peralatan', [StokController::class, 'storePeralatan'])->name('stok.peralatan.store');
     Route::put('/stok/peralatan/{peralatan}', [StokController::class, 'updatePeralatan'])->name('stok.peralatan.update');
     Route::delete('/stok/peralatan/{peralatan}', [StokController::class, 'destroyPeralatan'])->name('stok.peralatan.destroy');
-    Route::resource('pelanggan', PelangganController::class);
+    Route::resource('pelanggan', PelangganController::class)->except(['create', 'store', 'destroy']);
     Route::get('/akun', [ManajemenAkunController::class, 'index'])->name('akun.index');
     Route::post('/akun', [ManajemenAkunController::class, 'store'])->name('akun.store');
     Route::put('/akun/{user}', [ManajemenAkunController::class, 'update'])->name('akun.update');
@@ -113,6 +122,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/pesanan/{pesanan}/kirim-link-pembayaran', [PesananController::class, 'kirimLinkPembayaran'])->name('pesanan.kirim-link-pembayaran');
     Route::post('/pesanan/{pesanan}/input-bukti-pembayaran-manual', [PesananController::class, 'inputBuktiPembayaranManual'])->name('pesanan.input-bukti-pembayaran-manual');
     Route::post('/pesanan/{pesanan}/konfirmasi-pembayaran-manual', [PesananController::class, 'konfirmasiPembayaranManual'])->name('pesanan.konfirmasi-pembayaran-manual');
+    Route::post('/pesanan/{pesanan}/pengajuan-harga/acc', [PesananController::class, 'approvePurchasePriceRequest'])->name('pesanan.pengajuan-harga.acc');
+    Route::post('/pesanan/{pesanan}/pengajuan-harga/tolak', [PesananController::class, 'rejectPurchasePriceRequest'])->name('pesanan.pengajuan-harga.tolak');
     Route::post('/pesanan/{pesanan}/assign-teknisi', [PesananController::class, 'assignTeknisi'])->name('pesanan.assign-teknisi');
     Route::post('/pesanan/{pesanan}/konfirmasi-pelanggan', [PesananController::class, 'konfirmasiKePelanggan'])->name('pesanan.konfirmasi-pelanggan');
     Route::post('/pesanan/{pesanan}/selesai-final', [PesananController::class, 'selesaiFinal'])->name('pesanan.selesai-final');

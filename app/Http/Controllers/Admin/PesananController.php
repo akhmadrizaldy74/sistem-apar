@@ -308,6 +308,14 @@ class PesananController extends Controller
         return true;
     }
 
+    private function linkedPelangganSelection()
+    {
+        return Pelanggan::query()
+            ->visibleInDirectory()
+            ->with('user')
+            ->orderBy('nama');
+    }
+
     public function index()
     {
         $pendingPaidWeb = Pesanan::query()
@@ -334,13 +342,17 @@ class PesananController extends Controller
 
         $targetNegoPesanan = null;
         if ($processPelangganId > 0) {
-            $targetNegoPesanan = Pesanan::with(['details.produk'])
+            $targetNegoQuery = Pesanan::with(['details.produk'])
                 ->where('tipe', 'produk')
                 ->where('pelanggan_id', $processPelangganId)
                 ->whereIn('status', ['menunggu', 'menunggu persetujuan', 'pending', 'diproses'])
-                ->whereNull('kode_nego')
-                ->latest('tanggal')
-                ->first();
+                ->latest('tanggal');
+
+            if ($purchasePriceStatusColumn = Pesanan::purchasePriceStatusStorageColumn()) {
+                $targetNegoQuery->whereNull($purchasePriceStatusColumn);
+            }
+
+            $targetNegoPesanan = $targetNegoQuery->first();
         }
 
         $autoOpenNegoId = ($openNego && $targetNegoPesanan) ? (int) $targetNegoPesanan->id : null;
@@ -359,7 +371,7 @@ class PesananController extends Controller
             $prefillItems = [['produk_id' => '', 'kapasitas' => '', 'merek' => '', 'jumlah' => 1]];
         }
 
-        $pelanggans = Pelanggan::orderBy('nama')->get();
+        $pelanggans = $this->linkedPelangganSelection()->get();
         $produks = Produk::with(['jenisApar', 'stokBatches'])->orderBy('nama')->get();
         $produkCatalog = $produks->map(fn ($produk) => [
             'id' => $produk->id,
@@ -376,6 +388,10 @@ class PesananController extends Controller
         // Prepare detail data for modal
         $pesananDetailData = $pesanans->map(function ($pesanan) {
             $pricingSummary = $pesanan->pricingSummary();
+            $purchasePriceLabel = $pesanan->purchasePriceStatusLabel();
+            $requestedPurchasePrice = $pesanan->requestedPurchasePrice();
+            $approvedPurchasePrice = $pesanan->approvedPurchaseFinalPrice();
+            $purchasePriceAdminNote = trim((string) ($pesanan->catatan_admin_harga ?? $pesanan->catatan_admin ?? ''));
             $sumber = 'Input';
             if ($pesanan->sumber_pesanan === 'website') { $sumber = 'Online'; }
             elseif ($pesanan->sumber_pesanan === 'whatsapp') { $sumber = 'WhatsApp'; }
@@ -392,7 +408,8 @@ class PesananController extends Controller
                 'tanggal' => $pesanan->displayTransactionDateTime(),
                 'sumber' => $sumber,
                 'status' => $pesanan->status,
-                'status_label' => strtoupper($pesanan->status),
+                'status_label' => $pesanan->publicStatusLabel(),
+                'hide_payment_badge' => $pesanan->shouldHidePaymentStatusBadge(),
                 'payment_status_label' => $pesanan->isPaymentConfirmed() ? 'Lunas' : 'Belum Bayar',
                 'metode' => $pesanan->metode_pengiriman === 'diantar_internal' ? 'Diantar' : 'Ambil Sendiri',
                 'bank' => strtoupper($pesanan->bank ?? '-'),
@@ -405,6 +422,26 @@ class PesananController extends Controller
                 'bukti_pembayaran' => $pesanan->bukti_pembayaran,
                 'teknisi' => $pesanan->teknisi?->name,
                 'is_paid' => $pesanan->isPaymentConfirmed(),
+                'purchase_price' => [
+                    'has_request' => $pesanan->hasPurchasePriceRequest(),
+                    'is_pending' => $pesanan->hasPendingPurchasePriceRequest(),
+                    'is_approved' => $pesanan->hasApprovedPurchasePriceRequest(),
+                    'is_rejected' => $pesanan->hasRejectedPurchasePriceRequest(),
+                    'label' => $purchasePriceLabel,
+                    'badge_classes' => $pesanan->purchasePriceStatusClasses(),
+                    'requested_price' => !is_null($requestedPurchasePrice)
+                        ? number_format((float) $requestedPurchasePrice, 0, ',', '.')
+                        : null,
+                    'final_price' => !is_null($approvedPurchasePrice)
+                        ? number_format((float) $approvedPurchasePrice, 0, ',', '.')
+                        : null,
+                    'normal_total' => number_format((float) ($pricingSummary['normalTotalPembayaran'] ?? $pricingSummary['totalPembayaran'] ?? 0), 0, ',', '.'),
+                    'current_total' => number_format((float) ($pricingSummary['totalPembayaran'] ?? 0), 0, ',', '.'),
+                    'customer_note' => $pesanan->purchasePriceCustomerNote(),
+                    'admin_note' => $purchasePriceAdminNote !== '' ? $purchasePriceAdminNote : null,
+                    'acc_url' => route('admin.pesanan.pengajuan-harga.acc', $pesanan),
+                    'reject_url' => route('admin.pesanan.pengajuan-harga.tolak', $pesanan),
+                ],
                 'items' => $pesanan->details->map(function ($d) {
                     return [
                         'nama' => $d->produk?->nama ?? 'Produk Terhapus',
@@ -519,26 +556,47 @@ class PesananController extends Controller
             'pelanggan_id.exists' => 'Pelanggan yang dipilih tidak valid.',
         ]);
 
-        DB::transaction(function () use ($validated, $request) {
-            $pelangganId = (int) $validated['pelanggan_id'];
+        $pelanggan = Pelanggan::query()
+            ->visibleInDirectory()
+            ->with('user')
+            ->find((int) $validated['pelanggan_id']);
+
+        if (! $pelanggan) {
+            throw ValidationException::withMessages([
+                'pelanggan_id' => 'Pelanggan belum memiliki akun. Silakan buat akun pelanggan terlebih dahulu melalui menu Manajemen Akun.',
+            ]);
+        }
+
+        DB::transaction(function () use ($validated, $pelanggan) {
+            $pelangganId = (int) $pelanggan->id;
 
             // --- Create pesanan with offline defaults ---
             $pesanan = Pesanan::create([
                 'pelanggan_id' => $pelangganId,
+                'user_id' => $pelanggan->user_id,
+                'nama_penerima' => $pelanggan->nama,
+                'nomor_wa_penerima' => $pelanggan->no_wa,
+                'alamat_pengiriman' => $pelanggan->alamat,
                 'tipe' => 'produk',
                 'sumber_pesanan' => 'datang_langsung',
                 'is_pesanan_lama' => false,
                 'tanggal' => $validated['tanggal'],
                 'total' => 0,
                 'status' => 'diproses', // skip pending, langsung lunas & diproses
-                'is_nego' => false,
                 'tipe_harga' => 'normal',
                 'metode_pengiriman' => 'pickup',
                 'ongkir' => 0,
                 'metode_pembayaran' => 'cash',
                 'pembayaran_terkonfirmasi_at' => now(),
                 'catatan_admin' => $validated['catatan_admin'] ?? null,
-            ]);
+            ] + Pesanan::purchasePriceAttributes([
+                'status' => null,
+                'requested_price' => null,
+                'final_price' => null,
+                'customer_note' => null,
+                'admin_note' => null,
+                'used' => false,
+            ]));
 
             $total = 0;
 
@@ -597,8 +655,94 @@ class PesananController extends Controller
 
         $this->syncUnitAparsForPesanan($pesanan->loadMissing('details.produk.jenisApar', 'unitApars'));
         $pesanan->load(['pelanggan', 'details.produk.jenisApar', 'unitApars.produk']);
+        $showAssignAction = $this->canAssignTeknisi($pesanan);
+        $showFinalizeAction = in_array((string) $pesanan->status, ['selesai oleh teknisi', 'dikonfirmasi admin'], true);
 
-        return view('admin.pesanan.show', compact('pesanan'));
+        return view('admin.pesanan.show', compact('pesanan', 'showAssignAction', 'showFinalizeAction'));
+    }
+
+    public function approvePurchasePriceRequest(Request $request, Pesanan $pesanan)
+    {
+        if (!$pesanan->isProductOrder()) {
+            return back()->with('error', 'Pengajuan Harga Pembelian hanya berlaku untuk pesanan produk APAR.');
+        }
+
+        $pesanan->loadMissing(['details.produk', 'pelanggan']);
+
+        if (!$pesanan->hasPendingPurchasePriceRequest()) {
+            return back()->with('error', 'Pengajuan Harga Pembelian ini tidak sedang menunggu persetujuan.');
+        }
+
+        $hargaFinal = $this->normalizeMoneyInput($request->input('harga_final'));
+        $catatanAdmin = trim((string) $request->input('catatan_admin')) ?: null;
+        $pricingSummary = app(OrderPricingService::class)->summarizeProductItems($pesanan->details, (float) ($pesanan->ongkir ?? 0));
+        $maksimalHargaFinal = (float) ($pricingSummary['totalSetelahPromo'] ?? $pricingSummary['subtotalProduk'] ?? 0);
+
+        if (is_null($hargaFinal) || (float) $hargaFinal <= 0) {
+            throw ValidationException::withMessages([
+                'harga_final' => 'Harga Final wajib diisi dengan angka yang valid.',
+            ]);
+        }
+
+        if ((float) $hargaFinal > $maksimalHargaFinal) {
+            throw ValidationException::withMessages([
+                'harga_final' => 'Harga Final tidak boleh lebih besar dari total setelah promo otomatis.',
+            ]);
+        }
+
+        $grandTotal = max(0, (float) round((float) $hargaFinal + (float) ($pesanan->ongkir ?? 0), 0));
+
+        $pesanan->update(array_merge([
+            'status' => Pesanan::STATUS_DISETUJUI,
+            'tipe_harga' => 'deal',
+            'catatan_admin' => $catatanAdmin,
+            'total' => $grandTotal,
+            'total_harga' => $grandTotal,
+        ], Pesanan::purchasePriceAttributes([
+            'status' => Pesanan::PRICE_REQUEST_APPROVED,
+            'final_price' => (float) $hargaFinal,
+            'admin_note' => $catatanAdmin,
+            'approved_by' => auth()->id(),
+            'approved_at' => now(),
+            'used' => false,
+        ])));
+
+        $this->safelyBroadcast(new StatusPesananDiperbarui($pesanan->fresh()));
+
+        return back()->with('success', 'Pengajuan Harga Pembelian berhasil di-ACC.');
+    }
+
+    public function rejectPurchasePriceRequest(Request $request, Pesanan $pesanan)
+    {
+        if (!$pesanan->isProductOrder()) {
+            return back()->with('error', 'Pengajuan Harga Pembelian hanya berlaku untuk pesanan produk APAR.');
+        }
+
+        $pesanan->loadMissing(['details.produk', 'pelanggan']);
+
+        if (!$pesanan->hasPendingPurchasePriceRequest()) {
+            return back()->with('error', 'Pengajuan Harga Pembelian ini tidak sedang menunggu persetujuan.');
+        }
+
+        $catatanAdmin = trim((string) $request->input('catatan_admin')) ?: null;
+        $pricingSummary = app(OrderPricingService::class)->summarizeProductItems($pesanan->details, (float) ($pesanan->ongkir ?? 0));
+
+        $pesanan->update(array_merge([
+            'status' => Pesanan::STATUS_PENDING,
+            'tipe_harga' => 'normal',
+            'catatan_admin' => $catatanAdmin,
+            'total' => (float) ($pricingSummary['totalPembayaran'] ?? 0),
+            'total_harga' => (float) ($pricingSummary['totalPembayaran'] ?? 0),
+        ], Pesanan::purchasePriceAttributes([
+            'status' => Pesanan::PRICE_REQUEST_REJECTED,
+            'final_price' => null,
+            'admin_note' => $catatanAdmin,
+            'used' => false,
+        ])));
+
+        $this->safelyBroadcast(new StatusPesananDiperbarui($pesanan->fresh()));
+
+        return back()->with('success', 'Pengajuan Harga Pembelian berhasil ditolak. Pelanggan dapat melanjutkan transaksi dengan harga normal atau promo otomatis.');
     }
 
     public function update(Request $request, Pesanan $pesanan)
@@ -814,78 +958,6 @@ class PesananController extends Controller
 
         try {
             DB::transaction(function () use ($pesanan) {
-                if ($pesanan->tipe === 'service') {
-                    // Untuk refill, buat record Refill di tabel refills
-                    if ($pesanan->service_jenis_layanan === 'refill' && $pesanan->service_jenis_refill_id) {
-                        $unitAparId = null;
-
-                        // Cek apakah ada unit APAR yang dipilih untuk service ini
-                        $firstUnit = $pesanan->unitApars()->first();
-                        if ($firstUnit) {
-                            $unitAparId = $firstUnit->id;
-                        } else {
-                            // Fallback: cari unit APAR dari riwayat pembelian pelanggan
-                            // berdasarkan ukuran dan jenis APAR
-                            $unitApar = UnitApar::where('pelanggan_id', $pesanan->pelanggan_id)
-                                ->where(function ($q) use ($pesanan) {
-                                    $q->where('ukuran', $pesanan->service_ukuran_apar)
-                                        ->orWhereRaw("CONCAT(ukuran, '') LIKE ?", ['%' . ($pesanan->service_ukuran_apar ?? '') . '%']);
-                                })
-                                ->orderByDesc('tgl_beli')
-                                ->first();
-
-                            if (!$unitApar) {
-                                // Buat unit APAR baru jika tidak ada yang cocok
-                                $produkKecil = Produk::where('kapasitas', $pesanan->service_ukuran_apar)->first();
-                                if ($produkKecil) {
-                                    $unitApar = UnitApar::create([
-                                        'pelanggan_id' => $pesanan->pelanggan_id,
-                                        'pesanan_id' => $pesanan->id,
-                                        'produk_id' => $produkKecil->id,
-                                        'no_seri' => 'AUTO-' . $pesanan->id . '-' . time(),
-                                        'tgl_beli' => $pesanan->tanggal,
-                                        'tgl_produksi' => $pesanan->tanggal,
-                                        'ukuran' => $pesanan->service_ukuran_apar,
-                                        'bahan' => $pesanan->service_jenis_apar ?? 'APAR',
-                                        'tgl_expired' => now()->addYear(),
-                                    ]);
-                                }
-                            }
-
-                            $unitAparId = $unitApar?->id;
-                        }
-
-                        if ($unitAparId) {
-                            $service = Service::updateOrCreate(
-                                ['pesanan_id' => $pesanan->id],
-                                [
-                                    'unit_apar_id' => $unitAparId,
-                                    'jenis_service' => 'Refill APAR',
-                                    'tgl_service' => $pesanan->tanggal,
-                                    'biaya' => (float) ($pesanan->service_estimasi_biaya ?? $pesanan->total_harga ?? $pesanan->total ?? 0),
-                                    'status_konfirmasi' => 'confirmed',
-                                ]
-                            );
-
-                            Refill::updateOrCreate(
-                                ['service_id' => $service->id],
-                                [
-                                    'unit_apar_id' => $unitAparId,
-                                    'jenis_refill_id' => $pesanan->service_jenis_refill_id,
-                                    'tgl_refill' => $pesanan->tanggal,
-                                    'biaya' => (float) ($pesanan->service_estimasi_biaya ?? $pesanan->total_harga ?? $pesanan->total ?? 0),
-                                ]
-                            );
-
-                            // Update tanggal expired unit APAR - selalu update setelah refill selesai
-                            $unitApar = UnitApar::find($unitAparId);
-                            if ($unitApar) {
-                                $unitApar->update(['tgl_expired' => now()->addYear()]);
-                            }
-                        }
-                    }
-                }
-
                 $pesanan->update([
                     'status' => 'selesai final',
                 ]);
@@ -1023,6 +1095,10 @@ class PesananController extends Controller
 
     protected function generateNegoCode(): string
     {
+        if (!Pesanan::supportsDatabaseColumn('kode_nego')) {
+            return 'ANUTA-' . str_pad((string) random_int(0, 999), 3, '0', STR_PAD_LEFT);
+        }
+
         for ($i = 0; $i < 2000; $i++) {
             $candidate = 'ANUTA-' . str_pad((string) random_int(0, 999), 3, '0', STR_PAD_LEFT);
             if (!Pesanan::where('kode_nego', $candidate)->exists()) {

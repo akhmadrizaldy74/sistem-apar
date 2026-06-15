@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +20,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Blade::directive('safeVite', function (string $expression): string {
+            return "<?php echo app(\\App\\Support\\SafeVite::class)->tags({$expression}); ?>";
+        });
+
         try {
             if (\Illuminate\Support\Facades\Schema::hasTable('users')) {
                 \App\Models\User::where('role', 'teknisi')

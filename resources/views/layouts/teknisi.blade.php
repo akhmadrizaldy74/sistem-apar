@@ -9,7 +9,7 @@
     <link rel="icon" type="image/svg+xml" href="{{ asset('favicon-apar.svg') }}">
     <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
 
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @safeVite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="antialiased bg-slate-100 text-slate-900 tailadmin-admin overflow-x-hidden">
     <div class="min-h-screen">

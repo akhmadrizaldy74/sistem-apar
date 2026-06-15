@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
-use App\Models\Pelanggan;
+use App\Services\PelangganSyncService;
 use App\Support\PhoneNumber;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,27 +27,6 @@ class ProfileController extends Controller
         return implode(' | Detail: ', $parts);
     }
 
-    private function resolvePelangganForUser(int $userId, string $normalizedPhone): Pelanggan
-    {
-        $pelanggan = Pelanggan::query()
-            ->where('user_id', $userId)
-            ->first();
-
-        if ($pelanggan) {
-            return $pelanggan;
-        }
-
-        $pelanggan = Pelanggan::query()
-            ->where('no_wa', $normalizedPhone)
-            ->where(function ($query) use ($userId) {
-                $query->whereNull('user_id')
-                    ->orWhere('user_id', $userId);
-            })
-            ->first();
-
-        return $pelanggan ?: new Pelanggan;
-    }
-
     /**
      * Display the user's profile form.
      */
@@ -67,7 +46,7 @@ class ProfileController extends Controller
     /**
      * Update the user's profile information.
      */
-    public function update(ProfileUpdateRequest $request): RedirectResponse
+    public function update(ProfileUpdateRequest $request, PelangganSyncService $pelangganSyncService): RedirectResponse
     {
         $validated = $request->validated();
         $user = $request->user();
@@ -88,27 +67,25 @@ class ProfileController extends Controller
 
         $user->save();
 
-        $pelanggan = $this->resolvePelangganForUser($user->id, $normalizedPhone);
-        $alamatMaps = trim((string) ($validated['alamat_maps'] ?? '')) ?: null;
-        $alamatDetail = trim((string) ($validated['alamat_detail'] ?? '')) ?: null;
+        if ($user->isPelanggan()) {
+            $user->loadMissing('pelanggan');
+            $alamatMaps = trim((string) ($validated['alamat_maps'] ?? '')) ?: null;
+            $alamatDetail = trim((string) ($validated['alamat_detail'] ?? '')) ?: null;
 
-        $pelanggan->fill([
-            'user_id' => $user->id,
-            'nama' => $user->name,
-            'no_wa' => $normalizedPhone,
-            'alamat' => $this->combineAddress($alamatMaps, $alamatDetail),
-            'alamat_maps' => $alamatMaps,
-            'alamat_detail' => $alamatDetail,
-            'alamat_lat' => filled($validated['alamat_lat'] ?? null) ? (float) $validated['alamat_lat'] : null,
-            'alamat_lng' => filled($validated['alamat_lng'] ?? null) ? (float) $validated['alamat_lng'] : null,
-            'alamat_provinsi' => trim((string) ($validated['alamat_provinsi'] ?? '')) ?: null,
-            'alamat_kota' => trim((string) ($validated['alamat_kota'] ?? '')) ?: null,
-            'alamat_kecamatan' => trim((string) ($validated['alamat_kecamatan'] ?? '')) ?: null,
-            'alamat_kode_pos' => trim((string) ($validated['alamat_kode_pos'] ?? '')) ?: null,
-            'status' => $pelanggan->status ?: 'calon',
-            'sumber_data' => $pelanggan->sumber_data ?: 'manual',
-        ]);
-        $pelanggan->save();
+            $pelangganSyncService->syncFromCustomerUser($user, [
+                'alamat' => $this->combineAddress($alamatMaps, $alamatDetail),
+                'alamat_maps' => $alamatMaps,
+                'alamat_detail' => $alamatDetail,
+                'alamat_lat' => filled($validated['alamat_lat'] ?? null) ? (float) $validated['alamat_lat'] : null,
+                'alamat_lng' => filled($validated['alamat_lng'] ?? null) ? (float) $validated['alamat_lng'] : null,
+                'alamat_provinsi' => trim((string) ($validated['alamat_provinsi'] ?? '')) ?: null,
+                'alamat_kota' => trim((string) ($validated['alamat_kota'] ?? '')) ?: null,
+                'alamat_kecamatan' => trim((string) ($validated['alamat_kecamatan'] ?? '')) ?: null,
+                'alamat_kode_pos' => trim((string) ($validated['alamat_kode_pos'] ?? '')) ?: null,
+                'status' => $user->pelanggan?->status ?: 'calon',
+                'sumber_data' => $user->pelanggan?->sumber_data ?: 'manual',
+            ]);
+        }
 
         return Redirect::route('profile.edit')->with('status', 'profile-updated');
     }

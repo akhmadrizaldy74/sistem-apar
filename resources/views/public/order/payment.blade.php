@@ -18,11 +18,16 @@
     $totalUnit = (int) $pricingSummary['totalUnit'];
     $diskonPersen = (int) $pricingSummary['diskonPersen'];
     $nominalDiskon = (float) $pricingSummary['nominalDiskon'];
+    $totalSetelahPromo = (float) ($pricingSummary['totalSetelahPromo'] ?? max(0, $subtotalProduk - $nominalDiskon));
+    $hargaPengajuan = (float) ($pricingSummary['hargaPengajuan'] ?? 0);
+    $hargaFinal = (float) ($pricingSummary['hargaFinal'] ?? 0);
+    $hasApprovedSpecialPrice = !empty($pricingSummary['specialPriceActive']);
     $metodePengiriman = $pesanan->metode_pengiriman ?: 'pickup';
     $selectedBankCode = ($pesanan->bank && isset($banks[$pesanan->bank])) ? $pesanan->bank : array_key_first($banks);
     $selectedBank = $banks[$selectedBankCode];
     $deadline = \Illuminate\Support\Carbon::parse($pesanan->created_at)->addMinutes(60);
-    $orderCode = 'TNTI' . $pesanan->tanggal->format('dmY') . 'AJ' . str_pad((string) $pesanan->id, 3, '0', STR_PAD_LEFT);
+    $orderDate = $pesanan->tanggal ?: $pesanan->created_at;
+    $orderCode = 'TNTI' . optional($orderDate)->format('dmY') . 'AJ' . str_pad((string) $pesanan->id, 3, '0', STR_PAD_LEFT);
     $shippingLabel = $metodePengiriman === 'diantar_internal' ? 'Diantar' : 'Ambil Sendiri';
     $now = now();
     $isExpired = $deadline->lt($now);
@@ -65,7 +70,7 @@
             </p>
         </div>
 
-        <form id="payment-form" method="POST" action="{{ route('order.payment.store', $pesanan) }}" class="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
+        <form id="payment-form" method="POST" action="{{ route('order.payment.store', ['pesanan' => $pesanan->id]) }}" class="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
             @csrf
             <input type="hidden" name="metode_pembayaran" value="transfer">
             <input type="hidden" name="bank" value="{{ $selectedBankCode }}">
@@ -135,7 +140,7 @@
                                 <div class="relative z-10">
                                     <p class="text-[10px] font-black uppercase tracking-widest text-red-400">Total Yang Harus Dibayar</p>
                                     <p id="nominal-bayar" class="text-3xl md:text-[36px] leading-tight font-black text-slate-900 mt-3 tracking-tight break-words">Rp {{ number_format($totalBayar, 0, ',', '.') }}</p>
-                                    <p class="text-sm font-semibold text-slate-500 mt-1">{{ $diskonPersen > 0 ? 'Promo Diskon ' . $diskonPersen . '%' : 'Harga Normal' }}</p>
+                                    <p class="text-sm font-semibold text-slate-500 mt-1">{{ $hasApprovedSpecialPrice ? 'Harga Final disetujui admin' : ($diskonPersen > 0 ? 'Promo Diskon ' . $diskonPersen . '%' : 'Harga Normal') }}</p>
 
                                     <button type="button" id="copy-nominal" class="mt-5 w-full sm:w-auto inline-flex items-center justify-center px-4 sm:px-5 py-3 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white text-sm font-black transition shadow-lg shadow-red-600/25">
                                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
@@ -145,7 +150,7 @@
                                     <div class="mt-4 sm:mt-5 grid grid-cols-2 gap-2 sm:gap-3">
                                         <div class="rounded-2xl bg-white border border-red-100 p-3 sm:p-4 shadow-sm">
                                             <p class="text-[9px] sm:text-[10px] font-black uppercase tracking-wider sm:tracking-widest text-slate-400">Tgl Pesanan</p>
-                                            <p class="text-xs sm:text-sm font-black text-slate-900 mt-1">{{ $pesanan->tanggal->format('d M Y') }}</p>
+                                            <p class="text-xs sm:text-sm font-black text-slate-900 mt-1">{{ optional($orderDate)->format('d M Y') ?: '-' }}</p>
                                         </div>
                                         <div class="rounded-2xl bg-white border border-red-100 p-3 sm:p-4 shadow-sm">
                                             <p class="text-[9px] sm:text-[10px] font-black uppercase tracking-wider sm:tracking-widest text-slate-400">Pengiriman</p>
@@ -301,6 +306,20 @@
                                 <span class="font-semibold text-slate-500">Nominal Diskon</span>
                                 <span class="font-black {{ $nominalDiskon > 0 ? 'text-emerald-700' : 'text-slate-800' }}">{{ $nominalDiskon > 0 ? '- ' : '' }}Rp {{ number_format($nominalDiskon, 0, ',', '.') }}</span>
                             </div>
+                            @if($hasApprovedSpecialPrice)
+                                <div class="flex items-center justify-between text-sm">
+                                    <span class="font-semibold text-slate-500">Total Setelah Promo</span>
+                                    <span class="font-black text-slate-800">Rp {{ number_format($totalSetelahPromo, 0, ',', '.') }}</span>
+                                </div>
+                                <div class="flex items-center justify-between text-sm">
+                                    <span class="font-semibold text-slate-500">Harga Pengajuan</span>
+                                    <span class="font-black text-slate-800">Rp {{ number_format($hargaPengajuan, 0, ',', '.') }}</span>
+                                </div>
+                                <div class="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm">
+                                    <span class="font-semibold text-emerald-800">Harga Final</span>
+                                    <span class="font-black text-emerald-800">Rp {{ number_format($hargaFinal, 0, ',', '.') }}</span>
+                                </div>
+                            @endif
                         @endunless
                         <div class="flex items-center justify-between text-sm">
                             <span class="font-semibold text-slate-500">{{ $metodePengiriman === 'diantar_internal' ? 'Ongkir Diantar' : 'Ongkir Ambil Sendiri' }}</span>

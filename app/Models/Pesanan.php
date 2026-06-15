@@ -8,10 +8,16 @@ use App\Models\StockMovement;
 use App\Services\InventoryService;
 use App\Services\OrderPricingService;
 use App\Services\ServicePackagePricingService;
+use App\Support\ServiceUnitDisplay;
+use Illuminate\Support\Facades\Schema;
 
 class Pesanan extends Model
 {
     use Auditable;
+
+    public const PRICE_REQUEST_PENDING = 'pending';
+    public const PRICE_REQUEST_APPROVED = 'approved';
+    public const PRICE_REQUEST_REJECTED = 'rejected';
 
     public const STATUS_PENDING = 'pending';
     public const STATUS_DIPROSES = 'diproses';
@@ -94,6 +100,14 @@ class Pesanan extends Model
         'alamat_lng',
         'bukti_pembayaran',
         'status',
+        'harga_pengajuan',
+        'harga_final',
+        'status_pengajuan_harga',
+        'catatan_pengajuan_harga',
+        'catatan_admin_harga',
+        'disetujui_oleh',
+        'disetujui_pada',
+        'harga_khusus_digunakan',
         'harga_usulan',
         'harga_penawaran_pelanggan',
         'kode_nego',
@@ -124,8 +138,157 @@ class Pesanan extends Model
         'pembayaran_terkonfirmasi_at' => 'datetime',
         'teknisi_selesai_at' => 'datetime',
         'stok_dikurangi' => 'boolean',
+        'harga_pengajuan' => 'float',
+        'harga_final' => 'float',
+        'disetujui_pada' => 'datetime',
+        'harga_khusus_digunakan' => 'boolean',
+        'harga_usulan' => 'float',
         'harga_penawaran_pelanggan' => 'float',
     ];
+
+    protected static array $tableColumnCache = [];
+
+    public static function supportsDatabaseColumn(string $column): bool
+    {
+        return (new static())->hasDatabaseColumn($column);
+    }
+
+    public static function purchasePriceStatusStorageColumn(): ?string
+    {
+        foreach (['status_pengajuan_harga', 'kode_nego'] as $column) {
+            if (static::supportsDatabaseColumn($column)) {
+                return $column;
+            }
+        }
+
+        return null;
+    }
+
+    public static function purchasePriceAttributes(array $state = []): array
+    {
+        $model = new static();
+        $payload = [];
+
+        if (array_key_exists('requested_price', $state)) {
+            $value = static::normalizeNullableFloat($state['requested_price']);
+            if ($model->hasDatabaseColumn('harga_pengajuan')) {
+                $payload['harga_pengajuan'] = $value;
+            } elseif ($model->hasDatabaseColumn('harga_penawaran_pelanggan')) {
+                $payload['harga_penawaran_pelanggan'] = $value;
+            }
+        }
+
+        if (array_key_exists('final_price', $state)) {
+            $value = static::normalizeNullableFloat($state['final_price']);
+            if ($model->hasDatabaseColumn('harga_final')) {
+                $payload['harga_final'] = $value;
+            } elseif ($model->hasDatabaseColumn('harga_usulan')) {
+                $payload['harga_usulan'] = $value;
+            }
+        }
+
+        if (array_key_exists('status', $state)) {
+            $status = static::normalizePurchasePriceStatus($state['status']);
+
+            if ($model->hasDatabaseColumn('status_pengajuan_harga')) {
+                $payload['status_pengajuan_harga'] = $status;
+            } else {
+                if ($model->hasDatabaseColumn('is_nego')) {
+                    $payload['is_nego'] = !is_null($status);
+                }
+
+                if ($model->hasDatabaseColumn('kode_nego')) {
+                    $payload['kode_nego'] = $status === static::PRICE_REQUEST_REJECTED ? 'rejected' : null;
+                }
+            }
+        }
+
+        if (array_key_exists('customer_note', $state)) {
+            $note = static::normalizeNullableString($state['customer_note']);
+            if ($model->hasDatabaseColumn('catatan_pengajuan_harga')) {
+                $payload['catatan_pengajuan_harga'] = $note;
+            } elseif ($model->hasDatabaseColumn('service_admin_catatan')) {
+                $payload['service_admin_catatan'] = $note;
+            }
+        }
+
+        if (array_key_exists('admin_note', $state)) {
+            $note = static::normalizeNullableString($state['admin_note']);
+            if ($model->hasDatabaseColumn('catatan_admin_harga')) {
+                $payload['catatan_admin_harga'] = $note;
+            }
+        }
+
+        if (array_key_exists('approved_by', $state) && $model->hasDatabaseColumn('disetujui_oleh')) {
+            $payload['disetujui_oleh'] = $state['approved_by'] ? (int) $state['approved_by'] : null;
+        }
+
+        if (array_key_exists('approved_at', $state) && $model->hasDatabaseColumn('disetujui_pada')) {
+            $payload['disetujui_pada'] = $state['approved_at'];
+        }
+
+        if (array_key_exists('used', $state)) {
+            $used = (bool) $state['used'];
+
+            if ($model->hasDatabaseColumn('harga_khusus_digunakan')) {
+                $payload['harga_khusus_digunakan'] = $used;
+            }
+
+            if ($model->hasDatabaseColumn('kode_nego_terpakai_at')) {
+                $payload['kode_nego_terpakai_at'] = $used
+                    ? ($state['used_at'] ?? now())
+                    : null;
+            }
+        } elseif (array_key_exists('used_at', $state) && $model->hasDatabaseColumn('kode_nego_terpakai_at')) {
+            $payload['kode_nego_terpakai_at'] = $state['used_at'];
+        }
+
+        return $payload;
+    }
+
+    protected function hasDatabaseColumn(string $column): bool
+    {
+        $table = $this->getTable();
+
+        if (!array_key_exists($table, static::$tableColumnCache)) {
+            try {
+                static::$tableColumnCache[$table] = Schema::getColumnListing($table);
+            } catch (\Throwable) {
+                static::$tableColumnCache[$table] = [];
+            }
+        }
+
+        return in_array($column, static::$tableColumnCache[$table], true);
+    }
+
+    protected static function normalizeNullableFloat(mixed $value): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return (float) $value;
+    }
+
+    protected static function normalizeNullableString(mixed $value): ?string
+    {
+        $normalized = trim((string) ($value ?? ''));
+
+        return $normalized !== '' ? $normalized : null;
+    }
+
+    protected static function normalizePurchasePriceStatus(mixed $status): ?string
+    {
+        $normalized = trim(mb_strtolower((string) ($status ?? '')));
+
+        return match ($normalized) {
+            '', 'none', 'normal' => null,
+            'pending', 'menunggu', 'menunggu persetujuan', 'request', 'requested' => static::PRICE_REQUEST_PENDING,
+            'approved', 'approve', 'accepted', 'disetujui' => static::PRICE_REQUEST_APPROVED,
+            'rejected', 'reject', 'ditolak' => static::PRICE_REQUEST_REJECTED,
+            default => $normalized !== '' ? $normalized : null,
+        };
+    }
 
     public function pelanggan()
     {
@@ -175,11 +338,12 @@ class Pesanan extends Model
     public function reduceStock()
     {
         if ($this->stok_dikurangi || $this->tipe !== 'produk' || (string) $this->status !== self::STATUS_SELESAI_FINAL) {
-            return;
+            return [];
         }
 
         $this->loadMissing(['details.produk', 'pelanggan']);
         $namaPelanggan = (string) ($this->pelanggan?->nama ?: 'Pelanggan tidak diketahui');
+        $batchAllocations = [];
 
         foreach ($this->details as $detail) {
             if ($detail->produk) {
@@ -203,13 +367,32 @@ class Pesanan extends Model
                 foreach ($batches as $batch) {
                     if ($jumlahDibutuhkan <= 0) break;
 
-                    if ($batch->sisa_qty >= $jumlahDibutuhkan) {
-                        $batch->decrement('sisa_qty', $jumlahDibutuhkan);
-                        $jumlahDibutuhkan = 0;
+                    $qtyDariBatch = min((int) $batch->sisa_qty, (int) $jumlahDibutuhkan);
+                    if ($qtyDariBatch <= 0) {
+                        continue;
+                    }
+
+                    $batchAllocations[$detail->produk_id][] = [
+                        'batch_id' => (int) $batch->id,
+                        'qty' => $qtyDariBatch,
+                        'tgl_produksi' => $batch->tgl_produksi?->toDateString()
+                            ?: optional($this->tanggal)->toDateString()
+                            ?: now()->toDateString(),
+                        'tgl_expired' => $batch->tgl_expired?->toDateString()
+                            ?: UnitApar::calculateExpiry(
+                                optional($this->tanggal)->toDateString() ?: now()->toDateString(),
+                                $produk->kapasitas ?? '-',
+                                $produk->jenisApar?->nama ?? '-',
+                            )->toDateString(),
+                    ];
+
+                    if ($batch->sisa_qty >= $qtyDariBatch) {
+                        $batch->decrement('sisa_qty', $qtyDariBatch);
                     } else {
-                        $jumlahDibutuhkan -= $batch->sisa_qty;
                         $batch->update(['sisa_qty' => 0]);
                     }
+
+                    $jumlahDibutuhkan -= $qtyDariBatch;
                 }
 
                 $produk->decrement('stok', $detail->jumlah);
@@ -229,6 +412,8 @@ class Pesanan extends Model
         }
 
         $this->update(['stok_dikurangi' => true]);
+
+        return $batchAllocations;
     }
 
     public function orderCode(): string
@@ -329,6 +514,128 @@ class Pesanan extends Model
     public function pricingSummary(): array
     {
         return app(OrderPricingService::class)->summarizePesanan($this);
+    }
+
+    public function hasPurchasePriceRequest(): bool
+    {
+        if (!$this->isProductOrder()) {
+            return false;
+        }
+
+        return !is_null($this->purchasePriceRequestStatus())
+            || !is_null($this->requestedPurchasePrice())
+            || !is_null($this->approvedPurchaseFinalPrice())
+            || (bool) ($this->harga_khusus_digunakan ?? false);
+    }
+
+    public function purchasePriceRequestStatus(): ?string
+    {
+        $statusMarker = static::normalizePurchasePriceStatus($this->status_pengajuan_harga ?? null);
+        if (in_array($statusMarker, [
+            static::PRICE_REQUEST_PENDING,
+            static::PRICE_REQUEST_APPROVED,
+            static::PRICE_REQUEST_REJECTED,
+        ], true)) {
+            return $statusMarker;
+        }
+
+        if ((float) ($this->harga_final ?? 0) > 0 || (float) ($this->harga_usulan ?? 0) > 0 || (bool) ($this->harga_khusus_digunakan ?? false)) {
+            return self::PRICE_REQUEST_APPROVED;
+        }
+
+        $legacyStatusMarker = static::normalizePurchasePriceStatus($this->kode_nego ?? null);
+        if ($legacyStatusMarker === self::PRICE_REQUEST_REJECTED) {
+            return self::PRICE_REQUEST_REJECTED;
+        }
+
+        if ($legacyStatusMarker === self::PRICE_REQUEST_PENDING) {
+            return self::PRICE_REQUEST_PENDING;
+        }
+
+        if ((string) $this->status === 'menunggu persetujuan') {
+            return self::PRICE_REQUEST_PENDING;
+        }
+
+        if (!is_null($this->requestedPurchasePrice()) || (bool) ($this->is_nego ?? false)) {
+            return self::PRICE_REQUEST_PENDING;
+        }
+
+        return null;
+    }
+
+    public function hasPendingPurchasePriceRequest(): bool
+    {
+        return $this->purchasePriceRequestStatus() === self::PRICE_REQUEST_PENDING;
+    }
+
+    public function hasApprovedPurchasePriceRequest(): bool
+    {
+        return $this->purchasePriceRequestStatus() === self::PRICE_REQUEST_APPROVED;
+    }
+
+    public function hasRejectedPurchasePriceRequest(): bool
+    {
+        return $this->purchasePriceRequestStatus() === self::PRICE_REQUEST_REJECTED;
+    }
+
+    public function purchasePriceStatusLabel(): ?string
+    {
+        return match ($this->purchasePriceRequestStatus()) {
+            self::PRICE_REQUEST_PENDING => 'Menunggu Persetujuan Harga',
+            self::PRICE_REQUEST_APPROVED => 'Harga khusus disetujui',
+            self::PRICE_REQUEST_REJECTED => 'Pengajuan harga belum disetujui',
+            default => null,
+        };
+    }
+
+    public function purchasePriceStatusClasses(): string
+    {
+        return match ($this->purchasePriceRequestStatus()) {
+            self::PRICE_REQUEST_PENDING => 'bg-amber-100 text-amber-800 border border-amber-200',
+            self::PRICE_REQUEST_APPROVED => 'bg-emerald-100 text-emerald-800 border border-emerald-200',
+            self::PRICE_REQUEST_REJECTED => 'bg-red-100 text-red-800 border border-red-200',
+            default => 'bg-slate-100 text-slate-700 border border-slate-200',
+        };
+    }
+
+    public function requestedPurchasePrice(): ?float
+    {
+        foreach (['harga_pengajuan', 'harga_penawaran_pelanggan'] as $attribute) {
+            $value = (float) ($this->{$attribute} ?? 0);
+            if ($value > 0) {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    public function approvedPurchaseFinalPrice(): ?float
+    {
+        foreach (['harga_final', 'harga_usulan'] as $attribute) {
+            $value = (float) ($this->{$attribute} ?? 0);
+            if ($value > 0) {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    public function purchasePriceCustomerNote(): ?string
+    {
+        if (!$this->isProductOrder()) {
+            return null;
+        }
+
+        foreach (['catatan_pengajuan_harga', 'service_admin_catatan'] as $attribute) {
+            $note = trim((string) ($this->{$attribute} ?? ''));
+            if ($note !== '') {
+                return $note;
+            }
+        }
+
+        return null;
     }
 
     public function isCompleted(): bool
@@ -496,6 +803,24 @@ class Pesanan extends Model
         return trim((string) $this->service_keluhan);
     }
 
+    public function serviceUnitDisplay(): array
+    {
+        return ServiceUnitDisplay::forPesanan($this);
+    }
+
+    public function technicianStatusLabel(): string
+    {
+        return match ((string) $this->status) {
+            self::STATUS_DITUGASKAN_KE_TEKNISI => 'Ditugaskan ke Teknisi',
+            self::STATUS_DIKERJAKAN_TEKNISI => 'Dikerjakan Teknisi',
+            self::STATUS_SELESAI_OLEH_TEKNISI,
+            self::STATUS_DIKONFIRMASI_ADMIN,
+            self::STATUS_SELESAI,
+            self::STATUS_SELESAI_FINAL => 'Selesai',
+            default => $this->publicStatusLabel(),
+        };
+    }
+
     public function servicePeralatanItems(): array
     {
         return $this->service?->effective_peralatan ?: $this->estimatedServicePeralatan();
@@ -509,11 +834,28 @@ class Pesanan extends Model
             'service_paket_id' => $this->service_paket_id,
             'jenis_service' => $this->servicePaket?->nama ?? 'Service APAR',
             'rincian_layanan' => $this->servicePaket?->rincian_layanan,
-            'tgl_service' => optional($this->tanggal)->toDateString() ?? now()->toDateString(),
+            'tgl_service' => $this->resolvedOperationalDate(),
             'biaya' => (float) ($this->service_estimasi_biaya ?: $this->total_harga ?: $this->total ?: 0),
             'estimasi_peralatan_json' => json_encode($this->estimatedServicePeralatan()),
             'keterangan' => $this->service_keluhan ?: $this->keterangan,
         ], $overrides);
+    }
+
+    public function resolvedOperationalDate(): string
+    {
+        if ($this->teknisi_selesai_at) {
+            return $this->teknisi_selesai_at->copy()->timezone(config('app.timezone'))->toDateString();
+        }
+
+        if ($this->service?->tgl_service) {
+            return $this->service->tgl_service->copy()->timezone(config('app.timezone'))->toDateString();
+        }
+
+        if ($this->service?->tgl_selesai_admin) {
+            return $this->service->tgl_selesai_admin->copy()->timezone(config('app.timezone'))->toDateString();
+        }
+
+        return optional($this->tanggal)->toDateString() ?? now()->toDateString();
     }
 
     public function publicStatusLabel(): string
@@ -522,6 +864,10 @@ class Pesanan extends Model
 
         if ($status === self::STATUS_DITOLAK) {
             return 'Ditolak';
+        }
+
+        if ($this->isProductOrder() && $this->hasPendingPurchasePriceRequest()) {
+            return 'Menunggu Persetujuan Harga';
         }
 
         if ($this->tipe === 'service') {
@@ -542,8 +888,8 @@ class Pesanan extends Model
                 self::STATUS_MENUNGGU_KEDATANGAN_UNIT => 'Menunggu Diproses',
                 self::STATUS_DITUGASKAN_KE_TEKNISI => 'Ditugaskan ke Teknisi',
                 self::STATUS_DIKERJAKAN_TEKNISI => 'Sedang Dikerjakan',
-                self::STATUS_SELESAI_OLEH_TEKNISI => 'Selesai Final',
-                self::STATUS_DIKONFIRMASI_ADMIN,
+                self::STATUS_SELESAI_OLEH_TEKNISI => 'Selesai oleh Teknisi',
+                self::STATUS_DIKONFIRMASI_ADMIN => 'Dikonfirmasi Admin',
                 self::STATUS_SELESAI,
                 self::STATUS_SELESAI_FINAL => 'Selesai Final',
                 default => 'Menunggu Diproses',
@@ -563,20 +909,20 @@ class Pesanan extends Model
         if ($this->metode_pengiriman === 'diantar_internal') {
             return match ($status) {
                 self::STATUS_DIPROSES => 'Sedang Pengiriman',
+                self::STATUS_SELESAI_OLEH_TEKNISI => 'Selesai oleh Teknisi',
+                self::STATUS_DIKONFIRMASI_ADMIN => 'Dikonfirmasi Admin',
                 self::STATUS_SELESAI,
-                self::STATUS_SELESAI_FINAL,
-                self::STATUS_SELESAI_OLEH_TEKNISI,
-                self::STATUS_DIKONFIRMASI_ADMIN => 'Selesai Final',
+                self::STATUS_SELESAI_FINAL => 'Selesai Final',
                 default => ucwords($status),
             };
         }
 
         return match ($status) {
             self::STATUS_DIPROSES => 'Siap Diambil',
+            self::STATUS_SELESAI_OLEH_TEKNISI => 'Selesai oleh Teknisi',
+            self::STATUS_DIKONFIRMASI_ADMIN => 'Dikonfirmasi Admin',
             self::STATUS_SELESAI,
-            self::STATUS_SELESAI_FINAL,
-            self::STATUS_SELESAI_OLEH_TEKNISI,
-            self::STATUS_DIKONFIRMASI_ADMIN => 'Selesai Final',
+            self::STATUS_SELESAI_FINAL => 'Selesai Final',
             default => ucwords($status),
         };
     }
@@ -586,13 +932,20 @@ class Pesanan extends Model
         $label = $this->publicStatusLabel();
 
         return match ($label) {
+            'Menunggu Persetujuan Harga' => 'bg-amber-100 text-amber-800 border border-amber-200',
             'Menunggu Pembayaran', 'Menunggu Verifikasi Pembayaran' => 'bg-amber-100 text-amber-800 border border-amber-200',
             'Menunggu Diproses', 'Ditugaskan ke Teknisi' => 'bg-blue-100 text-blue-800 border border-blue-200',
             'Sedang Dikerjakan' => 'bg-indigo-100 text-indigo-800 border border-indigo-200',
+            'Selesai oleh Teknisi', 'Dikonfirmasi Admin' => 'bg-cyan-100 text-cyan-800 border border-cyan-200',
             'Selesai Final', 'Selesai' => 'bg-emerald-100 text-emerald-800 border border-emerald-200',
             'Ditolak' => 'bg-red-100 text-red-800 border border-red-200',
             default => 'bg-slate-100 text-slate-700 border border-slate-200',
         };
+    }
+
+    public function shouldHidePaymentStatusBadge(): bool
+    {
+        return $this->publicStatusLabel() === 'Selesai Final';
     }
 
     public function getTimelineStep(): int
@@ -661,10 +1014,16 @@ class Pesanan extends Model
     public function getUnitInfo(): ?array
     {
         if ($this->tipe === 'service') {
+            $unitDisplay = $this->serviceUnitDisplay();
+            $jenisApar = trim((string) ($this->service_jenis_apar ?? ''));
+            if ($jenisApar === '' && $this->isRefillOrder()) {
+                $jenisApar = trim((string) ($this->serviceJenisRefill?->nama_label ?? ''));
+            }
+
             return [
-                'jumlah' => (int) ($this->service_jumlah_unit ?? 0),
+                'jumlah' => (int) ($unitDisplay['quantity'] ?? $this->service_jumlah_unit ?? 0),
                 'ukuran' => $this->service_ukuran_apar ?? '-',
-                'jenis' => $this->service_jenis_apar ?? '-',
+                'jenis' => $jenisApar !== '' ? $jenisApar : ($unitDisplay['detail_label'] ?? '-'),
             ];
         }
 
@@ -690,6 +1049,10 @@ class Pesanan extends Model
 
     public function canPay(): bool
     {
+        if ($this->hasPendingPurchasePriceRequest()) {
+            return false;
+        }
+
         return in_array((string) $this->status, self::PAYMENT_PENDING_STATUSES, true)
             && empty($this->bukti_pembayaran)
             && $this->payableTotal() > 0;

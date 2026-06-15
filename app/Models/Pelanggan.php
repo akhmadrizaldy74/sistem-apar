@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Traits\Auditable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class Pelanggan extends Model
@@ -28,6 +29,23 @@ class Pelanggan extends Model
         'catatan_internal',
     ];
 
+    public static function excludedPurchaseStatuses(): array
+    {
+        return ['ditolak', 'dibatalkan', 'batal', 'cancelled', 'canceled'];
+    }
+
+    public function scopeLinkedToCustomerAccount(Builder $query): Builder
+    {
+        return $query
+            ->whereNotNull('user_id')
+            ->whereHas('user', fn (Builder $userQuery) => $userQuery->where('role', 'pelanggan'));
+    }
+
+    public function scopeVisibleInDirectory(Builder $query): Builder
+    {
+        return $query->linkedToCustomerAccount();
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -41,6 +59,13 @@ class Pelanggan extends Model
     public function pesanan()
     {
         return $this->hasMany(Pesanan::class);
+    }
+
+    public function productOrders()
+    {
+        return $this->hasMany(Pesanan::class)
+            ->where('tipe', 'produk')
+            ->whereNotIn('status', self::excludedPurchaseStatuses());
     }
 
     public function testimonis()

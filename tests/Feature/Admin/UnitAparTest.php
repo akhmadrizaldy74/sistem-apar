@@ -83,6 +83,7 @@ class UnitAparTest extends TestCase
         $response = $this->actingAs($admin)->post(route('admin.unit-apar.store'), [
             'pelanggan_id' => $pelanggan->id,
             'produk_id' => $produk->id,
+            'tgl_produksi' => '2026-05-01',
             'tgl_beli' => '2026-06-08',
             'kondisi_awal' => 'layak',
             'catatan_unit' => 'Unit lobby utama',
@@ -99,8 +100,9 @@ class UnitAparTest extends TestCase
         $this->assertSame($produk->id, $unit->produk_id);
         $this->assertSame('layak', $unit->kondisi_awal);
         $this->assertSame('Unit lobby utama', $unit->catatan_unit);
+        $this->assertSame('2026-05-01', $unit->tgl_produksi->toDateString());
         $this->assertSame(
-            UnitApar::calculateExpiry('2026-06-08', '6 Kg', 'Dry Chemical Powder')->toDateString(),
+            UnitApar::calculateExpiry('2026-05-01', '6 Kg', 'Dry Chemical Powder')->toDateString(),
             $unit->tgl_expired->toDateString()
         );
     }

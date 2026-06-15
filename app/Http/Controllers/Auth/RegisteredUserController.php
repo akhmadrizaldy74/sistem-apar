@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\PelangganSyncService;
 use App\Support\PhoneNumber;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
@@ -29,7 +30,7 @@ class RegisteredUserController extends Controller
      *
      * @throws ValidationException
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, PelangganSyncService $pelangganSyncService): RedirectResponse
     {
         $normalizedPhone = PhoneNumber::normalize((string) $request->input('no_telpon'));
 
@@ -53,6 +54,13 @@ class RegisteredUserController extends Controller
             'email' => $request->input('email'),
             'no_telpon' => $request->no_telpon,
             'password' => Hash::make($request->password),
+            'role' => 'pelanggan',
+        ]);
+
+        $pelangganSyncService->syncFromCustomerUser($user, [
+            'status' => 'tetap',
+            'sumber_data' => 'manual',
+            'kategori_pelanggan' => 'baru_manual',
         ]);
 
         event(new Registered($user));

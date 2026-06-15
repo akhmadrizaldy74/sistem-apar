@@ -9,6 +9,7 @@ use App\Models\Pesanan;
 use App\Models\Produk;
 use App\Models\Refill;
 use App\Models\Service;
+use App\Models\ServicePaket;
 use App\Models\StokBatch;
 use App\Models\UnitApar;
 use App\Models\User;
@@ -86,7 +87,7 @@ class SystemFlowTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.laporan.index'));
 
         $response->assertOk();
-        $response->assertSee('Laporan Sistem APAR');
+        $response->assertSee('Laporan Operasional');
     }
 
     public function test_admin_can_download_service_report_pdf(): void
@@ -147,11 +148,7 @@ class SystemFlowTest extends TestCase
             'role' => 'admin',
         ]);
 
-        $pelanggan = Pelanggan::create([
-            'nama' => 'CV Aman',
-            'no_wa' => '628777000111',
-            'alamat' => 'Jl Aman',
-        ]);
+        $pelanggan = $this->createLinkedCustomer('CV Aman', '628777000111', 'Jl Aman');
 
         $jenisApar = JenisApar::create([
             'nama' => 'CO2',
@@ -198,9 +195,7 @@ class SystemFlowTest extends TestCase
 
         $storeResponse = $this->actingAs($admin)->post(route('admin.pesanan.store'), [
             'tipe' => 'produk',
-            'new_pelanggan_nama' => $pelanggan->nama,
-            'new_pelanggan_no_wa' => $pelanggan->no_wa,
-            'new_pelanggan_alamat' => $pelanggan->alamat,
+            'pelanggan_id' => $pelanggan->id,
             'tanggal' => now()->toDateString(),
             'items' => [
                 [
@@ -241,11 +236,7 @@ class SystemFlowTest extends TestCase
             'role' => 'admin',
         ]);
 
-        $pelanggan = Pelanggan::create([
-            'nama' => 'PT Multi Aman',
-            'no_wa' => '628222000111',
-            'alamat' => 'Jl Industri',
-        ]);
+        $pelanggan = $this->createLinkedCustomer('PT Multi Aman', '628222000111', 'Jl Industri');
 
         $jenisApar = JenisApar::create([
             'nama' => 'Powder',
@@ -273,9 +264,7 @@ class SystemFlowTest extends TestCase
 
         $response = $this->actingAs($admin)->post(route('admin.pesanan.store'), [
             'tipe' => 'produk',
-            'new_pelanggan_nama' => $pelanggan->nama,
-            'new_pelanggan_no_wa' => $pelanggan->no_wa,
-            'new_pelanggan_alamat' => $pelanggan->alamat,
+            'pelanggan_id' => $pelanggan->id,
             'tanggal' => now()->toDateString(),
             'items' => [
                 [
@@ -305,11 +294,7 @@ class SystemFlowTest extends TestCase
             'role' => 'admin',
         ]);
 
-        $pelanggan = Pelanggan::create([
-            'nama' => 'PT Servis Aman',
-            'no_wa' => '628111000222',
-            'alamat' => 'Jl Teknisi',
-        ]);
+        $pelanggan = $this->createLinkedCustomer('PT Servis Aman', '628111000222', 'Jl Teknisi');
 
         $jenisApar = JenisApar::create([
             'nama' => 'Powder',
@@ -352,10 +337,19 @@ class SystemFlowTest extends TestCase
             'role' => 'admin',
         ]);
 
-        $pelanggan = Pelanggan::create([
-            'nama' => 'PT Service Mandiri',
-            'no_wa' => '628111999000',
-            'alamat' => 'Jl Service',
+        $pelanggan = $this->createLinkedCustomer('PT Service Mandiri', '628111999000', 'Jl Service');
+        $jenisApar = JenisApar::create([
+            'nama' => 'Powder',
+            'deskripsi' => 'Powder',
+        ]);
+        Produk::create([
+            'nama' => 'APAR Powder 6 KG',
+            'merek' => 'SAFETY',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '6 kg',
+            'penggunaan' => 'Ruang panel',
+            'harga' => 825000,
+            'deskripsi' => 'Produk demo untuk service offline',
         ]);
 
         $paket = \App\Models\ServicePaket::create([
@@ -366,9 +360,7 @@ class SystemFlowTest extends TestCase
         ]);
 
         $storeResponse = $this->actingAs($admin)->post(route('admin.service.store'), [
-            'new_pelanggan_nama' => $pelanggan->nama,
-            'new_pelanggan_no_wa' => $pelanggan->no_wa,
-            'new_pelanggan_alamat' => $pelanggan->alamat,
+            'pelanggan_id' => $pelanggan->id,
             'service_paket_id' => $paket->id,
             'jenis_apar' => 'Powder',
             'ukuran_apar' => '6 kg',
@@ -378,10 +370,24 @@ class SystemFlowTest extends TestCase
         ]);
 
         $storeResponse->assertRedirect(route('admin.service.index'));
+
+        $pesanan = Pesanan::query()->latest('id')->first();
+        $this->assertNotNull($pesanan);
+
+        $finalResponse = $this->actingAs($admin)->post(route('admin.service.request.status', $pesanan), [
+            'status' => Pesanan::STATUS_SELESAI_FINAL,
+        ]);
+
+        $finalResponse->assertRedirect();
         $this->assertDatabaseHas('services', [
             'service_paket_id' => $paket->id,
         ]);
         $this->assertDatabaseCount('pesanans', 1);
+        $this->assertDatabaseHas('unit_apars', [
+            'pesanan_id' => $pesanan->id,
+            'bahan' => 'Powder',
+            'ukuran' => '6 kg',
+        ]);
         $this->assertDatabaseCount('refills', 0);
     }
 
@@ -391,11 +397,7 @@ class SystemFlowTest extends TestCase
             'role' => 'admin',
         ]);
 
-        $pelanggan = Pelanggan::create([
-            'nama' => 'PT Refill Mandiri',
-            'no_wa' => '628222333444',
-            'alamat' => 'Jl Validasi',
-        ]);
+        $pelanggan = $this->createLinkedCustomer('PT Refill Mandiri', '628222333444', 'Jl Validasi');
 
         $jenisApar = JenisApar::create([
             'nama' => 'CO2',
@@ -413,10 +415,18 @@ class SystemFlowTest extends TestCase
             ]
         ]);
 
+        Produk::create([
+            'nama' => 'APAR CO2 5 KG',
+            'merek' => 'SAFETY',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '5 kg',
+            'penggunaan' => 'Ruang panel',
+            'harga' => 825000,
+            'deskripsi' => 'Produk demo untuk refill offline',
+        ]);
+
         $response = $this->actingAs($admin)->post(route('admin.refill.store'), [
-            'new_pelanggan_nama' => $pelanggan->nama,
-            'new_pelanggan_no_wa' => $pelanggan->no_wa,
-            'new_pelanggan_alamat' => $pelanggan->alamat,
+            'pelanggan_id' => $pelanggan->id,
             'jenis_refill_id' => $jenisRefill->id,
             'ukuran_apar' => '5 kg',
             'jumlah_unit' => 1,
@@ -425,9 +435,29 @@ class SystemFlowTest extends TestCase
         ]);
 
         $response->assertRedirect(route('admin.refill.index'));
-        $this->assertDatabaseCount('pesanans', 1);
-        $this->assertDatabaseCount('services', 0);
+        $pesanan = Pesanan::query()->latest('id')->first();
+        $this->assertNotNull($pesanan);
+        $this->assertDatabaseHas('pesanans', [
+            'pelanggan_id' => $pelanggan->id,
+            'service_jenis_layanan' => 'refill',
+            'service_jenis_refill_id' => $jenisRefill->id,
+        ]);
+        $this->assertDatabaseHas('services', [
+            'jenis_service' => 'Refill APAR',
+        ]);
         $this->assertDatabaseCount('refills', 0);
+
+        $finalResponse = $this->actingAs($admin)->post(route('admin.refill.update-status', $pesanan), [
+            'status' => Pesanan::STATUS_SELESAI_FINAL,
+        ]);
+
+        $finalResponse->assertRedirect();
+        $this->assertDatabaseHas('refills', [
+            'jenis_refill_id' => $jenisRefill->id,
+        ]);
+        $this->assertDatabaseCount('pesanans', 1);
+        $this->assertDatabaseCount('services', 1);
+        $this->assertDatabaseCount('refills', 1);
     }
 
     public function test_laporan_pesanan_hanya_menampilkan_pesanan_produk(): void
@@ -692,9 +722,21 @@ class SystemFlowTest extends TestCase
             'sumber_pesanan' => 'datang_langsung',
         ]);
 
+        $servicePaket = ServicePaket::create([
+            'nama' => 'Ganti Hose APAR',
+            'label' => 'ganti_hose_apar',
+            'harga' => 85000,
+            'rincian_layanan' => 'Penggantian hose APAR',
+        ]);
+
+        $pesananService->update([
+            'service_paket_id' => $servicePaket->id,
+        ]);
+
         $serviceLog = Service::create([
             'pesanan_id' => $pesananService->id,
             'unit_apar_id' => $unitApar->id,
+            'service_paket_id' => $servicePaket->id,
             'jenis_service' => 'Ganti Hose APAR',
             'tgl_service' => now()->toDateString(),
             'biaya' => 85000,
@@ -728,5 +770,129 @@ class SystemFlowTest extends TestCase
         // The service logs should display Ganti Hose APAR but NOT Refill APAR
         $responseAdminServiceIndex->assertSee('Ganti Hose APAR');
         $responseAdminServiceIndex->assertDontSee('Refill APAR');
+    }
+
+    public function test_admin_order_index_hides_paid_badge_when_status_is_final(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+        ]);
+
+        $pelanggan = $this->createLinkedCustomer('PT Status Final Admin', '628888777001', 'Jl Final Admin');
+
+        $jenisApar = JenisApar::create([
+            'nama' => 'Powder',
+            'deskripsi' => 'Powder',
+        ]);
+
+        $produk = Produk::create([
+            'nama' => 'APAR Powder 6 KG',
+            'merek' => 'SAFE',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '6 kg',
+            'penggunaan' => 'Gudang',
+            'harga' => 500000,
+            'deskripsi' => 'Produk demo final admin',
+            'stok' => 10,
+        ]);
+
+        $pesanan = Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'tipe' => 'produk',
+            'tanggal' => now()->toDateString(),
+            'total' => 500000,
+            'total_harga' => 500000,
+            'status' => Pesanan::STATUS_SELESAI_FINAL,
+            'sumber_pesanan' => 'website',
+            'bukti_pembayaran' => 'bukti/final-admin.jpg',
+        ]);
+
+        $pesanan->details()->create([
+            'produk_id' => $produk->id,
+            'merek' => $produk->merek,
+            'kapasitas' => $produk->kapasitas,
+            'jumlah' => 1,
+            'harga' => 500000,
+            'subtotal' => 500000,
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.pesanan.index'));
+
+        $response->assertOk();
+        $response->assertSee('SELESAI FINAL');
+        $response->assertDontSee('Pembayaran Lunas');
+    }
+
+    public function test_final_invoice_hides_payment_status_and_only_shows_final_status(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+        ]);
+
+        $pelanggan = $this->createLinkedCustomer('PT Status Final Invoice', '628888777002', 'Jl Final Invoice');
+
+        $jenisApar = JenisApar::create([
+            'nama' => 'Powder',
+            'deskripsi' => 'Powder',
+        ]);
+
+        $produk = Produk::create([
+            'nama' => 'APAR Powder 6 KG',
+            'merek' => 'SAFE',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '6 kg',
+            'penggunaan' => 'Gudang',
+            'harga' => 500000,
+            'deskripsi' => 'Produk demo final invoice',
+            'stok' => 10,
+        ]);
+
+        $pesanan = Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'tipe' => 'produk',
+            'tanggal' => now()->toDateString(),
+            'total' => 500000,
+            'total_harga' => 500000,
+            'status' => Pesanan::STATUS_SELESAI_FINAL,
+            'sumber_pesanan' => 'website',
+            'bukti_pembayaran' => 'bukti/final-invoice.jpg',
+        ]);
+
+        $pesanan->details()->create([
+            'produk_id' => $produk->id,
+            'merek' => $produk->merek,
+            'kapasitas' => $produk->kapasitas,
+            'jumlah' => 1,
+            'harga' => 500000,
+            'subtotal' => 500000,
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('invoice.show', $pesanan));
+
+        $response->assertOk();
+        $response->assertSee('Selesai Final');
+        $response->assertDontSee('LUNAS / PAID');
+        $response->assertDontSee('Lunas / Paid');
+        $response->assertDontSee('Status Pembayaran');
+    }
+
+    private function createLinkedCustomer(string $name, string $phone, string $address): Pelanggan
+    {
+        $digits = preg_replace('/\D+/', '', $phone) ?: (string) random_int(1000, 9999);
+
+        $user = User::factory()->create([
+            'role' => 'pelanggan',
+            'name' => $name,
+            'email' => 'customer-'.$digits.'@example.com',
+            'no_telpon' => $phone,
+        ]);
+
+        return Pelanggan::create([
+            'user_id' => $user->id,
+            'nama' => $name,
+            'no_wa' => $phone,
+            'alamat' => $address,
+            'status' => 'tetap',
+        ]);
     }
 }

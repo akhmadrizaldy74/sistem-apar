@@ -21,6 +21,13 @@
         $finishedStatuses = ['selesai', 'selesai final', 'ditolak'];
         $pesananRiwayat = $pesanans->getCollection()->filter(fn ($pesanan) => in_array((string) $pesanan->status, $finishedStatuses, true))->values();
         $pesananAktif = $pesanans->getCollection()->reject(fn ($pesanan) => in_array((string) $pesanan->status, $finishedStatuses, true))->values();
+        $summary = [
+            'totalPesanan' => $pesanans->count(),
+            'totalItem' => $totalItem,
+            'nilaiPesanan' => $nilaiPesanan,
+            'pesananOnline' => $pesananOnline,
+            'pesananOffline' => $pesananOffline,
+        ];
         $actionButtonBase = 'inline-flex items-center justify-center px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition shadow-sm';
         $actionButtonNeutral = $actionButtonBase . ' border-gray-200 bg-white text-gray-600 hover:bg-gray-50';
         $actionButtonPrimary = $actionButtonBase . ' border-red-600 bg-red-600 text-white hover:bg-red-700 hover:border-red-700';
@@ -28,6 +35,15 @@
         $actionButtonProofStyle = 'background-color:#2563eb;border-color:#2563eb;color:#fff;';
         $actionButtonDanger = $actionButtonBase . ' border-red-200 bg-white text-red-600 hover:bg-red-50';
         $actionButtonDisabled = $actionButtonBase . ' border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed';
+        $purchasePriceModalState = [
+            'order_id' => (int) old('purchase_price_order_id', 0),
+            'harga_final' => (string) old('harga_final', ''),
+            'catatan_admin' => (string) old('catatan_admin', ''),
+            'errors' => [
+                'harga_final' => $errors->get('harga_final'),
+                'catatan_admin' => $errors->get('catatan_admin'),
+            ],
+        ];
     @endphp
 
     <div
@@ -51,33 +67,8 @@
         )"
         @open-pesanan-modal.window="openModal = true"
     >
-        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
-            <div class="bg-white p-5 sm:p-6 lg:p-8 rounded-2xl shadow-sm border border-gray-100">
-                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Pesanan</p>
-                <p class="text-4xl font-black text-gray-900">{{ $pesanans->count() }}</p>
-            </div>
-            <div class="bg-white p-5 sm:p-6 lg:p-8 rounded-2xl shadow-sm border border-gray-100">
-                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Item Terjual</p>
-                <p class="text-4xl font-black text-emerald-700">{{ $totalItem }}</p>
-            </div>
-            <div class="bg-white p-5 sm:p-6 lg:p-8 rounded-2xl shadow-sm border border-gray-100">
-                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Nilai Pesanan</p>
-                <p class="text-4xl font-black text-red-700">Rp {{ number_format($nilaiPesanan, 0, ',', '.') }}</p>
-            </div>
-            <div class="bg-white p-5 sm:p-6 lg:p-8 rounded-2xl shadow-sm border border-gray-100">
-                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Online / Offline</p>
-                <div class="flex items-end gap-3">
-                    <div>
-                        <p class="text-4xl font-black text-amber-700 leading-none">{{ $pesananOnline }}</p>
-                        <p class="mt-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Online</p>
-                    </div>
-                    <span class="pb-1 text-2xl font-black text-gray-300">/</span>
-                    <div>
-                        <p class="text-4xl font-black text-slate-700 leading-none">{{ $pesananOffline }}</p>
-                        <p class="mt-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Offline</p>
-                    </div>
-                </div>
-            </div>
+        <div id="pesanan-summary-cards">
+            @include('admin.pesanan.partials.summary-cards', ['summary' => $summary])
         </div>
 
         @if(session('wa_url'))
@@ -109,113 +100,8 @@
                             <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Aksi</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-50">
-                        @forelse($pesananAktif as $pesanan)
-                            @php
-                                $pricingSummary = $pesanan->pricingSummary();
-                                $s = $pesanan->status;
-                                $isOffline = in_array((string) $pesanan->sumber_pesanan, ['datang_langsung', 'offline', 'input_admin'], true);
-                                $hasProof = !empty($pesanan->bukti_pembayaran);
-                                $canAssign = $pesanan->isPaymentConfirmed() && !$pesanan->teknisi_id;
-
-                                $statusBadge = match(true) {
-                                    $s === 'selesai final' => ['bg-emerald-50 text-emerald-700', 'SELESAI FINAL'],
-                                    $s === 'dikonfirmasi admin' => ['bg-cyan-50 text-cyan-700', 'DIKONFIRMASI'],
-                                    $s === 'selesai oleh teknisi' => ['bg-cyan-50 text-cyan-700', 'SELESAI OLEH TEKNISI'],
-                                    $s === 'dikerjakan teknisi' => ['bg-indigo-50 text-indigo-700', 'DIPROSES'],
-                                    $s === 'ditugaskan ke teknisi' => ['bg-purple-50 text-purple-700', 'DITUGASKAN'],
-                                    $s === 'selesai' => ['bg-emerald-50 text-emerald-700', 'SELESAI FINAL'],
-                                    $s === 'ditolak' => ['bg-red-50 text-red-700', 'DITOLAK'],
-                                    $s === 'diproses' && $hasProof => ['bg-emerald-50 text-emerald-700', 'DIPROSES'],
-                                    $s === 'diproses' => ['bg-red-50 text-blue-700', 'DIPROSES'],
-                                    $s === 'pending' && $hasProof => ['bg-emerald-50 text-emerald-700', 'DIPROSES'],
-                                    $s === 'pending' => ['bg-amber-50 text-amber-700', 'MENUNGGU'],
-                                    default => ['bg-gray-50 text-gray-700', strtoupper($s)],
-                                };
-
-                                $firstProduk = $pesanan->details->first();
-                                $firstProdukNama = $firstProduk?->produk?->nama ?? 'Pesanan Produk';
-                                if ($pesanan->details->count() > 1) {
-                                    $firstProdukNama .= ' +' . ($pesanan->details->count() - 1) . ' lainnya';
-                                }
-                                $itemCount = $pesanan->details->count();
-                                $unitCount = $pesanan->details->sum('jumlah');
-                            @endphp
-                            <tr class="hover:bg-gray-50/40 transition-colors">
-                                <td class="px-8 py-6 whitespace-nowrap">
-                                    <p class="text-xs font-bold text-gray-900">{{ $pesanan->displayTransactionDateTime() }}</p>
-                                    <p class="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">{{ $pesanan->transactionDisplayName() }}</p>
-                                </td>
-                                <td class="px-8 py-6">
-                                    <p class="text-sm font-black text-gray-900">{{ $pesanan->pelanggan?->nama ?? '-' }}</p>
-                                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{{ $pesanan->pelanggan?->no_wa ?? '-' }}</p>
-                                </td>
-                                <td class="px-8 py-6">
-                                    <div class="flex items-center gap-2 flex-wrap">
-                                        <span class="inline-flex px-3 py-1 rounded-full {{ $isOffline ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-600' }} text-[10px] font-black uppercase tracking-widest">{{ $isOffline ? 'Offline' : 'Online' }}</span>
-                                    </div>
-                                    <p class="mt-2 text-sm font-black text-gray-900 max-w-[220px] leading-6">{{ $firstProdukNama }}</p>
-                                    <p class="mt-1 text-xs font-semibold text-gray-500">{{ $itemCount }} item - {{ $unitCount }} unit</p>
-                                </td>
-                                <td class="px-8 py-6 whitespace-nowrap">
-                                    <span class="text-sm font-semibold text-gray-900">Rp {{ number_format((float) $pricingSummary['totalPembayaran'], 0, ',', '.') }}</span>
-                                </td>
-                                <td class="px-8 py-6">
-                                    <span class="inline-flex px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest {{ $statusBadge[0] }}">
-                                        {{ $statusBadge[1] }}
-                                    </span>
-                                    
-                                </td>
-                                <td class="px-8 py-6 text-right">
-                                    <div class="flex flex-wrap items-center justify-end gap-2">
-                                        @if(!$isOffline)
-                                            <button
-                                                type="button"
-                                                onclick="openPesananProofModal(@js(!empty($pesanan->bukti_pembayaran) ? '/storage/' . ltrim($pesanan->bukti_pembayaran, '/') : null), @js([
-                                                    "customer" => $pesanan->pelanggan?->nama ?? "-",
-                                                    "date" => $pesanan->displayTransactionDateTime(),
-                                                    "type" => "Pesanan",
-                                                ]))"
-                                                class="{{ $actionButtonProof }}"
-                                                style="{{ $actionButtonProofStyle }}"
-                                            >
-                                                Bukti TF
-                                            </button>
-                                        @endif
-                                        @if(in_array((string) $pesanan->status, ['selesai oleh teknisi', 'dikonfirmasi admin'], true))
-                                            <form action="{{ route('admin.pesanan.selesai-final', $pesanan) }}" method="POST" class="inline" data-confirm="Selesaikan final pesanan ini dan kurangi stok?" data-confirm-title="Konfirmasi Final" data-confirm-button="Ya, Finalkan">
-                                                @csrf
-                                                <button type="submit" class="{{ $actionButtonPrimary }}">Final</button>
-                                            </form>
-                                        @elseif($canAssign)
-                                            <form action="{{ route('admin.pesanan.assign-teknisi', $pesanan) }}" method="POST" class="inline">
-                                                @csrf
-                                                <button type="submit" class="{{ $actionButtonPrimary }}">Assign</button>
-                                            </form>
-                                        @endif
-                                        <button type="button" onclick="openPesananDetailModal({{ $pesanan->id }})" class="{{ $actionButtonNeutral }}">
-                                            Detail
-                                        </button>
-                                        <a href="{{ route('invoice.show', $pesanan) }}" class="{{ $actionButtonPrimary }}" title="Lihat Invoice">
-                                            Lihat Invoice
-                                        </a>
-                                        @if($pesanan->status !== 'selesai' && $pesanan->status !== 'selesai final')
-                                            <form action="{{ route('admin.pesanan.destroy', $pesanan) }}" method="POST" class="inline" data-confirm="Yakin ingin menghapus pesanan ini?" data-confirm-title="Konfirmasi Hapus" data-confirm-button="Ya, Hapus">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="{{ $actionButtonDanger }}">Hapus</button>
-                                            </form>
-                                        @else
-                                            <button type="button" disabled class="{{ $actionButtonDisabled }}" title="Hapus">Hapus</button>
-                                        @endif
-                                    </div>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="6" class="px-8 py-12 text-center text-sm font-semibold text-gray-500">Belum ada data pesanan aktif dari pelanggan.</td>
-                            </tr>
-                        @endforelse
+                    <tbody id="pesanan-active-rows" class="divide-y divide-gray-50">
+                        @include('admin.pesanan.partials.active-rows', ['pesananAktif' => $pesananAktif])
                     </tbody>
                 </table>
             </div>
@@ -238,88 +124,8 @@
                             <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Aksi</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-50">
-                        @forelse($pesananRiwayat as $pesanan)
-                            @php
-                                $pricingSummary = $pesanan->pricingSummary();
-                                $s = $pesanan->status;
-                                $isOffline = in_array((string) $pesanan->sumber_pesanan, ['datang_langsung', 'offline', 'input_admin'], true);
-                                $statusBadge = match(true) {
-                                    $s === 'selesai final' => ['bg-emerald-50 text-emerald-700', 'SELESAI FINAL'],
-                                    $s === 'selesai' => ['bg-emerald-50 text-emerald-700', 'SELESAI FINAL'],
-                                    $s === 'selesai oleh teknisi' => ['bg-cyan-50 text-cyan-700', 'SELESAI OLEH TEKNISI'],
-                                    $s === 'dikonfirmasi admin' => ['bg-cyan-50 text-cyan-700', 'DIKONFIRMASI'],
-                                    $s === 'ditolak' => ['bg-red-50 text-red-700', 'DITOLAK'],
-                                    default => ['bg-gray-50 text-gray-700', strtoupper($s)],
-                                };
-                                $firstProduk = $pesanan->details->first();
-                                $firstProdukNama = $firstProduk?->produk?->nama ?? 'Pesanan Produk';
-                                if ($pesanan->details->count() > 1) {
-                                    $firstProdukNama .= ' +' . ($pesanan->details->count() - 1) . ' lainnya';
-                                }
-                                $itemCount = $pesanan->details->count();
-                                $unitCount = $pesanan->details->sum('jumlah');
-                            @endphp
-                            <tr class="hover:bg-gray-50/40 transition-colors">
-                                <td class="px-8 py-5 whitespace-nowrap">
-                                    <p class="text-xs font-bold text-gray-900">{{ $pesanan->displayTransactionDateTime() }}</p>
-                                    <p class="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">{{ $pesanan->transactionDisplayName() }}</p>
-                                </td>
-                                <td class="px-8 py-5">
-                                    <p class="text-sm font-black text-gray-900">{{ $pesanan->pelanggan?->nama ?? '-' }}</p>
-                                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{{ $pesanan->pelanggan?->no_wa ?? '-' }}</p>
-                                </td>
-                                <td class="px-8 py-5">
-                                    <div class="flex items-center gap-2 flex-wrap">
-                                        <span class="inline-flex px-3 py-1 rounded-full {{ $isOffline ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-600' }} text-[10px] font-black uppercase tracking-widest">{{ $isOffline ? 'Offline' : 'Online' }}</span>
-                                    </div>
-                                    <p class="mt-2 text-sm font-black text-gray-900 max-w-[220px] leading-6">{{ $firstProdukNama }}</p>
-                                    <p class="mt-1 text-xs font-semibold text-gray-500">{{ $itemCount }} item - {{ $unitCount }} unit</p>
-                                </td>
-                                <td class="px-8 py-5 whitespace-nowrap">
-                                    <span class="text-sm font-semibold text-gray-900">Rp {{ number_format((float) $pricingSummary['totalPembayaran'], 0, ',', '.') }}</span>
-                                </td>
-                                <td class="px-8 py-5">
-                                    <span class="inline-flex px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest {{ $statusBadge[0] }}">
-                                        {{ $statusBadge[1] }}
-                                    </span>
-                                    
-                                </td>
-                                <td class="px-8 py-5 text-right">
-                                    <div class="flex flex-wrap items-center justify-end gap-2">
-                                        @if(!$isOffline)
-                                            <button
-                                                type="button"
-                                                onclick="openPesananProofModal(@js(!empty($pesanan->bukti_pembayaran) ? '/storage/' . ltrim($pesanan->bukti_pembayaran, '/') : null), @js([
-                                                    "customer" => $pesanan->pelanggan?->nama ?? "-",
-                                                    "date" => $pesanan->displayTransactionDateTime(),
-                                                    "type" => "Pesanan",
-                                                ]))"
-                                                class="{{ $actionButtonProof }}"
-                                                style="{{ $actionButtonProofStyle }}"
-                                            >
-                                                Bukti TF
-                                            </button>
-                                        @endif
-                                        <button type="button" onclick="openPesananDetailModal({{ $pesanan->id }})" class="{{ $actionButtonNeutral }}">
-                                            Detail
-                                        </button>
-                                        <a href="{{ route('invoice.show', $pesanan) }}" class="{{ $actionButtonPrimary }}" title="Lihat Invoice">
-                                            Lihat Invoice
-                                        </a>
-                                        <form action="{{ route('admin.pesanan.destroy', $pesanan) }}" method="POST" class="inline" data-confirm="Yakin ingin menghapus riwayat pesanan ini?" data-confirm-title="Konfirmasi Hapus" data-confirm-button="Ya, Hapus">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="{{ $actionButtonDanger }}" title="Hapus">Hapus</button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="6" class="px-8 py-12 text-center text-sm font-semibold text-gray-500">Belum ada riwayat pesanan yang selesai.</td>
-                            </tr>
-                        @endforelse
+                    <tbody id="pesanan-history-rows" class="divide-y divide-gray-50">
+                        @include('admin.pesanan.partials.history-rows', ['pesananRiwayat' => $pesananRiwayat])
                     </tbody>
                 </table>
             </div>
@@ -410,6 +216,10 @@
                                                 <option value="{{ $pelanggan->id }}">{{ $pelanggan->nama }} ({{ $pelanggan->no_wa }})</option>
                                             @endforeach
                                         </select>
+                                        <p class="text-[10px] font-semibold leading-relaxed text-slate-500">
+                                            Pelanggan offline wajib dipilih dari akun role pelanggan. Jika belum ada, buat akun pelanggan terlebih dahulu melalui
+                                            <a href="{{ route('admin.akun.index') }}" class="font-black text-red-700 hover:underline">Manajemen Akun</a>.
+                                        </p>
                                         <x-input-error :messages="$errors->get('pelanggan_id')" class="mt-2" />
                                     </div>
 
@@ -692,27 +502,239 @@
                 }
             }
 
-            const pesananDetailData = @json($pesananDetailData);
+            window.pesananDetailData = @json($pesananDetailData);
+            const purchasePriceModalState = @json($purchasePriceModalState);
+            const purchasePriceModalToken = @json(csrf_token());
+
+            function escapeHtml(value) {
+                return String(value ?? '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
+            function nl2brHtml(value) {
+                return escapeHtml(value).replace(/\r\n|\r|\n/g, '<br>');
+            }
+
+            function formatRupiahInput(value) {
+                const digits = String(value ?? '').replace(/\D+/g, '');
+                return digits ? 'Rp ' + Number(digits).toLocaleString('id-ID') : '';
+            }
+
+            function purchasePriceStateForOrder(orderId) {
+                return Number(purchasePriceModalState.order_id || 0) === Number(orderId)
+                    ? purchasePriceModalState
+                    : null;
+            }
+
+            function attachPurchasePriceInputMask() {
+                const input = document.getElementById('purchase-price-final-input');
+                if (!input) return;
+
+                const applyFormat = () => {
+                    input.value = formatRupiahInput(input.value);
+                };
+
+                input.addEventListener('input', applyFormat);
+                applyFormat();
+            }
+
+            function buildPurchasePriceCardHtml(data) {
+                const purchase = data.purchase_price || {};
+                if (!purchase.has_request) {
+                    return '';
+                }
+
+                const modalState = purchasePriceStateForOrder(data.id);
+                const hargaFinalValue = modalState
+                    ? formatRupiahInput(modalState.harga_final || '')
+                    : formatRupiahInput(purchase.final_price || '');
+                const catatanAdminValue = modalState
+                    ? (modalState.catatan_admin || '')
+                    : (purchase.admin_note || '');
+                const hargaFinalError = modalState?.errors?.harga_final?.[0] || '';
+                const catatanAdminError = modalState?.errors?.catatan_admin?.[0] || '';
+                const badgeHtml = purchase.label
+                    ? `<span class="inline-flex rounded-full px-3 py-1 text-[11px] font-black ${purchase.badge_classes || 'bg-slate-100 text-slate-700 border border-slate-200'}">${escapeHtml(purchase.label)}</span>`
+                    : '';
+                const customerNoteHtml = purchase.customer_note
+                    ? `
+                        <div class="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+                            <p class="text-[10px] font-black uppercase tracking-widest text-amber-700">Catatan Pelanggan</p>
+                            <p class="mt-2 text-sm font-semibold leading-relaxed text-amber-900">${nl2brHtml(purchase.customer_note)}</p>
+                        </div>
+                    `
+                    : '';
+                const adminNoteHtml = (purchase.admin_note || catatanAdminValue)
+                    ? `
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Catatan Admin</p>
+                            <p class="mt-2 text-sm font-semibold leading-relaxed text-gray-700">${nl2brHtml(purchase.admin_note || catatanAdminValue)}</p>
+                        </div>
+                    `
+                    : '';
+
+                if (purchase.is_pending) {
+                    return `
+                        <div class="rounded-xl border border-amber-200 bg-white p-4 sm:p-5">
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <p class="text-[10px] font-black uppercase tracking-widest text-amber-700">Tindak Lanjut Admin</p>
+                                    <h4 class="mt-1 text-base font-black text-gray-900">Pengajuan Harga Pembelian</h4>
+                                    <p class="mt-2 text-xs font-semibold leading-relaxed text-gray-500">Harga pengajuan pelanggan ditampilkan sebagai referensi. Sampai disetujui, total pesanan tetap mengikuti harga normal atau promo otomatis yang berjalan.</p>
+                                </div>
+                                ${badgeHtml}
+                            </div>
+                            <div class="mt-4 space-y-4">
+                                <div class="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+                                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Harga Pengajuan Pelanggan</p>
+                                    <p class="mt-2 text-lg font-black text-gray-900">${purchase.requested_price ? `Rp ${escapeHtml(purchase.requested_price)}` : '-'}</p>
+                                </div>
+                                ${customerNoteHtml}
+                                <form method="POST" action="${escapeHtml(purchase.acc_url || '#')}" class="space-y-4">
+                                    <input type="hidden" name="_token" value="${escapeHtml(purchasePriceModalToken)}">
+                                    <input type="hidden" name="purchase_price_order_id" value="${escapeHtml(data.id)}">
+                                    <div>
+                                        <label for="purchase-price-final-input" class="block text-sm font-bold text-gray-700 mb-2">Harga Final Admin</label>
+                                        <input
+                                            type="text"
+                                            id="purchase-price-final-input"
+                                            name="harga_final"
+                                            value="${escapeHtml(hargaFinalValue)}"
+                                            placeholder="Rp 0"
+                                            inputmode="numeric"
+                                            autocomplete="off"
+                                            class="w-full rounded-xl border-gray-200 focus:border-red-500 focus:ring-red-500 text-sm font-semibold"
+                                        >
+                                        ${hargaFinalError
+                                            ? `<p class="mt-2 text-sm font-semibold text-red-600">${escapeHtml(hargaFinalError)}</p>`
+                                            : ''
+                                        }
+                                    </div>
+                                    <div>
+                                        <label for="purchase-price-admin-note" class="block text-sm font-bold text-gray-700 mb-2">Catatan Admin</label>
+                                        <textarea
+                                            id="purchase-price-admin-note"
+                                            name="catatan_admin"
+                                            rows="3"
+                                            class="w-full rounded-xl border-gray-200 focus:border-red-500 focus:ring-red-500 text-sm"
+                                            placeholder="Opsional. Tambahkan alasan singkat jika diperlukan."
+                                        >${escapeHtml(catatanAdminValue)}</textarea>
+                                        ${catatanAdminError
+                                            ? `<p class="mt-2 text-sm font-semibold text-red-600">${escapeHtml(catatanAdminError)}</p>`
+                                            : ''
+                                        }
+                                    </div>
+                                    <div class="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-xs font-semibold text-gray-600">
+                                        <div class="flex items-center justify-between gap-3">
+                                            <span>Total pesanan saat ini</span>
+                                            <span class="font-black text-gray-900">Rp ${escapeHtml(purchase.normal_total || data.total || '0')}</span>
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                        <button
+                                            type="submit"
+                                            class="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-700 shadow-lg shadow-emerald-600/20"
+                                        >
+                                            ACC
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            formaction="${escapeHtml(purchase.reject_url || '#')}"
+                                            formnovalidate
+                                            class="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-black text-white transition hover:bg-red-700 shadow-lg shadow-red-600/20"
+                                        >
+                                            Tolak
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                const statusSummaryHtml = purchase.is_approved
+                    ? `
+                        <div class="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-800">
+                            <p>Total akhir pesanan ini memakai harga final admin. Promo otomatis tetap menjadi pembanding informasi dan tidak dipotong lagi dari harga final.</p>
+                        </div>
+                        <div class="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 space-y-2">
+                            <div class="flex items-center justify-between text-xs font-semibold text-gray-600">
+                                <span>Total pembanding sistem</span>
+                                <span class="font-black text-gray-900">Rp ${escapeHtml(purchase.normal_total || data.total || '0')}</span>
+                            </div>
+                            <div class="flex items-center justify-between text-xs font-semibold text-emerald-700">
+                                <span>Total akhir yang dipakai</span>
+                                <span class="font-black">Rp ${escapeHtml(purchase.current_total || data.total || '0')}</span>
+                            </div>
+                        </div>
+                    `
+                    : `
+                        <div class="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700">
+                            Pengajuan harga tidak digunakan. Pesanan tetap mengikuti harga normal atau promo otomatis sesuai alur lama.
+                        </div>
+                    `;
+
+                return `
+                    <div class="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Riwayat Persetujuan</p>
+                                <h4 class="mt-1 text-base font-black text-gray-900">Pengajuan Harga Pembelian</h4>
+                            </div>
+                            ${badgeHtml}
+                        </div>
+                        <div class="mt-4 space-y-4">
+                            <div class="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+                                <div class="flex items-center justify-between gap-3 text-sm font-semibold text-gray-700">
+                                    <span>Harga Pengajuan Pelanggan</span>
+                                    <span class="font-black text-gray-900">${purchase.requested_price ? `Rp ${escapeHtml(purchase.requested_price)}` : '-'}</span>
+                                </div>
+                                <div class="mt-3 flex items-center justify-between gap-3 text-sm font-semibold text-gray-700">
+                                    <span>Harga Final Admin</span>
+                                    <span class="font-black ${purchase.is_approved ? 'text-emerald-700' : 'text-gray-900'}">${purchase.final_price ? `Rp ${escapeHtml(purchase.final_price)}` : '-'}</span>
+                                </div>
+                            </div>
+                            ${customerNoteHtml}
+                            ${adminNoteHtml}
+                            ${statusSummaryHtml}
+                        </div>
+                    </div>
+                `;
+            }
 
             function openPesananDetailModal(id) {
-                const data = pesananDetailData.find((item) => item.id === id);
+                const data = (window.pesananDetailData || []).find((item) => item.id === id);
                 if (!data) return;
 
                 document.getElementById('pesanan-detail-subtitle').textContent = data.label + ' - ' + data.tanggal;
+                const purchasePriceHtml = buildPurchasePriceCardHtml(data);
+                const shouldHidePaymentBadge = data.hide_payment_badge === true;
 
                 const paidBadge = data.is_paid
                     ? '<span class="inline-flex px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-black uppercase">LUNAS</span>'
                     : '<span class="inline-flex px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-[10px] font-black uppercase">BELUM BAYAR</span>';
+                const paymentStatusHtml = shouldHidePaymentBadge
+                    ? ''
+                    : `
+                        <div>
+                            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Status Bayar</p>
+                            <div class="mt-1">${paidBadge}</div>
+                        </div>
+                    `;
 
                 const itemsHtml = data.items.map((item) => `
-                    <div class="rounded-xl border border-gray-200 bg-white px-4 py-3">
+                    <div class="rounded-xl border border-gray-200 bg-white px-4 py-3 sm:flex sm:items-start sm:justify-between sm:gap-4">
                         <div>
-                            <p class="font-bold text-gray-900 text-sm">${item.nama}</p>
-                            <p class="mt-1 text-xs font-semibold text-gray-500">${item.jenis} - ${item.kapasitas} - ${item.merek}</p>
+                            <p class="font-bold text-gray-900 text-sm">${escapeHtml(item.nama)}</p>
+                            <p class="mt-1 text-xs font-semibold text-gray-500">${escapeHtml(item.jenis)} - ${escapeHtml(item.kapasitas)} - ${escapeHtml(item.merek)}</p>
                         </div>
-                        <div class="text-right">
-                            <p class="text-xs font-semibold text-gray-500">${item.jumlah} unit</p>
-                            <p class="mt-1 font-black text-gray-900 text-sm">Rp ${item.subtotal}</p>
+                        <div class="mt-3 text-left sm:mt-0 sm:text-right">
+                            <p class="text-xs font-semibold text-gray-500">${escapeHtml(item.jumlah)} unit</p>
+                            <p class="mt-1 font-black text-gray-900 text-sm">Rp ${escapeHtml(item.subtotal)}</p>
                         </div>
                     </div>
                 `).join('');
@@ -728,45 +750,42 @@
                     <div class="bg-gray-50 rounded-xl p-4 grid grid-cols-2 gap-3 text-sm">
                         <div>
                             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Pelanggan</p>
-                            <p class="font-bold text-gray-900">${data.pelanggan}</p>
+                            <p class="font-bold text-gray-900">${escapeHtml(data.pelanggan)}</p>
                         </div>
                         <div>
                             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Nomor Telepon</p>
-                            <p class="font-bold text-gray-900">${data.no_wa}</p>
+                            <p class="font-bold text-gray-900">${escapeHtml(data.no_wa)}</p>
                         </div>
                         <div class="col-span-2">
                             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Alamat</p>
-                            <p class="font-semibold text-gray-700 text-sm">${data.alamat}</p>
+                            <p class="font-semibold text-gray-700 text-sm">${escapeHtml(data.alamat)}</p>
                         </div>
                     </div>
                     <div class="bg-gray-50 rounded-xl p-4 grid grid-cols-2 gap-3 text-sm">
                         <div>
                             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Sumber</p>
-                            <p class="font-black text-slate-900">${data.sumber}</p>
+                            <p class="font-black text-slate-900">${escapeHtml(data.sumber)}</p>
                         </div>
-                        <div>
-                            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Status Bayar</p>
-                            <div class="mt-1">${paidBadge}</div>
-                        </div>
+                        ${paymentStatusHtml}
                         <div>
                             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Metode Pengiriman</p>
-                            <p class="font-semibold text-gray-900">${data.metode}</p>
+                            <p class="font-semibold text-gray-900">${escapeHtml(data.metode)}</p>
                         </div>
                         <div>
                             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Bank Tujuan</p>
-                            <p class="font-semibold text-gray-900">${data.bank}</p>
+                            <p class="font-semibold text-gray-900">${escapeHtml(data.bank)}</p>
                         </div>
                         <div>
                             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Status Pesanan</p>
-                            <p class="font-semibold text-gray-900">${data.status_label}</p>
+                            <p class="font-semibold text-gray-900">${escapeHtml(data.status_label)}</p>
                         </div>
                         <div>
                             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Unit</p>
-                            <p class="font-bold text-gray-900">${data.total_unit} unit</p>
+                            <p class="font-bold text-gray-900">${escapeHtml(data.total_unit)} unit</p>
                         </div>
                         <div>
                             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Teknisi</p>
-                            <p class="font-semibold text-gray-900">${data.teknisi || 'Belum ditugaskan'}</p>
+                            <p class="font-semibold text-gray-900">${escapeHtml(data.teknisi || 'Belum ditugaskan')}</p>
                         </div>
                     </div>
                     <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
@@ -796,6 +815,7 @@
                             </div>
                         </div>
                     </div>
+                    ${purchasePriceHtml}
                     <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
                         <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Bukti Pembayaran</p>
                         ${buktiHtml}
@@ -805,11 +825,13 @@
                     </div>
                 `;
 
+                attachPurchasePriceInputMask();
                 document.getElementById('pesanan-detail-modal').classList.remove('hidden');
             }
 
             function closePesananDetailModal() {
                 document.getElementById('pesanan-detail-modal').classList.add('hidden');
+                document.getElementById('pesanan-detail-content').innerHTML = '';
             }
 
             function openPesananProofModal(url, meta = {}) {
@@ -858,6 +880,41 @@
                 document.getElementById('pesanan-proof-modal').classList.add('hidden');
                 document.getElementById('pesanan-proof-body').innerHTML = '';
             }
+
+            if (Number(purchasePriceModalState.order_id || 0) > 0) {
+                window.addEventListener('load', () => {
+                    openPesananDetailModal(Number(purchasePriceModalState.order_id));
+                });
+            }
         </script>
     @endonce
+
+    @push('scripts')
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                window.createPollingUpdater({
+                    url: @js(route('admin.realtime.pesanan')),
+                    interval: 10000,
+                    onSuccess(payload) {
+                        const summary = document.getElementById('pesanan-summary-cards');
+                        const activeRows = document.getElementById('pesanan-active-rows');
+                        const historyRows = document.getElementById('pesanan-history-rows');
+
+                        if (summary && typeof payload.summary_html === 'string') {
+                            summary.innerHTML = payload.summary_html;
+                        }
+                        if (activeRows && typeof payload.active_rows_html === 'string') {
+                            activeRows.innerHTML = payload.active_rows_html;
+                        }
+                        if (historyRows && typeof payload.history_rows_html === 'string') {
+                            historyRows.innerHTML = payload.history_rows_html;
+                        }
+                        if (Array.isArray(payload.detail_data)) {
+                            window.pesananDetailData = payload.detail_data;
+                        }
+                    },
+                });
+            });
+        </script>
+    @endpush
 </x-app-layout>

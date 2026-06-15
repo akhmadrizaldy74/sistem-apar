@@ -17,10 +17,20 @@
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
         <link href="https://fonts.bunny.net/css?family=manrope:400,500,600,700,800&display=swap" rel="stylesheet" />
 
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
+        @safeVite(['resources/css/app.css', 'resources/js/app.js'])
         @stack('styles')
 
         <!-- Alpine Sidebar State Manager -->
+        <script>
+            try {
+                localStorage.removeItem('dark-mode');
+                localStorage.removeItem('theme');
+            } catch (error) {
+                // Abaikan kegagalan akses storage agar layout tetap berjalan normal.
+            }
+
+            document.documentElement.classList.remove('dark');
+        </script>
         <script>
             document.addEventListener('alpine:init', () => {
                 Alpine.store('sidebar', {
@@ -41,24 +51,6 @@
                     setHovered(val) {
                         if (window.innerWidth >= 1024 && !this.isExpanded) {
                             this.isHovered = val;
-                        }
-                    }
-                });
-
-                Alpine.store('darkMode', {
-                    on: localStorage.getItem('dark-mode') === 'true',
-                    toggle() {
-                        this.on = !this.on;
-                        localStorage.setItem('dark-mode', this.on ? 'true' : 'false');
-                        if (this.on) {
-                            document.documentElement.classList.add('dark');
-                        } else {
-                            document.documentElement.classList.remove('dark');
-                        }
-                    },
-                    init() {
-                        if (this.on) {
-                            document.documentElement.classList.add('dark');
                         }
                     }
                 });
@@ -446,22 +438,6 @@
 
                     <!-- Right Side Header Content -->
                     <div class="flex shrink-0 items-center gap-2 sm:gap-3">
-
-                        <!-- Dark Mode Toggle -->
-                        <button
-                            @click="$store.darkMode.toggle()"
-                            class="flex items-center justify-center w-10 h-10 rounded-xl border transition shadow-sm"
-                            :class="$store.darkMode.on
-                                ? 'bg-slate-800 text-yellow-400 border-slate-700 hover:bg-slate-700'
-                                : 'text-slate-500 border-slate-200 hover:bg-slate-100 hover:text-slate-700'"
-                            title="Toggle Dark Mode"
-                        >
-                            <svg x-show="!$store.darkMode.on" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
-                            <svg x-show="$store.darkMode.on" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-                        </button>
-
-
-
                         <!-- User Profile Dropdown -->
                         <div class="relative" x-data="{ open: false }">
                             <button @click="open = !open" class="flex items-center gap-2 rounded-2xl border border-slate-200 p-1.5 shadow-sm transition hover:bg-slate-100 sm:gap-3">
@@ -485,6 +461,12 @@
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                                         Edit Profil
                                     </a>
+                                    @unless($isTeknisi)
+                                        <a href="{{ route('home') }}" class="flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-slate-600 hover:text-red-700 hover:bg-red-50 rounded-xl transition tracking-wide">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4" /></svg>
+                                            Lihat Landing Page
+                                        </a>
+                                    @endunless
                                     <form method="POST" action="{{ route('logout') }}">
                                         @csrf
                                         <button type="submit" class="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-slate-600 hover:text-red-700 hover:bg-red-50 rounded-xl transition tracking-wide">
@@ -666,6 +648,86 @@
             })();
             </script>
         @endauth
+
+        <script>
+            window.createPollingUpdater = function createPollingUpdater(options) {
+                if (!options || !options.url || typeof options.onSuccess !== 'function') {
+                    return { stop() {}, tick() {} };
+                }
+
+                const interval = Math.max(3000, Number(options.interval || 10000));
+                const headers = Object.assign({
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                }, options.headers || {});
+
+                let timerId = null;
+                let inFlight = false;
+
+                const canRun = () => {
+                    if (document.hidden) {
+                        return false;
+                    }
+
+                    if (typeof options.canRun === 'function') {
+                        return options.canRun() !== false;
+                    }
+
+                    return true;
+                };
+
+                const tick = async () => {
+                    if (inFlight || !canRun()) {
+                        return;
+                    }
+
+                    inFlight = true;
+
+                    try {
+                        const response = await fetch(options.url, {
+                            method: options.method || 'GET',
+                            credentials: 'same-origin',
+                            headers,
+                        });
+
+                        if (!response.ok) {
+                            return;
+                        }
+
+                        const payload = await response.json();
+                        if (payload && payload.success !== false) {
+                            options.onSuccess(payload);
+                        }
+                    } catch (error) {
+                        // Abaikan error polling dan coba lagi di interval berikutnya.
+                    } finally {
+                        inFlight = false;
+                    }
+                };
+
+                timerId = window.setInterval(tick, interval);
+
+                document.addEventListener('visibilitychange', () => {
+                    if (!document.hidden) {
+                        tick();
+                    }
+                });
+
+                if (options.immediate !== false) {
+                    window.setTimeout(tick, 600);
+                }
+
+                return {
+                    stop() {
+                        if (timerId) {
+                            window.clearInterval(timerId);
+                            timerId = null;
+                        }
+                    },
+                    tick,
+                };
+            };
+        </script>
 
         @stack('scripts')
     </body>

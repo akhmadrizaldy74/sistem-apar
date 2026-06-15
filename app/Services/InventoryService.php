@@ -7,24 +7,26 @@ use App\Models\Pengeluaran;
 use App\Models\Peralatan;
 use App\Models\Produk;
 use App\Models\StockMovement;
+use App\Models\UnitApar;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use RuntimeException;
 
 class InventoryService
 {
-    public function applyPurchaseExpense(Pengeluaran $pengeluaran): void
+    public function applyPurchaseExpense(Pengeluaran $pengeluaran, Carbon|string|null $batchProductionDate = null): void
     {
         if ($pengeluaran->jenis_pengeluaran === Pengeluaran::JENIS_PEMBELIAN_APAR) {
             $produk = Produk::findOrFail($pengeluaran->produk_id);
             $tanggalMasuk = $this->resolveMovementDate($pengeluaran->tanggal);
+            $tanggalProduksi = $this->resolveMovementDate($batchProductionDate ?: $pengeluaran->tanggal);
             $qty = (int) round((float) $pengeluaran->qty);
 
             $produk->stokBatches()->create([
                 'jumlah_masuk' => $qty,
                 'sisa_qty' => $qty,
-                'tgl_produksi' => $tanggalMasuk->toDateString(),
-                'tgl_expired' => $this->resolveAparExpiredDate($produk, $tanggalMasuk)->toDateString(),
+                'tgl_produksi' => $tanggalProduksi->toDateString(),
+                'tgl_expired' => $this->resolveAparExpiredDate($produk, $tanggalProduksi)->toDateString(),
                 'keterangan' => $pengeluaran->keterangan,
             ]);
 
@@ -245,11 +247,10 @@ class InventoryService
 
     protected function resolveAparExpiredDate(Produk $produk, Carbon $tanggalMasuk): Carbon
     {
-        $baseDate = $tanggalMasuk->copy();
-        $ukuranAngka = (float) filter_var((string) $produk->kapasitas, FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
-
-        return $ukuranAngka === 1.0
-            ? $baseDate->addMonths(6)
-            : $baseDate->addYear();
+        return Carbon::parse(UnitApar::calculateExpiry(
+            $tanggalMasuk->toDateString(),
+            $produk->kapasitas ?? '-',
+            $produk->jenisApar?->nama ?? '-',
+        )->toDateString());
     }
 }

@@ -17,31 +17,13 @@
     <div class="space-y-4">
 
         {{-- A. KPI Cards - Compact Grid --}}
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-            <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                <p class="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Produk</p>
-                <p class="text-lg font-black text-slate-900">{{ number_format($kpis['totalProduk']) }}</p>
-            </div>
-            <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                <p class="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Pelanggan</p>
-                <p class="text-lg font-black text-slate-900">{{ number_format($kpis['totalPelanggan']) }}</p>
-            </div>
-            <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                <p class="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Unit APAR</p>
-                <p class="text-lg font-black text-slate-900">{{ number_format($kpis['totalUnitApar']) }}</p>
-            </div>
-            <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-3 shadow-sm">
-                <p class="text-[9px] font-bold uppercase tracking-wider text-emerald-600 mb-1">Pendapatan Bulan Ini</p>
-                <p class="text-base font-black text-emerald-700">{{ $formatRupiah($kpis['pendapatanBulanIni']) }}</p>
-            </div>
-            <div class="rounded-xl border border-red-200 bg-red-50 p-3 shadow-sm">
-                <p class="text-[9px] font-bold uppercase tracking-wider text-red-400 mb-1">Prioritas</p>
-                <p class="text-lg font-black text-red-600">{{ number_format($monitoringPrioritas) }}</p>
-            </div>
-            <div class="rounded-xl border border-blue-200 bg-blue-50 p-3 shadow-sm">
-                <p class="text-[9px] font-bold uppercase tracking-wider text-blue-500 mb-1">Pengunjung Hari Ini</p>
-                <p class="text-lg font-black text-blue-600">{{ number_format($visitorStats['hariIni']) }}</p>
-            </div>
+        <div id="dashboard-kpi-grid">
+            @include('dashboard.partials.kpi-cards', [
+                'kpis' => $kpis,
+                'notifications' => $notifications,
+                'visitorStats' => $visitorStats,
+                'monitoringPrioritas' => $monitoringPrioritas,
+            ])
         </div>
 
         {{-- B. Analitik Ringkas - Chart (2 Charts Only) --}}
@@ -117,62 +99,13 @@
         </div>
 
         {{-- D. Tindak Lanjut Prioritas --}}
-        @if($notifications['urgentOrdersCount'] > 0 || $kpis['unitExpired'] > 0 || $kpis['unitAkanExpired'] > 0)
-        <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-            <div class="border-b border-gray-100 px-4 py-3 bg-gray-50/50">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h3 class="font-bold text-gray-900 text-sm">Butuh Tindak Lanjut</h3>
-                    </div>
-                    <span class="px-3 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-full">{{ $monitoringPrioritas }}</span>
-                </div>
-            </div>
-            <div class="divide-y divide-gray-50">
-                @if($notifications['urgentOrdersCount'] > 0)
-                <a href="{{ route('admin.pesanan.index') }}" class="flex items-center justify-between px-4 py-3 hover:bg-gray-50/30 transition">
-                    <div class="flex items-center gap-3">
-                        <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
-                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                        </span>
-                        <div>
-                            <p class="text-sm font-semibold text-gray-900">Pesanan Perlu Diproses</p>
-                            <p class="text-[10px] text-gray-500">{{ $notifications['urgentOrdersCount'] }} pesanan menunggu tindak lanjut</p>
-                        </div>
-                    </div>
-                    <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                </a>
-                @endif
-                @if($kpis['unitExpired'] > 0)
-                <a href="{{ route('admin.unit-apar.index') }}" class="flex items-center justify-between px-4 py-3 hover:bg-gray-50/30 transition">
-                    <div class="flex items-center gap-3">
-                        <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-red-100 text-red-600">
-                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                        </span>
-                        <div>
-                            <p class="text-sm font-semibold text-gray-900">Unit Sudah Expired</p>
-                            <p class="text-[10px] text-gray-500">{{ $kpis['unitExpired'] }} unit perlu penanganan segera</p>
-                        </div>
-                    </div>
-                    <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                </a>
-                @endif
-                @if($kpis['unitAkanExpired'] > 0)
-                <a href="{{ route('admin.unit-apar.index') }}" class="flex items-center justify-between px-4 py-3 hover:bg-gray-50/30 transition">
-                    <div class="flex items-center gap-3">
-                        <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
-                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        </span>
-                        <div>
-                            <p class="text-sm font-semibold text-gray-900">Unit Akan Expired</p>
-                            <p class="text-[10px] text-gray-500">{{ $kpis['unitAkanExpired'] }} unit perlu di-schedule refill</p>
-                        </div>
-                    </div>
-                    <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                </a>
-                @endif
-            </div>
+        <div id="dashboard-priority-panel">
+            @include('dashboard.partials.priority-panel', [
+                'kpis' => $kpis,
+                'notifications' => $notifications,
+                'monitoringPrioritas' => $monitoringPrioritas,
+            ])
         </div>
-        @endif
 
     </div>
 
@@ -396,6 +329,23 @@
                     totalFormatter: (s) => numberId(s.reduce((a, b) => a + Number(b || 0), 0)),
                     valueFormatter: (v) => numberId(v)
                 })).render();
+
+                window.createPollingUpdater({
+                    url: @js(route('admin.realtime.dashboard')),
+                    interval: 10000,
+                    onSuccess(payload) {
+                        const kpiGrid = document.getElementById('dashboard-kpi-grid');
+                        const priorityPanel = document.getElementById('dashboard-priority-panel');
+
+                        if (kpiGrid && typeof payload.kpi_html === 'string') {
+                            kpiGrid.innerHTML = payload.kpi_html;
+                        }
+
+                        if (priorityPanel && typeof payload.priority_html === 'string') {
+                            priorityPanel.innerHTML = payload.priority_html;
+                        }
+                    },
+                });
             });
         </script>
     @endpush

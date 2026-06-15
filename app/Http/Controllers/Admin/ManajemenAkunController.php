@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Pelanggan;
 use App\Models\User;
+use App\Services\PelangganSyncService;
 use App\Support\PhoneNumber;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -51,7 +52,7 @@ class ManajemenAkunController extends Controller
         ));
     }
 
-    public function store(Request $request)
+    public function store(Request $request, PelangganSyncService $pelangganSyncService)
     {
         $normalizedPhone = PhoneNumber::normalize((string) $request->input('no_telpon'));
 
@@ -68,8 +69,8 @@ class ManajemenAkunController extends Controller
             'role' => 'required|in:admin,teknisi,pelanggan',
         ];
 
-        // Alamat wajib untuk pelanggan
         if ($request->role === 'pelanggan') {
+            $rules['no_telpon'] = 'required|string|max:20';
             $rules['alamat'] = 'nullable|string|max:1000';
         }
 
@@ -93,26 +94,22 @@ class ManajemenAkunController extends Controller
             'role' => $validated['role'],
         ]);
 
-        // If pelanggan, create/link pelanggan record
-        if ($validated['role'] === 'pelanggan' && $noTelpon) {
-            $pelanggan = $this->resolvePelangganForUser($user, $noTelpon);
-            $pelanggan->fill([
-                'user_id' => $user->id,
-                'nama' => $validated['name'],
-                'no_wa' => $noTelpon,
-                'alamat' => $request->input('alamat', '-'),
+        if ($validated['role'] === 'pelanggan') {
+            $pelangganSyncService->syncFromCustomerUser($user, [
+                'alamat' => trim((string) $request->input('alamat')) ?: null,
                 'status' => 'tetap',
-                'sumber_data' => $pelanggan->sumber_data ?: 'manual',
-                'kategori_pelanggan' => $pelanggan->kategori_pelanggan ?: 'baru_manual',
+                'sumber_data' => 'manual',
+                'kategori_pelanggan' => 'baru_manual',
             ]);
-            $pelanggan->save();
         }
 
         return redirect()->route('admin.akun.index')
-            ->with('success', 'Akun berhasil ditambahkan.');
+            ->with('success', $validated['role'] === 'pelanggan'
+                ? 'Akun pelanggan berhasil ditambahkan dan otomatis masuk ke menu Pelanggan.'
+                : 'Akun berhasil ditambahkan.');
     }
 
-    public function update(Request $request, User $user)
+    public function update(Request $request, User $user, PelangganSyncService $pelangganSyncService)
     {
         $normalizedPhone = PhoneNumber::normalize((string) $request->input('no_telpon'));
 
@@ -128,6 +125,10 @@ class ManajemenAkunController extends Controller
             'password' => 'nullable|string|min:6|confirmed',
             'role' => 'required|in:admin,teknisi,pelanggan',
         ];
+
+        if ($request->role === 'pelanggan') {
+            $rules['no_telpon'] = 'required|string|max:20';
+        }
 
         $validated = $request->validate($rules, [
             'password.confirmed' => 'Konfirmasi password tidak cocok.',
@@ -169,35 +170,22 @@ class ManajemenAkunController extends Controller
         }
 
         $user->update($updateData);
+        $user->refresh();
 
-        // If role changed to pelanggan, ensure pelanggan record exists
-        if ($validated['role'] === 'pelanggan' && $noTelpon) {
-            $pelanggan = $this->resolvePelangganForUser($user->fresh(), $noTelpon);
-            $pelanggan->fill([
-                'user_id' => $user->id,
-                'nama' => $validated['name'],
-                'no_wa' => $noTelpon,
-                'status' => $pelanggan->status ?: 'tetap',
-                'sumber_data' => $pelanggan->sumber_data ?: 'manual',
+        if ($validated['role'] === 'pelanggan') {
+            $pelangganSyncService->syncFromCustomerUser($user, [
+                'status' => 'tetap',
+                'sumber_data' => 'manual',
             ]);
-            $pelanggan->save();
-        }
-
-        // If pelanggan has linked data, update nama there too
-        $user->load('pelanggan');
-
-        if ($user->pelanggan) {
-            $user->pelanggan->update([
-                'nama' => $validated['name'],
-                'no_wa' => $noTelpon ?: $user->pelanggan->no_wa,
-            ]);
+        } else {
+            $pelangganSyncService->detachUser($user);
         }
 
         return redirect()->route('admin.akun.index')
             ->with('success', 'Akun berhasil diperbarui.');
     }
 
-    public function destroy(Request $request, User $user)
+    public function destroy(Request $request, User $user, PelangganSyncService $pelangganSyncService)
     {
         // Cannot delete self
         if ((int) $user->id === (int) auth()->id()) {
@@ -212,20 +200,16 @@ class ManajemenAkunController extends Controller
             }
         }
 
-        // Check transactions for pelanggan
-        if ($user->role === 'pelanggan' && $this->pelangganHasTransactions($user)) {
-            return back()->with('error', 'Akun tidak dapat dihapus karena memiliki data transaksi.');
-        }
+        $wasCustomer = $user->role === 'pelanggan' || ! is_null($user->pelanggan);
 
-        // If pelanggan, delete pelanggan record too (only if no transactions)
-        if ($user->pelanggan) {
-            $user->pelanggan->delete();
-        }
+        $pelangganSyncService->detachUser($user);
 
         $user->delete();
 
         return redirect()->route('admin.akun.index')
-            ->with('success', 'Akun berhasil dihapus.');
+            ->with('success', $wasCustomer
+                ? 'Akun berhasil dihapus. Data pelanggan dan riwayat transaksi tetap disimpan.'
+                : 'Akun berhasil dihapus.');
     }
 
     /**
@@ -259,34 +243,6 @@ class ManajemenAkunController extends Controller
         }
 
         return false;
-    }
-
-    /**
-     * Reuse pelanggan data by phone when it is not yet linked to an account.
-     */
-    private function resolvePelangganForUser(User $user, ?string $phone): Pelanggan
-    {
-        $user->loadMissing('pelanggan');
-
-        if ($user->pelanggan) {
-            return $user->pelanggan;
-        }
-
-        if ($phone) {
-            $pelanggan = Pelanggan::query()
-                ->where('no_wa', $phone)
-                ->where(function ($query) use ($user) {
-                    $query->whereNull('user_id')
-                        ->orWhere('user_id', $user->id);
-                })
-                ->first();
-
-            if ($pelanggan) {
-                return $pelanggan;
-            }
-        }
-
-        return new Pelanggan;
     }
 
     private function phoneConflictMessage(?string $phone, ?User $ignoreUser = null): ?string

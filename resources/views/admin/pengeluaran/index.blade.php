@@ -278,6 +278,11 @@
                                             <label for="harga_beli_display" class="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-400">Harga Modal per Unit</label>
                                             <input id="harga_beli_display" name="harga_beli_display" type="text" inputmode="numeric" :value="formattedHargaBeliInput" @input="setHargaBeliInput($event.target.value)" :disabled="jenisPengeluaran !== '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}'" class="w-full rounded-xl border-none bg-white px-4 py-3 text-sm font-bold text-gray-900 transition focus:ring-2 focus:ring-red-600/20" placeholder="Rp 0">
                                         </div>
+                                        <div class="lg:col-span-2">
+                                            <label for="tgl_produksi_apar" class="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-400">Tanggal Produksi APAR</label>
+                                            <input id="tgl_produksi_apar" name="tgl_produksi_apar" type="date" value="{{ old('tgl_produksi_apar', old('tanggal', now()->format('Y-m-d'))) }}" :disabled="jenisPengeluaran !== '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}'" class="w-full rounded-xl border-none bg-white px-4 py-3 text-sm font-bold text-gray-900 transition focus:ring-2 focus:ring-red-600/20">
+                                            <p class="mt-2 text-[11px] font-semibold text-gray-500">Tanggal ini dipakai sistem untuk menghitung masa berlaku batch APAR dan unit pelanggan yang terjual dari batch tersebut.</p>
+                                        </div>
                                     </div>
 
                                     <div class="rounded-xl border border-gray-200 bg-white px-4 py-3">

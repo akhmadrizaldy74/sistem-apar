@@ -5,6 +5,7 @@
         @php
             $isProduct = $task->isProductOrder();
             $jobCategory = $isProduct ? 'Pesanan Produk' : 'Service / Refill';
+            $statusLabel = $task->publicStatusLabel();
         @endphp
 
         <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/40">
@@ -16,8 +17,8 @@
                             <h3 class="mt-1 text-lg font-black text-slate-900">{{ $task->displayTransactionDateTime('d M Y, H:i') }}</h3>
                         </div>
 
-                        <span class="inline-flex w-fit rounded-full border border-emerald-200 bg-emerald-100 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-emerald-800">
-                            Selesai Final
+                        <span class="inline-flex w-fit rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-widest {{ $task->publicStatusClasses() }}">
+                            {{ $statusLabel }}
                         </span>
                     </div>
 
@@ -56,7 +57,7 @@
                     <div class="grid gap-4 md:grid-cols-2">
                         <div class="rounded-2xl bg-slate-50 p-4">
                             <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Status Pekerjaan</p>
-                            <p class="mt-1 text-sm font-bold text-slate-900">Selesai Final</p>
+                            <p class="mt-1 text-sm font-bold text-slate-900">{{ $statusLabel }}</p>
                         </div>
 
                         <div class="rounded-2xl bg-slate-50 p-4">

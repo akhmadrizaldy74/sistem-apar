@@ -62,7 +62,7 @@
                         </div>
 
                         <div>
-                            <label for="tgl_beli" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Tanggal Beli (Opsional)</label>
+                            <label for="tgl_beli" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Tanggal Beli</label>
                             <input type="date" name="tgl_beli" id="tgl_beli" value="{{ old('tgl_beli', date('Y-m-d')) }}" required
                                 class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 transition">
                             <p class="mt-2 text-[10px] text-gray-400 font-bold uppercase tracking-wider italic">* Hanya digunakan sebagai catatan informasi transaksi.</p>

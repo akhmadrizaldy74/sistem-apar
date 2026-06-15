@@ -26,6 +26,13 @@
     </style>
 </head>
 <body>
+    @php
+        $hidePaymentBadge = $pesanan->shouldHidePaymentStatusBadge();
+        $customerName = $pesanan->pelanggan?->nama ?: $pesanan->nama_penerima ?: '-';
+        $customerCompany = $pesanan->pelanggan?->perusahaan;
+        $customerPhone = $pesanan->pelanggan?->no_wa ?: $pesanan->nomor_wa_penerima ?: '-';
+        $customerAddress = $pesanan->alamat_pengiriman ?: $pesanan->pelanggan?->alamat ?: '-';
+    @endphp
     <!-- Top Brand & Invoice Metadata Header -->
     <div class="row" style="border-b: 2px solid #dc2626; padding-bottom: 15px;">
         <div class="header-brand">
@@ -39,7 +46,9 @@
             <h2 style="font-size: 18px; margin: 0; color: #111827;">{{ $pesanan->invoiceTitle() }}</h2>
             <p style="font-size: 10px; color: #6b7280; margin-top: 4px;">Tanggal Transaksi: {{ $pesanan->displayTransactionDateTime() }}</p>
             <div style="margin-top: 8px;">
-                @if($isLunas)
+                @if($hidePaymentBadge)
+                    <span class="badge badge-success">SELESAI FINAL</span>
+                @elseif($isLunas)
                     <span class="badge badge-success">LUNAS / PAID</span>
                 @else
                     <span class="badge badge-warning">INVOICE SEMENTARA</span>
@@ -54,13 +63,13 @@
         <div class="col">
             <div class="box">
                 <h2>Ditagihkan Kepada:</h2>
-                <p><strong>Nama:</strong> {{ $pesanan->pelanggan->nama }}</p>
-                @if($pesanan->pelanggan->perusahaan)
-                    <p><strong>Perusahaan:</strong> {{ $pesanan->pelanggan->perusahaan }}</p>
+                <p><strong>Nama:</strong> {{ $customerName }}</p>
+                @if($customerCompany)
+                    <p><strong>Perusahaan:</strong> {{ $customerCompany }}</p>
                 @endif
-                <p><strong>No. WA:</strong> {{ $pesanan->pelanggan->no_wa }}</p>
-                @if($pesanan->alamat_pengiriman || $pesanan->pelanggan->alamat)
-                    <p><strong>Alamat:</strong> {{ $pesanan->alamat_pengiriman ?: $pesanan->pelanggan->alamat }}</p>
+                <p><strong>No. WA:</strong> {{ $customerPhone }}</p>
+                @if($customerAddress !== '-')
+                    <p><strong>Alamat:</strong> {{ $customerAddress }}</p>
                 @endif
             </div>
         </div>
@@ -69,7 +78,9 @@
                 <h2>Rincian Transaksi:</h2>
                 <p><strong>Metode Pemesanan:</strong> {{ strtoupper($pesanan->trackingMethodLabel()) }}</p>
                 <p><strong>Metode Pembayaran:</strong> {{ strtoupper($pesanan->getPaymentMethodLabel()) }}</p>
-                <p><strong>Status Pembayaran:</strong> {{ $isLunas ? 'Lunas / Paid' : 'Belum Lunas' }}</p>
+                @unless($hidePaymentBadge)
+                    <p><strong>Status Pembayaran:</strong> {{ $isLunas ? 'Lunas / Paid' : 'Belum Lunas' }}</p>
+                @endunless
                 <p><strong>Status Transaksi:</strong> {{ strtoupper($pesanan->publicStatusLabel()) }}</p>
             </div>
         </div>
@@ -117,7 +128,7 @@
                 <tr>
                     <td>
                         <strong>Refill / Pengisian Ulang APAR</strong><br>
-                        <span style="font-size: 9px; color: #6b7280;">Bahan Refill: {{ $pesanan->serviceJenisRefill?->nama ?? $pesanan->service_jenis_apar ?? 'Dry Chemical Powder' }}</span>
+                        <span style="font-size: 9px; color: #6b7280;">Bahan Refill: {{ $pesanan->serviceJenisRefill?->nama_label ?? $pesanan->service_jenis_apar ?? 'Dry Chemical Powder' }}</span>
                     </td>
                     <td class="text-center">
                         {{ $pesanan->service_jenis_apar ?: '-' }} ({{ $pesanan->service_ukuran_apar ?: '-' }})

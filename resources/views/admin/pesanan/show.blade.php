@@ -16,6 +16,11 @@
         </div>
     </x-slot>
 
+    @php
+        $pricingSummary = $pesanan->pricingSummary();
+        $purchasePriceLabel = $pesanan->purchasePriceStatusLabel();
+    @endphp
+
     <div class="space-y-8">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div class="md:col-span-2 bg-white rounded-[2.5rem] border border-gray-100 shadow-sm p-8 md:p-10">
@@ -25,7 +30,8 @@
                         <h3 class="mt-3 text-3xl font-black text-gray-900">{{ $pesanan->invoiceTitle() }}</h3>
                         <p class="mt-3 text-sm font-medium text-gray-500">Tanggal Transaksi: {{ $pesanan->displayTransactionDateTime() }}</p>
                         <span class="inline-block mt-3 px-3 py-1 text-xs font-bold uppercase rounded-full
-                            @if(in_array($pesanan->status, ['selesai final', 'selesai', 'selesai oleh teknisi', 'dikonfirmasi admin'])) bg-emerald-100 text-emerald-700
+                            @if($pesanan->hasPendingPurchasePriceRequest()) bg-amber-100 text-amber-700
+                            @elseif(in_array($pesanan->status, ['selesai final', 'selesai', 'selesai oleh teknisi', 'dikonfirmasi admin'])) bg-emerald-100 text-emerald-700
                             @elseif($pesanan->status == 'ditolak') bg-red-100 text-red-700
                             @elseif($pesanan->status == 'diproses') bg-sky-100 text-sky-700
                             @elseif(in_array($pesanan->status, ['ditugaskan ke teknisi', 'dikerjakan teknisi'])) bg-purple-100 text-purple-700
@@ -33,6 +39,11 @@
                             @endif">
                             {{ $pesanan->publicStatusLabel() }}
                         </span>
+                        @if($purchasePriceLabel)
+                            <span class="inline-block mt-3 ml-2 px-3 py-1 text-xs font-bold rounded-full {{ $pesanan->purchasePriceStatusClasses() }}">
+                                {{ $purchasePriceLabel }}
+                            </span>
+                        @endif
                         <p class="mt-4 text-[10px] font-medium text-gray-300">Nomor referensi internal: {{ $pesanan->invoiceDisplayNumber() }}</p>
                     </div>
                     <div class="text-left md:text-right">
@@ -128,9 +139,6 @@
 
                 <div class="mt-8 flex justify-end">
                     <div class="w-full md:w-[360px] rounded-[2rem] bg-gray-50 border border-gray-100 p-6 space-y-4">
-                        @php
-                            $pricingSummary = $pesanan->pricingSummary();
-                        @endphp
                         <div class="flex items-center justify-between text-sm font-semibold text-gray-600">
                             <span>Subtotal Sistem</span>
                             @if($pesanan->tipe === 'produk')
@@ -152,6 +160,13 @@
                             <span>Rp {{ number_format((float) $pricingSummary['ongkir'], 0, ',', '.') }}</span>
                         </div>
 
+                        @if(!empty($pricingSummary['specialPriceActive']))
+                        <div class="flex items-center justify-between text-sm font-semibold text-emerald-700 bg-emerald-50 p-2 rounded-lg mt-2">
+                            <span>Harga Final</span>
+                            <span>Rp {{ number_format((float) $pricingSummary['hargaFinal'], 0, ',', '.') }}</span>
+                        </div>
+                        @endif
+
                         <div class="pt-4 border-t border-gray-200 flex items-center justify-between">
                             <span class="text-sm font-black text-gray-900 uppercase tracking-widest">Total Akhir</span>
                             <span class="text-2xl font-black text-red-700">Rp {{ number_format((float) $pricingSummary['totalPembayaran'], 0, ',', '.') }}</span>
@@ -161,56 +176,137 @@
             </div>
 
             <div class="space-y-6">
-                <div class="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm p-8">
-                    <h3 class="text-lg font-black text-gray-900 tracking-tight mb-4">Proses Transaksi</h3>
-                    <form action="{{ route('admin.pesanan.update', $pesanan) }}" method="POST" class="space-y-6">
-                        @csrf
-                        @method('PUT')
-                        
-                        <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-2">Ubah Status</label>
-                            <select name="status" class="w-full rounded-xl border-gray-200 focus:border-red-500 focus:ring-red-500 text-sm">
-                                <option value="menunggu" {{ $pesanan->status == 'menunggu' ? 'selected' : '' }}>Menunggu</option>
-                                <option value="pending" {{ $pesanan->status == 'pending' ? 'selected' : '' }}>Pending</option>
-                                <option value="diproses" {{ $pesanan->status == 'diproses' ? 'selected' : '' }}>Diproses</option>
-                                <option value="ditugaskan ke teknisi" {{ $pesanan->status == 'ditugaskan ke teknisi' ? 'selected' : '' }}>Ditugaskan ke Teknisi</option>
-                                <option value="dikerjakan teknisi" {{ $pesanan->status == 'dikerjakan teknisi' ? 'selected' : '' }}>Dikerjakan Teknisi</option>
-                                <option value="selesai oleh teknisi" {{ $pesanan->status == 'selesai oleh teknisi' ? 'selected' : '' }}>Selesai Final</option>
-                                <option value="dikonfirmasi admin" {{ $pesanan->status == 'dikonfirmasi admin' ? 'selected' : '' }}>Dikonfirmasi Admin</option>
-                                <option value="selesai final" {{ $pesanan->status == 'selesai final' ? 'selected' : '' }}>Selesai Final</option>
-                                <option value="selesai" {{ $pesanan->status == 'selesai' ? 'selected' : '' }}>Selesai Final</option>
-                                <option value="ditolak" {{ $pesanan->status == 'ditolak' ? 'selected' : '' }}>Ditolak / Batal</option>
-                            </select>
+                @if($pesanan->hasPurchasePriceRequest())
+                    <div class="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm p-8">
+                        <div class="flex items-center justify-between gap-3">
+                            <h3 class="text-lg font-black text-gray-900 tracking-tight">Pengajuan Harga Pembelian</h3>
+                            <span class="inline-flex rounded-full px-3 py-1 text-[11px] font-black {{ $pesanan->purchasePriceStatusClasses() }}">
+                                {{ $purchasePriceLabel }}
+                            </span>
                         </div>
 
-                        @if(in_array($pesanan->status, ['selesai oleh teknisi', 'dikonfirmasi admin']))
-                        <div class="bg-emerald-50 p-4 rounded-2xl border border-emerald-200">
-                            <p class="text-xs font-bold text-emerald-800 mb-3">Pengerjaan selesai oleh teknisi. Klik tombol di bawah untuk menyelesaikan final.</p>
-                            <form action="{{ route('admin.pesanan.selesai-final', $pesanan) }}" method="POST" data-confirm="Selesaikan final pesanan ini?" data-confirm-title="Konfirmasi Final" data-confirm-button="Ya, Finalkan">
-                                @csrf
-                                <button type="submit" class="w-full py-3 bg-emerald-600 text-white font-black text-sm rounded-xl hover:bg-emerald-700 transition shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                    Selesaikan Final
-                                </button>
-                            </form>
+                        <div class="mt-5 space-y-4">
+                            <div class="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                                <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Harga Pengajuan Pelanggan</p>
+                                <p class="mt-2 text-xl font-black text-gray-900">Rp {{ number_format((float) ($pricingSummary['hargaPengajuan'] ?? 0), 0, ',', '.') }}</p>
+                                @if($pesanan->purchasePriceCustomerNote())
+                                    <p class="mt-3 text-xs font-semibold leading-relaxed text-gray-600">{{ $pesanan->purchasePriceCustomerNote() }}</p>
+                                @endif
+                            </div>
+
+                            @if($pesanan->hasPendingPurchasePriceRequest())
+                                <form method="POST" class="space-y-4">
+                                    @csrf
+                                    <div>
+                                        <label for="harga_final" class="block text-sm font-bold text-gray-700 mb-2">Harga Final</label>
+                                        <input
+                                            type="text"
+                                            id="harga_final"
+                                            name="harga_final"
+                                            value="{{ old('harga_final') }}"
+                                            placeholder="Rp 0"
+                                            inputmode="numeric"
+                                            class="w-full rounded-xl border-gray-200 focus:border-red-500 focus:ring-red-500 text-sm font-semibold"
+                                        >
+                                        @error('harga_final')
+                                            <p class="mt-2 text-sm font-semibold text-red-600">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                    <div>
+                                        <label for="catatan_admin" class="block text-sm font-bold text-gray-700 mb-2">Catatan Admin</label>
+                                        <textarea
+                                            id="catatan_admin"
+                                            name="catatan_admin"
+                                            rows="3"
+                                            class="w-full rounded-xl border-gray-200 focus:border-red-500 focus:ring-red-500 text-sm"
+                                            placeholder="Opsional. Tambahkan alasan singkat jika diperlukan."
+                                        >{{ old('catatan_admin') }}</textarea>
+                                    </div>
+                                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                        <button
+                                            type="submit"
+                                            formaction="{{ route('admin.pesanan.pengajuan-harga.acc', $pesanan) }}"
+                                            class="w-full py-3 bg-emerald-600 text-white font-black text-sm rounded-xl hover:bg-emerald-700 transition shadow-lg shadow-emerald-600/25"
+                                        >
+                                            ACC
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            formaction="{{ route('admin.pesanan.pengajuan-harga.tolak', $pesanan) }}"
+                                            class="w-full py-3 bg-red-600 text-white font-black text-sm rounded-xl hover:bg-red-700 transition shadow-lg shadow-red-600/25"
+                                        >
+                                            Tolak
+                                        </button>
+                                    </div>
+                                </form>
+                            @else
+                                <div class="rounded-2xl border border-gray-100 bg-gray-50 p-4 space-y-3">
+                                    @if(!empty($pricingSummary['hargaFinal']))
+                                        <div class="flex items-center justify-between text-sm font-semibold text-gray-700">
+                                            <span>Harga Final</span>
+                                            <span class="text-emerald-700">Rp {{ number_format((float) $pricingSummary['hargaFinal'], 0, ',', '.') }}</span>
+                                        </div>
+                                    @endif
+                                    @if($pesanan->catatan_admin)
+                                        <div>
+                                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Catatan Admin</p>
+                                            <p class="mt-2 text-sm font-semibold leading-relaxed text-gray-700">{{ $pesanan->catatan_admin }}</p>
+                                        </div>
+                                    @endif
+                                </div>
+                            @endif
                         </div>
-                        @endif
-
-                        {{-- Negotiation logic removed --}}
-
-                        <button type="submit" class="w-full py-4 mt-6 bg-red-700 text-white rounded-2xl text-sm font-black hover:bg-red-800 transition shadow-lg shadow-red-700/30 flex justify-center items-center gap-2">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-                            Konfirmasi & Simpan
-                        </button>
-                    </form>
-                    
-                    @if($pesanan->tipe === 'produk')
-                    <div class="mt-6 pt-6 border-t border-gray-100">
-                        <p class="text-xs text-gray-500 font-medium">Jika status diubah ke <b>Selesai</b>, sistem otomatis mengurangi Stok APAR dan meregistrasikan Data Unit APAR kepada Pelanggan ini dengan garansi masa berlaku berdasarkan tabung.</p>
                     </div>
-                    @endif
-                </div>
+                @endif
+
+                @if($showAssignAction)
+                    <div class="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm p-8">
+                        <h3 class="text-lg font-black text-gray-900 tracking-tight">Penugasan Teknisi</h3>
+                        <p class="mt-2 text-sm font-medium text-gray-500">Pesanan ini sudah siap diproses dan bisa langsung dibagikan ke teknisi sesuai alur lama.</p>
+                        <form action="{{ route('admin.pesanan.assign-teknisi', $pesanan) }}" method="POST" class="mt-5">
+                            @csrf
+                            <button type="submit" class="w-full py-3 bg-red-700 text-white font-black text-sm rounded-xl hover:bg-red-800 transition shadow-lg shadow-red-700/30">
+                                Assign Teknisi
+                            </button>
+                        </form>
+                    </div>
+                @endif
+
+                @if($showFinalizeAction)
+                    <div class="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm p-8">
+                        <h3 class="text-lg font-black text-gray-900 tracking-tight">Penyelesaian Pesanan</h3>
+                        <p class="mt-2 text-sm font-medium text-gray-500">Pengerjaan sudah selesai. Finalkan pesanan untuk menutup transaksi sesuai alur sistem.</p>
+                        <form action="{{ route('admin.pesanan.selesai-final', $pesanan) }}" method="POST" class="mt-5" data-confirm="Selesaikan final pesanan ini?" data-confirm-title="Konfirmasi Final" data-confirm-button="Ya, Finalkan">
+                            @csrf
+                            <button type="submit" class="w-full py-3 bg-emerald-600 text-white font-black text-sm rounded-xl hover:bg-emerald-700 transition shadow-lg shadow-emerald-600/25">
+                                Selesaikan Final
+                            </button>
+                        </form>
+                    </div>
+                @endif
+
+                @if(!$pesanan->hasPurchasePriceRequest() && !$showAssignAction && !$showFinalizeAction)
+                    <div class="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm p-8">
+                        <h3 class="text-lg font-black text-gray-900 tracking-tight">Status Otomatis</h3>
+                        <p class="mt-2 text-sm font-medium leading-relaxed text-gray-500">Status pesanan ini mengikuti alur sistem secara otomatis. Tidak ada pengajuan harga yang perlu ditindaklanjuti pada detail ini.</p>
+                    </div>
+                @endif
             </div>
         </div>
     </div>
+
+    <script>
+        (function () {
+            const input = document.getElementById('harga_final');
+            if (!input) return;
+
+            const formatInput = () => {
+                const digits = String(input.value || '').replace(/\D+/g, '');
+                input.value = digits ? 'Rp ' + Number(digits).toLocaleString('id-ID') : '';
+            };
+
+            input.addEventListener('input', formatInput);
+            formatInput();
+        }());
+    </script>
 </x-app-layout>

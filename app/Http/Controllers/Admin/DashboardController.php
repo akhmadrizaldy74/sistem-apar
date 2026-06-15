@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Complain;
 use App\Models\Pelanggan;
 use App\Models\Pesanan;
 use App\Models\Produk;
@@ -145,6 +146,8 @@ class DashboardController extends Controller
             'kpis' => [
                 'totalProduk' => Produk::count(),
                 'totalPelanggan' => Pelanggan::count(),
+                'totalPesanan' => Pesanan::count(),
+                'totalKomplain' => Complain::count(),
                 'totalUnitApar' => UnitApar::count(),
                 'pendapatanBulanIni' => $monthlyRevenue['total'],
                 'unitAkanExpired' => $unitStatusChart['Akan Expired'],

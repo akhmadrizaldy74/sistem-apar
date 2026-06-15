@@ -192,7 +192,7 @@ class UnitAparController extends Controller
             'no_seri' => trim((string) $noSeri) ?: null,
             'catatan_unit' => trim((string) $request->input('catatan_unit')) ?: null,
             'tgl_beli' => $this->normalizeDateInput($tglBeli),
-            'tgl_produksi' => $this->normalizeDateInput($request->input('tgl_produksi') ?: $tglBeli),
+            'tgl_produksi' => $this->normalizeDateInput($request->input('tgl_produksi')),
             'kondisi_awal' => trim((string) $kondisiAwal) ?: 'layak',
         ]);
 
@@ -201,7 +201,7 @@ class UnitAparController extends Controller
             'produk_id' => 'required|exists:produks,id',
             'no_seri' => 'nullable|string|max:255|unique:unit_apars,no_seri',
             'tgl_beli' => 'required|date',
-            'tgl_produksi' => 'nullable|date',
+            'tgl_produksi' => 'required|date|before_or_equal:tgl_beli',
             'lokasi_unit' => 'nullable|string|max:255',
             'kondisi_awal' => 'required|in:layak,perlu_servis,tidak_aktif',
             'catatan_unit' => 'nullable|string|max:1000',
@@ -212,7 +212,9 @@ class UnitAparController extends Controller
             'produk_id.exists' => 'Produk yang dipilih tidak ditemukan.',
             'tgl_beli.required' => 'Tanggal beli wajib diisi.',
             'tgl_beli.date' => 'Format tanggal beli tidak valid.',
+            'tgl_produksi.required' => 'Tanggal produksi wajib diisi.',
             'tgl_produksi.date' => 'Format tanggal produksi tidak valid.',
+            'tgl_produksi.before_or_equal' => 'Tanggal produksi tidak boleh melebihi tanggal beli.',
             'kondisi_awal.required' => 'Kondisi awal wajib dipilih.',
             'kondisi_awal.in' => 'Kondisi awal unit tidak valid.',
             'no_seri.unique' => 'Nomor unit sudah digunakan.',
@@ -231,7 +233,7 @@ class UnitAparController extends Controller
 
         $produk = Produk::with('jenisApar')->findOrFail($request->produk_id);
         $pelanggan = Pelanggan::findOrFail($request->pelanggan_id);
-        $effectiveDate = (string) ($data['tgl_produksi'] ?: $data['tgl_beli']);
+        $effectiveDate = (string) $data['tgl_produksi'];
 
         $data['ukuran'] = $produk->kapasitas ?? '-';
         $data['bahan'] = $produk->jenisApar?->nama ?? '-';
@@ -264,7 +266,7 @@ class UnitAparController extends Controller
             'no_seri' => trim((string) $noSeri) ?: null,
             'catatan_unit' => trim((string) $request->input('catatan_unit')) ?: null,
             'tgl_beli' => $this->normalizeDateInput($tglBeli),
-            'tgl_produksi' => $this->normalizeDateInput($request->input('tgl_produksi') ?: $tglBeli),
+            'tgl_produksi' => $this->normalizeDateInput($request->input('tgl_produksi')),
             'kondisi_awal' => trim((string) $kondisiAwal) ?: ($unitApar->kondisi_awal ?: 'layak'),
         ]);
 
@@ -273,7 +275,7 @@ class UnitAparController extends Controller
             'produk_id' => 'required|exists:produks,id',
             'no_seri' => 'nullable|unique:unit_apars,no_seri,' . $unitApar->id,
             'tgl_beli' => 'required|date',
-            'tgl_produksi' => 'nullable|date',
+            'tgl_produksi' => 'required|date|before_or_equal:tgl_beli',
             'lokasi_unit' => 'nullable|string|max:255',
             'kondisi_awal' => 'required|in:layak,perlu_servis,tidak_aktif',
             'catatan_unit' => 'nullable|string|max:1000',
@@ -282,7 +284,9 @@ class UnitAparController extends Controller
             'produk_id.required' => 'Produk wajib dipilih.',
             'tgl_beli.required' => 'Tanggal beli wajib diisi.',
             'tgl_beli.date' => 'Format tanggal beli tidak valid.',
+            'tgl_produksi.required' => 'Tanggal produksi wajib diisi.',
             'tgl_produksi.date' => 'Format tanggal produksi tidak valid.',
+            'tgl_produksi.before_or_equal' => 'Tanggal produksi tidak boleh melebihi tanggal beli.',
             'kondisi_awal.required' => 'Kondisi awal wajib dipilih.',
             'no_seri.unique' => 'Nomor unit sudah digunakan.',
         ]);
@@ -300,7 +304,7 @@ class UnitAparController extends Controller
 
         $produk = Produk::with('jenisApar')->findOrFail($request->produk_id);
         $pelanggan = Pelanggan::findOrFail($request->pelanggan_id);
-        $effectiveDate = (string) ($data['tgl_produksi'] ?: $data['tgl_beli'] ?: optional($unitApar->tgl_produksi ?? $unitApar->tgl_beli)->format('Y-m-d'));
+        $effectiveDate = (string) $data['tgl_produksi'];
 
         $data['ukuran'] = $produk->kapasitas ?? '-';
         $data['bahan'] = $produk->jenisApar?->nama ?? '-';

@@ -55,12 +55,12 @@ class UnitApar extends Model
         return $this->hasMany(Refill::class);
     }
 
-    public static function calculateExpiry($purchaseDate, $ukuran = null, $bahan = null)
+    public static function calculateExpiry($productionDate, $ukuran = null, $bahan = null)
     {
-        $date = Carbon::parse($purchaseDate);
+        $date = Carbon::parse($productionDate)->startOfDay();
 
         $ukuranAngka = (float) filter_var($ukuran, FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
-        $isFoam = stripos($bahan, 'Foam') !== false;
+        $isFoam = stripos((string) $bahan, 'Foam') !== false;
         $isSmall = $ukuranAngka > 0 && $ukuranAngka < 3;
 
         if ($isFoam || $isSmall) {

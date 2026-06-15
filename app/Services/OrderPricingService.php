@@ -77,8 +77,9 @@ class OrderPricingService
         $totalUnit = (int) $normalizedItems->sum('jumlah');
         $diskonPersen = $this->discountPercentForTotalUnit($totalUnit);
         $nominalDiskon = (float) round($subtotalProduk * ($diskonPersen / 100), 0);
+        $totalSetelahPromo = max(0, (float) round($subtotalProduk - $nominalDiskon, 0));
         $ongkirValue = max(0, (float) $ongkir);
-        $totalPembayaran = max(0, (float) round($subtotalProduk - $nominalDiskon + $ongkirValue, 0));
+        $totalPembayaran = max(0, (float) round($totalSetelahPromo + $ongkirValue, 0));
         $nextTier = $this->nextDiscountTier($totalUnit);
 
         return [
@@ -87,6 +88,7 @@ class OrderPricingService
             'totalUnit' => $totalUnit,
             'diskonPersen' => $diskonPersen,
             'nominalDiskon' => $nominalDiskon,
+            'totalSetelahPromo' => $totalSetelahPromo,
             'ongkir' => $ongkirValue,
             'totalPembayaran' => $totalPembayaran,
             'hasItems' => $normalizedItems->isNotEmpty(),
@@ -103,7 +105,26 @@ class OrderPricingService
                 ? $pesanan->details
                 : $pesanan->details()->get(['produk_id', 'jumlah', 'harga', 'subtotal']);
 
-            return $this->summarizeProductItems($details, (float) ($pesanan->ongkir ?? 0));
+            $summary = $this->summarizeProductItems($details, (float) ($pesanan->ongkir ?? 0));
+            $specialPriceStatus = $pesanan->purchasePriceRequestStatus();
+            $hargaPengajuan = $pesanan->requestedPurchasePrice();
+            $hargaFinal = $pesanan->approvedPurchaseFinalPrice();
+            $normalTotalProduk = (float) ($summary['totalSetelahPromo'] ?? 0);
+            $normalTotalPembayaran = (float) ($summary['totalPembayaran'] ?? 0);
+
+            if ($specialPriceStatus === Pesanan::PRICE_REQUEST_APPROVED && !is_null($hargaFinal)) {
+                $summary['totalPembayaran'] = max(0, (float) round($hargaFinal + (float) ($summary['ongkir'] ?? 0), 0));
+            }
+
+            $summary['normalTotalProduk'] = $normalTotalProduk;
+            $summary['normalTotalPembayaran'] = $normalTotalPembayaran;
+            $summary['hargaPengajuan'] = $hargaPengajuan;
+            $summary['hargaFinal'] = $hargaFinal;
+            $summary['specialPriceStatus'] = $specialPriceStatus;
+            $summary['specialPriceActive'] = $specialPriceStatus === Pesanan::PRICE_REQUEST_APPROVED;
+            $summary['specialPriceLabel'] = $pesanan->purchasePriceStatusLabel();
+
+            return $summary;
         }
 
         $subtotalProduk = (float) ($pesanan->service_estimasi_biaya ?: $pesanan->total_harga ?: $pesanan->total ?: 0);
@@ -116,12 +137,20 @@ class OrderPricingService
             'totalUnit' => max(0, (int) ($pesanan->service_jumlah_unit ?? 0)),
             'diskonPersen' => 0,
             'nominalDiskon' => 0.0,
+            'totalSetelahPromo' => $subtotalProduk,
             'ongkir' => $ongkir,
             'totalPembayaran' => $totalPembayaran,
             'hasItems' => $subtotalProduk > 0,
             'nextDiscountTier' => null,
             'nextDiscountPercent' => null,
             'nextDiscountUnitsNeeded' => null,
+            'normalTotalProduk' => $subtotalProduk,
+            'normalTotalPembayaran' => $totalPembayaran,
+            'hargaPengajuan' => null,
+            'hargaFinal' => null,
+            'specialPriceStatus' => null,
+            'specialPriceActive' => false,
+            'specialPriceLabel' => null,
         ];
     }
 }

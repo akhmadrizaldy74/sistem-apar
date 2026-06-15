@@ -17,30 +17,24 @@ class PelangganTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_can_create_pelanggan_with_email_and_linked_customer_account(): void
+    public function test_admin_can_create_customer_account_from_manajemen_akun_and_auto_create_pelanggan(): void
     {
         $admin = User::factory()->create([
             'role' => 'admin',
             'no_telpon' => '081111111130',
         ]);
 
-        $response = $this->actingAs($admin)->post(route('admin.pelanggan.store'), [
-            'nama' => 'Pelanggan Email',
-            'no_wa' => '+6281234567800',
+        $response = $this->actingAs($admin)->post(route('admin.akun.store'), [
+            'name' => 'Pelanggan Email',
             'email' => 'pelanggan-email@example.com',
-            'alamat_maps' => 'Jl. Raya Contoh No. 1',
-            'alamat_detail' => 'Ruko depan gerbang',
-            'alamat_lat' => '-6.20000000',
-            'alamat_lng' => '106.80000000',
-            'alamat_provinsi' => 'Jawa Barat',
-            'alamat_kota' => 'Bogor',
-            'alamat_kecamatan' => 'Bogor Barat',
-            'alamat_kode_pos' => '16111',
-            'sumber_data' => 'manual',
-            'kategori_pelanggan' => 'baru_manual',
+            'no_telpon' => '+6281234567800',
+            'password' => 'rahasia123',
+            'password_confirmation' => 'rahasia123',
+            'role' => 'pelanggan',
+            'alamat' => 'Jl. Raya Contoh No. 1',
         ]);
 
-        $response->assertRedirect(route('admin.pelanggan.index'));
+        $response->assertRedirect(route('admin.akun.index'));
 
         $user = User::where('email', 'pelanggan-email@example.com')->first();
         $pelanggan = Pelanggan::where('no_wa', '081234567800')->first();
@@ -50,25 +44,35 @@ class PelangganTest extends TestCase
         $this->assertSame('pelanggan', $user->role);
         $this->assertSame('081234567800', $user->no_telpon);
         $this->assertSame($user->id, $pelanggan->user_id);
+        $this->assertSame('Pelanggan Email', $pelanggan->nama);
     }
 
-    public function test_admin_can_update_pelanggan_email_from_pelanggan_form_and_create_linked_account(): void
+    public function test_admin_can_update_customer_address_without_changing_linked_account_data(): void
     {
         $admin = User::factory()->create([
             'role' => 'admin',
             'no_telpon' => '081111111131',
         ]);
 
+        $customerUser = User::factory()->create([
+            'role' => 'pelanggan',
+            'name' => 'Pelanggan Lama',
+            'email' => 'pelanggan-lama-awal@example.com',
+            'no_telpon' => '081234567801',
+        ]);
+
         $pelanggan = Pelanggan::create([
+            'user_id' => $customerUser->id,
             'nama' => 'Pelanggan Lama',
             'no_wa' => '081234567801',
+            'alamat' => 'Alamat lama',
             'status' => 'tetap',
         ]);
 
         $response = $this->actingAs($admin)->put(route('admin.pelanggan.update', $pelanggan), [
-            'nama' => 'Pelanggan Lama Update',
-            'no_wa' => '0812-3456-7801',
-            'email' => 'pelanggan-lama@example.com',
+            'nama' => 'Nama Tidak Boleh Berubah',
+            'no_wa' => '081200000000',
+            'email' => 'tidak-boleh-berubah@example.com',
             'alamat_maps' => 'Jl. Update No. 2',
             'alamat_detail' => 'Sebelah minimarket',
             'alamat_lat' => '-6.21000000',
@@ -85,9 +89,61 @@ class PelangganTest extends TestCase
         $user = $pelanggan->user;
 
         $this->assertNotNull($user);
-        $this->assertSame('pelanggan-lama@example.com', $user->email);
+        $this->assertSame('Pelanggan Lama', $pelanggan->nama);
+        $this->assertSame('081234567801', $pelanggan->no_wa);
+        $this->assertSame('Jl. Update No. 2', $pelanggan->alamat_maps);
+        $this->assertSame('Sebelah minimarket', $pelanggan->alamat_detail);
+        $this->assertSame('pelanggan-lama-awal@example.com', $user->email);
         $this->assertSame('081234567801', $user->no_telpon);
-        $this->assertSame('Pelanggan Lama Update', $user->name);
+        $this->assertSame('Pelanggan Lama', $user->name);
+    }
+
+    public function test_admin_can_update_customer_without_coordinates_and_old_map_point_is_cleared(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'no_telpon' => '081111111230',
+        ]);
+
+        $customerUser = User::factory()->create([
+            'role' => 'pelanggan',
+            'name' => 'Pelanggan Koordinat',
+            'email' => 'pelanggan-koordinat@example.com',
+            'no_telpon' => '081234567830',
+        ]);
+
+        $pelanggan = Pelanggan::create([
+            'user_id' => $customerUser->id,
+            'nama' => 'Pelanggan Koordinat',
+            'no_wa' => '081234567830',
+            'alamat' => 'Alamat lama',
+            'alamat_maps' => 'Alamat maps lama',
+            'alamat_lat' => -6.200001,
+            'alamat_lng' => 106.800001,
+            'status' => 'tetap',
+        ]);
+
+        $response = $this->actingAs($admin)->put(route('admin.pelanggan.update', $pelanggan), [
+            'alamat_maps' => 'Jl. Baru Tanpa Titik No. 7',
+            'alamat_detail' => 'Dekat pos satpam',
+            'alamat_lat' => '',
+            'alamat_lng' => '',
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect(route('admin.pelanggan.edit', $pelanggan));
+
+        $pelanggan->refresh();
+        $user = $pelanggan->user;
+
+        $this->assertSame('Pelanggan Koordinat', $pelanggan->nama);
+        $this->assertSame('081234567830', $pelanggan->no_wa);
+        $this->assertSame('Jl. Baru Tanpa Titik No. 7', $pelanggan->alamat_maps);
+        $this->assertNull($pelanggan->alamat_lat);
+        $this->assertNull($pelanggan->alamat_lng);
+        $this->assertNotNull($user);
+        $this->assertSame('pelanggan-koordinat@example.com', $user->email);
+        $this->assertSame('Pelanggan Koordinat', $user->name);
     }
 
     public function test_admin_can_view_pelanggan_directory_without_admin_or_teknisi_entries(): void
@@ -127,18 +183,26 @@ class PelangganTest extends TestCase
             'status' => 'tetap',
         ]);
 
+        Pelanggan::create([
+            'nama' => 'Pelanggan Lama Tanpa Akun',
+            'no_wa' => '081333333333',
+            'alamat' => 'Alamat Arsip Lama',
+            'status' => 'tetap',
+        ]);
+
         ['produk' => $produk] = $this->createProdukFixture($pelanggan);
         $this->createProductOrder($pelanggan, $produk, 250000, 1, 'selesai final');
 
         $response = $this->actingAs($admin)->get(route('admin.pelanggan.index'));
 
         $response->assertOk();
-        $response->assertSee('Daftar pelanggan yang terdaftar dan riwayat pembelian pelanggan.');
+        $response->assertSee('Daftar pelanggan yang berasal dari akun dengan role pelanggan.');
         $response->assertSee('Pelanggan Direktori');
         $response->assertSee('pelanggan-direktori@example.com');
         $response->assertSee('Jl. Pelanggan No. 10');
         $response->assertDontSee('Teknisi Tersembunyi');
         $response->assertDontSee('Jangan Tampil');
+        $response->assertDontSee('Pelanggan Lama Tanpa Akun');
 
         $summary = $response->viewData('summary');
         $this->assertSame(1, $summary['totalPelanggan']);
@@ -181,6 +245,7 @@ class PelangganTest extends TestCase
         ['produk' => $produk, 'unit' => $unit] = $this->createProdukFixture($pelanggan, 'APAR 6 Kg');
         $this->createProductOrder($pelanggan, $produk, 750000, 2, 'selesai final');
         $this->createServiceOrder($pelanggan, $unit, 350000, 'selesai final');
+        $this->createProductOrder($pelanggan, $produk, 150000, 1, 'ditolak');
 
         $response = $this->actingAs($admin)->get(route('admin.pelanggan.show', $pelanggan));
 
@@ -191,8 +256,52 @@ class PelangganTest extends TestCase
         $response->assertSee('APAR 6 Kg');
         $response->assertSee('Rp 750.000');
         $response->assertSee('Selesai Final');
+        $response->assertDontSee('Rp 150.000');
         $response->assertDontSee('Hydrotest');
         $response->assertDontSee('Refill APAR');
+    }
+
+    public function test_admin_customer_edit_page_only_shows_read_only_account_info_and_address_fields(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'no_telpon' => '081111111231',
+        ]);
+
+        $customerUser = User::factory()->create([
+            'role' => 'pelanggan',
+            'name' => 'Pelanggan Map',
+            'email' => 'pelanggan-map@example.com',
+            'no_telpon' => '081234567831',
+        ]);
+
+        $pelanggan = Pelanggan::create([
+            'user_id' => $customerUser->id,
+            'nama' => 'Pelanggan Map',
+            'no_wa' => '081234567831',
+            'alamat' => 'Jl. Peta No. 8',
+            'status' => 'tetap',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.pelanggan.edit', $pelanggan));
+
+        $response->assertOk();
+        $response->assertSee('Edit Alamat Pelanggan');
+        $response->assertSee('Perbarui alamat dan titik lokasi pelanggan.');
+        $response->assertSee('Lihat Landing Page');
+        $response->assertSee('Nama Pelanggan');
+        $response->assertSee('Email');
+        $response->assertSee('WhatsApp / HP');
+        $response->assertSee('Cari Alamat di Peta');
+        $response->assertSee('Data akun dikelola dari');
+        $response->assertSee('id="admin-address-map"', false);
+        $response->assertSee('name="alamat_maps"', false);
+        $response->assertSee('name="alamat_detail"', false);
+        $response->assertSee('name="alamat_lat"', false);
+        $response->assertSee('name="alamat_lng"', false);
+        $response->assertDontSee('name="nama"', false);
+        $response->assertDontSee('name="email"', false);
+        $response->assertDontSee('name="no_wa"', false);
     }
 
     public function test_customer_detail_shows_empty_state_when_no_product_history_exists(): void

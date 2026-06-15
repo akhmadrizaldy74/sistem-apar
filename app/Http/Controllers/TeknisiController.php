@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Events\TugasTeknisiDiperbarui;
 use App\Models\Pesanan;
 use App\Models\StockMovement;
-use App\Services\FinalTransactionStockService;
+use App\Models\UnitApar;
 use App\Services\InventoryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -35,7 +35,7 @@ class TeknisiController extends Controller
     {
         return Pesanan::query()
             ->where('teknisi_id', $teknisiId)
-            ->with(['pelanggan', 'details.produk', 'servicePaket', 'serviceJenisRefill']);
+            ->with(['pelanggan', 'details.produk', 'servicePaket', 'serviceJenisRefill', 'service.unitApar.produk.jenisApar']);
     }
 
     private function activeTasks(int $teknisiId)
@@ -151,13 +151,17 @@ class TeknisiController extends Controller
             return back()->with('error', 'Anda tidak memiliki akses ke pekerjaan ini.');
         }
 
+        if ((string) $pesanan->status !== Pesanan::STATUS_DITUGASKAN_KE_TEKNISI) {
+            return back()->with('error', 'Pekerjaan ini tidak bisa mulai diproses dari status saat ini.');
+        }
+
         $pesanan->update([
             'status' => Pesanan::STATUS_DIKERJAKAN_TEKNISI,
         ]);
 
         $this->broadcastTaskUpdate($pesanan);
 
-        return back()->with('success', 'Pekerjaan berhasil diproses dan status diperbarui menjadi sedang dikerjakan.');
+        return back()->with('success', 'Pekerjaan masuk ke status dikerjakan teknisi.');
     }
 
     public function ajukanTambahan(Request $request, Pesanan $pesanan)
@@ -192,40 +196,19 @@ class TeknisiController extends Controller
             return back()->with('error', 'Anda tidak memiliki akses ke pekerjaan ini.');
         }
 
-        $baseBiaya = (float)($pesanan->service_estimasi_biaya ?? $pesanan->total_harga ?? 0);
-        $tambahanBiaya = (float)($pesanan->service_tambahan_biaya ?? 0);
-        $grandTotal = $baseBiaya + $tambahanBiaya;
-
-        $snapshot = [
-            'tanggal_snapshot' => now()->toDateTimeString(),
-            'biaya_awal' => $baseBiaya,
-            'tambahan_detail' => $pesanan->service_tambahan_detail,
-            'tambahan_biaya' => $tambahanBiaya,
-            'grand_total' => $grandTotal,
-            'pelanggan_nama' => $pesanan->pelanggan?->nama,
-            'tipe_layanan' => $pesanan->service_jenis_layanan,
-        ];
-
-        try {
-            DB::transaction(function () use ($pesanan, $request, $grandTotal, $snapshot) {
-                $pesanan->update([
-                    'status' => Pesanan::STATUS_SELESAI_FINAL,
-                    'teknisi_selesai_at' => now(),
-                    'teknisi_catatan' => $request->input('catatan'),
-                    'total' => $grandTotal,
-                    'total_harga' => $grandTotal,
-                    'invoice_snapshot' => json_encode($snapshot),
-                ]);
-
-                app(FinalTransactionStockService::class)->apply($pesanan);
-            });
-        } catch (\RuntimeException $exception) {
-            return back()->with('error', $exception->getMessage());
+        if ((string) $pesanan->status !== Pesanan::STATUS_DIKERJAKAN_TEKNISI) {
+            return back()->with('error', 'Pekerjaan ini belum berada pada tahap dikerjakan teknisi.');
         }
+
+        $pesanan->update([
+            'status' => Pesanan::STATUS_SELESAI_OLEH_TEKNISI,
+            'teknisi_selesai_at' => now(),
+            'teknisi_catatan' => trim((string) $request->input('catatan')) ?: null,
+        ]);
 
         $this->broadcastTaskUpdate($pesanan);
 
-        return back()->with('success', 'Laporan pekerjaan berhasil disimpan. Status menjadi Selesai Final dan stok sudah diperbarui.');
+        return back()->with('success', 'Pekerjaan ditandai selesai oleh teknisi dan menunggu tindak lanjut admin.');
     }
 
     public function refillStock()
@@ -274,9 +257,11 @@ class TeknisiController extends Controller
         }
 
         $produk = $tugasRefill->produk;
-        $isOneKg = trim(strtolower($produk->kapasitas)) === '1 kg';
-        $date = \Carbon\Carbon::parse($request->tanggal_refill);
-        $tgl_expired = $isOneKg ? $date->addMonths(6) : $date->addYear();
+        $tgl_expired = UnitApar::calculateExpiry(
+            $request->tanggal_refill,
+            $produk->kapasitas ?? '-',
+            $produk->jenisApar?->nama ?? '-',
+        );
 
         DB::transaction(function() use ($tugasRefill, $request, $tgl_expired, $path, $produk) {
             $inventoryService = app(InventoryService::class);

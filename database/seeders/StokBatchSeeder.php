@@ -6,13 +6,16 @@ use App\Models\Produk;
 use App\Models\StokBatch;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class StokBatchSeeder extends Seeder
 {
     public function run(): void
     {
-        // Hapus batch lama agar fresh
+        // Hapus batch lama agar fresh (disable FK checks to avoid constraint errors)
+        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
         StokBatch::truncate();
+        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
         $produks = Produk::all();
 

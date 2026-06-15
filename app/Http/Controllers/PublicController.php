@@ -172,6 +172,41 @@ class PublicController extends Controller
         return $digits;
     }
 
+    private function normalizeMoneyInput(mixed $value): ?float
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $digits = preg_replace('/[^\d]/', '', trim((string) $value));
+        if ($digits === '') {
+            return null;
+        }
+
+        return (float) $digits;
+    }
+
+    private function canAccessProductOrder(Pesanan $pesanan): bool
+    {
+        if (!Auth::check()) {
+            return false;
+        }
+
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        if ($user->isTeknisi()) {
+            return false;
+        }
+
+        $ownerUserId = $pesanan->user_id ?? $pesanan->pelanggan?->user_id;
+
+        return !is_null($ownerUserId) && (int) $ownerUserId === (int) $user->id;
+    }
+
     private function normalizeCustomerName(string $name): string
     {
         $normalized = mb_strtolower(trim($name));
@@ -1323,7 +1358,9 @@ class PublicController extends Controller
             'tipe_layanan'       => 'required|in:beli,service',
             'metode_pengiriman'  => 'nullable|required_if:tipe_layanan,beli|in:pickup,ambil_sendiri,diantar,diantar_internal',
             'bank_tujuan'        => 'nullable|required_if:tipe_layanan,beli|in:bca,mandiri,bri',
-            'submit_source'      => 'nullable|in:normal,ask_wa',
+            'submit_source'      => 'nullable|in:normal,ask_wa,special_price_request',
+            'harga_pengajuan'    => 'nullable',
+            'catatan_pelanggan'  => 'nullable|string|max:1000',
             'service_jenis_layanan' => 'nullable|required_if:tipe_layanan,service|in:service,refill',
             'service_jenis_apar' => 'nullable|string|max:120',
             'service_jumlah_unit' => 'nullable|integer|min:1|max:1000',
@@ -1373,24 +1410,53 @@ class PublicController extends Controller
             if (empty($pelanggan->status)) {
                 $pelanggan->update(['status' => 'calon']);
             }
+            if ($user && !$user->isAdmin() && !$user->isTeknisi() && empty($pelanggan->user_id)) {
+                $pelanggan->user_id = $user->id;
+            }
             // Hanya perbarui nama/alamat jika pelanggan baru dibuat,
             // atau jika nama di DB masih kosong — JANGAN timpa data pelanggan lama!
             if ($pelanggan->wasRecentlyCreated || empty($pelanggan->nama)) {
                 $pelanggan->nama   = $request->nama;
                 $pelanggan->alamat = $alamatGabungan;
             }
+            $pelanggan->save();
             // Sync data alamat lengkap ke tabel pelanggan (isi apa yang available)
             $this->syncPelangganAddress($pelanggan, $request, $alamatGabungan);
 
             $pesanan = new Pesanan();
                 $pesanan->pelanggan_id = $pelanggan->id;
+                $pesanan->user_id = $user?->id;
                 $pesanan->tanggal = now();
 
             $redirectToPayment = false;
 
             if ($request->tipe_layanan === 'beli') {
+                $isSpecialPriceRequest = $request->input('submit_source') === 'special_price_request';
                 $deliveryMeta = $this->buildDeliveryMeta($request, $productItems);
                 $draftPricing = $orderPricingService->summarizeProductItems($productItems, (float) $deliveryMeta['ongkir']);
+                $hargaPengajuan = $this->normalizeMoneyInput($request->input('harga_pengajuan'));
+                $catatanPelanggan = trim((string) $request->input('catatan_pelanggan'));
+
+                if ($isSpecialPriceRequest) {
+                    if ((float) ($draftPricing['subtotalProduk'] ?? 0) <= 5000000) {
+                        throw ValidationException::withMessages([
+                            'harga_pengajuan' => 'Pengajuan Harga Pembelian hanya tersedia untuk subtotal produk di atas Rp 5.000.000.',
+                        ]);
+                    }
+
+                    if (is_null($hargaPengajuan) || $hargaPengajuan <= 0) {
+                        throw ValidationException::withMessages([
+                            'harga_pengajuan' => 'Harga Pengajuan wajib diisi dengan angka yang valid.',
+                        ]);
+                    }
+
+                    if ($hargaPengajuan > (float) ($draftPricing['subtotalProduk'] ?? 0)) {
+                        throw ValidationException::withMessages([
+                            'harga_pengajuan' => 'Harga Pengajuan tidak boleh lebih besar dari subtotal harga dasar.',
+                        ]);
+                    }
+                }
+
                 $pesanan->tipe = 'produk';
                 $pesanan->sumber_pesanan = 'website';
                 $pesanan->metode_pengiriman = (string) $deliveryMeta['metode_pengiriman'];
@@ -1404,8 +1470,18 @@ class PublicController extends Controller
                 $bankTujuan = strtoupper((string) $request->input('bank_tujuan', '-'));
 
                 $pesanan->total = 0;
-                $pesanan->status = 'pending';
-                $pesanan->tipe_harga = ((int) $draftPricing['diskonPersen']) > 0 ? 'deal' : 'normal';
+                $pesanan->status = $isSpecialPriceRequest ? 'menunggu persetujuan' : 'pending';
+                $pesanan->tipe_harga = 'normal';
+                $pesanan->fill(Pesanan::purchasePriceAttributes([
+                    'status' => $isSpecialPriceRequest ? Pesanan::PRICE_REQUEST_PENDING : null,
+                    'requested_price' => $isSpecialPriceRequest ? $hargaPengajuan : null,
+                    'final_price' => null,
+                    'customer_note' => $isSpecialPriceRequest && $catatanPelanggan !== '' ? $catatanPelanggan : null,
+                    'admin_note' => null,
+                    'approved_by' => null,
+                    'approved_at' => null,
+                    'used' => false,
+                ]));
                 
                 if ((int) $draftPricing['diskonPersen'] > 0) {
                     $pesanan->keterangan = "Pembelian Produk [Promo Diskon {$draftPricing['diskonPersen']}%] [Pengiriman: " . $this->shippingMethodLabel((string) $pesanan->metode_pengiriman) . "] [Bank Tujuan: {$bankTujuan}]";
@@ -1458,7 +1534,11 @@ class PublicController extends Controller
                     'keterangan' => $pesanan->keterangan,
                 ]);
 
-                $redirectToPayment = true;
+                if ($isSpecialPriceRequest) {
+                    $successMessage = 'Pengajuan Harga Pembelian berhasil dikirim. Silakan tunggu persetujuan admin sebelum melanjutkan pembayaran.';
+                } else {
+                    $redirectToPayment = true;
+                }
 
             } else {
                 $serviceJenisLayanan = strtolower(trim((string) $request->input('service_jenis_layanan', 'service')));
@@ -1768,7 +1848,7 @@ class PublicController extends Controller
                 return redirect()->route('order.payment', $pesanan)->with('success', 'Pesanan berhasil dibuat. Silakan lanjutkan pembayaran.');
             }
 
-            return redirect()->route('order.create')->with('success', ($successMessage ?: 'Pesanan berhasil dikirim.') . ' ID: ' . $pesanan->id);
+            return redirect()->route('riwayat-apar')->with('success', ($successMessage ?: 'Pesanan berhasil dikirim.') . ' ID: ' . $pesanan->id);
         } catch (ValidationException $e) {
             DB::rollBack();
             throw $e;
@@ -1966,6 +2046,20 @@ private function fetchPhoton(string $query): array
 
     public function orderPayment(Pesanan $pesanan)
     {
+        if ($pesanan->isProductOrder() && !$this->canAccessProductOrder($pesanan)) {
+            if (!Auth::check()) {
+                return redirect()->guest(route('login'));
+            }
+
+            abort(403, 'Anda tidak memiliki akses untuk melihat pesanan ini.');
+        }
+
+        if ($pesanan->isProductOrder() && $pesanan->hasPendingPurchasePriceRequest()) {
+            return redirect()
+                ->route('riwayat-apar')
+                ->with('warning', 'Pengajuan Harga Pembelian ini masih menunggu persetujuan admin.');
+        }
+
         $pesanan->loadMissing(['details.produk', 'serviceJenisRefill', 'servicePaket']);
         $banks = $this->bankAccounts();
 
@@ -1974,6 +2068,20 @@ private function fetchPhoton(string $query): array
 
     public function orderPaymentStore(Request $request, Pesanan $pesanan)
     {
+        if ($pesanan->isProductOrder() && !$this->canAccessProductOrder($pesanan)) {
+            if (!Auth::check()) {
+                return redirect()->guest(route('login'));
+            }
+
+            abort(403, 'Anda tidak memiliki akses untuk mengubah pesanan ini.');
+        }
+
+        if ($pesanan->isProductOrder() && $pesanan->hasPendingPurchasePriceRequest()) {
+            return redirect()
+                ->route('riwayat-apar')
+                ->with('warning', 'Pengajuan Harga Pembelian ini masih menunggu persetujuan admin.');
+        }
+
         $banks = $this->bankAccounts();
 
         $validated = $request->validate([
@@ -1992,7 +2100,7 @@ private function fetchPhoton(string $query): array
 
         $pesanan->loadMissing(['details.produk', 'pelanggan', 'serviceJenisRefill', 'servicePaket.peralatans', 'service']);
 
-        $isDealOrder = !empty($pesanan->kode_nego) && !is_null($pesanan->harga_usulan);
+        $isApprovedSpecialPrice = $pesanan->hasApprovedPurchasePriceRequest();
         $statusAfterPayment = $pesanan->tipe === 'service'
             ? ($pesanan->service_metode_penanganan === 'antar sendiri'
                 ? Pesanan::STATUS_MENUNGGU_KEDATANGAN_UNIT
@@ -2001,19 +2109,20 @@ private function fetchPhoton(string $query): array
 
         $payableTotal = $pesanan->payableTotal();
 
-        DB::transaction(function () use ($pesanan, $validated, $lockedBank, $isDealOrder, $proofPath, $statusAfterPayment, $payableTotal) {
-            $pesanan->update([
+        DB::transaction(function () use ($pesanan, $validated, $lockedBank, $isApprovedSpecialPrice, $proofPath, $statusAfterPayment, $payableTotal) {
+            $pesanan->update(array_merge([
                 'metode_pembayaran' => $validated['metode_pembayaran'],
                 'bank' => $lockedBank,
+                'total' => $payableTotal ?: ($pesanan->total ?: $pesanan->total_harga),
                 'total_harga' => $payableTotal ?: ($pesanan->total_harga ?: $pesanan->total),
-                'tipe_harga' => $isDealOrder ? 'deal' : ($pesanan->tipe_harga ?: 'normal'),
+                'tipe_harga' => $isApprovedSpecialPrice ? 'deal' : 'normal',
                 'status' => $statusAfterPayment,
                 'bukti_pembayaran' => $proofPath,
                 'pembayaran_terkonfirmasi_at' => now(),
-                'kode_nego_terpakai_at' => !empty($pesanan->kode_nego)
-                    ? ($pesanan->kode_nego_terpakai_at ?: now())
-                    : $pesanan->kode_nego_terpakai_at,
-            ]);
+            ], Pesanan::purchasePriceAttributes([
+                'used' => $isApprovedSpecialPrice,
+                'used_at' => $isApprovedSpecialPrice ? ($pesanan->kode_nego_terpakai_at ?: now()) : null,
+            ])));
 
             if ($pesanan->isPackageServiceOrder()) {
                 $this->syncServiceLogForPackageOrder($pesanan);
@@ -2026,7 +2135,9 @@ private function fetchPhoton(string $query): array
             $this->syncUnitAparsForPesanan($pesanan->fresh(['details.produk.jenisApar', 'unitApars']));
         }
 
-        $tipeHargaLabel = $pesanan->tipe_harga === 'deal' ? 'Harga Deal' : 'Harga Normal';
+        $tipeHargaLabel = $isApprovedSpecialPrice
+            ? 'Harga Final'
+            : (((int) ($pesanan->pricingSummary()['diskonPersen'] ?? 0)) > 0 ? 'Promo Pembelian Banyak' : 'Harga Normal');
         $total = number_format($pesanan->payableTotal(), 0, ',', '.');
         $ongkir = number_format((float) ($pesanan->ongkir ?: 0), 0, ',', '.');
         $metodePengiriman = $this->shippingMethodLabel((string) ($pesanan->metode_pengiriman ?: 'pickup'));

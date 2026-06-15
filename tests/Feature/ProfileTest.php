@@ -25,6 +25,7 @@ class ProfileTest extends TestCase
     public function test_profile_information_can_be_updated_and_customer_address_is_saved(): void
     {
         $user = User::factory()->create([
+            'role' => 'pelanggan',
             'no_telpon' => '081111111111',
         ]);
 
@@ -71,6 +72,7 @@ class ProfileTest extends TestCase
     public function test_existing_customer_with_same_phone_is_linked_to_the_user_profile(): void
     {
         $user = User::factory()->create([
+            'role' => 'pelanggan',
             'no_telpon' => '081222222222',
         ]);
 
@@ -114,6 +116,29 @@ class ProfileTest extends TestCase
             ->assertRedirect('/profile');
 
         $this->assertNotNull($user->refresh()->email_verified_at);
+    }
+
+    public function test_admin_profile_update_does_not_create_pelanggan_record(): void
+    {
+        $user = User::factory()->create([
+            'role' => 'admin',
+            'no_telpon' => '081444444444',
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->patch('/profile', [
+                'name' => 'Admin Update',
+                'no_telpon' => '081444444445',
+            ]);
+
+        $response
+            ->assertSessionHasNoErrors()
+            ->assertRedirect('/profile');
+
+        $this->assertDatabaseMissing('pelanggans', [
+            'user_id' => $user->id,
+        ]);
     }
 
     public function test_user_can_delete_their_account(): void

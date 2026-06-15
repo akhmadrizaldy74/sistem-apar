@@ -61,6 +61,7 @@ class PengeluaranController extends Controller
             'harga_beli' => 'nullable|numeric|min:0.01',
             'keterangan' => 'nullable|string|max:1000',
             'tanggal' => 'required|date',
+            'tgl_produksi_apar' => 'nullable|date|before_or_equal:tanggal',
         ]);
 
         if (
@@ -101,7 +102,10 @@ class PengeluaranController extends Controller
                 'tanggal' => $pengeluaranData['tanggal'],
             ]);
 
-            $inventoryService->applyPurchaseExpense($pengeluaran);
+            $inventoryService->applyPurchaseExpense(
+                $pengeluaran,
+                $pengeluaranData['tgl_produksi_apar'] ?? null,
+            );
         });
 
         $message = match ($pengeluaranData['jenis_pengeluaran']) {
@@ -183,6 +187,7 @@ class PengeluaranController extends Controller
             'satuan' => 'Unit',
             'harga_beli' => $hargaBeli,
             'total' => round($qty * $hargaBeli, 2),
+            'tgl_produksi_apar' => $validated['tgl_produksi_apar'] ?? $validated['tanggal'],
             'keterangan' => $validated['keterangan'] ?? null,
             'tanggal' => $validated['tanggal'],
         ];

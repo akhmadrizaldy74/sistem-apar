@@ -4,6 +4,7 @@
     $unitInfo = $pesanan->getUnitInfo();
     $linkedTestimoni = $pesanan->linkedTestimoni ?? null;
     $canReview = $pesanan->canGiveReview() || ($pesanan->isCompleted() && !$linkedTestimoni);
+    $purchasePriceLabel = $pesanan->purchasePriceStatusLabel();
 @endphp
 
 <article
@@ -16,6 +17,11 @@
                 <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-slate-700">
                     {{ $pesanan->trackingTypeLabel() }}
                 </span>
+                @if($purchasePriceLabel)
+                    <span class="rounded-full px-2.5 py-1 text-[11px] font-black {{ $pesanan->purchasePriceStatusClasses() }}">
+                        {{ $purchasePriceLabel }}
+                    </span>
+                @endif
             </div>
 
             <h3 class="mt-2 truncate text-base font-black text-slate-950">{{ $pesanan->trackingItemLabel() }}</h3>
@@ -73,10 +79,6 @@
                 <dd class="mt-1 font-black {{ $pesanan->isPaymentConfirmed() ? 'text-emerald-700' : 'text-amber-700' }}">
                     {{ $pesanan->isPaymentConfirmed() ? 'Lunas' : 'Belum selesai' }}
                 </dd>
-            </div>
-            <div class="rounded-lg border border-slate-100 bg-white px-3 py-2">
-                <dt class="font-bold uppercase tracking-wide text-slate-400">Teknisi</dt>
-                <dd class="mt-1 font-black text-slate-900">{{ $pesanan->teknisi?->name ?? '-' }}</dd>
             </div>
             <div class="rounded-lg border border-slate-100 bg-white px-3 py-2">
                 <dt class="font-bold uppercase tracking-wide text-slate-400">Dibuat</dt>

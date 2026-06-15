@@ -4,6 +4,7 @@
             <div>
                 <h2 class="text-3xl font-black text-gray-900 tracking-tight">Manajemen Akun</h2>
                 <p class="text-sm text-gray-500 font-medium">Kelola akun admin, teknisi, dan pelanggan yang menggunakan sistem.</p>
+                <p class="mt-1 text-xs font-semibold text-slate-500">Saat akun dengan role pelanggan dibuat, data pelanggan akan tersinkron otomatis ke menu Pelanggan.</p>
             </div>
             <button type="button" onclick="window.dispatchEvent(new CustomEvent('open-tambah-akun'))" class="px-8 py-4 bg-gradient-to-r from-red-700 to-red-800 text-white font-black rounded-2xl hover:from-red-800 hover:to-red-900 transition shadow-xl shadow-red-700/30 flex items-center gap-2 uppercase tracking-widest text-xs">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
@@ -335,6 +336,7 @@
                             <input type="text" name="no_telpon" id="tambah-wa" value="{{ old('no_telpon') }}"
                                 class="w-full px-5 py-4 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 placeholder:text-gray-300 transition"
                                 placeholder="08xxxxxxxxxx">
+                            <p x-show="tambahRole === 'pelanggan'" x-cloak class="mt-2 text-[10px] font-semibold text-slate-400">Wajib untuk akun pelanggan karena akan dipakai otomatis di menu Pelanggan.</p>
                         </div>
 
                         {{-- Password --}}
@@ -370,6 +372,7 @@
                             <textarea name="alamat" id="tambah-alamat" rows="3"
                                 class="w-full px-5 py-4 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 placeholder:text-gray-300 transition resize-none"
                                 placeholder="Alamat lengkap pelanggan...">{{ old('alamat') }}</textarea>
+                            <p class="mt-2 text-[10px] font-semibold text-slate-400">Opsional. Detail alamat bisa dilengkapi atau diperbarui lagi dari menu Pelanggan.</p>
                         </div>
                     </div>
 
@@ -434,6 +437,7 @@
                             <input type="text" name="no_telpon" id="edit-wa" :value="editUser.no_telpon"
                                 class="w-full px-5 py-4 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 placeholder:text-gray-300 transition"
                                 placeholder="08xxxxxxxxxx">
+                            <p x-show="editRole === 'pelanggan'" x-cloak class="mt-2 text-[10px] font-semibold text-slate-400">Wajib untuk akun pelanggan karena menjadi data dasar profil pelanggan.</p>
                         </div>
 
                         {{-- Password --}}
