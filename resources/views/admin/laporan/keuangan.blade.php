@@ -3,15 +3,17 @@
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
                 <h2 class="text-3xl font-black text-gray-900 tracking-tight">Laporan Keuangan</h2>
-                <p class="text-sm text-gray-500 font-medium">Ringkasan pemasukan transaksi final sesuai filter laporan</p>
+                <p class="text-sm text-gray-500 font-medium">Pemasukan final dan pengeluaran operasional dalam satu laporan.</p>
             </div>
-            <a href="{{ route('admin.laporan.index') }}" class="px-6 py-3 bg-white border border-gray-100 text-gray-900 font-bold rounded-2xl hover:shadow-md transition">
-                Kembali ke Pusat Laporan
+            <a href="{{ route('admin.laporan.keuangan.pdf', request()->query()) }}" class="inline-flex items-center justify-center px-6 py-3 bg-red-700 text-white rounded-2xl text-sm font-black hover:bg-red-800 transition shadow-xl shadow-red-700/20">
+                Cetak PDF
             </a>
         </div>
     </x-slot>
 
     <div class="space-y-8">
+        @include('admin.laporan.partials.tabs')
+
         <form method="GET" class="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 p-8 grid md:grid-cols-4 gap-4 items-end">
             <div>
                 <label for="tanggal_dari" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Tanggal Dari</label>
@@ -36,10 +38,9 @@
                 <button type="submit" class="flex-1 px-6 py-4 bg-red-700 text-white font-black rounded-2xl hover:bg-red-800 transition uppercase tracking-widest text-xs">
                     Filter
                 </button>
-                <a href="{{ route('admin.laporan.keuangan.pdf', request()->query()) }}" class="flex-1 px-6 py-4 bg-white text-gray-700 font-black rounded-2xl border border-gray-100 hover:shadow-lg transition uppercase tracking-widest text-xs text-center">
-                    PDF
+                <a href="{{ route('admin.laporan.keuangan', []) }}" class="flex-1 px-6 py-4 bg-white text-gray-700 font-black rounded-2xl border border-gray-100 hover:shadow-lg transition uppercase tracking-widest text-xs text-center">
+                    Reset
                 </a>
-
             </div>
         </form>
 
@@ -47,24 +48,57 @@
             <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
                 <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Pemasukan</p>
                 <p class="text-3xl font-black text-emerald-700 mt-3">Rp {{ number_format($totals['total_pemasukan'], 0, ',', '.') }}</p>
-                <p class="text-xs font-semibold text-gray-500 mt-2">Dari produk, service, dan refill final</p>
             </div>
             <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
                 <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Pengeluaran</p>
                 <p class="text-3xl font-black text-red-700 mt-3">Rp {{ number_format($totals['total_pengeluaran'], 0, ',', '.') }}</p>
-                <p class="text-xs font-semibold text-gray-500 mt-2">Belanja Stok/Refill</p>
             </div>
             <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
                 <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Laba Bersih</p>
                 <p class="text-3xl font-black {{ $totals['laba_bersih'] >= 0 ? 'text-blue-700' : 'text-red-700' }} mt-3">Rp {{ number_format($totals['laba_bersih'], 0, ',', '.') }}</p>
             </div>
             <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Transaksi Masuk</p>
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Transaksi</p>
                 <p class="text-3xl font-black text-gray-900 mt-3">{{ $totals['total_transaksi'] }}</p>
             </div>
         </div>
 
-        {{-- Monthly Trend Chart --}}
+        <div class="grid lg:grid-cols-2 gap-6">
+            <div class="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-6">
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Rincian Pemasukan</p>
+                <div class="mt-5 space-y-4">
+                    <div class="flex items-center justify-between rounded-2xl bg-emerald-50 px-4 py-4">
+                        <span class="text-sm font-black text-emerald-700">Penjualan Produk</span>
+                        <span class="text-sm font-black text-emerald-800">Rp {{ number_format($incomeBreakdown['produk'], 0, ',', '.') }}</span>
+                    </div>
+                    <div class="flex items-center justify-between rounded-2xl bg-amber-50 px-4 py-4">
+                        <span class="text-sm font-black text-amber-700">Refill</span>
+                        <span class="text-sm font-black text-amber-800">Rp {{ number_format($incomeBreakdown['refill'], 0, ',', '.') }}</span>
+                    </div>
+                    <div class="flex items-center justify-between rounded-2xl bg-blue-50 px-4 py-4">
+                        <span class="text-sm font-black text-blue-700">Service</span>
+                        <span class="text-sm font-black text-blue-800">Rp {{ number_format($incomeBreakdown['service'], 0, ',', '.') }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-6">
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Rincian Pengeluaran</p>
+                <div class="mt-5 space-y-4">
+                    @forelse($expenseBreakdown as $label => $amount)
+                        <div class="flex items-center justify-between rounded-2xl bg-red-50 px-4 py-4">
+                            <span class="text-sm font-black text-red-700">{{ $label }}</span>
+                            <span class="text-sm font-black text-red-800">Rp {{ number_format($amount, 0, ',', '.') }}</span>
+                        </div>
+                    @empty
+                        <div class="rounded-2xl bg-gray-50 px-4 py-4 text-sm font-semibold text-gray-500">
+                            Belum ada pengeluaran dalam periode ini.
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+
         <div class="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 p-8">
             <div class="flex items-center justify-between mb-8">
                 <div>
@@ -90,7 +124,6 @@
                 @foreach($trendData as $item)
                     <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end">
                         <div class="w-full flex flex-col gap-1 h-full justify-end items-center">
-                            {{-- Bar container --}}
                             <div class="w-full flex gap-1 items-end justify-center h-full">
                                 @php $barScale = $maxValue > 0 ? ($item['total_pemasukan'] / $maxValue) * 100 : 0; @endphp
                                 <div class="w-6 bg-emerald-500 rounded-t-sm transition-all" style="height: {{ max($barScale, 2) }}%"></div>
@@ -109,16 +142,6 @@
                     </div>
                 @endforeach
             </div>
-
-            {{-- Summary row below chart --}}
-            <div class="mt-8 grid grid-cols-6 gap-4">
-                @foreach($trendData as $item)
-                    <div class="text-center">
-                        <p class="text-xs font-black text-emerald-600">Rp {{ number_format($item['total_pemasukan'] / 1000000, 1) }}jt</p>
-                        <p class="text-[9px] text-gray-400 mt-0.5">Laba: Rp {{ number_format($item['laba'] / 1000000, 1) }}jt</p>
-                    </div>
-                @endforeach
-            </div>
         </div>
 
         <div class="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
@@ -132,47 +155,34 @@
                             <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Tanggal</th>
                             <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Jenis</th>
                             <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Keterangan</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Pelanggan</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                            <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Sumber</th>
                             <th class="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Nominal</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-50">
-                        @foreach($pesanans as $pesanan)
+                        @forelse($records as $record)
                             <tr>
-                                <td class="px-8 py-5 text-sm font-bold text-gray-900">{{ $pesanan->displayTransactionDateTime() }}</td>
-                                <td class="px-8 py-5"><span class="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold uppercase tracking-wider">Penjualan</span></td>
-                                <td class="px-8 py-5 text-sm font-semibold text-gray-700">{{ $pesanan->transactionDisplayName() }} • {{ $pesanan->displayTransactionDateTime() }} • {{ $pesanan->pelanggan->nama ?? '-' }}</td>
-                                <td class="px-8 py-5 text-sm font-black text-emerald-700">Rp {{ number_format($pesanan->total, 0, ',', '.') }}</td>
+                                <td class="px-8 py-5 text-sm font-bold text-gray-900">{{ $record['tanggal_label'] }}</td>
+                                <td class="px-8 py-5">
+                                    <span class="px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider {{ $record['direction'] === 'in' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700' }}">
+                                        {{ $record['jenis'] }}
+                                    </span>
+                                </td>
+                                <td class="px-8 py-5 text-sm font-semibold text-gray-700">{{ $record['keterangan'] }}</td>
+                                <td class="px-8 py-5 text-sm font-bold text-gray-700">{{ $record['pelanggan'] }}</td>
+                                <td class="px-8 py-5 text-sm font-semibold text-gray-700">{{ $record['status'] }}</td>
+                                <td class="px-8 py-5 text-sm font-semibold text-gray-700">{{ $record['source'] }}</td>
+                                <td class="px-8 py-5 text-sm font-black {{ $record['direction'] === 'in' ? 'text-emerald-700' : 'text-red-700' }}">
+                                    {{ $record['direction'] === 'in' ? '' : '- ' }}Rp {{ number_format($record['nominal'], 0, ',', '.') }}
+                                </td>
                             </tr>
-                        @endforeach
-                        @foreach($services as $service)
+                        @empty
                             <tr>
-                                <td class="px-8 py-5 text-sm font-bold text-gray-900">{{ $service->displayTransactionDateTime() }}</td>
-                                <td class="px-8 py-5"><span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-bold uppercase tracking-wider">Service</span></td>
-                                <td class="px-8 py-5 text-sm font-semibold text-gray-700">{{ $service->jenis_service }} - {{ $service->unitApar?->pelanggan?->nama ?? '-' }}</td>
-                                <td class="px-8 py-5 text-sm font-black text-blue-700">Rp {{ number_format($service->biaya, 0, ',', '.') }}</td>
+                                <td colspan="7" class="px-8 py-12 text-center text-sm font-medium text-gray-500">Belum ada transaksi sesuai filter.</td>
                             </tr>
-                        @endforeach
-                        @foreach($refills as $refill)
-                            <tr>
-                                <td class="px-8 py-5 text-sm font-bold text-gray-900">{{ $refill->displayTransactionDateTime() }}</td>
-                                <td class="px-8 py-5"><span class="px-3 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-bold uppercase tracking-wider">Refill</span></td>
-                                <td class="px-8 py-5 text-sm font-semibold text-gray-700">{{ $refill->jenisRefill?->nama_label ?? 'Refill APAR' }} - {{ $refill->unitApar?->pelanggan?->nama ?? $refill->service?->pesanan?->pelanggan?->nama ?? '-' }}</td>
-                                <td class="px-8 py-5 text-sm font-black text-amber-700">Rp {{ number_format($refill->biaya, 0, ',', '.') }}</td>
-                            </tr>
-                        @endforeach
-                        @foreach($pengeluarans as $pengeluaran)
-                            <tr>
-                                <td class="px-8 py-5 text-sm font-bold text-gray-900">{{ $pengeluaran->tanggal->format('d M Y') }}</td>
-                                <td class="px-8 py-5"><span class="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-bold uppercase tracking-wider">Pengeluaran</span></td>
-                                <td class="px-8 py-5 text-sm font-semibold text-gray-700">{{ $pengeluaran->keterangan }}</td>
-                                <td class="px-8 py-5 text-sm font-black text-red-700">- Rp {{ number_format($pengeluaran->effective_amount, 0, ',', '.') }}</td>
-                            </tr>
-                        @endforeach
-                        @if($pesanans->isEmpty() && $services->isEmpty() && $refills->isEmpty() && $pengeluarans->isEmpty())
-                            <tr>
-                                <td colspan="4" class="px-8 py-12 text-center text-sm font-medium text-gray-500">Belum ada transaksi sesuai filter.</td>
-                            </tr>
-                        @endif
+                        @endforelse
                     </tbody>
                 </table>
             </div>

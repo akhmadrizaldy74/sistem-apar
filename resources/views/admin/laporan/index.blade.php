@@ -17,6 +17,7 @@
     </x-slot>
 
     <div class="space-y-4">
+        @include('admin.laporan.partials.tabs')
 
         {{-- A. Filter Section --}}
         <form method="GET" class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
@@ -35,7 +36,7 @@
                     <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Pelanggan</label>
                     <select name="pelanggan_id" class="text-sm rounded-lg border-gray-200 px-3 py-2 focus:border-red-400 focus:ring-1 focus:ring-red-400 outline-none">
                         <option value="">Semua</option>
-                        @foreach(\App\Models\Pelanggan::orderBy('nama')->get() as $p)
+                        @foreach($pelanggans as $p)
                             <option value="{{ $p->id }}" {{ request('pelanggan_id') == $p->id ? 'selected' : '' }}>{{ $p->nama }}</option>
                         @endforeach
                     </select>
@@ -86,6 +87,21 @@
             <div class="bg-white rounded-xl border border-gray-100 p-3 shadow-sm">
                 <p class="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">Unit APAR</p>
                 <p class="text-lg font-black text-gray-900">{{ number_format($summary['totalUnit']) }}</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Stok Produk Siap Jual</p>
+                <p class="text-xl font-black text-gray-900">{{ number_format($stockSummary['produk'], 0, ',', '.') }} unit</p>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Stok Refill Tersedia</p>
+                <p class="text-xl font-black text-emerald-700">{{ number_format($stockSummary['refill'], 0, ',', '.') }} Kg</p>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Stok Peralatan</p>
+                <p class="text-xl font-black text-blue-700">{{ number_format($stockSummary['peralatan'], 0, ',', '.') }} unit</p>
             </div>
         </div>
 
@@ -197,6 +213,7 @@
                             <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Pelanggan</th>
                             <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Keterangan</th>
                             <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Status</th>
+                            <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Sumber</th>
                             <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-right">Pemasukan</th>
                         </tr>
                     </thead>
@@ -219,7 +236,7 @@
                                 <td class="px-4 py-3 text-[10px] text-gray-600">{{ $row['keterangan'] }}</td>
                                 <td class="px-4 py-3">
                                     @php
-                                        $s = $row['status'];
+                                        $s = strtolower((string) $row['status']);
                                         $statusClass = match(true) {
                                             str_contains($s, 'selesai') || str_contains($s, 'final') => 'bg-emerald-50 text-emerald-700',
                                             str_contains($s, 'ditolak') || str_contains($s, 'batal') => 'bg-red-50 text-red-700',
@@ -227,7 +244,10 @@
                                             default => 'bg-gray-50 text-gray-700',
                                         };
                                     @endphp
-                                    <span class="px-2 py-0.5 {{ $statusClass }} text-[9px] font-bold uppercase rounded">{{ $s }}</span>
+                                    <span class="px-2 py-0.5 {{ $statusClass }} text-[9px] font-bold uppercase rounded">{{ $row['status'] }}</span>
+                                </td>
+                                <td class="px-4 py-3 text-[10px] font-semibold text-gray-600">
+                                    {{ $row['source'] ?? '-' }}
                                 </td>
                                 <td class="px-4 py-3 text-right text-[10px] font-bold text-emerald-700 whitespace-nowrap">
                                     @if($row['pemasukan'] > 0)
@@ -239,14 +259,14 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-4 py-8 text-center text-[10px] text-gray-400">Belum ada data transaksi.</td>
+                                <td colspan="7" class="px-4 py-8 text-center text-[10px] text-gray-400">Belum ada data transaksi.</td>
                             </tr>
                         @endforelse
                     </tbody>
                     @if($combinedData->isNotEmpty())
                         <tfoot class="bg-gray-50/80 border-t border-gray-100">
                             <tr>
-                                <td colspan="5" class="px-4 py-2 text-right text-[10px] font-bold text-gray-600 uppercase tracking-wider">Total</td>
+                                <td colspan="6" class="px-4 py-2 text-right text-[10px] font-bold text-gray-600 uppercase tracking-wider">Total</td>
                                 <td class="px-4 py-2 text-right text-[10px] font-bold text-emerald-700 whitespace-nowrap">
                                     Rp {{ number_format($combinedData->sum('pemasukan'), 0, ',', '.') }}
                                 </td>

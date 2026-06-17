@@ -78,7 +78,7 @@ class PublicOrderServicePricingTest extends TestCase
             'bahan' => 'Dry Chemical Powder',
             'tgl_beli' => $purchaseDate,
             'tgl_produksi' => now()->subYear()->toDateString(),
-            'tgl_expired' => now()->addMonths(6)->toDateString(),
+            'tgl_expired' => now()->addYear()->toDateString(),
         ]);
 
         $unit4Kg = UnitApar::create([
@@ -89,7 +89,7 @@ class PublicOrderServicePricingTest extends TestCase
             'bahan' => 'Dry Chemical Powder',
             'tgl_beli' => $purchaseDate,
             'tgl_produksi' => now()->subYear()->toDateString(),
-            'tgl_expired' => now()->addMonths(6)->toDateString(),
+            'tgl_expired' => now()->addYear()->toDateString(),
         ]);
 
         $response = $this->actingAs($user)->post(route('order.store'), [

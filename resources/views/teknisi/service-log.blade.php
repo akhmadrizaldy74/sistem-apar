@@ -3,7 +3,7 @@
         <div class="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
                 <h1 class="text-3xl font-black text-slate-900 tracking-tight">Service Log</h1>
-                <p class="text-slate-500 mt-2 font-medium">Daftar service APAR yang perlu dikerjakan dan riwayat penyelesaian.</p>
+                <p class="text-slate-500 mt-2 font-medium">Daftar service APAR yang perlu dikerjakan dan riwayat penyelesaian tanpa rincian keuangan.</p>
             </div>
         </div>
 
@@ -170,7 +170,6 @@
                             <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Unit / Pelanggan</th>
                             <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Paket</th>
                             <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Peralatan Terpakai</th>
-                            <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Biaya</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
@@ -191,7 +190,6 @@
                                     <span class="text-xs text-slate-400">-</span>
                                 @endif
                             </td>
-                            <td class="px-6 py-4 text-right text-sm font-bold text-slate-900">Rp {{ number_format($service->biaya, 0, ',', '.') }}</td>
                         </tr>
                         @endforeach
                     </tbody>

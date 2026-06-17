@@ -33,7 +33,7 @@ class JenisRefillController extends Controller
         JenisRefill::create([
             'nama' => $request->nama,
             'stok' => 0,
-            'satuan' => $request->satuan,
+            'satuan' => 'kg',
             'harga' => $request->harga,
         ]);
 
@@ -58,7 +58,11 @@ class JenisRefillController extends Controller
             'harga' => 'required|numeric|min:0',
         ]);
 
-        $jenisRefill->update($request->only('nama', 'satuan', 'harga'));
+        $jenisRefill->update([
+            'nama' => $request->nama,
+            'satuan' => 'kg',
+            'harga' => $request->harga,
+        ]);
 
         return redirect()->route('admin.jenis-refill.index')->with('success', 'Jenis refil berhasil diperbarui.');
     }

@@ -8,13 +8,14 @@ use App\Models\Pengeluaran;
 use App\Models\Peralatan;
 use App\Models\Produk;
 use App\Services\InventoryService;
+use App\Services\ServiceMasterSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class PengeluaranController extends Controller
 {
-    public function index()
+    public function index(ServiceMasterSyncService $serviceMasterSyncService)
     {
         $pengeluarans = Pengeluaran::with(['produk.jenisApar', 'jenisRefill', 'peralatan'])
             ->latest('tanggal')
@@ -22,7 +23,7 @@ class PengeluaranController extends Controller
             ->get();
         $produks = Produk::with('jenisApar')->orderBy('nama')->get();
         $jenisRefills = JenisRefill::orderBy('nama')->get();
-        $peralatans = Peralatan::orderBy('nama')->get();
+        $peralatans = $serviceMasterSyncService->visiblePeralatans();
 
         return view('admin.pengeluaran.index', compact('pengeluarans', 'produks', 'jenisRefills', 'peralatans'));
     }

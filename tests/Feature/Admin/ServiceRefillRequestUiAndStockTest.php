@@ -686,6 +686,32 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
         $response->assertDontSeeText('Tanggal Selesai');
     }
 
+    public function test_all_refill_types_resolve_to_kg_label(): void
+    {
+        $powder = JenisRefill::create([
+            'nama' => 'Powder',
+            'stok' => 10,
+            'satuan' => 'liter',
+            'harga' => 100000,
+        ]);
+        $foam = JenisRefill::create([
+            'nama' => 'Foam',
+            'stok' => 10,
+            'satuan' => 'liter',
+            'harga' => 100000,
+        ]);
+        $co2 = JenisRefill::create([
+            'nama' => 'CO2',
+            'stok' => 10,
+            'satuan' => 'liter',
+            'harga' => 100000,
+        ]);
+
+        $this->assertSame('Kg', $powder->fresh()->satuan_label);
+        $this->assertSame('Kg', $foam->fresh()->satuan_label);
+        $this->assertSame('Kg', $co2->fresh()->satuan_label);
+    }
+
     private function createLinkedCustomer(string $name, string $phone, string $address): Pelanggan
     {
         $digits = preg_replace('/\D+/', '', $phone) ?: (string) random_int(1000, 9999);

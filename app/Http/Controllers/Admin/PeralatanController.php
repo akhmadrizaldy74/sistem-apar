@@ -4,13 +4,14 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Peralatan;
+use App\Services\ServiceMasterSyncService;
 use Illuminate\Http\Request;
 
 class PeralatanController extends Controller
 {
-    public function index()
+    public function index(ServiceMasterSyncService $serviceMasterSyncService)
     {
-        $peralatans = Peralatan::latest()->get();
+        $peralatans = $serviceMasterSyncService->visiblePeralatans();
 
         return view('admin.peralatan.index', compact('peralatans'));
     }

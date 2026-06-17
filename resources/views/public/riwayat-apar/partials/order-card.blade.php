@@ -5,6 +5,9 @@
     $linkedTestimoni = $pesanan->linkedTestimoni ?? null;
     $canReview = $pesanan->canGiveReview() || ($pesanan->isCompleted() && !$linkedTestimoni);
     $purchasePriceLabel = $pesanan->purchasePriceStatusLabel();
+    $pickupWaUrl = \App\Support\WhatsApp::companyLink(
+        'Halo PD Anugrah Utama, saya siap menjemput ' . strtolower($pesanan->transactionDisplayName()) . ' pada ' . $pesanan->displayTransactionDateTime() . '.'
+    );
 @endphp
 
 <article
@@ -209,7 +212,7 @@
             @endif
 
             @if($pesanan->needsPickup())
-                <a href="https://wa.me/{{ env('WHATSAPP_CONTACT', '6282124716109') }}?text={{ urlencode('Halo, saya siap menjemput ' . strtolower($pesanan->transactionDisplayName()) . ' pada ' . $pesanan->displayTransactionDateTime()) }}"
+                <a href="{{ $pickupWaUrl }}"
                    target="_blank"
                    class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-50">
                     <i class="fa-brands fa-whatsapp text-emerald-600"></i>

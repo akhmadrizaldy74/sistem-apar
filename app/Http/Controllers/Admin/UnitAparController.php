@@ -108,6 +108,7 @@ class UnitAparController extends Controller
     protected function transformUnitForIndex(UnitApar $unit): array
     {
         $statusMeta = $this->resolveUnitStatusMeta($unit->tgl_expired);
+        $tanggalDasar = $unit->tgl_produksi ?? $unit->tgl_beli;
 
         return [
             'id' => (int) $unit->id,
@@ -117,12 +118,32 @@ class UnitAparController extends Controller
             'produk_nama' => (string) ($unit->produk?->nama ?? '-'),
             'ukuran' => (string) ($unit->ukuran ?: $unit->produk?->kapasitas ?: '-'),
             'bahan' => (string) ($unit->bahan ?: $unit->produk?->jenisApar?->nama ?: '-'),
-            'tgl_beli_label' => optional($unit->tgl_beli ?? $unit->tgl_produksi)->format('d M Y') ?: '-',
+            'tgl_dasar_label' => optional($tanggalDasar)->format('d M Y') ?: '-',
             'tgl_expired_label' => optional($unit->tgl_expired)->format('d M Y') ?: '-',
             'status' => $statusMeta['key'],
             'status_label' => $statusMeta['label'],
             'search_text' => strtolower(trim(($unit->pelanggan?->nama ?? '') . ' ' . ($unit->no_seri ?? ''))),
         ];
+    }
+
+    protected function normalizeBaseDateInput(Request $request): ?string
+    {
+        $tanggalDasar = $request->input('tanggal_dasar_masa_berlaku')
+            ?: $request->input('tgl_produksi')
+            ?: $request->input('tgl_beli')
+            ?: $request->input('tanggal_beli');
+
+        return $this->normalizeDateInput($tanggalDasar);
+    }
+
+    protected function normalizeKondisiAwal(?string $value, string $fallback = 'layak'): string
+    {
+        return match (trim((string) $value)) {
+            'tidak_layak', 'tidak_aktif' => 'tidak_aktif',
+            'perlu_servis' => 'perlu_servis',
+            'layak' => 'layak',
+            default => $fallback,
+        };
     }
 
     protected function buildSummary(Collection $unitItems): array
@@ -184,37 +205,31 @@ class UnitAparController extends Controller
     {
         $produkId = $request->input('produk_id') ?: $request->input('model_produk_id');
         $noSeri = $request->input('no_seri') ?: $request->input('kode_unit') ?: $request->input('nomor_seri_unit');
-        $tglBeli = $request->input('tgl_beli') ?: $request->input('tanggal_beli');
+        $tanggalDasar = $this->normalizeBaseDateInput($request);
         $kondisiAwal = $request->input('kondisi_awal') ?: $request->input('kondisi_awal_unit');
 
         $request->merge([
             'produk_id' => $produkId,
             'no_seri' => trim((string) $noSeri) ?: null,
-            'catatan_unit' => trim((string) $request->input('catatan_unit')) ?: null,
-            'tgl_beli' => $this->normalizeDateInput($tglBeli),
-            'tgl_produksi' => $this->normalizeDateInput($request->input('tgl_produksi')),
-            'kondisi_awal' => trim((string) $kondisiAwal) ?: 'layak',
+            'tanggal_dasar_masa_berlaku' => $tanggalDasar,
+            'tgl_beli' => $tanggalDasar,
+            'tgl_produksi' => $tanggalDasar,
+            'kondisi_awal' => $this->normalizeKondisiAwal($kondisiAwal, 'layak'),
         ]);
 
         $request->validate([
             'pelanggan_id' => 'required|exists:pelanggans,id',
             'produk_id' => 'required|exists:produks,id',
             'no_seri' => 'nullable|string|max:255|unique:unit_apars,no_seri',
-            'tgl_beli' => 'required|date',
-            'tgl_produksi' => 'required|date|before_or_equal:tgl_beli',
-            'lokasi_unit' => 'nullable|string|max:255',
-            'kondisi_awal' => 'required|in:layak,perlu_servis,tidak_aktif',
-            'catatan_unit' => 'nullable|string|max:1000',
+            'tanggal_dasar_masa_berlaku' => 'required|date',
+            'kondisi_awal' => 'required|in:layak,tidak_aktif',
         ], [
             'pelanggan_id.required' => 'Pelanggan wajib dipilih.',
             'pelanggan_id.exists' => 'Pelanggan yang dipilih tidak ditemukan.',
             'produk_id.required' => 'Produk wajib dipilih.',
             'produk_id.exists' => 'Produk yang dipilih tidak ditemukan.',
-            'tgl_beli.required' => 'Tanggal beli wajib diisi.',
-            'tgl_beli.date' => 'Format tanggal beli tidak valid.',
-            'tgl_produksi.required' => 'Tanggal produksi wajib diisi.',
-            'tgl_produksi.date' => 'Format tanggal produksi tidak valid.',
-            'tgl_produksi.before_or_equal' => 'Tanggal produksi tidak boleh melebihi tanggal beli.',
+            'tanggal_dasar_masa_berlaku.required' => 'Tanggal dasar masa berlaku wajib diisi.',
+            'tanggal_dasar_masa_berlaku.date' => 'Format tanggal dasar masa berlaku tidak valid.',
             'kondisi_awal.required' => 'Kondisi awal wajib dipilih.',
             'kondisi_awal.in' => 'Kondisi awal unit tidak valid.',
             'no_seri.unique' => 'Nomor unit sudah digunakan.',
@@ -226,18 +241,18 @@ class UnitAparController extends Controller
             'no_seri',
             'tgl_beli',
             'tgl_produksi',
-            'lokasi_unit',
             'kondisi_awal',
-            'catatan_unit',
         ]);
 
         $produk = Produk::with('jenisApar')->findOrFail($request->produk_id);
         $pelanggan = Pelanggan::findOrFail($request->pelanggan_id);
-        $effectiveDate = (string) $data['tgl_produksi'];
+        $effectiveDate = (string) $request->input('tanggal_dasar_masa_berlaku');
 
         $data['ukuran'] = $produk->kapasitas ?? '-';
         $data['bahan'] = $produk->jenisApar?->nama ?? '-';
-        $data['kondisi_awal'] = $request->input('kondisi_awal', 'layak');
+        $data['tgl_beli'] = $effectiveDate;
+        $data['tgl_produksi'] = $effectiveDate;
+        $data['kondisi_awal'] = $this->normalizeKondisiAwal($request->input('kondisi_awal'), 'layak');
         $data['no_seri'] = $data['no_seri'] ?: $this->generateUnitSerial($pelanggan, $produk, $effectiveDate);
         $data['tgl_expired'] = UnitApar::calculateExpiry($effectiveDate, $data['ukuran'], $data['bahan']);
 
@@ -258,35 +273,29 @@ class UnitAparController extends Controller
     {
         $produkId = $request->input('produk_id') ?: $request->input('model_produk_id');
         $noSeri = $request->input('no_seri') ?: $request->input('kode_unit') ?: $request->input('nomor_seri_unit');
-        $tglBeli = $request->input('tgl_beli') ?: $request->input('tanggal_beli');
+        $tanggalDasar = $this->normalizeBaseDateInput($request) ?: optional($unitApar->tgl_produksi ?? $unitApar->tgl_beli)->toDateString();
         $kondisiAwal = $request->input('kondisi_awal') ?: $request->input('kondisi_awal_unit');
 
         $request->merge([
             'produk_id' => $produkId,
             'no_seri' => trim((string) $noSeri) ?: null,
-            'catatan_unit' => trim((string) $request->input('catatan_unit')) ?: null,
-            'tgl_beli' => $this->normalizeDateInput($tglBeli),
-            'tgl_produksi' => $this->normalizeDateInput($request->input('tgl_produksi')),
-            'kondisi_awal' => trim((string) $kondisiAwal) ?: ($unitApar->kondisi_awal ?: 'layak'),
+            'tanggal_dasar_masa_berlaku' => $tanggalDasar,
+            'tgl_beli' => $tanggalDasar,
+            'tgl_produksi' => $tanggalDasar,
+            'kondisi_awal' => $this->normalizeKondisiAwal($kondisiAwal, $unitApar->kondisi_awal ?: 'layak'),
         ]);
 
         $request->validate([
             'pelanggan_id' => 'required|exists:pelanggans,id',
             'produk_id' => 'required|exists:produks,id',
             'no_seri' => 'nullable|unique:unit_apars,no_seri,' . $unitApar->id,
-            'tgl_beli' => 'required|date',
-            'tgl_produksi' => 'required|date|before_or_equal:tgl_beli',
-            'lokasi_unit' => 'nullable|string|max:255',
-            'kondisi_awal' => 'required|in:layak,perlu_servis,tidak_aktif',
-            'catatan_unit' => 'nullable|string|max:1000',
+            'tanggal_dasar_masa_berlaku' => 'required|date',
+            'kondisi_awal' => 'required|in:layak,tidak_aktif,perlu_servis',
         ], [
             'pelanggan_id.required' => 'Pelanggan wajib dipilih.',
             'produk_id.required' => 'Produk wajib dipilih.',
-            'tgl_beli.required' => 'Tanggal beli wajib diisi.',
-            'tgl_beli.date' => 'Format tanggal beli tidak valid.',
-            'tgl_produksi.required' => 'Tanggal produksi wajib diisi.',
-            'tgl_produksi.date' => 'Format tanggal produksi tidak valid.',
-            'tgl_produksi.before_or_equal' => 'Tanggal produksi tidak boleh melebihi tanggal beli.',
+            'tanggal_dasar_masa_berlaku.required' => 'Tanggal dasar masa berlaku wajib diisi.',
+            'tanggal_dasar_masa_berlaku.date' => 'Format tanggal dasar masa berlaku tidak valid.',
             'kondisi_awal.required' => 'Kondisi awal wajib dipilih.',
             'no_seri.unique' => 'Nomor unit sudah digunakan.',
         ]);
@@ -297,18 +306,18 @@ class UnitAparController extends Controller
             'no_seri',
             'tgl_beli',
             'tgl_produksi',
-            'lokasi_unit',
             'kondisi_awal',
-            'catatan_unit',
         ]);
 
         $produk = Produk::with('jenisApar')->findOrFail($request->produk_id);
         $pelanggan = Pelanggan::findOrFail($request->pelanggan_id);
-        $effectiveDate = (string) $data['tgl_produksi'];
+        $effectiveDate = (string) $request->input('tanggal_dasar_masa_berlaku');
 
         $data['ukuran'] = $produk->kapasitas ?? '-';
         $data['bahan'] = $produk->jenisApar?->nama ?? '-';
-        $data['kondisi_awal'] = $request->input('kondisi_awal', $unitApar->kondisi_awal ?: 'layak');
+        $data['tgl_beli'] = $effectiveDate;
+        $data['tgl_produksi'] = $effectiveDate;
+        $data['kondisi_awal'] = $this->normalizeKondisiAwal($request->input('kondisi_awal'), $unitApar->kondisi_awal ?: 'layak');
         $data['no_seri'] = trim((string) ($data['no_seri'] ?? '')) !== ''
             ? $data['no_seri']
             : ($unitApar->no_seri ?: $this->generateUnitSerial($pelanggan, $produk, $effectiveDate));

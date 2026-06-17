@@ -17,6 +17,15 @@
         </div>
     </x-slot>
 
+    @php
+        $customerWaUrl = $unit->pelanggan?->no_wa
+            ? \App\Support\WhatsApp::customerLink(
+                $unit->pelanggan->no_wa,
+                'Halo Bapak/Ibu, kami ingin menginformasikan status APAR Anda dengan nomor unit ' . ($unit->no_seri ?: '-') . '.'
+            )
+            : null;
+    @endphp
+
     <div class="mx-auto max-w-5xl space-y-6">
         <div class="rounded-3xl border px-6 py-5 shadow-sm {{ $statusMeta['notice_class'] }}">
             <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -75,6 +84,11 @@
                 </div>
 
                 <div>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Tanggal Produksi / Dasar Expired</p>
+                    <p class="mt-2 text-sm font-bold text-slate-900">{{ optional($unit->tgl_produksi)->format('d M Y') ?: '-' }}</p>
+                </div>
+
+                <div>
                     <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Tanggal Expired</p>
                     <p class="mt-2 text-sm font-bold text-slate-900">{{ optional($unit->tgl_expired)->format('d M Y') ?: '-' }}</p>
                 </div>
@@ -103,7 +117,17 @@
             </div>
         </div>
 
-        <div class="flex justify-end">
+        <div class="flex flex-col gap-3 sm:flex-row sm:justify-end">
+            @if($customerWaUrl)
+                <a
+                    href="{{ $customerWaUrl }}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="inline-flex items-center justify-center rounded-2xl bg-green-500 px-6 py-3 text-xs font-black uppercase tracking-widest text-white transition hover:bg-green-600"
+                >
+                    Hubungi Pelanggan
+                </a>
+            @endif
             <a
                 href="{{ route('admin.unit-apar.index') }}"
                 class="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-6 py-3 text-xs font-black uppercase tracking-widest text-white transition hover:bg-slate-800"

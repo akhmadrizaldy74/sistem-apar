@@ -7,12 +7,13 @@ use App\Models\JenisRefill;
 use App\Models\Peralatan;
 use App\Models\Produk;
 use App\Models\StokBatch;
+use App\Services\ServiceMasterSyncService;
 use App\Services\StockHistoryService;
 use Illuminate\Http\Request;
 
 class StokController extends Controller
 {
-    public function index(StockHistoryService $stockHistoryService)
+    public function index(StockHistoryService $stockHistoryService, ServiceMasterSyncService $serviceMasterSyncService)
     {
         $activeTab = request()->query('tab', 'apar');
         if (! in_array($activeTab, ['apar', 'refill', 'peralatan'], true)) {
@@ -21,7 +22,7 @@ class StokController extends Controller
 
         $produks = Produk::with(['jenisApar', 'stokBatches.tugasRefills'])->latest()->get();
         $jenisRefills = JenisRefill::latest()->get();
-        $peralatans = Peralatan::latest()->get();
+        $peralatans = $serviceMasterSyncService->visiblePeralatans();
         $stockHistories = $stockHistoryService->recent();
 
         return view('admin.stok.index', compact('produks', 'jenisRefills', 'peralatans', 'activeTab', 'stockHistories'));

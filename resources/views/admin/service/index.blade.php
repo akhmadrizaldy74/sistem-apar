@@ -3,12 +3,17 @@
         <div class="flex flex-col md:flex-row justify-between items-center w-full gap-4">
             <div>
                 <h2 class="text-3xl font-black text-gray-900 tracking-tight">Service APAR</h2>
-                <p class="text-sm text-gray-500 font-medium">Kelola transaksi service APAR dari pelanggan online maupun offline.</p>
+                <p class="text-sm text-gray-500 font-medium">Kelola transaksi service APAR dengan harga standar per jenis service dan stok peralatan yang terhubung.</p>
             </div>
-            <button type="button" onclick="window.dispatchEvent(new CustomEvent('open-service-modal'))" class="px-5 py-3 border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-bold rounded-xl transition shadow-sm text-xs flex items-center gap-2 uppercase tracking-wider">
-                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-                Input Service Offline
-            </button>
+            <div class="flex flex-wrap items-center gap-3">
+                <a href="{{ route('admin.service-paket.index') }}" class="px-5 py-3 border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-bold rounded-xl transition shadow-sm text-xs flex items-center gap-2 uppercase tracking-wider">
+                    Master Jenis Service
+                </a>
+                <button type="button" onclick="window.dispatchEvent(new CustomEvent('open-service-modal'))" class="px-5 py-3 border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-bold rounded-xl transition shadow-sm text-xs flex items-center gap-2 uppercase tracking-wider">
+                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                    Input Service Offline
+                </button>
+            </div>
         </div>
     </x-slot>
 
@@ -104,6 +109,7 @@
                 'id' => $service->id,
                 'pelanggan' => $customer['nama'],
                 'no_wa' => $customer['wa'],
+                'wa_url' => \App\Support\WhatsApp::customerLink($customer['wa'], 'Halo Bapak/Ibu, kami ingin mengonfirmasi service APAR Anda.'),
                 'alamat' => $service->pelanggan?->alamat ?? '-',
                 'transaksi' => $service->transactionDisplayName(),
                 'waktu' => $service->displayTransactionDateTime(),
@@ -136,6 +142,10 @@
                 'id' => $isLegacy ? 'log-' . $service->id : $pesanan->id,
                 'pelanggan' => $customer['nama'],
                 'no_wa' => $customer['wa'],
+                'wa_url' => \App\Support\WhatsApp::customerLink(
+                    $customer['wa'],
+                    'Halo Bapak/Ibu, kami ingin mengonfirmasi ' . strtolower($pesanan ? $pesanan->transactionDisplayName() : $service->transactionDisplayName()) . ' APAR Anda.'
+                ),
                 'alamat' => $pesanan?->pelanggan?->alamat ?? $service?->unitApar?->pelanggan?->alamat ?? '-',
                 'transaksi' => $pesanan ? $pesanan->transactionDisplayName() : $service->transactionDisplayName(),
                 'waktu' => $pesanan ? $pesanan->displayTransactionDateTime() : $service->displayTransactionDateTime(),
@@ -757,11 +767,12 @@
                         <p class="font-black text-gray-900">Rp ${data.estimasi}</p>
                     </div>
                 </div>
-                ${lineItemsHtml ? `<div class="rounded-xl border border-gray-200 bg-gray-50 p-4"><p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Harga Per Unit</p><div class="space-y-3">${lineItemsHtml}</div></div>` : ''}
+                ${lineItemsHtml ? `<div class="rounded-xl border border-gray-200 bg-gray-50 p-4"><p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Harga Service</p><div class="space-y-3">${lineItemsHtml}</div></div>` : ''}
                 ${peralatanHtml ? `<div class="rounded-xl border border-gray-200 bg-gray-50 p-4"><p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Peralatan Service</p><div class="space-y-3">${peralatanHtml}</div></div>` : ''}
                 ${proofHtml}
                 ${data.catatan !== '-' ? `<div class="rounded-xl border border-amber-100 bg-amber-50 p-4"><span class="text-[10px] font-black text-amber-600 uppercase">Catatan</span><p class="mt-1 text-sm font-semibold whitespace-pre-line">${data.catatan}</p></div>` : ''}
-                <div class="flex justify-center">
+                <div class="flex flex-wrap justify-center gap-3">
+                    ${data.wa_url ? `<a href="${data.wa_url}" target="_blank" rel="noopener noreferrer" class="px-6 py-3 bg-green-500 text-white font-black text-xs uppercase rounded-xl hover:bg-green-600 transition">Hubungi Pelanggan</a>` : ''}
                     <button type="button" onclick="closeServiceDetailModal()" class="px-8 py-3 bg-gray-200 text-gray-700 font-black text-xs uppercase rounded-xl hover:bg-gray-300 transition">Tutup</button>
                 </div>
             `;
@@ -888,7 +899,7 @@
                 },
                 paketOptionLabel(paket) {
                     const label = String(paket.label || '').trim();
-                    return (label ? label + ' - ' : '') + paket.nama + ' - Harga mengikuti media & ukuran';
+                    return (label ? label + ' - ' : '') + paket.nama + ' - Harga standar per unit APAR';
                 },
                 hargaPaketFor(mediaLabel, ukuranLabel) {
                     const paket = this.selectedPaket();

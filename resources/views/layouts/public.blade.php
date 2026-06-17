@@ -206,6 +206,9 @@
         $isRiwayatRoute = request()->routeIs('riwayat-apar*') || request()->is('riwayat-apar');
         $isKeranjangRoute = request()->routeIs('keranjang.*') || request()->is('keranjang');
         $isProfileRoute = request()->routeIs('profile.*') || request()->is('profile');
+        $companyWaLabel = \App\Support\WhatsApp::display(\App\Support\WhatsApp::companyNumber());
+        $companyWaUrl = \App\Support\WhatsApp::companyLink();
+        $companyWaConsultationUrl = \App\Support\WhatsApp::companyLink('Halo PD Anugrah Utama, saya ingin menanyakan layanan APAR.');
     @endphp
 
     {{-- ============================================================ --}}
@@ -390,7 +393,7 @@
                             </span>
                             <div>
                                 <p class="font-bold text-white">WhatsApp</p>
-                                <a href="https://wa.me/{{ env('WHATSAPP_CONTACT', '6285128008030') }}" target="_blank" rel="noopener noreferrer" class="mt-1 inline-block leading-6 text-slate-300 transition hover:text-white">+62 851-2800-8030</a>
+                                <a href="{{ $companyWaUrl }}" target="_blank" rel="noopener noreferrer" class="mt-1 inline-block leading-6 text-slate-300 transition hover:text-white">{{ $companyWaLabel }}</a>
                             </div>
                         </li>
                     </ul>
@@ -405,7 +408,7 @@
     </footer>
 
     {{-- WhatsApp Float Button --}}
-    <a href="https://wa.me/{{ env('WHATSAPP_CONTACT', '6285128008030') }}?text={{ urlencode('Halo, saya ingin konsultasi tentang APAR.') }}"
+    <a href="{{ $companyWaConsultationUrl }}"
        target="_blank" rel="noopener noreferrer"
        class="fixed bottom-4 right-4 z-50 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-[#25D366] text-white shadow-2xl shadow-[#25D366]/30 transition-transform hover:scale-110 sm:bottom-8 sm:right-8 sm:h-14 sm:w-14"
        aria-label="Chat WhatsApp">

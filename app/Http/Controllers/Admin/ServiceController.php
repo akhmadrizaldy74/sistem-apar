@@ -13,6 +13,7 @@ use App\Models\Peralatan;
 use App\Models\StockMovement;
 use App\Services\FinalTransactionStockService;
 use App\Services\InventoryService;
+use App\Services\ServiceMasterSyncService;
 use App\Services\ServicePackagePricingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,15 +28,15 @@ class ServiceController extends Controller
             ->orderBy('nama');
     }
 
-    public function index(ServicePackagePricingService $servicePackagePricingService)
+    public function index(
+        ServicePackagePricingService $servicePackagePricingService,
+        ServiceMasterSyncService $serviceMasterSyncService
+    )
     {
-        $servicePakets = ServicePaket::with('peralatans')
-            ->orderBy('harga')
-            ->get()
-            ->values();
+        $servicePakets = $serviceMasterSyncService->visibleServicePakets(['peralatans']);
         $serviceMediaOptions = $servicePackagePricingService->availableMediaOptions();
         $servicePaketCatalog = $servicePackagePricingService->packageCatalog($servicePakets, $serviceMediaOptions);
-        $peralatans = Peralatan::orderBy('nama')->get();
+        $peralatans = $serviceMasterSyncService->visiblePeralatans();
 
         $serviceLogs = Service::with(['unitApar.pelanggan', 'unitApar.produk', 'pesanan.pelanggan', 'servicePaket'])
             ->where(function ($query) {
@@ -125,28 +126,34 @@ class ServiceController extends Controller
         $estimasiRaw = preg_replace('/[^\d]/', '', (string) ($validated['service_estimasi_biaya'] ?? ''));
         $estimasiBiaya = $estimasiRaw !== '' ? (float) $estimasiRaw : null;
 
-        $payload = [
-            'status' => $validated['status'],
-            'service_admin_catatan' => $validated['service_admin_catatan'] ?? $pesanan->service_admin_catatan,
-        ];
+        try {
+            DB::transaction(function () use ($pesanan, $validated, $estimasiBiaya) {
+                $payload = [
+                    'status' => $validated['status'],
+                    'service_admin_catatan' => $validated['service_admin_catatan'] ?? $pesanan->service_admin_catatan,
+                ];
 
-        if (!is_null($estimasiBiaya)) {
-            $payload['service_estimasi_biaya'] = $estimasiBiaya;
-        }
+                if (!is_null($estimasiBiaya)) {
+                    $payload['service_estimasi_biaya'] = $estimasiBiaya;
+                }
 
-        if ($validated['status'] === 'selesai final') {
-            $payload['status'] = 'selesai final';
-            $pesanan->pelanggan?->update(['status' => 'tetap']);
-        }
+                if ($validated['status'] === Pesanan::STATUS_SELESAI_FINAL) {
+                    $payload['status'] = Pesanan::STATUS_SELESAI_FINAL;
+                }
 
-        $previousStatus = (string) $pesanan->status;
-        $pesanan->update($payload);
+                $previousStatus = (string) $pesanan->status;
+                $pesanan->update($payload);
 
-        if (
-            $pesanan->status === Pesanan::STATUS_SELESAI_FINAL
-            && ($previousStatus !== Pesanan::STATUS_SELESAI_FINAL || empty($pesanan->service?->stok_kurang_history))
-        ) {
-            app(FinalTransactionStockService::class)->apply($pesanan);
+                if (
+                    $pesanan->status === Pesanan::STATUS_SELESAI_FINAL
+                    && ($previousStatus !== Pesanan::STATUS_SELESAI_FINAL || empty($pesanan->service?->stok_kurang_history))
+                ) {
+                    app(FinalTransactionStockService::class)->apply($pesanan->fresh());
+                    $pesanan->pelanggan?->update(['status' => 'tetap']);
+                }
+            });
+        } catch (\RuntimeException $exception) {
+            return back()->with('error', $exception->getMessage());
         }
 
         return back()->with('success', 'Status service APAR berhasil diperbarui.');
@@ -159,9 +166,12 @@ class ServiceController extends Controller
 
     public function store(
         Request $request,
-        ServicePackagePricingService $servicePackagePricingService
+        ServicePackagePricingService $servicePackagePricingService,
+        ServiceMasterSyncService $serviceMasterSyncService
     )
     {
+        $serviceMasterSyncService->sync();
+
         $request->merge([
             'pelanggan_id' => $request->input('pelanggan_id'),
             'status_unit' => $request->input('status_unit', $request->filled('unit_apar_id') ? 'terdaftar' : 'belum_terdaftar'),
@@ -201,7 +211,17 @@ class ServiceController extends Controller
                 ]);
         }
 
-        $paket = ServicePaket::with('peralatans')->findOrFail($request->service_paket_id);
+        $paket = $serviceMasterSyncService
+            ->visibleServicePakets(['peralatans'])
+            ->firstWhere('id', (int) $request->service_paket_id);
+
+        if (! $paket) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'service_paket_id' => 'Jenis service yang dipilih tidak tersedia pada master service aktif.',
+                ]);
+        }
         $statusUnit = (string) $request->input('status_unit', 'belum_terdaftar');
         $teknisi = \App\Models\User::where('role', 'teknisi')->first();
 
@@ -254,11 +274,6 @@ class ServiceController extends Controller
 
                 if ((float) ($summary['total_price'] ?? 0) <= 0) {
                     return ['error' => "Harga service untuk unit {$unit->no_seri} belum tersedia."];
-                }
-
-                if (!empty($summary['stock_issues'] ?? [])) {
-                    $issue = $summary['stock_issues'][0];
-                    return ['error' => "Stok peralatan {$issue['nama']} tidak cukup. Dibutuhkan {$issue['jumlah']} unit, tersedia {$issue['stok']} unit."];
                 }
 
                 return [
@@ -408,15 +423,7 @@ class ServiceController extends Controller
             return back()
                 ->withInput()
                 ->withErrors([
-                    'service_paket_id' => 'Harga service untuk kombinasi jenis service, media APAR, dan ukuran yang dipilih belum tersedia.',
-                ]);
-        }
-
-        foreach (($packageSummary['stock_issues'] ?? []) as $stockIssue) {
-            return back()
-                ->withInput()
-                ->withErrors([
-                    'service_paket_id' => "Stok peralatan {$stockIssue['nama']} tidak cukup. Dibutuhkan {$stockIssue['jumlah']} unit, tersedia {$stockIssue['stok']} unit.",
+                    'service_paket_id' => 'Harga standar service untuk jenis service yang dipilih belum tersedia.',
                 ]);
         }
 
@@ -502,22 +509,24 @@ class ServiceController extends Controller
         return redirect()->route('admin.service.edit', $service);
     }
 
-    public function edit(Service $service)
+    public function edit(Service $service, ServiceMasterSyncService $serviceMasterSyncService)
     {
         if ($service->jenis_service === 'Refill') {
             return redirect()->route('admin.refill.index')->with('success', 'Data refil dikelola dari menu Refil APAR.');
         }
 
         $units = UnitApar::with(['pelanggan', 'produk.jenisApar'])->get();
-        $servicePakets = ServicePaket::with('peralatans')
-            ->orderBy('harga')
-            ->get()
-            ->values();
+        $servicePakets = $serviceMasterSyncService->visibleServicePakets(['peralatans']);
 
         return view('admin.service.edit', compact('service', 'units', 'servicePakets'));
     }
 
-    public function update(Request $request, Service $service, ServicePackagePricingService $servicePackagePricingService)
+    public function update(
+        Request $request,
+        Service $service,
+        ServicePackagePricingService $servicePackagePricingService,
+        ServiceMasterSyncService $serviceMasterSyncService
+    )
     {
         $request->validate([
             'unit_apar_id' => 'required|exists:unit_apars,id',
@@ -542,7 +551,17 @@ class ServiceController extends Controller
             return redirect()->route('admin.service.index')->with('success', 'Data service berhasil diperbarui.');
         }
 
-        $paket = ServicePaket::with('peralatans')->findOrFail($request->service_paket_id);
+        $paket = $serviceMasterSyncService
+            ->visibleServicePakets(['peralatans'])
+            ->firstWhere('id', (int) $request->service_paket_id);
+
+        if (! $paket) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'service_paket_id' => 'Jenis service yang dipilih tidak tersedia pada master service aktif.',
+                ]);
+        }
         $unitApar = UnitApar::with('produk.jenisApar')->findOrFail($request->unit_apar_id);
         $ukuran = trim((string) ($unitApar->ukuran ?: $unitApar->produk?->kapasitas ?: ''));
         $media = trim((string) ($unitApar->produk?->jenisApar?->nama ?: $unitApar->bahan ?: ''));

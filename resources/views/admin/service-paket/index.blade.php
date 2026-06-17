@@ -1,20 +1,20 @@
 <x-app-layout>
     <x-slot name="header">
         <div>
-            <h2 class="text-3xl font-black tracking-tight text-slate-900">Paket Service</h2>
-            <p class="mt-1 text-sm font-semibold text-slate-500">Kelola master paket service yang dipakai pada transaksi service APAR.</p>
+            <h2 class="text-3xl font-black tracking-tight text-slate-900">Master Jenis Service</h2>
+            <p class="mt-1 text-sm font-semibold text-slate-500">Daftar jenis service final dengan harga standar dan relasi peralatan resmi.</p>
         </div>
     </x-slot>
 
     <div class="space-y-6">
         <div class="flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
             <div>
-                <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Master Data</p>
-                <p class="mt-2 text-sm font-semibold text-slate-500">Ukuran dan merek dikelola dari menu Produk. Di halaman ini khusus paket service dan relasi peralatannya.</p>
+                <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Master Data Final</p>
+                <p class="mt-2 text-sm font-semibold text-slate-500">Harga service bersifat standar per jenis service. Peralatan yang tampil di halaman ini dipakai sebagai acuan pengurangan stok saat service selesai final.</p>
             </div>
-            <a href="{{ route('admin.service-paket.create') }}" class="rounded-2xl bg-red-600 px-5 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-red-600/20 transition hover:bg-red-700">
-                Tambah Paket
-            </a>
+            <span class="inline-flex rounded-full bg-emerald-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-700">
+                {{ $servicePakets->count() }} Jenis Aktif
+            </span>
         </div>
 
         <div class="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
@@ -23,8 +23,9 @@
                     <thead class="bg-slate-50">
                         <tr>
                             <th class="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Paket</th>
-                            <th class="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Harga</th>
-                            <th class="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Peralatan</th>
+                            <th class="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Harga Standar</th>
+                            <th class="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Peralatan Digunakan</th>
+                            <th class="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
                             <th class="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Transaksi</th>
                             <th class="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Aksi</th>
                         </tr>
@@ -41,7 +42,7 @@
                                 </td>
                                 <td class="px-6 py-5">
                                     <p class="text-sm font-black text-slate-900">Rp {{ number_format((float) $servicePaket->harga, 0, ',', '.') }}</p>
-                                    <p class="mt-1 text-xs font-semibold text-slate-500">Ratio refill: {{ $servicePaket->refill_ratio ?? '-' }}</p>
+                                    <p class="mt-1 text-xs font-semibold text-slate-500">Per unit APAR</p>
                                 </td>
                                 <td class="px-6 py-5">
                                     @if($servicePaket->peralatans->isEmpty())
@@ -56,6 +57,9 @@
                                             @endforeach
                                         </div>
                                     @endif
+                                </td>
+                                <td class="px-6 py-5">
+                                    <span class="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-700">Aktif</span>
                                 </td>
                                 <td class="px-6 py-5">
                                     <p class="text-sm font-black text-slate-900">{{ $servicePaket->services_count }}</p>
@@ -74,7 +78,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="px-6 py-12 text-center text-sm font-semibold text-slate-400">Belum ada paket service.</td>
+                                <td colspan="6" class="px-6 py-12 text-center text-sm font-semibold text-slate-400">Belum ada jenis service final.</td>
                             </tr>
                         @endforelse
                     </tbody>

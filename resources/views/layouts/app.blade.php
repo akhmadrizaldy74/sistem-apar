@@ -514,7 +514,7 @@
 
         @unless($isTeknisi || (auth()->check() && auth()->user()->isAdmin()))
             <a
-                href="https://wa.me/{{ env('WHATSAPP_CONTACT', '6285128008030') }}"
+                href="{{ \App\Support\WhatsApp::companyLink() }}"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="fixed bottom-8 right-8 w-14 h-14 bg-[#25D366] rounded-2xl shadow-2xl shadow-[#25D366]/25 flex items-center justify-center text-white border border-white/10 transition-transform hover:scale-110 wa-bounce z-50"

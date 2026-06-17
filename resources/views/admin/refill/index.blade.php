@@ -113,6 +113,7 @@
                 'id' => $refill->id,
                 'pelanggan' => $customer['nama'],
                 'no_wa' => $customer['wa'],
+                'wa_url' => \App\Support\WhatsApp::customerLink($customer['wa'], 'Halo Bapak/Ibu, kami ingin mengonfirmasi refill APAR Anda.'),
                 'alamat' => $refill->pelanggan?->alamat ?? '-',
                 'transaksi' => $refill->transactionDisplayName(),
                 'waktu' => $refill->displayTransactionDateTime(),
@@ -143,6 +144,10 @@
                 'id' => $isLegacy ? 'log-' . $refill->id : $pesanan->id,
                 'pelanggan' => $customer['nama'],
                 'no_wa' => $customer['wa'],
+                'wa_url' => \App\Support\WhatsApp::customerLink(
+                    $customer['wa'],
+                    'Halo Bapak/Ibu, kami ingin mengonfirmasi ' . strtolower($pesanan ? $pesanan->transactionDisplayName() : $refill->transactionDisplayName()) . ' APAR Anda.'
+                ),
                 'alamat' => $pesanan?->pelanggan?->alamat ?? $refill?->unitApar?->pelanggan?->alamat ?? '-',
                 'transaksi' => $pesanan ? $pesanan->transactionDisplayName() : $refill->transactionDisplayName(),
                 'waktu' => $pesanan ? $pesanan->displayTransactionDateTime() : $refill->displayTransactionDateTime(),
@@ -744,7 +749,8 @@
                 </div>
                 ${proofHtml}
                 ${data.catatan !== '-' ? `<div class="rounded-xl border border-amber-100 bg-amber-50 p-4"><span class="text-[10px] font-black text-amber-600 uppercase">Catatan</span><p class="mt-1 text-sm font-semibold whitespace-pre-line">${data.catatan}</p></div>` : ''}
-                <div class="flex justify-center">
+                <div class="flex flex-wrap justify-center gap-3">
+                    ${data.wa_url ? `<a href="${data.wa_url}" target="_blank" rel="noopener noreferrer" class="px-6 py-3 bg-green-500 text-white font-black text-xs uppercase rounded-xl hover:bg-green-600 transition">Hubungi Pelanggan</a>` : ''}
                     <button type="button" onclick="closeRefillDetailModal()" class="px-8 py-3 bg-gray-200 text-gray-700 font-black text-xs uppercase rounded-xl hover:bg-gray-300 transition">Tutup</button>
                 </div>
             `;

@@ -56,6 +56,11 @@ class DashboardRevenueTest extends TestCase
         $laporanSummary = $laporan->viewData('summary');
         $laporanCombinedData = $laporan->viewData('combinedData');
         $keuanganTotals = $keuangan->viewData('totals');
+        $penjualan = $this->actingAs($admin)->get(route('admin.laporan.penjualan'));
+
+        $penjualan->assertOk();
+
+        $penjualanTransactions = $penjualan->viewData('transactions');
 
         $this->assertSame(1800000.0, (float) $dashboardKpis['pendapatanBulanIni']);
         $this->assertSame([1500000.0, 300000.0, 400000.0], array_map('floatval', $dashboardCharts['revenueComposition']['series']));
@@ -66,6 +71,9 @@ class DashboardRevenueTest extends TestCase
             array_sum(array_map('floatval', $dashboardCharts['revenueComposition']['series']))
         );
         $this->assertTrue($laporanCombinedData->contains(fn (array $row) => $row['jenis'] === 'Refill' && (float) $row['pemasukan'] === 400000.0));
+        $this->assertCount(2, $penjualanTransactions);
+        $this->assertTrue($penjualanTransactions->contains(fn (array $row) => $row['jenis_transaksi'] === 'Penjualan Produk' && (float) $row['total'] === 1500000.0));
+        $this->assertTrue($penjualanTransactions->contains(fn (array $row) => $row['jenis_transaksi'] === 'Refill APAR' && (float) $row['total'] === 400000.0));
     }
 
     public function test_dashboard_revenue_defaults_to_zero_when_no_final_transactions_exist(): void
@@ -76,8 +84,10 @@ class DashboardRevenueTest extends TestCase
         ]);
 
         $response = $this->actingAs($admin)->get(route('dashboard'));
+        $serviceReport = $this->actingAs($admin)->get(route('admin.laporan.service'));
 
         $response->assertOk();
+        $serviceReport->assertOk();
 
         $kpis = $response->viewData('kpis');
         $charts = $response->viewData('charts');

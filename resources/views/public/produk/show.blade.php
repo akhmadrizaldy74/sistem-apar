@@ -18,6 +18,7 @@
             @php
                 $stokSiapJual = (int) ($produk->stok_tersedia ?? 0);
                 $isHabis = $stokSiapJual <= 0;
+                $productWaUrl = \App\Support\WhatsApp::companyLink('Halo PD Anugrah Utama, saya ingin menanyakan produk ' . $produk->nama . '.');
             @endphp
 
             <div class="mt-10 grid lg:grid-cols-2 gap-10 items-start">
@@ -61,6 +62,11 @@
                     @endif
 
                     <div class="mt-8 space-y-4">
+                        <a href="{{ $productWaUrl }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-3 rounded-[1.75rem] border border-green-200 bg-green-50 px-6 py-4 text-sm font-black text-green-700 transition hover:bg-green-100">
+                            <i class="fa-brands fa-whatsapp text-base"></i>
+                            Tanya Produk via WhatsApp
+                        </a>
+
                         @auth
                             @php
                                 $canCustomerOrder = !auth()->user()->isAdmin() && !auth()->user()->isTeknisi();

@@ -818,7 +818,7 @@ class PesananController extends Controller
             . "Silakan transfer ke salah satu rekening berikut:\n{$bankLines}\n\n"
             . "Setelah transfer, mohon kirimkan bukti pembayaran agar pesanan dapat kami verifikasi dan diproses lebih lanjut.\nTerima kasih.";
 
-        $waUrl = 'https://wa.me/' . $noWa . '?text=' . rawurlencode($message);
+        $waUrl = \App\Support\WhatsApp::customerLink($noWa, $message);
 
         return back()
             ->with('success', 'Detail pembayaran siap dikirim ke pelanggan.')
@@ -947,7 +947,7 @@ class PesananController extends Controller
 
         return back()
             ->with('success', 'Konfirmasi pelanggan siap dikirim lewat WhatsApp.')
-            ->with('wa_url', 'https://wa.me/' . $noWa . '?text=' . rawurlencode($message));
+            ->with('wa_url', \App\Support\WhatsApp::customerLink($noWa, $message));
     }
 
     public function selesaiFinal(Pesanan $pesanan)

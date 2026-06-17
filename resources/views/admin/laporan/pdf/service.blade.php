@@ -16,7 +16,7 @@
 <body>
     @include('pdf.partials.letterhead')
     <h1>Laporan Service</h1>
-    <p>Filter tanggal: {{ $filters['tanggal_dari'] ?? '-' }} s/d {{ $filters['tanggal_sampai'] ?? '-' }}</p>
+    <p>Periode: {{ $periode }}</p>
     <p>Total biaya: Rp {{ number_format($totalBiaya, 0, ',', '.') }}</p>
     <table>
         <thead>
@@ -25,17 +25,27 @@
                 <th>Pelanggan</th>
                 <th>Jenis Service</th>
                 <th>Unit</th>
+                <th>Jumlah Unit</th>
+                <th>Peralatan</th>
+                <th>Teknisi</th>
+                <th>Status</th>
+                <th>Sumber</th>
                 <th>Biaya</th>
             </tr>
         </thead>
         <tbody>
-            @foreach($services as $service)
+            @foreach($serviceRows as $service)
                 <tr>
-                    <td>{{ $service->tgl_service->format('d-m-Y') }}</td>
-                    <td>{{ $service->unitApar?->pelanggan?->nama ?? 'Unit Manual' }}</td>
-                    <td>{{ $service->jenis_service }}</td>
-                    <td>{{ $service->unitApar?->no_seri ?? '-' }}</td>
-                    <td>Rp {{ number_format($service->biaya, 0, ',', '.') }}</td>
+                    <td>{{ $service['tanggal_label'] }}</td>
+                    <td>{{ $service['pelanggan'] }}</td>
+                    <td>{{ $service['jenis_service'] }}</td>
+                    <td>{{ $service['unit'] }}</td>
+                    <td>{{ $service['jumlah_unit'] }} unit</td>
+                    <td>{{ $service['peralatan'] }}</td>
+                    <td>{{ $service['teknisi'] }}</td>
+                    <td>{{ $service['status'] }}</td>
+                    <td>{{ $service['source'] }}</td>
+                    <td>Rp {{ number_format($service['total'], 0, ',', '.') }}</td>
                 </tr>
             @endforeach
         </tbody>

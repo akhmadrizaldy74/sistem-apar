@@ -1441,7 +1441,9 @@
 @section('content')
 @php
     $orderEntryUrl = auth()->check() ? route('order.create') : route('login');
-    $waContact = env('WHATSAPP_CONTACT', '6285128008030');
+    $waContact = \App\Support\WhatsApp::companyNumber();
+    $waDisplay = \App\Support\WhatsApp::display($waContact);
+    $waConsultationUrl = \App\Support\WhatsApp::companyLink('Halo PD Anugrah Utama, saya ingin konsultasi mengenai APAR.');
     $heroProduct = $produks->first();
     $heroVideoUrl = asset('storage/foto apar/1.mp4');
     $testimoniLayout = $testimonis->count() > 0 && $testimonis->count() <= 2 ? 'testi-grid testi-grid-sparse' : 'testi-grid';
@@ -1470,7 +1472,7 @@
                         <i class="fa-solid fa-cart-shopping"></i>
                         Pesan Sekarang
                     </a>
-                    <a href="https://wa.me/6285128008030?text=Halo%20PD.%20Anugrah%20Utama%2C%20saya%20ingin%20konsultasi%20mengenai%20APAR." target="_blank" rel="noopener noreferrer" class="btn-whatsapp">
+                    <a href="{{ $waConsultationUrl }}" target="_blank" rel="noopener noreferrer" class="btn-whatsapp">
                         <i class="fa-brands fa-whatsapp"></i>
                         Hubungi WhatsApp
                     </a>
@@ -1856,7 +1858,7 @@
                     </div>
                     <div>
                         <p class="lokasi-label">WhatsApp</p>
-                        <a href="https://wa.me/{{ $waContact }}" target="_blank" rel="noopener noreferrer" class="lokasi-text">+62 851-2800-8030</a>
+                        <a href="{{ \App\Support\WhatsApp::companyLink() }}" target="_blank" rel="noopener noreferrer" class="lokasi-text">{{ $waDisplay }}</a>
                         <p class="lokasi-sub">Gunakan WhatsApp untuk konsultasi, tanya stok, permintaan harga, dan penjadwalan layanan.</p>
                     </div>
                 </article>

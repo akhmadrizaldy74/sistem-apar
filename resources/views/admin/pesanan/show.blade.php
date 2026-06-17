@@ -19,6 +19,10 @@
     @php
         $pricingSummary = $pesanan->pricingSummary();
         $purchasePriceLabel = $pesanan->purchasePriceStatusLabel();
+        $customerWaUrl = \App\Support\WhatsApp::customerLink(
+            $pesanan->pelanggan->no_wa ?? null,
+            'Halo Bapak/Ibu, kami ingin mengonfirmasi ' . strtolower($pesanan->transactionDisplayName()) . ' APAR Anda.'
+        );
     @endphp
 
     <div class="space-y-8">
@@ -51,9 +55,11 @@
                         <p class="text-xl font-black text-gray-900 mt-3">{{ $pesanan->pelanggan->nama }}</p>
                         <p class="text-sm font-semibold text-gray-500 mt-2">{{ $pesanan->pelanggan->no_wa }}</p>
                         <p class="text-sm font-medium text-gray-500 mt-2">{{ $pesanan->pelanggan->alamat }}</p>
-                        <a href="https://wa.me/{{ preg_replace('/^0/', '62', $pesanan->pelanggan->no_wa) }}" target="_blank" class="inline-block mt-3 px-4 py-2 bg-green-500 text-white rounded-xl text-xs font-bold hover:bg-green-600 transition">
-                            <i class="fa-brands fa-whatsapp"></i> Chat WhatsApp
-                        </a>
+                        @if($customerWaUrl)
+                            <a href="{{ $customerWaUrl }}" target="_blank" rel="noopener noreferrer" class="inline-block mt-3 px-4 py-2 bg-green-500 text-white rounded-xl text-xs font-bold hover:bg-green-600 transition">
+                                <i class="fa-brands fa-whatsapp"></i> Chat WhatsApp
+                            </a>
+                        @endif
                     </div>
                 </div>
 

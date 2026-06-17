@@ -136,7 +136,7 @@
 
     const SHIPPING_QUOTE_URL = '{{ route('order.shipping.quote') }}';
     const ADDRESS_SUGGEST_URL = '{{ route('order.address.suggest') }}';
-    const WA_NUMBER = '{{ preg_replace("/^0/", "62", env("WHATSAPP_CONTACT", "082124716109")) }}';
+    const WA_NUMBER = '{{ \App\Support\WhatsApp::companyNumber() }}';
     const PRODUCT_PAGE_URL = '{{ route('produk.index') }}';
     const LOGIN_PAGE_URL = '{{ route('login') }}';
     const CHECKOUT_PAGE_URL = '{{ route('order.create') }}';
@@ -735,7 +735,7 @@
                         <select name="service_paket_id" id="service-paket-id" class="order-input">
                             <option value="">-- Pilih Paket Service --</option>
                             @foreach($servicePakets as $servicePaket)
-                                <option value="{{ $servicePaket->id }}" {{ (string) old('service_paket_id') === (string) $servicePaket->id ? 'selected' : '' }}>{{ $servicePaket->label ?: 'Paket' }} - {{ $servicePaket->nama }} - Harga mengikuti media & ukuran APAR</option>
+                                <option value="{{ $servicePaket->id }}" {{ (string) old('service_paket_id') === (string) $servicePaket->id ? 'selected' : '' }}>{{ $servicePaket->label ?: 'Service' }} - {{ $servicePaket->nama }} - Harga standar per unit APAR</option>
                             @endforeach
                         </select>
                     </div>
@@ -2085,7 +2085,7 @@
             const unitRefillSelection = getRegisteredUnitRefillSelection(unit);
             const subtotalText = subtotal > 0
                 ? fmt(subtotal)
-                : (serviceJenisLayanan?.value === 'service' ? 'Harga service belum tersedia' : 'Harga refill belum tersedia');
+                : (serviceJenisLayanan?.value === 'service' ? 'Harga service standar belum tersedia' : 'Harga refill belum tersedia');
             const kode = escapeHtml(unit.kode || '-');
             const produkNama = escapeHtml(unit.produk_nama || '-');
             const jenisApar = escapeHtml(unit.jenis_apar || '-');
@@ -2191,7 +2191,7 @@
         if ((state.lineItems || []).length) {
             const priceTitle = document.createElement('p');
             priceTitle.className = 'pt-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400';
-            priceTitle.textContent = 'Harga Berdasarkan Unit APAR';
+            priceTitle.textContent = 'Harga Service';
             servicePackageRincian.appendChild(priceTitle);
 
             state.lineItems.forEach((item) => {
@@ -2344,14 +2344,14 @@
 
             if (stockIssues.length) {
                 state.currentStockLabel = stockIssues.map((item) => `${item.nama}: stok ${item.stok}, butuh ${item.jumlah}`).join(' • ');
-                state.afterStockLabel = 'Stok peralatan paket belum mencukupi untuk memproses service ini.';
+                state.afterStockLabel = 'Service tetap bisa dibuat, tetapi finalisasi akan ditolak jika stok peralatan belum mencukupi.';
                 state.insufficientStock = true;
                 state.lowStock = false;
             } else {
                 state.currentStockLabel = state.peralatanItems.length
                     ? state.peralatanItems.map((item) => `${item.nama}: ${item.stok} pcs`).join(' • ')
                     : 'Paket service akan memakai peralatan sesuai standar pekerjaan.';
-                state.afterStockLabel = 'Stok perlengkapan akan berkurang saat admin mengonfirmasi service selesai.';
+                state.afterStockLabel = 'Stok peralatan baru akan berkurang saat admin mengubah status ke Selesai Final.';
                 state.lowStock = lowStockItems.length > 0;
                 state.insufficientStock = false;
             }
@@ -2389,8 +2389,8 @@
                 }
             } else {
                 serviceRefillPriceNote.textContent = state.totalPrice > 0
-                    ? 'Harga service mengikuti paket, media APAR, dan ukuran tiap unit yang dipilih.'
-                    : 'Pilih media APAR, ukuran, dan paket service untuk melihat harga otomatis.';
+                    ? 'Harga service mengikuti harga standar jenis service dan dikalikan sesuai jumlah unit APAR.'
+                    : 'Pilih jenis service untuk melihat harga standar otomatis.';
             }
         }
 
@@ -2441,7 +2441,7 @@
 
         if (state.insufficientStock) {
             setServiceAlert(serviceStockWarning, state.kategori === 'service'
-                ? 'Stok peralatan paket service belum mencukupi untuk jumlah unit yang dipilih.'
+                ? 'Stok peralatan untuk jenis service ini belum cukup. Service masih bisa dibuat, tetapi finalisasi nanti akan ditolak sampai stok tersedia.'
                 : (state.hasMixedRegisteredRefill
                     ? 'Unit APAR yang dipilih memiliki jenis refill berbeda. Pisahkan pesanan berdasarkan jenis APAR.'
                     : `Stok refill ${state.refill?.nama_label || 'yang dipilih'} tidak mencukupi.`));
@@ -2828,7 +2828,7 @@
 
             if (serviceState.kategori === 'service' && !servicePaketId?.value) {
                 showAppAlert(serviceState.unitStatus === 'terdaftar'
-                    ? 'Paket service standar belum tersedia. Isi atau aktifkan paket service terlebih dahulu di data admin.'
+                    ? 'Paket service standar belum tersedia. Isi atau aktifkan master jenis service terlebih dahulu di data admin.'
                     : 'Pilih paket service terlebih dahulu.', 'warning', 'Peringatan');
                 event.preventDefault();
                 return;
@@ -2836,16 +2836,8 @@
 
             if (!serviceState.totalPrice || serviceState.totalPrice <= 0) {
                 showAppAlert(serviceState.unitStatus === 'terdaftar'
-                    ? 'Harga otomatis untuk Unit APAR terdaftar belum tersedia. Pastikan harga standar refil atau paket service sudah terisi.'
+                    ? 'Harga otomatis untuk Unit APAR terdaftar belum tersedia. Pastikan harga standar refil atau service sudah terisi.'
                     : 'Harga layanan untuk pilihan ini belum tersedia.', 'warning', 'Peringatan');
-                event.preventDefault();
-                return;
-            }
-
-            if (serviceState.insufficientStock) {
-                showAppAlert(serviceState.kategori === 'service'
-                    ? 'Stok peralatan paket service belum mencukupi untuk jumlah unit yang dipilih.'
-                    : ('Stok refill ' + (serviceState.refill?.nama_label || 'yang dipilih') + ' tidak mencukupi.'), 'warning', 'Peringatan');
                 event.preventDefault();
                 return;
             }

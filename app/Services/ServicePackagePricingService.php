@@ -6,23 +6,11 @@ use App\Models\Peralatan;
 use App\Models\Produk;
 use App\Models\ServicePaket;
 use App\Models\UnitApar;
+use App\Support\ServiceMasterCatalog;
 use Illuminate\Support\Collection;
 
 class ServicePackagePricingService
 {
-    private const PACKAGE_RULES = [
-        'A' => ['base' => 20000, 'per_kg' => 10000],
-        'B' => ['base' => 30000, 'per_kg' => 15000],
-        'C' => ['base' => 50000, 'per_kg' => 25000],
-    ];
-
-    private const MEDIA_MULTIPLIERS = [
-        'powder' => 1.0,
-        'foam' => 1.1,
-        'co2' => 1.2,
-        'clean_agent' => 1.25,
-    ];
-
     public function availableMediaOptions(): array
     {
         $mediaMap = [];
@@ -110,19 +98,9 @@ class ServicePackagePricingService
 
     public function resolvePackagePrice(ServicePaket $paket, string $media, string $ukuran): float
     {
-        $tier = $this->resolvePackageTier($paket);
-        $rule = self::PACKAGE_RULES[$tier] ?? self::PACKAGE_RULES['B'];
-        $mediaKey = $this->normalizeMediaKey($media);
-        $multiplier = self::MEDIA_MULTIPLIERS[$mediaKey] ?? 1.05;
-        $ukuranKg = $this->extractCapacityKg($ukuran);
+        unset($media, $ukuran);
 
-        if ($ukuranKg <= 0) {
-            return 0.0;
-        }
-
-        $price = ($rule['base'] + ($rule['per_kg'] * $ukuranKg)) * $multiplier;
-
-        return (float) (ceil($price / 5000) * 5000);
+        return max(0.0, (float) ($paket->harga ?? 0));
     }
 
     public function summarizePackageOrder(ServicePaket $paket, array $lineSpecs): array
@@ -212,6 +190,7 @@ class ServicePackagePricingService
         $tierIndex = $this->packageTierIndex($paket);
 
         return Peralatan::query()
+            ->whereIn('nama', ServiceMasterCatalog::canonicalPeralatanNames())
             ->orderBy('nama')
             ->get()
             ->map(function (Peralatan $peralatan) use ($tierIndex, $explicitPivotMap, $qtyMultiplier) {
@@ -284,8 +263,8 @@ class ServicePackagePricingService
         $source = mb_strtolower(trim((string) ($paket->label ?: $paket->nama)));
 
         return match (true) {
-            str_contains($source, 'paket a'), str_contains($source, 'service ringan'), str_contains($source, 'inspeksi ringan') => 'A',
-            str_contains($source, 'paket c'), str_contains($source, 'service lengkap') => 'C',
+            str_contains($source, 'service ringan') => 'A',
+            str_contains($source, 'ganti valve'), str_contains($source, 'pressure gauge') => 'C',
             default => 'B',
         };
     }

@@ -3,15 +3,17 @@
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
                 <h2 class="text-3xl font-black text-gray-900 tracking-tight">Laporan Service</h2>
-                <p class="text-sm text-gray-500 font-medium">Rekap service dengan filter tanggal dan pelanggan</p>
+                <p class="text-sm text-gray-500 font-medium">Rekap service final yang terhubung dengan transaksi dan peralatan.</p>
             </div>
-            <a href="{{ route('admin.laporan.index') }}" class="px-6 py-3 bg-white border border-gray-100 rounded-2xl text-sm font-black text-gray-700 hover:shadow-lg transition">
-                Kembali ke Pusat Laporan
+            <a href="{{ route('admin.laporan.service.pdf', request()->query()) }}" class="inline-flex items-center justify-center px-6 py-3 bg-red-700 text-white rounded-2xl text-sm font-black hover:bg-red-800 transition shadow-xl shadow-red-700/20">
+                Cetak PDF
             </a>
         </div>
     </x-slot>
 
     <div class="space-y-8">
+        @include('admin.laporan.partials.tabs')
+
         <form method="GET" class="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 p-8 grid md:grid-cols-4 gap-4 items-end">
             <div>
                 <label for="tanggal_dari" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Tanggal Dari</label>
@@ -36,21 +38,28 @@
                 <button type="submit" class="flex-1 px-6 py-4 bg-red-700 text-white font-black rounded-2xl hover:bg-red-800 transition uppercase tracking-widest text-xs">
                     Filter
                 </button>
-                <a href="{{ route('admin.laporan.service.pdf', request()->query()) }}" class="flex-1 px-6 py-4 bg-white text-gray-700 font-black rounded-2xl border border-gray-100 hover:shadow-lg transition uppercase tracking-widest text-xs text-center">
-                    PDF
+                <a href="{{ route('admin.laporan.service', []) }}" class="flex-1 px-6 py-4 bg-white text-gray-700 font-black rounded-2xl border border-gray-100 hover:shadow-lg transition uppercase tracking-widest text-xs text-center">
+                    Reset
                 </a>
-
             </div>
         </form>
 
-        <div class="grid md:grid-cols-2 gap-6">
+        <div class="grid md:grid-cols-4 gap-6">
             <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Service</p>
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Service Final</p>
                 <p class="text-4xl font-black text-gray-900 mt-3">{{ $stats['total_transaksi'] }}</p>
             </div>
             <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Biaya</p>
-                <p class="text-4xl font-black text-red-700 mt-3">Rp {{ number_format($stats['total_biaya'], 0, ',', '.') }}</p>
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Sumber Online</p>
+                <p class="text-4xl font-black text-amber-700 mt-3">{{ $stats['online'] }}</p>
+            </div>
+            <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Sumber Offline</p>
+                <p class="text-4xl font-black text-emerald-700 mt-3">{{ $stats['offline'] }}</p>
+            </div>
+            <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Biaya Final</p>
+                <p class="text-3xl font-black text-red-700 mt-3">Rp {{ number_format($stats['total_biaya'], 0, ',', '.') }}</p>
             </div>
         </div>
 
@@ -60,29 +69,48 @@
                     <thead class="bg-gray-50/60">
                         <tr>
                             <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Tanggal</th>
-                            <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Unit</th>
-                            <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Jenis Service</th>
                             <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Pelanggan</th>
-                            <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Keterangan</th>
-                            <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Biaya</th>
+                            <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Jenis Service</th>
+                            <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Unit APAR</th>
+                            <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Jumlah Unit</th>
+                            <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Peralatan</th>
+                            <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Teknisi</th>
+                            <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                            <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Sumber</th>
+                            <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Total</th>
+                            <th class="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Detail</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-50">
-                        @forelse($services as $service)
-                            <tr>
-                                <td class="px-8 py-6 text-sm font-bold text-gray-900">{{ $service->tgl_service->format('d M Y') }}</td>
+                        @forelse($serviceRows as $service)
+                            <tr class="hover:bg-gray-50/40 transition">
+                                <td class="px-8 py-6 text-sm font-bold text-gray-900">{{ $service['tanggal_label'] }}</td>
+                                <td class="px-8 py-6 text-sm font-bold text-gray-900">{{ $service['pelanggan'] }}</td>
+                                <td class="px-8 py-6 text-sm font-black text-red-700">{{ $service['jenis_service'] }}</td>
+                                <td class="px-8 py-6 text-sm font-semibold text-gray-700">{{ $service['unit'] }}</td>
+                                <td class="px-8 py-6 text-sm font-bold text-gray-700">{{ $service['jumlah_unit'] }} unit</td>
+                                <td class="px-8 py-6 text-sm font-semibold text-gray-600">{{ $service['peralatan'] }}</td>
+                                <td class="px-8 py-6 text-sm font-bold text-gray-700">{{ $service['teknisi'] }}</td>
                                 <td class="px-8 py-6">
-                                    <p class="text-sm font-black text-gray-900">{{ $service->unitApar?->no_seri ?? '-' }}</p>
-                                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{{ $service->unitApar?->produk?->nama ?? '-' }}</p>
+                                    <span class="inline-flex px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-widest">
+                                        {{ $service['status'] }}
+                                    </span>
                                 </td>
-                                <td class="px-8 py-6 text-sm font-bold text-red-700">{{ $service->jenis_service }}</td>
-                                <td class="px-8 py-6 text-sm font-bold text-gray-700">{{ $service->unitApar?->pelanggan?->nama ?? '-' }}</td>
-                                <td class="px-8 py-6 text-sm font-medium text-gray-500 max-w-sm">{{ $service->keterangan }}</td>
-                                <td class="px-8 py-6 text-sm font-black text-blue-700">Rp {{ number_format($service->biaya, 0, ',', '.') }}</td>
+                                <td class="px-8 py-6 text-sm font-bold text-gray-700">{{ $service['source'] }}</td>
+                                <td class="px-8 py-6 text-sm font-black text-blue-700">Rp {{ number_format($service['total'], 0, ',', '.') }}</td>
+                                <td class="px-8 py-6 text-right">
+                                    @if($service['detail_url'])
+                                        <a href="{{ $service['detail_url'] }}" class="inline-flex items-center justify-center px-4 py-3 bg-white text-gray-700 font-black rounded-2xl border border-gray-100 hover:shadow-lg transition uppercase tracking-widest text-[10px]">
+                                            Detail
+                                        </a>
+                                    @else
+                                        <span class="text-xs font-bold text-gray-300">-</span>
+                                    @endif
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-8 py-12 text-center text-sm font-medium text-gray-500">Belum ada data service sesuai filter.</td>
+                                <td colspan="11" class="px-8 py-12 text-center text-sm font-medium text-gray-500">Belum ada data service final sesuai filter.</td>
                             </tr>
                         @endforelse
                     </tbody>

@@ -8,28 +8,27 @@ use App\Http\Controllers\Controller;
 use App\Models\JenisRefill;
 use App\Models\Peralatan;
 use App\Models\ServicePaket;
+use App\Services\ServiceMasterSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class ServicePaketController extends Controller
 {
-    public function index()
+    public function index(ServiceMasterSyncService $serviceMasterSyncService)
     {
-        $servicePakets = ServicePaket::with(['jenisRefill', 'peralatans'])
-            ->withCount('services')
-            ->latest()
-            ->get();
+        $servicePakets = $serviceMasterSyncService->visibleServicePakets(['jenisRefill', 'peralatans'])
+            ->loadCount('services');
 
         return view('admin.service-paket.index', compact('servicePakets'));
     }
 
-    public function create()
+    public function create(ServiceMasterSyncService $serviceMasterSyncService)
     {
         return view('admin.service-paket.create', [
             'servicePaket' => new ServicePaket(),
             'jenisRefills' => JenisRefill::orderBy('nama')->get(),
-            'peralatans' => Peralatan::orderBy('nama')->get(),
+            'peralatans' => $serviceMasterSyncService->visiblePeralatans(),
             'selectedPeralatan' => [],
         ]);
     }
@@ -48,14 +47,14 @@ class ServicePaketController extends Controller
             ->with('success', 'Paket service berhasil ditambahkan.');
     }
 
-    public function edit(ServicePaket $servicePaket)
+    public function edit(ServicePaket $servicePaket, ServiceMasterSyncService $serviceMasterSyncService)
     {
         $servicePaket->load('peralatans');
 
         return view('admin.service-paket.edit', [
             'servicePaket' => $servicePaket,
             'jenisRefills' => JenisRefill::orderBy('nama')->get(),
-            'peralatans' => Peralatan::orderBy('nama')->get(),
+            'peralatans' => $serviceMasterSyncService->visiblePeralatans(),
             'selectedPeralatan' => $servicePaket->peralatans
                 ->mapWithKeys(fn (Peralatan $peralatan) => [
                     $peralatan->id => (int) ($peralatan->pivot->jumlah_estimasi ?? 0),

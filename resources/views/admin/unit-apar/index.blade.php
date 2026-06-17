@@ -23,7 +23,7 @@
         $oldForm = [
             'pelanggan_id' => old('pelanggan_id', ''),
             'produk_id' => old('produk_id', ''),
-            'tgl_beli' => old('tgl_beli', ''),
+            'tanggal_dasar_masa_berlaku' => old('tanggal_dasar_masa_berlaku', old('tgl_produksi', old('tgl_beli', ''))),
         ];
     @endphp
 
@@ -123,7 +123,7 @@
                             <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 sm:px-8">Unit Info / Nomor Unit</th>
                             <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 sm:px-8">Pelanggan</th>
                             <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 sm:px-8">Produk</th>
-                            <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 sm:px-8">Tanggal Beli / Expired</th>
+                            <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 sm:px-8">Tanggal Dasar / Expired</th>
                             <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 sm:px-8">Status</th>
                             <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 sm:px-8">Aksi</th>
                         </tr>
@@ -154,7 +154,7 @@
                                 </td>
 
                                 <td class="px-6 py-5 align-top sm:px-8">
-                                    <p class="text-sm font-bold text-slate-800" x-text="unit.tgl_beli_label"></p>
+                                    <p class="text-sm font-bold text-slate-800" x-text="unit.tgl_dasar_label"></p>
                                     <p class="mt-1 text-xs font-semibold text-slate-500" x-text="'Expired: ' + unit.tgl_expired_label"></p>
                                 </td>
 
@@ -217,7 +217,7 @@
                 <div class="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-100 bg-white/95 px-6 py-5 backdrop-blur sm:px-8">
                     <div>
                         <h3 class="text-2xl font-black text-slate-900">Registrasi APAR</h3>
-                        <p class="mt-1 text-sm font-medium text-slate-500">Daftarkan unit APAR untuk monitoring masa berlaku tanpa mengubah alur lain.</p>
+                        <p class="mt-1 text-sm font-medium text-slate-500">Daftarkan unit APAR milik pelanggan agar masa berlakunya dapat dipantau.</p>
                     </div>
 
                     <button
@@ -296,21 +296,20 @@
                             </div>
 
                             <div>
-                                <label for="tgl_beli" class="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Tanggal Beli <span class="text-red-500">*</span></label>
+                                <label for="tanggal_dasar_masa_berlaku" class="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Tanggal Dasar Masa Berlaku <span class="text-red-500">*</span></label>
                                 <input
-                                    id="tgl_beli"
+                                    id="tanggal_dasar_masa_berlaku"
                                     type="date"
-                                    name="tgl_beli"
-                                    x-model="form.tglBeli"
-                                    value="{{ old('tgl_beli') }}"
+                                    name="tanggal_dasar_masa_berlaku"
+                                    x-model="form.tanggalDasarMasaBerlaku"
+                                    value="{{ old('tanggal_dasar_masa_berlaku', old('tgl_produksi', old('tgl_beli'))) }}"
                                     required
                                     class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm font-bold text-slate-800 focus:border-red-300 focus:ring-2 focus:ring-red-600/10"
                                 >
-                                <x-input-error :messages="$errors->get('tgl_beli')" class="mt-2" />
+                                <p class="mt-2 text-xs font-semibold text-slate-500">Tanggal ini digunakan sebagai dasar perhitungan masa berlaku APAR.</p>
+                                <x-input-error :messages="$errors->get('tanggal_dasar_masa_berlaku')" class="mt-2" />
                             </div>
-                        </div>
 
-                        <div class="space-y-5">
                             <div>
                                 <label class="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Tanggal Expired / Masa Berlaku</label>
                                 <input
@@ -319,7 +318,7 @@
                                     readonly
                                     class="w-full rounded-2xl border border-slate-200 bg-slate-100 px-5 py-4 text-sm font-bold text-slate-700 focus:ring-0"
                                 >
-                                <p class="mt-2 text-xs font-semibold text-slate-500">Dihitung otomatis dari tanggal beli dan produk sesuai logic masa berlaku yang sudah dipakai sistem.</p>
+                                <p class="mt-2 text-xs font-semibold text-slate-500">Dihitung otomatis dari tanggal produksi/dasar expired. APAR 1 kg berlaku 6 bulan, ukuran 2 kg ke atas berlaku 1 tahun.</p>
                             </div>
 
                             <div>
@@ -331,35 +330,22 @@
                                     class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm font-bold text-slate-800 focus:border-red-300 focus:ring-2 focus:ring-red-600/10"
                                 >
                                     <option value="layak" @selected(old('kondisi_awal', 'layak') === 'layak')>Layak</option>
-                                    <option value="perlu_servis" @selected(old('kondisi_awal') === 'perlu_servis')>Perlu servis</option>
-                                    <option value="tidak_aktif" @selected(old('kondisi_awal') === 'tidak_aktif')>Tidak aktif</option>
+                                    <option value="tidak_aktif" @selected(old('kondisi_awal') === 'tidak_aktif' || old('kondisi_awal') === 'tidak_layak')>Tidak Layak</option>
                                 </select>
                                 <x-input-error :messages="$errors->get('kondisi_awal')" class="mt-2" />
                             </div>
+                        </div>
 
+                        <div class="space-y-5">
                             <div>
-                                <label for="lokasi_unit" class="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Lokasi Unit</label>
-                                <input
-                                    id="lokasi_unit"
-                                    type="text"
-                                    name="lokasi_unit"
-                                    value="{{ old('lokasi_unit') }}"
-                                    placeholder="Contoh: Lantai 2 / Gudang depan"
-                                    class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm font-bold text-slate-800 placeholder:text-slate-300 focus:border-red-300 focus:ring-2 focus:ring-red-600/10"
-                                >
-                                <x-input-error :messages="$errors->get('lokasi_unit')" class="mt-2" />
-                            </div>
-
-                            <div>
-                                <label for="catatan_unit" class="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">Keterangan</label>
-                                <textarea
-                                    id="catatan_unit"
-                                    name="catatan_unit"
-                                    rows="5"
-                                    placeholder="Tambahkan keterangan bila ada"
-                                    class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm font-bold text-slate-800 placeholder:text-slate-300 focus:border-red-300 focus:ring-2 focus:ring-red-600/10"
-                                >{{ old('catatan_unit') }}</textarea>
-                                <x-input-error :messages="$errors->get('catatan_unit')" class="mt-2" />
+                                <div class="rounded-3xl border border-slate-200 bg-slate-50 p-6">
+                                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Petunjuk Singkat</p>
+                                    <ul class="mt-4 space-y-3 text-sm font-semibold leading-6 text-slate-600">
+                                        <li>Form ini dipakai untuk mendaftarkan unit APAR pelanggan lama agar masa berlakunya bisa dipantau.</li>
+                                        <li>Nomor unit boleh dikosongkan jika ingin dibuat otomatis oleh sistem.</li>
+                                        <li>Expired dihitung otomatis: 1 kg = 6 bulan, 2 kg ke atas = 1 tahun.</li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -400,7 +386,7 @@
                     form: {
                         pelangganId: String(config.oldForm?.pelanggan_id ?? ''),
                         produkId: String(config.oldForm?.produk_id ?? ''),
-                        tglBeli: String(config.oldForm?.tgl_beli ?? ''),
+                        tanggalDasarMasaBerlaku: String(config.oldForm?.tanggal_dasar_masa_berlaku ?? ''),
                     },
                     normalize(value) {
                         return String(value ?? '').toLowerCase().trim();
@@ -436,7 +422,9 @@
                         return this.productOptions[String(this.form.produkId)] ?? null;
                     },
                     expiryPreviewDate() {
-                        if (!this.form.tglBeli) {
+                        const baseValue = this.form.tanggalDasarMasaBerlaku;
+
+                        if (!baseValue) {
                             return null;
                         }
 
@@ -445,19 +433,16 @@
                             return null;
                         }
 
-                        const baseDate = new Date(`${this.form.tglBeli}T00:00:00`);
+                        const baseDate = new Date(`${baseValue}T00:00:00`);
                         if (Number.isNaN(baseDate.getTime())) {
                             return null;
                         }
 
                         const result = new Date(baseDate.getTime());
-                        const bahan = String(product.bahan ?? '').toLowerCase();
                         const ukuranMatch = String(product.ukuran ?? '').replace(',', '.').match(/(\d+(?:\.\d+)?)/);
                         const ukuranAngka = ukuranMatch ? Number.parseFloat(ukuranMatch[1]) : null;
-                        const isFoam = bahan.includes('foam');
-                        const isSmall = ukuranAngka !== null && ukuranAngka > 0 && ukuranAngka < 3;
 
-                        if (isFoam || isSmall) {
+                        if (ukuranAngka === 1) {
                             result.setMonth(result.getMonth() + 6);
                         } else {
                             result.setFullYear(result.getFullYear() + 1);
@@ -468,7 +453,7 @@
                     expiryPreviewLabel() {
                         const previewDate = this.expiryPreviewDate();
                         if (!previewDate) {
-                            return 'Pilih produk dan tanggal beli untuk melihat perkiraan masa berlaku';
+                            return 'Pilih produk dan tanggal dasar masa berlaku untuk melihat perkiraan expired.';
                         }
 
                         return new Intl.DateTimeFormat('id-ID', {

@@ -16,6 +16,7 @@ use App\Models\Testimoni;
 use App\Models\UnitApar;
 use App\Services\InventoryService;
 use App\Services\OrderPricingService;
+use App\Services\ServiceMasterSyncService;
 use App\Services\ServicePackagePricingService;
 use App\Support\SessionCart;
 use Illuminate\Http\Request;
@@ -1195,12 +1196,10 @@ class PublicController extends Controller
             ->filter(fn (Produk $produk) => $produk->hasResolvedImage())
             ->values();
 
+        $serviceMasterSyncService = app(ServiceMasterSyncService::class);
         $jenisApars = JenisApar::orderBy('nama')->get();
         $jenisRefills = JenisRefill::orderBy('nama')->get();
-        $servicePakets = ServicePaket::with(['peralatans', 'jenisRefill'])
-            ->orderBy('harga')
-            ->get()
-            ->values();
+        $servicePakets = $serviceMasterSyncService->visibleServicePakets(['peralatans', 'jenisRefill']);
         $serviceMediaOptions = $servicePackagePricingService->availableMediaOptions();
         $servicePackageCatalog = $servicePackagePricingService->packageCatalog($servicePakets, $serviceMediaOptions);
         $serviceUkuranOptions = $this->serviceUkuranOptions();
@@ -1326,6 +1325,7 @@ class PublicController extends Controller
                 ->with('warning', 'Selesaikan pembayaran sebelumnya sebelum membuat pesanan baru.');
         }
 
+        app(ServiceMasterSyncService::class)->sync();
         $this->applyAuthenticatedCustomerProfileToRequest($request);
         $isCartCheckout = $request->input('tipe_layanan') === 'beli'
             && $request->boolean('use_cart_checkout')
@@ -1771,7 +1771,9 @@ class PublicController extends Controller
                     $successMessage = 'Pesanan refill berhasil dibuat dengan estimasi ' . number_format($estimasiBiaya, 0, ',', '.')
                         . '. Silakan lanjutkan pembayaran untuk mengaktifkan proses pengerjaan.';
                 } else {
-                    $paket = ServicePaket::with(['peralatans', 'jenisRefill'])->find($request->input('service_paket_id'));
+                    $paket = app(ServiceMasterSyncService::class)
+                        ->visibleServicePakets(['peralatans', 'jenisRefill'])
+                        ->firstWhere('id', (int) $request->input('service_paket_id'));
 
                     if (!$paket) {
                         throw ValidationException::withMessages([
@@ -1789,21 +1791,9 @@ class PublicController extends Controller
                     $packageSummary = $servicePackagePricingService->summarizePackageOrder($paket, $serviceLineSpecs);
                     $estimasiBiaya = (float) ($packageSummary['total_price'] ?? 0);
                     $estimasiPeralatan = $packageSummary['peralatan_items'] ?? [];
-                    $stockIssues = $packageSummary['stock_issues'] ?? [];
-
                     if ($estimasiBiaya <= 0) {
                         throw ValidationException::withMessages([
-                            'service_paket_id' => 'Harga service untuk kombinasi paket, media APAR, dan ukuran yang dipilih belum tersedia.',
-                        ]);
-                    }
-
-                    if (!empty($stockIssues)) {
-                        $issueText = collect($stockIssues)
-                            ->map(fn (array $item) => ($item['nama'] ?? 'Peralatan') . ' (butuh ' . (int) ($item['jumlah'] ?? 0) . ', stok ' . (float) ($item['stok'] ?? 0) . ')')
-                            ->implode(', ');
-
-                        throw ValidationException::withMessages([
-                            'service_paket_id' => 'Stok peralatan paket service belum mencukupi: ' . $issueText . '.',
+                            'service_paket_id' => 'Harga standar service untuk jenis service yang dipilih belum tersedia.',
                         ]);
                     }
 
@@ -2164,7 +2154,6 @@ private function fetchPhoton(string $query): array
             $detailItems = implode("\n", $lines);
         }
 
-        $waNumber = preg_replace('/^0/', '62', env('WHATSAPP_CONTACT', '082124716109'));
         $waMessage = "Halo Admin, saya sudah mengonfirmasi pembayaran transaksi.\n\n"
             . "Transaksi: " . $pesanan->transactionDisplayName() . "\n"
             . "Waktu: " . $pesanan->displayTransactionDateTime() . " WIB\n"
@@ -2178,7 +2167,7 @@ private function fetchPhoton(string $query): array
             . "Ongkir: Rp {$ongkir}\n"
             . "Bank: {$bankName}\n\n"
             . "Detail Item:\n{$detailItems}";
-        $waUrl = 'https://wa.me/' . $waNumber . '?text=' . rawurlencode($waMessage);
+        $waUrl = \App\Support\WhatsApp::companyLink($waMessage);
 
         if ($request->expectsJson()) {
             return response()->json([

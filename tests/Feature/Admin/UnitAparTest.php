@@ -140,6 +140,14 @@ class UnitAparTest extends TestCase
         $response->assertDontSee(route('admin.unit-apar.edit', $unit), false);
     }
 
+    public function test_expiry_rule_uses_six_months_only_for_one_kg_units(): void
+    {
+        $this->assertSame('2026-12-14', UnitApar::calculateExpiry('2026-06-14', '1 kg', 'Powder')->toDateString());
+        $this->assertSame('2027-06-14', UnitApar::calculateExpiry('2026-06-14', '2 kg', 'Powder')->toDateString());
+        $this->assertSame('2027-06-14', UnitApar::calculateExpiry('2026-06-14', '6 kg', 'Foam')->toDateString());
+        $this->assertSame('2027-06-14', UnitApar::calculateExpiry('2026-06-14', '9 kg', 'CO2')->toDateString());
+    }
+
     public function test_admin_can_delete_unit_apar_from_monitoring_page(): void
     {
         $admin = $this->createAdmin();

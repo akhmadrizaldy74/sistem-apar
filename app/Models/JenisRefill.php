@@ -28,16 +28,7 @@ class JenisRefill extends Model
 
     public function getSatuanLabelAttribute(): string
     {
-        if (str_contains(strtolower((string) $this->nama), 'foam')) {
-            return 'Kg';
-        }
-
-        $raw = strtolower(trim((string) $this->satuan));
-
-        return match ($raw) {
-            'l', 'liter', 'litre' => 'L',
-            default => 'Kg',
-        };
+        return 'Kg';
     }
 
     public function getNamaLabelAttribute(): string

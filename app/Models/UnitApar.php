@@ -55,15 +55,20 @@ class UnitApar extends Model
         return $this->hasMany(Refill::class);
     }
 
+    public static function extractSizeKg($ukuran): ?float
+    {
+        if (! preg_match('/(\d+(?:[.,]\d+)?)/', (string) $ukuran, $matches)) {
+            return null;
+        }
+
+        return (float) str_replace(',', '.', $matches[1]);
+    }
+
     public static function calculateExpiry($productionDate, $ukuran = null, $bahan = null)
     {
         $date = Carbon::parse($productionDate)->startOfDay();
 
-        $ukuranAngka = (float) filter_var($ukuran, FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
-        $isFoam = stripos((string) $bahan, 'Foam') !== false;
-        $isSmall = $ukuranAngka > 0 && $ukuranAngka < 3;
-
-        if ($isFoam || $isSmall) {
+        if (self::extractSizeKg($ukuran) === 1.0) {
             return $date->addMonths(6);
         }
 
