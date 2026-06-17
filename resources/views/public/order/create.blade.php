@@ -160,6 +160,7 @@
     const CAN_USE_CART_CHECKOUT = {{ !empty($canUseCartCheckout) ? 'true' : 'false' }};
     const CART_HAS_ITEMS = {{ !empty($cartItemCount) ? 'true' : 'false' }};
     const PREFILLED_ORDER_ITEMS = {!! json_encode(($prefilledOrderItems ?? collect())->values()) !!};
+    const PREFILLED_SERVICE_ORDER = {!! json_encode($prefillServiceOrder ?? null) !!};
     const INITIAL_PRODUCT_SUMMARY = {!! json_encode($orderSummary ?? []) !!};
     const INITIAL_SPECIAL_PRICE_REQUEST_OPEN = {{ $specialPriceRequestOpen ? 'true' : 'false' }};
     const USING_DIRECT_PRODUCT_SELECTION = {{ !empty($prefillFromProduct) ? 'true' : 'false' }};
@@ -214,9 +215,13 @@
             'label' => $label,
             'purchase_key' => $purchaseKey,
             'purchase_label' => $purchaseLabel,
+            'needs_refill' => (bool) ($unitApar->getAttribute('needs_refill') ?? false),
+            'refill_status_label' => (string) ($unitApar->getAttribute('refill_status_label') ?? 'Aman'),
+            'is_refill_locked' => (bool) ($unitApar->getAttribute('is_refill_locked') ?? false),
+            'refill_lock_message' => (string) ($unitApar->getAttribute('refill_lock_message') ?? ''),
         ];
     })->values()) !!};
-    const OLD_SELECTED_UNIT_APAR_IDS = {!! json_encode(collect(old('service_unit_apar_ids', old('service_unit_apar_id') ? [old('service_unit_apar_id')] : []))->map(fn ($id) => (int) $id)->filter()->values()) !!};
+    const OLD_SELECTED_UNIT_APAR_IDS = {!! json_encode(collect(old('service_unit_apar_ids', old('service_unit_apar_id') ? [old('service_unit_apar_id')] : (($prefillServiceOrder['selected_unit_ids'] ?? []) ?: [])))->map(fn ($id) => (int) $id)->filter()->values()) !!};
     const SERVICE_PAKET_DB = {!! json_encode(array_values($servicePackageCatalog ?? [])) !!};
     const SERVICE_MEDIA_DB = {!! json_encode(array_values($serviceMediaOptions ?? [])) !!};
     const SERVICE_UKURAN_OPTIONS = {!! json_encode(array_values($serviceUkuranOptions ?? [])) !!};
@@ -230,6 +235,7 @@
         $cartItems = $cartItems ?? collect();
         $cartHasItems = $cartItems->isNotEmpty();
         $prefilledOrderItems = collect($prefilledOrderItems ?? []);
+        $prefillServiceOrder = $prefillServiceOrder ?? null;
         $orderSummary = $orderSummary ?? [
             'subtotalProduk' => 0,
             'totalUnit' => 0,
@@ -484,7 +490,7 @@
                 </div>
             </button>
         </div>
-        <input type="hidden" name="tipe_layanan" id="inp-tipe" value="{{ old('tipe_layanan', 'beli') }}">
+        <input type="hidden" name="tipe_layanan" id="inp-tipe" value="{{ old('tipe_layanan', $prefillServiceOrder ? 'service' : 'beli') }}">
     </div>
 
     {{-- ════════════════════════════════════════
@@ -608,8 +614,9 @@
 
         <div id="section-service-inline" class="order-section-card p-5 md:p-6 hidden">
             @php
-                $serviceKategoriOld = old('service_jenis_layanan', 'refill');
+                $serviceKategoriOld = old('service_jenis_layanan', $prefillServiceOrder ? 'refill' : 'refill');
                 $metodeOld = old('service_metode_penanganan', 'dijemput');
+                $isPrefilledRegisteredRefill = ! empty($prefillServiceOrder);
             @endphp
             <input type="hidden" name="service_jenis_apar" id="service-jenis-apar-hidden" value="{{ old('service_jenis_apar') }}">
 
@@ -623,67 +630,152 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                    <label class="order-label">Kategori Layanan <span>*</span></label>
-                    <select name="service_jenis_layanan" id="service-jenis-layanan" class="order-input">
-                        <option value="refill" {{ $serviceKategoriOld === 'refill' ? 'selected' : '' }}>Refill APAR</option>
-                        <option value="service" {{ $serviceKategoriOld === 'service' ? 'selected' : '' }}>Service APAR</option>
-                    </select>
+            @if($prefillServiceOrder)
+                <div class="mb-6 rounded-3xl border border-emerald-200 bg-emerald-50/70 p-5">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                            <p class="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Refill Otomatis</p>
+                            <h3 class="mt-1 text-lg font-black text-slate-900">Refill APAR Terpilih</h3>
+                            <p class="mt-1 text-sm font-semibold text-slate-600">
+                                Unit dari halaman Riwayat & Status APAR sudah dipilih otomatis dan hanya ditampilkan satu kali pada ringkasan checkout ini.
+                            </p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="rounded-full bg-white px-4 py-2 text-xs font-black text-emerald-700 shadow-sm">
+                                {{ $prefillServiceOrder['total_unit'] ?? count($prefillServiceOrder['selected_units'] ?? []) }} Unit
+                            </span>
+                            <a href="{{ route('riwayat-apar', ['tab' => 'unit']) }}" class="inline-flex items-center justify-center rounded-full border border-emerald-200 bg-white px-4 py-2 text-xs font-black text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100">
+                                Ubah Pilihan Unit
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 space-y-3">
+                        @foreach($prefillServiceOrder['selected_units'] ?? [] as $selectedUnit)
+                            <div class="rounded-2xl border border-emerald-200 bg-white px-4 py-4 shadow-sm">
+                                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    <div class="min-w-0">
+                                        <p class="text-base font-black text-slate-900">{{ $selectedUnit['nama_apar'] ?? 'APAR' }}</p>
+                                        <div class="mt-2 grid gap-1 text-sm font-semibold text-slate-600">
+                                            <p>Nomor Unit: {{ $selectedUnit['nomor_unit'] ?? '-' }}</p>
+                                            <p>Jenis APAR: {{ $selectedUnit['jenis_apar'] ?? '-' }}</p>
+                                            <p>Ukuran: {{ $selectedUnit['ukuran'] ?? '-' }}</p>
+                                            <p>Jenis Refill: {{ $selectedUnit['jenis_refill'] ?? '-' }}</p>
+                                        </div>
+                                    </div>
+                                    <div class="shrink-0 text-left sm:text-right">
+                                        <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Harga</p>
+                                        <p class="mt-1 text-sm font-bold text-slate-600">Per Unit Rp {{ number_format((float) ($selectedUnit['harga_per_unit'] ?? 0), 0, ',', '.') }}</p>
+                                        <p class="mt-1 text-base font-black text-emerald-700">Subtotal Rp {{ number_format((float) ($selectedUnit['subtotal'] ?? 0), 0, ',', '.') }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    <div class="mt-4 grid gap-3 sm:grid-cols-3">
+                        <div class="rounded-2xl border border-white/80 bg-white px-4 py-3">
+                            <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Total Unit</p>
+                            <p class="mt-1 text-lg font-black text-slate-900">{{ $prefillServiceOrder['total_unit'] ?? 0 }} unit</p>
+                        </div>
+                        <div class="rounded-2xl border border-white/80 bg-white px-4 py-3">
+                            <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Kebutuhan Refill</p>
+                            <p class="mt-1 text-lg font-black text-slate-900">{{ number_format((float) ($prefillServiceOrder['total_kg'] ?? 0), floor((float) ($prefillServiceOrder['total_kg'] ?? 0)) == (float) ($prefillServiceOrder['total_kg'] ?? 0) ? 0 : 2, ',', '.') }} Kg</p>
+                        </div>
+                        <div class="rounded-2xl border border-white/80 bg-white px-4 py-3">
+                            <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Total Harga</p>
+                            <p class="mt-1 text-lg font-black text-emerald-700">Rp {{ number_format((float) ($prefillServiceOrder['total_price'] ?? 0), 0, ',', '.') }}</p>
+                        </div>
+                    </div>
                 </div>
+            @endif
+
+            @if($isPrefilledRegisteredRefill)
+                <input type="hidden" name="service_jenis_layanan" id="service-jenis-layanan" value="refill">
+                <input type="hidden" name="service_unit_status" value="terdaftar">
+                <input type="hidden" name="service_purchase_group" id="service-purchase-group" value="{{ $prefillServiceOrder['group_key'] ?? '__prefilled__' }}">
+                @foreach(($prefillServiceOrder['selected_unit_ids'] ?? []) as $selectedUnitId)
+                    <input type="hidden" name="service_unit_apar_ids[]" value="{{ (int) $selectedUnitId }}" class="service-unit-hidden-input">
+                @endforeach
+            @endif
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                @unless($isPrefilledRegisteredRefill)
+                    <div>
+                        <label class="order-label">Kategori Layanan <span>*</span></label>
+                        <select name="service_jenis_layanan" id="service-jenis-layanan" class="order-input">
+                            <option value="refill" {{ $serviceKategoriOld === 'refill' ? 'selected' : '' }}>Refill APAR</option>
+                            <option value="service" {{ $serviceKategoriOld === 'service' ? 'selected' : '' }}>Service APAR</option>
+                        </select>
+                    </div>
+                @endunless
                 @php
-                    $unitStatusOld = old('service_unit_status', (old('service_unit_apar_id') || old('service_unit_apar_ids')) ? 'terdaftar' : 'belum_terdaftar');
+                    $unitStatusOld = old('service_unit_status', (old('service_unit_apar_id') || old('service_unit_apar_ids') || $prefillServiceOrder) ? 'terdaftar' : 'belum_terdaftar');
                     $unitStatusOld = in_array($unitStatusOld, ['terdaftar', 'belum_terdaftar'], true) ? $unitStatusOld : 'belum_terdaftar';
                     $registeredUnitApars = $registeredUnitApars ?? collect();
                 @endphp
-                <div id="service-unit-status-fields" class="md:col-span-2">
-                    <label class="order-label mb-3">Status Unit APAR <span>*</span></label>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <label class="flex items-start gap-3 px-4 py-3 rounded-xl border-2 border-slate-200 bg-slate-50 cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
-                            <input type="radio" name="service_unit_status" value="terdaftar" {{ $unitStatusOld === 'terdaftar' ? 'checked' : '' }} class="mt-1 w-4 h-4 text-blue-600">
-                            <span>
-                                <span class="block text-sm font-black text-slate-800">APAR Terdaftar</span>
-                                <span class="block mt-0.5 text-xs font-semibold leading-relaxed text-slate-500">Pilih riwayat pembelian, lalu centang Unit APAR yang ingin diproses.</span>
-                            </span>
-                        </label>
-                        <label class="flex items-start gap-3 px-4 py-3 rounded-xl border-2 border-slate-200 bg-slate-50 cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
-                            <input type="radio" name="service_unit_status" value="belum_terdaftar" {{ $unitStatusOld === 'belum_terdaftar' ? 'checked' : '' }} class="mt-1 w-4 h-4 text-blue-600">
-                            <span>
-                                <span class="block text-sm font-black text-slate-800">APAR Belum Terdaftar</span>
-                                <span class="block mt-0.5 text-xs font-semibold leading-relaxed text-slate-500">Gunakan form manual seperti biasa untuk APAR yang belum masuk data unit.</span>
-                            </span>
-                        </label>
+                @unless($isPrefilledRegisteredRefill)
+                    <div id="service-unit-status-fields" class="md:col-span-2">
+                        <label class="order-label mb-3">Status Unit APAR <span>*</span></label>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <label class="flex items-start gap-3 px-4 py-3 rounded-xl border-2 border-slate-200 bg-slate-50 cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
+                                <input type="radio" name="service_unit_status" value="terdaftar" {{ $unitStatusOld === 'terdaftar' ? 'checked' : '' }} class="mt-1 w-4 h-4 text-blue-600">
+                                <span>
+                                    <span class="block text-sm font-black text-slate-800">APAR Terdaftar</span>
+                                    <span class="block mt-0.5 text-xs font-semibold leading-relaxed text-slate-500">Pilih riwayat pembelian, lalu centang Unit APAR yang ingin diproses.</span>
+                                </span>
+                            </label>
+                            <label class="flex items-start gap-3 px-4 py-3 rounded-xl border-2 border-slate-200 bg-slate-50 cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
+                                <input type="radio" name="service_unit_status" value="belum_terdaftar" {{ $unitStatusOld === 'belum_terdaftar' ? 'checked' : '' }} class="mt-1 w-4 h-4 text-blue-600">
+                                <span>
+                                    <span class="block text-sm font-black text-slate-800">APAR Belum Terdaftar</span>
+                                    <span class="block mt-0.5 text-xs font-semibold leading-relaxed text-slate-500">Gunakan form manual seperti biasa untuk APAR yang belum masuk data unit.</span>
+                                </span>
+                            </label>
+                        </div>
                     </div>
-                </div>
+                @endunless
 
-                <div id="service-registered-unit-fields" class="hidden md:col-span-2">
-                    <label class="order-label">Pilih Tanggal Pembelian APAR <span>*</span></label>
-                    <select name="service_purchase_group" id="service-purchase-group" class="order-input">
-                        <option value="">-- Pilih Tanggal Pembelian APAR --</option>
-                        @foreach($registeredUnitApars->groupBy(fn ($unitApar) => $unitApar->tgl_beli ? $unitApar->tgl_beli->toDateString() : 'tanpa-tanggal') as $purchaseKey => $units)
-                            @php
-                                $firstUnit = $units->first();
-                                $purchaseDate = $firstUnit?->tgl_beli ? $firstUnit->tgl_beli->translatedFormat('d F Y') : 'Tanpa tanggal pembelian';
-                            @endphp
-                            <option value="{{ $purchaseKey }}" {{ old('service_purchase_group') === $purchaseKey ? 'selected' : '' }}>
-                                {{ $purchaseDate }} - {{ $units->count() }} Unit APAR
-                            </option>
-                        @endforeach
-                    </select>
-                    @if($registeredUnitApars->isEmpty())
-                        <p class="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold leading-relaxed text-amber-800">
-                            Belum ada Unit APAR terdaftar. Silakan gunakan opsi APAR Belum Terdaftar atau hubungi admin.
+                @unless($isPrefilledRegisteredRefill)
+                    <div id="service-registered-unit-fields" class="hidden md:col-span-2">
+                        <label class="order-label">Pilih Tanggal Pembelian APAR <span>*</span></label>
+                        <select name="service_purchase_group" id="service-purchase-group" class="order-input">
+                            <option value="">-- Pilih Tanggal Pembelian APAR --</option>
+                            @if($prefillServiceOrder)
+                                <option value="{{ $prefillServiceOrder['group_key'] ?? '__prefilled__' }}" {{ old('service_purchase_group', $prefillServiceOrder['group_key'] ?? '__prefilled__') === ($prefillServiceOrder['group_key'] ?? '__prefilled__') ? 'selected' : '' }}>
+                                    {{ $prefillServiceOrder['group_label'] ?? 'Pilihan dari Riwayat APAR' }}
+                                </option>
+                            @endif
+                            @foreach($registeredUnitApars->groupBy(fn ($unitApar) => $unitApar->tgl_beli ? $unitApar->tgl_beli->toDateString() : 'tanpa-tanggal') as $purchaseKey => $units)
+                                @php
+                                    $firstUnit = $units->first();
+                                    $purchaseDate = $firstUnit?->tgl_beli ? $firstUnit->tgl_beli->translatedFormat('d F Y') : 'Tanpa tanggal pembelian';
+                                @endphp
+                                <option value="{{ $purchaseKey }}" {{ old('service_purchase_group', $prefillServiceOrder['group_key'] ?? '') === $purchaseKey ? 'selected' : '' }}>
+                                    {{ $purchaseDate }} - {{ $units->count() }} Unit APAR
+                                </option>
+                            @endforeach
+                        </select>
+                        @if($registeredUnitApars->isEmpty())
+                            <p class="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold leading-relaxed text-amber-800">
+                                Belum ada Unit APAR terdaftar. Silakan gunakan opsi APAR Belum Terdaftar atau hubungi admin.
+                            </p>
+                        @endif
+                        <p class="mt-2 text-xs font-semibold leading-relaxed text-slate-500">
+                            Setelah tanggal pembelian dipilih, centang Unit APAR yang ingin diproses. Unit yang tidak diproses cukup hapus centangnya.
                         </p>
-                    @endif
-                    <p class="mt-2 text-xs font-semibold leading-relaxed text-slate-500">
-                        Setelah tanggal pembelian dipilih, centang Unit APAR yang ingin diproses. Unit yang tidak diproses cukup hapus centangnya.
-                    </p>
-                    <div id="service-registered-empty-note" class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-500">
-                        Pilih tanggal pembelian terlebih dahulu untuk melihat daftar Unit APAR.
+                        <div id="service-registered-empty-note" class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-500">
+                            Pilih tanggal pembelian terlebih dahulu untuk melihat daftar Unit APAR.
+                        </div>
+                        <div id="service-registered-unit-list" class="mt-4 space-y-3"></div>
+                        <p id="service-registered-count-note" class="hidden mt-3 text-xs font-black uppercase tracking-[0.18em] text-blue-600"></p>
                     </div>
-                    <div id="service-registered-unit-list" class="mt-4 space-y-3"></div>
-                    <p id="service-registered-count-note" class="hidden mt-3 text-xs font-black uppercase tracking-[0.18em] text-blue-600"></p>
-                </div>
+                @else
+                    <div id="service-registered-unit-fields" class="hidden md:col-span-2"></div>
+                    <div id="service-registered-unit-list" class="hidden"></div>
+                    <div id="service-registered-empty-note" class="hidden"></div>
+                    <p id="service-registered-count-note" class="hidden"></p>
+                @endunless
 
                 <div id="service-manual-type-field" class="hidden">
                     <label class="order-label">Jenis Media APAR <span>*</span></label>
@@ -785,6 +877,28 @@
                     </div>
 
                     <div class="order-section-card p-6">
+                        @php
+                            $prefillSummaryItems = collect($prefillServiceOrder['selected_units'] ?? []);
+                            $prefillSummaryUnitLabel = $isPrefilledRegisteredRefill
+                                ? (($prefillServiceOrder['total_unit'] ?? $prefillSummaryItems->count()) . ' unit dari ' . ($prefillServiceOrder['group_label'] ?? 'Riwayat APAR'))
+                                : '-';
+                            $prefillSummaryItemLabel = $isPrefilledRegisteredRefill
+                                ? ($prefillSummaryItems->pluck('jenis_refill')->filter()->unique()->implode(', ') ?: 'Refill APAR')
+                                : 'Belum dipilih';
+                            $prefillSummarySizeLabel = $isPrefilledRegisteredRefill
+                                ? ($prefillSummaryItems->pluck('ukuran')->filter()->unique()->implode(', ') ?: '-')
+                                : '-';
+                            $prefillSummaryQtyLabel = $isPrefilledRegisteredRefill
+                                ? (($prefillServiceOrder['total_unit'] ?? 0) . ' unit')
+                                : '1 unit';
+                            $prefillSummaryKgLabel = $isPrefilledRegisteredRefill
+                                ? (number_format((float) ($prefillServiceOrder['total_kg'] ?? 0), floor((float) ($prefillServiceOrder['total_kg'] ?? 0)) == (float) ($prefillServiceOrder['total_kg'] ?? 0) ? 0 : 2, ',', '.') . ' Kg')
+                                : '-';
+                            $prefillSummaryPriceLabel = $isPrefilledRegisteredRefill
+                                ? ('Rp ' . number_format((float) ($prefillServiceOrder['total_price'] ?? 0), 0, ',', '.'))
+                                : 'Rp 0';
+                            $prefillSummaryMethodLabel = $metodeOld === 'antar sendiri' ? 'Antar Sendiri' : 'Dijemput';
+                        @endphp
                         <div class="flex items-center gap-2 mb-4">
                             <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
@@ -801,35 +915,35 @@
                             </div>
                             <div id="service-summary-status-row" class="summary-row">
                                 <span class="text-slate-500 font-semibold">Status Unit</span>
-                                <span id="service-summary-status" class="font-black text-slate-800">APAR Belum Terdaftar</span>
+                                <span id="service-summary-status" class="font-black text-slate-800">{{ $isPrefilledRegisteredRefill ? 'APAR Terdaftar' : 'APAR Belum Terdaftar' }}</span>
                             </div>
-                            <div id="service-summary-unit-row" class="summary-row hidden">
+                            <div id="service-summary-unit-row" class="summary-row {{ $isPrefilledRegisteredRefill ? '' : 'hidden' }}">
                                 <span class="text-slate-500 font-semibold">Unit APAR</span>
-                                <span id="service-summary-unit" class="font-black text-slate-800 text-right">-</span>
+                                <span id="service-summary-unit" class="font-black text-slate-800 text-right">{{ $prefillSummaryUnitLabel }}</span>
                             </div>
                             <div class="summary-row">
                                 <span class="text-slate-500 font-semibold">Layanan Dipilih</span>
-                                <span id="service-summary-item" class="font-black text-slate-800">Belum dipilih</span>
+                                <span id="service-summary-item" class="font-black text-slate-800">{{ $prefillSummaryItemLabel }}</span>
                             </div>
                             <div class="summary-row">
                                 <span class="text-slate-500 font-semibold">Ukuran APAR</span>
-                                <span id="service-summary-size" class="font-black text-slate-800">-</span>
+                                <span id="service-summary-size" class="font-black text-slate-800">{{ $prefillSummarySizeLabel }}</span>
                             </div>
                             <div class="summary-row">
                                 <span class="text-slate-500 font-semibold">Jumlah Unit</span>
-                                <span id="service-summary-qty" class="font-black text-slate-800">1 unit</span>
+                                <span id="service-summary-qty" class="font-black text-slate-800">{{ $prefillSummaryQtyLabel }}</span>
                             </div>
                             <div class="summary-row">
                                 <span id="service-summary-usage-label" class="text-slate-500 font-semibold">Kebutuhan Refill</span>
-                                <span id="service-summary-kg" class="font-black text-slate-800">-</span>
+                                <span id="service-summary-kg" class="font-black text-slate-800">{{ $prefillSummaryKgLabel }}</span>
                             </div>
                             <div class="summary-row">
                                 <span class="text-slate-500 font-semibold">Metode Penanganan</span>
-                                <span id="service-summary-method" class="font-black text-slate-800">Dijemput</span>
+                                <span id="service-summary-method" class="font-black text-slate-800">{{ $prefillSummaryMethodLabel }}</span>
                             </div>
                             <div class="summary-row total">
                                 <span class="text-slate-500 font-semibold">Estimasi Harga</span>
-                                <span id="service-summary-price" class="text-xl font-black text-blue-600">Rp 0</span>
+                                <span id="service-summary-price" class="text-xl font-black text-blue-600">{{ $prefillSummaryPriceLabel }}</span>
                             </div>
                         </div>
                     </div>
@@ -1822,7 +1936,17 @@
         return selected ? selected.value : 'dijemput';
     }
 
+    function isPrefilledServiceCheckout() {
+        return Boolean(PREFILLED_SERVICE_ORDER)
+            && Array.isArray(PREFILLED_SERVICE_ORDER.selected_unit_ids)
+            && PREFILLED_SERVICE_ORDER.selected_unit_ids.length > 0;
+    }
+
     function getServiceUnitStatus() {
+        if (isPrefilledServiceCheckout()) {
+            return 'terdaftar';
+        }
+
         const selected = serviceUnitStatusRadios.find((radio) => radio.checked);
         return selected && selected.value === 'terdaftar' ? 'terdaftar' : 'belum_terdaftar';
     }
@@ -1860,11 +1984,40 @@
         }[char]));
     }
 
+    function isPrefilledServiceGroup(groupKey) {
+        return Boolean(PREFILLED_SERVICE_ORDER)
+            && String(groupKey || '') === String(PREFILLED_SERVICE_ORDER.group_key || '');
+    }
+
     function getUnitsByPurchaseGroup(groupKey) {
+        if (isPrefilledServiceGroup(groupKey)) {
+            const selectedIds = Array.isArray(PREFILLED_SERVICE_ORDER?.selected_unit_ids)
+                ? PREFILLED_SERVICE_ORDER.selected_unit_ids.map((id) => Number(id || 0)).filter((id) => id > 0)
+                : [];
+
+            return selectedIds
+                .map((id) => REGISTERED_UNIT_APAR_DB.find((unit) => Number(unit.id) === Number(id)))
+                .filter(Boolean);
+        }
+
         return REGISTERED_UNIT_APAR_DB.filter((unit) => unit.purchase_key === groupKey);
     }
 
     function getSelectedRegisteredUnitIds() {
+        if (isPrefilledServiceCheckout()) {
+            const hiddenInputs = [...document.querySelectorAll('.service-unit-hidden-input')]
+                .map((input) => Number(input.value || 0))
+                .filter((id) => id > 0);
+
+            if (hiddenInputs.length) {
+                return [...new Set(hiddenInputs)];
+            }
+
+            return (PREFILLED_SERVICE_ORDER?.selected_unit_ids || [])
+                .map((id) => Number(id || 0))
+                .filter((id) => id > 0);
+        }
+
         if (!serviceRegisteredUnitList) {
             return [];
         }
@@ -2052,6 +2205,14 @@
             return;
         }
 
+        if (isPrefilledServiceCheckout()) {
+            serviceRegisteredUnitList.innerHTML = '';
+            lastRenderedPurchaseGroup = servicePurchaseGroup.value || '';
+            if (serviceRegisteredEmptyNote) serviceRegisteredEmptyNote.classList.add('hidden');
+            if (serviceRegisteredCountNote) serviceRegisteredCountNote.classList.add('hidden');
+            return;
+        }
+
         const groupKey = servicePurchaseGroup.value || '';
         const units = getUnitsByPurchaseGroup(groupKey);
         const shouldReset = Boolean(options.resetSelection) || groupKey !== lastRenderedPurchaseGroup;
@@ -2094,16 +2255,22 @@
             const masaBerlaku = escapeHtml(unit.masa_berlaku || '-');
             const statusUnit = escapeHtml(unit.status_unit || '-');
             const refillLabel = escapeHtml(unitRefillSelection.refill?.nama_label || '-');
+            const refillStatusLabel = escapeHtml(unit.refill_status_label || 'Aman');
+            const isLocked = Boolean(unit.is_refill_locked);
+            const lockMessage = escapeHtml(unit.refill_lock_message || 'Unit ini sedang dalam proses refill.');
 
             row.innerHTML = `
                 <div class="flex items-start gap-3">
-                    <input type="checkbox" name="service_unit_apar_ids[]" value="${unit.id}" class="service-unit-checkbox mt-1 h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                    <div class="pt-1">
+                        <input type="checkbox" name="service_unit_apar_ids[]" value="${unit.id}" class="service-unit-checkbox h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                    </div>
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                             <p class="font-black text-slate-900">${kode}</p>
                             <p class="text-sm font-black text-blue-700">${subtotalText}</p>
                         </div>
                         <p class="mt-1 text-sm font-semibold text-slate-700">${produkNama}</p>
+                        <p class="mt-2 text-xs font-black uppercase tracking-[0.18em] ${unit.needs_refill ? 'text-amber-600' : 'text-emerald-600'}">${refillStatusLabel}</p>
                         <div class="mt-3 grid grid-cols-1 gap-2 text-xs font-semibold text-slate-500 sm:grid-cols-2">
                             <p><span class="font-black text-slate-400 uppercase tracking-wider">Jenis APAR:</span> ${jenisApar}</p>
                             <p><span class="font-black text-slate-400 uppercase tracking-wider">Ukuran:</span> ${ukuran}</p>
@@ -2112,12 +2279,15 @@
                             <p><span class="font-black text-slate-400 uppercase tracking-wider">Tanggal Expired:</span> ${masaBerlaku}</p>
                             <p><span class="font-black text-slate-400 uppercase tracking-wider">Status:</span> ${statusUnit}</p>
                         </div>
+                        <p class="mt-3 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Pilih untuk Refill</p>
+                        ${isLocked ? `<div class="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">${lockMessage}</div>` : ''}
                     </div>
                 </div>
             `;
 
             const checkbox = row.querySelector('.service-unit-checkbox');
             checkbox.checked = currentSelectedIds.has(Number(unit.id));
+            checkbox.disabled = isLocked;
             checkbox.addEventListener('change', updateServiceSummary);
             serviceRegisteredUnitList.appendChild(row);
         });
@@ -2241,7 +2411,27 @@
                 ...getRegisteredUnitRefillSelection(unit),
             }))
             : [];
-        const registeredRefillIds = [...new Set(registeredRefillSelections.map((selection) => Number(selection.refill?.id || 0)).filter((id) => id > 0))];
+        const registeredBreakdowns = Object.values(registeredRefillSelections.reduce((carry, selection) => {
+            const refillId = Number(selection.refill?.id || 0);
+            if (refillId <= 0) {
+                return carry;
+            }
+
+            if (!carry[refillId]) {
+                carry[refillId] = {
+                    refill: selection.refill,
+                    qty: 0,
+                    totalKg: 0,
+                    totalPrice: 0,
+                };
+            }
+
+            carry[refillId].qty += 1;
+            carry[refillId].totalKg += parseServiceSizeKg(selection.unit?.ukuran);
+            carry[refillId].totalPrice += Number(selection.unitPrice || 0);
+
+            return carry;
+        }, {}));
 
         const state = {
             kategori,
@@ -2264,16 +2454,20 @@
             currentStockLabel: 'Pilih jenis refil untuk melihat stok.',
             afterStockLabel: 'Sisa stok setelah transaksi akan tampil di sini.',
             registeredRefillSelections,
-            hasMixedRegisteredRefill: registeredRefillIds.length > 1,
+            registeredBreakdowns,
+            hasMixedRegisteredRefill: registeredBreakdowns.length > 1,
+            hasMissingRegisteredRefill: registeredUnits.length > 0 && registeredRefillSelections.some((selection) => !selection.refill),
             lineItems: [],
             peralatanItems: [],
         };
 
         if (kategori === 'refill') {
             state.refill = registeredUnits.length
-                ? (registeredRefillSelections[0]?.refill || null)
+                ? (registeredBreakdowns[0]?.refill || null)
                 : refill;
-            state.itemLabel = state.refill?.nama_label || 'Belum dipilih';
+            state.itemLabel = registeredUnits.length && registeredBreakdowns.length > 1
+                ? registeredBreakdowns.map((item) => `${item.refill?.nama_label || 'Refill'} (${item.qty} unit)`).join(', ')
+                : (state.refill?.nama_label || 'Belum dipilih');
             state.unitPrice = registeredUnits.length
                 ? Number(registeredRefillSelections[0]?.unitPrice || 0)
                 : resolveRefillPriceForSize(refill, ukuran);
@@ -2282,12 +2476,22 @@
                 ? registeredRefillSelections.reduce((total, selection) => total + Number(selection.unitPrice || 0), 0)
                 : (state.unitPrice > 0 ? state.unitPrice * qty : 0);
 
-            if (state.hasMixedRegisteredRefill) {
-                state.itemLabel = 'Campuran jenis refill';
-                state.currentStockLabel = 'Unit APAR yang dipilih memiliki jenis refill berbeda.';
-                state.afterStockLabel = 'Pisahkan pesanan refill berdasarkan jenis APAR agar sistem dapat menghitung stok dan harga dengan benar.';
+            if (state.hasMissingRegisteredRefill) {
+                state.currentStockLabel = 'Jenis refill otomatis belum ditemukan untuk salah satu unit yang dipilih.';
+                state.afterStockLabel = 'Pastikan master data jenis refill sesuai dengan jenis APAR pada unit terdaftar.';
                 state.insufficientStock = true;
                 state.lowStock = false;
+            } else if (registeredUnits.length && registeredBreakdowns.length) {
+                const hasInsufficientBreakdown = registeredBreakdowns.some((item) => Number(item.refill?.stok || 0) < Number(item.totalKg || 0));
+                const hasLowBreakdown = registeredBreakdowns.some((item) => (Number(item.refill?.stok || 0) - Number(item.totalKg || 0)) <= Number(item.refill?.stok_minimum || 0));
+                state.currentStockLabel = registeredBreakdowns
+                    .map((item) => `${item.refill?.nama_label || 'Refill'}: ${formatKg(Number(item.refill?.stok || 0))} ${item.refill?.satuan_label || 'Kg'}`)
+                    .join(' • ');
+                state.afterStockLabel = registeredBreakdowns
+                    .map((item) => `${item.refill?.nama_label || 'Refill'} sisa ${formatKg(Number(item.refill?.stok || 0) - Number(item.totalKg || 0))} ${item.refill?.satuan_label || 'Kg'}`)
+                    .join(' • ');
+                state.insufficientStock = hasInsufficientBreakdown;
+                state.lowStock = !hasInsufficientBreakdown && hasLowBreakdown;
             } else if (state.refill) {
                 const currentStock = Number(state.refill.stok || 0);
                 const remainingStock = currentStock - state.totalKg;
@@ -2297,11 +2501,6 @@
                     : 'Jumlah kebutuhan refill akan muncul setelah ukuran dan unit dipilih.';
                 state.insufficientStock = state.totalKg > 0 && remainingStock < 0;
                 state.lowStock = state.totalKg > 0 && remainingStock <= Number(state.refill.stok_minimum || 0);
-            } else if (registeredUnits.length) {
-                state.currentStockLabel = 'Jenis refill otomatis belum ditemukan untuk unit yang dipilih.';
-                state.afterStockLabel = 'Pastikan master data jenis refill sesuai dengan jenis APAR pada unit terdaftar.';
-                state.insufficientStock = true;
-                state.lowStock = false;
             } else if (refill) {
                 const currentStock = Number(refill.stok || 0);
                 const remainingStock = currentStock - state.totalKg;
@@ -2379,8 +2578,8 @@
         if (serviceRefillPriceNote) {
             if (state.kategori === 'refill') {
                 if (state.unitStatus === 'terdaftar') {
-                    serviceRefillPriceNote.textContent = state.refill && state.totalPrice > 0
-                        ? `Jenis refill mengikuti unit APAR terpilih secara otomatis. Total dihitung per unit berdasarkan ukuran APAR yang dicentang.`
+                    serviceRefillPriceNote.textContent = state.totalPrice > 0
+                        ? `Jenis refill mengikuti unit APAR terpilih secara otomatis. Total dihitung per unit berdasarkan ukuran APAR yang dicentang, termasuk jika jenis refill berbeda.`
                         : 'Jenis refill dan harga untuk APAR terdaftar akan mengikuti unit APAR yang dicentang.';
                 } else {
                     serviceRefillPriceNote.textContent = state.refill && state.unitPrice > 0
@@ -2442,8 +2641,8 @@
         if (state.insufficientStock) {
             setServiceAlert(serviceStockWarning, state.kategori === 'service'
                 ? 'Stok peralatan untuk jenis service ini belum cukup. Service masih bisa dibuat, tetapi finalisasi nanti akan ditolak sampai stok tersedia.'
-                : (state.hasMixedRegisteredRefill
-                    ? 'Unit APAR yang dipilih memiliki jenis refill berbeda. Pisahkan pesanan berdasarkan jenis APAR.'
+                : (state.hasMissingRegisteredRefill
+                    ? 'Jenis refill otomatis belum ditemukan untuk salah satu unit yang dipilih.'
                     : `Stok refill ${state.refill?.nama_label || 'yang dipilih'} tidak mencukupi.`));
         } else {
             setServiceAlert(serviceStockWarning, '');
@@ -2464,6 +2663,7 @@
         const isRefill = !serviceJenisLayanan || serviceJenisLayanan.value !== 'service';
         const unitStatus = getServiceUnitStatus();
         const isRegisteredService = !isBeli && unitStatus === 'terdaftar';
+        const isPrefilledCheckout = !isBeli && isPrefilledServiceCheckout();
         const showRefillFields = !isBeli && isRefill;
         const showServiceFields = !isBeli && !isRefill;
 
@@ -2477,10 +2677,10 @@
             serviceServiceFields.classList.toggle('hidden', !showServiceFields);
         }
         if (serviceUnitStatusFields) {
-            serviceUnitStatusFields.classList.toggle('hidden', isBeli);
+            serviceUnitStatusFields.classList.toggle('hidden', isBeli || isPrefilledCheckout);
         }
         if (serviceRegisteredUnitFields) {
-            serviceRegisteredUnitFields.classList.toggle('hidden', !isRegisteredService);
+            serviceRegisteredUnitFields.classList.toggle('hidden', !isRegisteredService || isPrefilledCheckout);
         }
         if (serviceManualTypeField) {
             serviceManualTypeField.classList.toggle('hidden', isRegisteredService || isRefill);
@@ -2492,13 +2692,18 @@
             serviceQuantityField.classList.toggle('hidden', isRegisteredService);
         }
 
-        if (isRegisteredService) {
+        if (isRegisteredService && !isPrefilledCheckout) {
             syncRegisteredAutomaticChoices();
             renderRegisteredUnitChecklist();
         } else if (serviceRegisteredUnitList) {
             serviceRegisteredUnitList.innerHTML = '';
             lastRenderedPurchaseGroup = null;
-            if (serviceRegisteredEmptyNote) serviceRegisteredEmptyNote.classList.remove('hidden');
+            if (serviceRegisteredEmptyNote) {
+                serviceRegisteredEmptyNote.classList.toggle('hidden', isPrefilledCheckout);
+                if (!isPrefilledCheckout) {
+                    serviceRegisteredEmptyNote.classList.remove('hidden');
+                }
+            }
         }
 
         syncManualServiceSizeOptions();
@@ -2820,8 +3025,8 @@
                 return;
             }
 
-            if (serviceState.kategori === 'refill' && serviceState.hasMixedRegisteredRefill) {
-                showAppAlert('Unit APAR yang dipilih memiliki jenis refill berbeda. Pisahkan pesanan refill berdasarkan jenis APAR.', 'warning', 'Peringatan');
+            if (serviceState.kategori === 'refill' && serviceState.hasMissingRegisteredRefill) {
+                showAppAlert('Jenis refil otomatis belum ditemukan untuk salah satu Unit APAR terdaftar. Pastikan master data Jenis Refil sudah sesuai dengan jenis APAR.', 'warning', 'Peringatan');
                 event.preventDefault();
                 return;
             }

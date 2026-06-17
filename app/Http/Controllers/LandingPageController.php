@@ -9,6 +9,7 @@ use App\Models\Pesanan;
 use App\Models\Produk;
 use App\Models\Testimoni;
 use App\Models\UnitApar;
+use App\Support\RegisteredRefillUnitSupport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -211,6 +212,9 @@ class LandingPageController extends Controller
             ->filter(fn($u) => $u->tgl_expired && $u->tgl_expired->diffInDays(now()) <= 60)
             ->sortBy(fn($u) => $u->tgl_expired)
             ->take(3);
+        $unitRefillLocks = $hasCustomerProfile
+            ? RegisteredRefillUnitSupport::activeRefillLocks($pelanggan)
+            : [];
 
         return view('public.riwayat-apar.index', compact(
             'pelanggan',
@@ -219,8 +223,85 @@ class LandingPageController extends Controller
             'totalTransaksi',
             'activeOrders',
             'pendingPaymentOrder',
-            'recentExpiries'
+            'recentExpiries',
+            'unitRefillLocks'
         ));
+    }
+
+    public function ajukanRefill(Request $request)
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+
+        if (! $user) {
+            return redirect()->route('login');
+        }
+
+        if ($user->isAdmin() || $user->isTeknisi()) {
+            return redirect()->route($user->isTeknisi() ? 'teknisi.dashboard' : 'dashboard');
+        }
+
+        $pelanggan = Pelanggan::query()->where('user_id', $user->id)->first();
+
+        if (! $pelanggan) {
+            return redirect()
+                ->route('riwayat-apar')
+                ->with('error', 'Profil pelanggan belum tersambung. Hubungi admin untuk melanjutkan refill.');
+        }
+
+        $selectedUnitIds = collect($request->filled('action_unit_id')
+            ? [$request->input('action_unit_id')]
+            : (array) $request->input('unit_ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($selectedUnitIds->isEmpty()) {
+            return redirect()
+                ->route('riwayat-apar')
+                ->with('error', 'Pilih minimal satu Unit APAR yang perlu refill terlebih dahulu.');
+        }
+
+        $selectedUnits = UnitApar::query()
+            ->with('produk.jenisApar')
+            ->where('pelanggan_id', $pelanggan->id)
+            ->whereIn('id', $selectedUnitIds->all())
+            ->get()
+            ->sortBy(fn (UnitApar $unitApar) => $selectedUnitIds->search((int) $unitApar->id))
+            ->values();
+
+        if ($selectedUnits->count() !== $selectedUnitIds->count()) {
+            return redirect()
+                ->route('riwayat-apar')
+                ->with('error', 'Ada Unit APAR yang tidak valid atau bukan milik akun pelanggan ini.');
+        }
+
+        $activeLocks = RegisteredRefillUnitSupport::activeRefillLocks($pelanggan);
+        $blockedUnit = $selectedUnits->first(fn (UnitApar $unitApar) => isset($activeLocks[$unitApar->id]));
+
+        if ($blockedUnit) {
+            return redirect()
+                ->route('riwayat-apar')
+                ->with('error', ($activeLocks[$blockedUnit->id]['message'] ?? 'Unit ini sedang dalam proses refill.') . ' Nomor Unit: ' . ($blockedUnit->no_seri ?: ('UNIT-' . $blockedUnit->id)));
+        }
+
+        $safeUnit = $selectedUnits->first(function (UnitApar $unitApar) {
+            return ! (RegisteredRefillUnitSupport::statusMeta($unitApar)['needs_refill'] ?? false);
+        });
+
+        if ($safeUnit) {
+            return redirect()
+                ->route('riwayat-apar')
+                ->with('error', 'Unit ' . ($safeUnit->no_seri ?: ('UNIT-' . $safeUnit->id)) . ' masih berstatus aman. Gunakan menu layanan APAR biasa jika ingin refill manual.');
+        }
+
+        return redirect()
+            ->route('order.create')
+            ->with('prefill_registered_refill', [
+                'selected_unit_ids' => $selectedUnitIds->all(),
+                'source' => 'riwayat_apar',
+            ]);
     }
 
     public function riwayatAparStatus(Request $request)

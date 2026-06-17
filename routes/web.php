@@ -34,6 +34,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/riwayat', [LandingPageController::class, 'riwayatApar'])->name('riwayat');
     Route::get('/riwayat-apar', [LandingPageController::class, 'riwayatApar'])->name('riwayat-apar');
     Route::get('/riwayat-apar/status', [LandingPageController::class, 'riwayatAparStatus'])->name('riwayat-apar.status');
+    Route::post('/riwayat-apar/ajukan-refill', [LandingPageController::class, 'ajukanRefill'])->name('riwayat-apar.ajukan-refill');
     
     // Invoice routes
     Route::get('/invoice/{pesanan}', [InvoiceController::class, 'show'])->name('invoice.show');

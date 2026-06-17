@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\JenisRefill;
 use App\Models\Peralatan;
 use App\Models\Pesanan;
 use App\Models\Produk;
@@ -9,6 +10,7 @@ use App\Models\Refill;
 use App\Models\Service;
 use App\Models\StockMovement;
 use App\Models\UnitApar;
+use App\Support\RegisteredRefillUnitSupport;
 use App\Support\ServiceUnitDisplay;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -62,25 +64,88 @@ class FinalTransactionStockService
         }
 
         $units = $this->ensureCompletedServiceUnits($pesanan);
-        $this->ensureRefillLog($pesanan, $units);
+        $requirements = $this->resolveRefillStockRequirements($pesanan);
 
-        $jenisRefill = $pesanan->serviceJenisRefill;
-        $qty = (float) ($pesanan->service_total_kg ?? 0);
-
-        if (!$jenisRefill || $qty <= 0) {
+        if ($requirements->isEmpty()) {
             return;
         }
 
-        $this->inventoryService->decreaseRefillStock(
-            jenisRefill: $jenisRefill,
-            qty: $qty,
-            sourceType: StockMovement::SOURCE_REFILL_PELANGGAN,
-            reference: $pesanan,
-            keterangan: 'Refill APAR - ' . $this->customerName($pesanan),
-            tanggal: now(),
-        );
+        if ($requirements->count() === 1 && $pesanan->service_jenis_refill_id) {
+            $this->ensureRefillLog($pesanan, $units);
+        } else {
+            $this->ensureRefillServiceRecord($pesanan, $units);
+            $this->refreshResolvedUnitsExpiry($units, $pesanan, $pesanan->resolvedOperationalDate());
+        }
+
+        foreach ($requirements as $requirement) {
+            /** @var JenisRefill $jenisRefill */
+            $jenisRefill = $requirement['jenis_refill'];
+            $qty = (float) ($requirement['qty'] ?? 0);
+
+            if ($qty <= 0) {
+                continue;
+            }
+
+            $this->inventoryService->decreaseRefillStock(
+                jenisRefill: $jenisRefill,
+                qty: $qty,
+                sourceType: StockMovement::SOURCE_REFILL_PELANGGAN,
+                reference: $pesanan,
+                keterangan: 'Refill APAR - ' . $this->customerName($pesanan),
+                tanggal: now(),
+            );
+        }
 
         $pesanan->forceFill(['stok_dikurangi' => true])->save();
+    }
+
+    private function resolveRefillStockRequirements(Pesanan $pesanan): Collection
+    {
+        if ($pesanan->service_jenis_refill_id && $pesanan->serviceJenisRefill && (float) ($pesanan->service_total_kg ?? 0) > 0) {
+            return collect([[
+                'jenis_refill' => $pesanan->serviceJenisRefill,
+                'qty' => (float) $pesanan->service_total_kg,
+            ]]);
+        }
+
+        $details = collect(RegisteredRefillUnitSupport::parseRefillUnitDetails((string) ($pesanan->service_keluhan ?? '')));
+        if ($details->isEmpty()) {
+            return collect();
+        }
+
+        $jenisRefills = JenisRefill::query()->get();
+        $requirements = $details
+            ->map(function (array $detail) use ($jenisRefills) {
+                $jenisRefill = RegisteredRefillUnitSupport::matchJenisRefillByLabel($jenisRefills, (string) ($detail['refill_label'] ?? ''));
+                $qty = (float) ($detail['usage_kg'] ?? 0);
+
+                if (! $jenisRefill || $qty <= 0) {
+                    return null;
+                }
+
+                return [
+                    'jenis_refill' => $jenisRefill,
+                    'qty' => $qty,
+                ];
+            })
+            ->filter()
+            ->groupBy(fn (array $detail) => (int) $detail['jenis_refill']->id)
+            ->map(function (Collection $group) {
+                /** @var array{jenis_refill: JenisRefill, qty: float} $first */
+                $first = $group->first();
+
+                return [
+                    'jenis_refill' => $first['jenis_refill'],
+                    'qty' => (float) round($group->sum('qty'), 2),
+                ];
+            })
+            ->values();
+
+        if ($requirements->isEmpty()) {
+            throw new \RuntimeException('Detail refill per unit tidak bisa dibaca untuk finalisasi stok.');
+        }
+
+        return $requirements;
     }
 
     private function ensureRefillLog(Pesanan $pesanan, ?Collection $resolvedUnits = null): void
@@ -139,6 +204,30 @@ class FinalTransactionStockService
                 ? UnitApar::query()->whereKey($unitAparId)->get()
                 : collect());
 
+        $this->refreshResolvedUnitsExpiry($unitsToRefresh, $pesanan, $effectiveWorkDate);
+    }
+
+    private function ensureRefillServiceRecord(Pesanan $pesanan, ?Collection $resolvedUnits = null): Service
+    {
+        $effectiveWorkDate = $pesanan->resolvedOperationalDate();
+        $resolvedUnits ??= collect();
+        $unitAparId = $pesanan->service?->unit_apar_id ?: $resolvedUnits->first()?->id;
+
+        return Service::updateOrCreate(
+            ['pesanan_id' => $pesanan->id],
+            [
+                'unit_apar_id' => $unitAparId,
+                'jenis_service' => 'Refill APAR',
+                'tgl_service' => $effectiveWorkDate,
+                'biaya' => (float) ($pesanan->service_estimasi_biaya ?? $pesanan->total_harga ?? $pesanan->total ?? 0),
+                'status_konfirmasi' => 'confirmed',
+                'tgl_selesai_admin' => now(),
+            ],
+        );
+    }
+
+    private function refreshResolvedUnitsExpiry(Collection $unitsToRefresh, Pesanan $pesanan, string $effectiveWorkDate): void
+    {
         foreach ($unitsToRefresh as $unitApar) {
             $unitApar->update([
                 'tgl_produksi' => $effectiveWorkDate,
@@ -232,13 +321,23 @@ class FinalTransactionStockService
         }
 
         if (ServiceUnitDisplay::forPesanan($pesanan)['is_registered'] ?? false) {
+            $resolvedUnits = RegisteredRefillUnitSupport::resolveRegisteredUnitsForOrder($pesanan);
+
+            if ($resolvedUnits->isNotEmpty()) {
+                if ($pesanan->service && !$pesanan->service->unit_apar_id) {
+                    $pesanan->service->forceFill([
+                        'unit_apar_id' => $resolvedUnits->first()->id,
+                    ])->save();
+                }
+
+                return $resolvedUnits;
+            }
+
             if (!$pesanan->service?->unit_apar_id) {
                 return collect();
             }
 
-            return UnitApar::query()
-                ->whereKey($pesanan->service->unit_apar_id)
-                ->get();
+            return UnitApar::query()->whereKey($pesanan->service->unit_apar_id)->get();
         }
 
         $desiredCount = max(1, (int) ($pesanan->service_jumlah_unit ?? 1));

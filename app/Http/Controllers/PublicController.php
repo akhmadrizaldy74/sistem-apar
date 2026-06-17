@@ -18,6 +18,7 @@ use App\Services\InventoryService;
 use App\Services\OrderPricingService;
 use App\Services\ServiceMasterSyncService;
 use App\Services\ServicePackagePricingService;
+use App\Support\RegisteredRefillUnitSupport;
 use App\Support\SessionCart;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -1002,11 +1003,20 @@ class PublicController extends Controller
         return null;
     }
 
+    private function formatKgNumber(float $value): string
+    {
+        $formatted = number_format($value, 2, '.', '');
+        $formatted = rtrim(rtrim($formatted, '0'), '.');
+
+        return $formatted !== '' ? $formatted : '0';
+    }
+
     private function summarizeRegisteredRefillUnits(Collection $unitApars): array
     {
         $jenisRefills = JenisRefill::query()->get();
         $lineAmounts = [];
-        $matchedRefillIds = [];
+        $unitDetails = [];
+        $stockRequirements = [];
         $totalKebutuhanKg = 0.0;
         $estimasiBiaya = 0.0;
 
@@ -1030,27 +1040,42 @@ class PublicController extends Controller
             $totalKebutuhanKg += $unitKg;
             $estimasiBiaya += $unitPrice;
             $lineAmounts[(int) $unitApar->id] = (float) $unitPrice;
-            $matchedRefillIds[] = (int) $jenisRefill->id;
+            $unitDetails[(int) $unitApar->id] = [
+                'refill_id' => (int) $jenisRefill->id,
+                'refill_label' => (string) $jenisRefill->nama_label,
+                'usage_kg' => (float) round($unitKg, 2),
+                'unit_price' => (float) $unitPrice,
+            ];
+
+            if (! isset($stockRequirements[(int) $jenisRefill->id])) {
+                $stockRequirements[(int) $jenisRefill->id] = [
+                    'jenis_refill' => $jenisRefill,
+                    'qty' => 0.0,
+                ];
+            }
+
+            $stockRequirements[(int) $jenisRefill->id]['qty'] += (float) round($unitKg, 2);
         }
 
-        $matchedRefillIds = collect($matchedRefillIds)->filter()->unique()->values();
-        if ($matchedRefillIds->count() !== 1) {
-            throw ValidationException::withMessages([
-                'service_unit_apar_ids' => 'Unit APAR yang dipilih memiliki jenis refill berbeda. Pisahkan pesanan berdasarkan jenis APAR.',
-            ]);
-        }
-
+        $matchedRefillIds = collect(array_keys($stockRequirements))->filter()->values();
         /** @var JenisRefill|null $jenisRefill */
-        $jenisRefill = $jenisRefills->firstWhere('id', (int) $matchedRefillIds->first());
-        if (!$jenisRefill) {
-            throw ValidationException::withMessages([
-                'service_unit_apar_ids' => 'Jenis refill otomatis tidak ditemukan untuk Unit APAR terdaftar yang dipilih.',
-            ]);
-        }
+        $jenisRefill = $matchedRefillIds->count() === 1
+            ? $jenisRefills->firstWhere('id', (int) $matchedRefillIds->first())
+            : null;
 
         return [
             'jenis_refill' => $jenisRefill,
             'line_amounts' => $lineAmounts,
+            'unit_details' => $unitDetails,
+            'stock_requirements' => collect($stockRequirements)
+                ->map(function (array $requirement) {
+                    $requirement['qty'] = (float) round((float) ($requirement['qty'] ?? 0), 2);
+
+                    return $requirement;
+                })
+                ->values()
+                ->all(),
+            'is_mixed' => $matchedRefillIds->count() > 1,
             'total_kg' => round($totalKebutuhanKg, 2),
             'estimasi_biaya' => (float) round($estimasiBiaya, 0),
         ];
@@ -1135,12 +1160,16 @@ class PublicController extends Controller
         float $total,
         string $metode,
         string $customerNote,
-        array $lineAmounts = []
+        array $lineAmounts = [],
+        array $unitDetails = []
     ): string {
         $lines = [];
 
         foreach ($unitApars->values() as $index => $unitApar) {
             $amount = $lineAmounts[$unitApar->id] ?? null;
+            $detail = $unitDetails[$unitApar->id] ?? [];
+            $refillLabel = trim((string) ($detail['refill_label'] ?? ''));
+            $usageKg = (float) ($detail['usage_kg'] ?? 0);
             $amountLabel = is_numeric($amount)
                 ? ' - Rp' . number_format((float) $amount, 0, ',', '.')
                 : '';
@@ -1149,6 +1178,8 @@ class PublicController extends Controller
                 . $this->registeredUnitAparLabel($unitApar)
                 . ' - Masa berlaku: '
                 . $this->registeredUnitAparExpiryLabel($unitApar)
+                . ($refillLabel !== '' ? ' - Refill: ' . $refillLabel : '')
+                . ($usageKg > 0 ? ' - Kebutuhan: ' . $this->formatKgNumber($usageKg) . ' Kg' : '')
                 . $amountLabel;
         }
 
@@ -1162,6 +1193,7 @@ class PublicController extends Controller
     }
 
     public function orderCreate(
+        Request $request,
         OrderPricingService $orderPricingService,
         ServicePackagePricingService $servicePackagePricingService
     )
@@ -1208,6 +1240,7 @@ class PublicController extends Controller
         $selectedOrderProduct = null;
         $prefilledOrderItems = collect();
         $prefillFromProduct = false;
+        $prefillServiceOrder = null;
         $cartItems = collect();
         $cartTotal = 0;
         $cartItemCount = 0;
@@ -1265,10 +1298,104 @@ class PublicController extends Controller
         $registeredUnitApars = collect();
         $authenticatedCustomer = $this->authenticatedCustomer();
         if ($authenticatedCustomer) {
+            $refillLocks = RegisteredRefillUnitSupport::activeRefillLocks($authenticatedCustomer);
             $registeredUnitApars = $this->registeredUnitAparQuery($authenticatedCustomer)
                 ->orderByDesc('tgl_beli')
                 ->orderBy('no_seri')
-                ->get();
+                ->get()
+                ->map(function (UnitApar $unitApar) use ($refillLocks) {
+                    $statusMeta = RegisteredRefillUnitSupport::statusMeta($unitApar);
+                    $unitLock = $refillLocks[$unitApar->id] ?? null;
+
+                    $unitApar->setAttribute('refill_status_label', $statusMeta['status_label'] ?? 'Aman');
+                    $unitApar->setAttribute('needs_refill', (bool) ($statusMeta['needs_refill'] ?? false));
+                    $unitApar->setAttribute('is_refill_locked', ! is_null($unitLock));
+                    $unitApar->setAttribute('refill_lock_message', (string) ($unitLock['message'] ?? ''));
+
+                    return $unitApar;
+                })
+                ->values();
+
+            $prefilledRegisteredRefill = (array) session('prefill_registered_refill', []);
+            $prefilledUnitIds = collect((array) ($prefilledRegisteredRefill['selected_unit_ids'] ?? []))
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn ($id) => $id > 0)
+                ->unique()
+                ->values();
+
+            if ($prefilledUnitIds->isNotEmpty()) {
+                $selectedUnits = $registeredUnitApars
+                    ->whereIn('id', $prefilledUnitIds->all())
+                    ->sortBy(fn (UnitApar $unitApar) => $prefilledUnitIds->search((int) $unitApar->id))
+                    ->values();
+
+                if ($selectedUnits->count() !== $prefilledUnitIds->count()) {
+                    return redirect()
+                        ->route('riwayat-apar')
+                        ->with('error', 'Ada Unit APAR yang tidak valid atau sudah tidak tersedia untuk diajukan refill.');
+                }
+
+                $blockedUnit = $selectedUnits->first(fn (UnitApar $unitApar) => (bool) $unitApar->getAttribute('is_refill_locked'));
+                if ($blockedUnit) {
+                    return redirect()
+                        ->route('riwayat-apar')
+                        ->with('error', (($blockedUnit->getAttribute('refill_lock_message') ?: 'Unit ini sedang dalam proses refill.') . ' Nomor Unit: ' . ($blockedUnit->no_seri ?: ('UNIT-' . $blockedUnit->id))));
+                }
+
+                $safeUnit = $selectedUnits->first(fn (UnitApar $unitApar) => ! (bool) $unitApar->getAttribute('needs_refill'));
+                if ($safeUnit) {
+                    return redirect()
+                        ->route('riwayat-apar')
+                        ->with('error', 'Unit ' . ($safeUnit->no_seri ?: ('UNIT-' . $safeUnit->id)) . ' masih berstatus aman. Gunakan menu layanan APAR biasa jika ingin refill manual.');
+                }
+
+                try {
+                    $prefillSummary = $this->summarizeRegisteredRefillUnits($selectedUnits);
+                } catch (ValidationException $exception) {
+                    return redirect()
+                        ->route('riwayat-apar')
+                        ->with('error', collect($exception->errors())->flatten()->first() ?: 'Data refill otomatis untuk unit yang dipilih belum lengkap.');
+                }
+
+                $prefillLines = $selectedUnits->map(function (UnitApar $unitApar) use ($prefillSummary) {
+                    $detail = $prefillSummary['unit_details'][$unitApar->id] ?? [];
+                    $produkNama = (string) ($unitApar->produk?->nama ?: 'APAR');
+                    $jenisApar = (string) ($unitApar->produk?->jenisApar?->nama ?: $unitApar->bahan ?: '-');
+                    $ukuran = (string) ($unitApar->ukuran ?: $unitApar->produk?->kapasitas ?: '-');
+                    $unitPrice = (float) ($detail['unit_price'] ?? 0);
+
+                    return [
+                        'id' => (int) $unitApar->id,
+                        'nomor_unit' => (string) ($unitApar->no_seri ?: ('UNIT-' . $unitApar->id)),
+                        'nama_apar' => $produkNama,
+                        'jenis_apar' => $jenisApar,
+                        'ukuran' => $ukuran,
+                        'jenis_refill' => (string) ($detail['refill_label'] ?? '-'),
+                        'harga_per_unit' => $unitPrice,
+                        'subtotal' => $unitPrice,
+                    ];
+                })->values();
+
+                $uniquePurchaseDates = $selectedUnits
+                    ->map(fn (UnitApar $unitApar) => $unitApar->tgl_beli?->translatedFormat('d F Y'))
+                    ->filter()
+                    ->unique()
+                    ->values();
+
+                $prefillServiceOrder = [
+                    'group_key' => RegisteredRefillUnitSupport::PREFILL_GROUP_KEY,
+                    'group_label' => 'Pilihan dari Riwayat APAR - ' . $selectedUnits->count() . ' Unit',
+                    'selected_unit_ids' => $prefilledUnitIds->all(),
+                    'selected_units' => $prefillLines->all(),
+                    'total_unit' => $selectedUnits->count(),
+                    'total_price' => (float) ($prefillSummary['estimasi_biaya'] ?? 0),
+                    'total_kg' => (float) ($prefillSummary['total_kg'] ?? 0),
+                    'purchase_label' => $uniquePurchaseDates->count() === 1
+                        ? (string) $uniquePurchaseDates->first()
+                        : $uniquePurchaseDates->count() . ' batch pembelian',
+                    'is_mixed_refill' => (bool) ($prefillSummary['is_mixed'] ?? false),
+                ];
+            }
         }
 
         return view('public.order.create', compact(
@@ -1295,6 +1422,7 @@ class PublicController extends Controller
             'canUseCartCheckout',
             'prefilledOrderItems',
             'prefillFromProduct',
+            'prefillServiceOrder',
             'selectedOrderProduct',
             'registeredUnitApars',
         ));
@@ -1608,13 +1736,26 @@ class PublicController extends Controller
                         ]);
                     }
 
-                    $mismatchedGroup = $selectedUnitApars
-                        ->first(fn (UnitApar $unitApar) => $this->registeredUnitAparPurchaseKey($unitApar) !== $servicePurchaseGroup);
+                    $activeRefillLocks = RegisteredRefillUnitSupport::activeRefillLocks($pelanggan);
+                    $lockedUnit = $selectedUnitApars->first(fn (UnitApar $unitApar) => isset($activeRefillLocks[$unitApar->id]));
 
-                    if ($mismatchedGroup) {
+                    if ($lockedUnit) {
                         throw ValidationException::withMessages([
-                            'service_unit_apar_ids' => 'Unit APAR yang dipilih harus berasal dari riwayat pembelian yang sama.',
+                            'service_unit_apar_ids' => ($activeRefillLocks[$lockedUnit->id]['message'] ?? 'Unit ini sedang dalam proses refill.')
+                                . ' Nomor Unit: '
+                                . ($lockedUnit->no_seri ?: ('UNIT-' . $lockedUnit->id)),
                         ]);
+                    }
+
+                    if ($servicePurchaseGroup !== RegisteredRefillUnitSupport::PREFILL_GROUP_KEY) {
+                        $mismatchedGroup = $selectedUnitApars
+                            ->first(fn (UnitApar $unitApar) => $this->registeredUnitAparPurchaseKey($unitApar) !== $servicePurchaseGroup);
+
+                        if ($mismatchedGroup) {
+                            throw ValidationException::withMessages([
+                                'service_unit_apar_ids' => 'Unit APAR yang dipilih harus berasal dari riwayat pembelian yang sama.',
+                            ]);
+                        }
                     }
 
                     $missingSize = $selectedUnitApars->first(function (UnitApar $unitApar) {
@@ -1706,11 +1847,11 @@ class PublicController extends Controller
 
                     if ($selectedUnitApars->isNotEmpty()) {
                         $registeredRefillSummary = $this->summarizeRegisteredRefillUnits($selectedUnitApars);
-                        /** @var JenisRefill $jenisRefill */
-                        $jenisRefill = $registeredRefillSummary['jenis_refill'];
                         $registeredLineAmounts = $registeredRefillSummary['line_amounts'];
+                        $registeredUnitDetails = $registeredRefillSummary['unit_details'];
                         $totalKebutuhanKg = (float) $registeredRefillSummary['total_kg'];
                         $estimasiBiaya = (float) $registeredRefillSummary['estimasi_biaya'];
+                        $stockRequirements = collect($registeredRefillSummary['stock_requirements'] ?? []);
                     } else {
                         $jenisRefill = JenisRefill::find($request->input('service_jenis_refill_id'));
 
@@ -1730,12 +1871,26 @@ class PublicController extends Controller
                         $totalKebutuhanKg = round($serviceUkuranKg * $serviceJumlahUnit, 2);
                         $estimasiBiaya = (float) round($hargaStandar * $serviceJumlahUnit, 0);
                         $registeredLineAmounts = [];
+                        $registeredUnitDetails = [];
+                        $stockRequirements = collect([[
+                            'jenis_refill' => $jenisRefill,
+                            'qty' => $totalKebutuhanKg,
+                        ]]);
                     }
 
-                    if ((float) $jenisRefill->stok < $totalKebutuhanKg) {
+                    $insufficientRequirement = $stockRequirements->first(function (array $requirement) {
+                        /** @var JenisRefill|null $jenisRefill */
+                        $jenisRefill = $requirement['jenis_refill'] ?? null;
+
+                        return $jenisRefill && (float) $jenisRefill->stok < (float) ($requirement['qty'] ?? 0);
+                    });
+
+                    if ($insufficientRequirement) {
+                        /** @var JenisRefill $insufficientJenisRefill */
+                        $insufficientJenisRefill = $insufficientRequirement['jenis_refill'];
                         $stockErrorKey = $selectedUnitApars->isNotEmpty() ? 'service_unit_apar_ids' : 'service_jenis_refill_id';
                         throw ValidationException::withMessages([
-                            $stockErrorKey => 'Stok refill ' . $jenisRefill->nama_label . ' tidak mencukupi.',
+                            $stockErrorKey => 'Stok refill ' . $insufficientJenisRefill->nama_label . ' tidak mencukupi.',
                         ]);
                     }
 
@@ -1748,32 +1903,58 @@ class PublicController extends Controller
                             metode: $serviceMetode,
                             customerNote: $originalServiceKeluhan,
                             lineAmounts: $registeredLineAmounts,
+                            unitDetails: $registeredUnitDetails,
                         );
                     }
 
                     $serviceKeluhanForText = str_replace(["\r\n", "\r", "\n"], ' | ', $pesanan->service_keluhan ?: '-');
 
-                    $pesanan->service_jenis_refill_id = $jenisRefill->id;
+                    $singleRegisteredRefill = $selectedUnitApars->isNotEmpty()
+                        ? ($registeredRefillSummary['jenis_refill'] ?? null)
+                        : null;
+                    $refillUnitLabel = $selectedUnitApars->isNotEmpty()
+                        ? (collect($registeredRefillSummary['stock_requirements'] ?? [])
+                            ->map(fn (array $requirement) => $requirement['jenis_refill']->satuan_label ?? null)
+                            ->filter()
+                            ->first() ?: 'Kg')
+                        : $jenisRefill->satuan_label;
+                    $pesanan->service_jenis_refill_id = $selectedUnitApars->isNotEmpty()
+                        ? ($singleRegisteredRefill ? $singleRegisteredRefill->id : null)
+                        : $jenisRefill->id;
                     $pesanan->service_paket_id = null;
                     $pesanan->service_total_kg = $totalKebutuhanKg;
                     $pesanan->service_estimasi_biaya = $estimasiBiaya;
                     $pesanan->total = $estimasiBiaya;
                     $pesanan->total_harga = $estimasiBiaya;
-                    $pesanan->keterangan = "Permintaan REFILL {$jenisRefill->nama_label}"
+                    $refillSummaryLabel = $selectedUnitApars->isNotEmpty()
+                        ? collect($registeredRefillSummary['stock_requirements'] ?? [])
+                            ->map(fn (array $requirement) => $requirement['jenis_refill']->nama_label ?? null)
+                            ->filter()
+                            ->implode(', ')
+                        : $jenisRefill->nama_label;
+                    $pesanan->keterangan = "Permintaan REFILL " . ($refillSummaryLabel !== '' ? $refillSummaryLabel : 'APAR')
                         . " | Status Unit: " . ($serviceUnitStatus === 'terdaftar' ? 'APAR Terdaftar' : 'APAR Belum Terdaftar')
                         . ($selectedUnitApars->isNotEmpty() ? " | Riwayat: {$servicePurchaseLabel}" : '')
                         . " | Ukuran: {$serviceUkuranApar}"
                         . " | Jumlah: {$serviceJumlahUnit} unit"
-                        . " | Kebutuhan: {$totalKebutuhanKg} {$jenisRefill->satuan_label}"
+                        . " | Kebutuhan: {$totalKebutuhanKg} {$refillUnitLabel}"
                         . " | Metode: {$serviceMetode}"
                         . " | Catatan: " . $serviceKeluhanForText;
                     $pesanan->save();
                     $successMessage = 'Pesanan refill berhasil dibuat dengan estimasi ' . number_format($estimasiBiaya, 0, ',', '.')
                         . '. Silakan lanjutkan pembayaran untuk mengaktifkan proses pengerjaan.';
                 } else {
+                    $requestedServicePaketId = (int) $request->input('service_paket_id');
                     $paket = app(ServiceMasterSyncService::class)
                         ->visibleServicePakets(['peralatans', 'jenisRefill'])
-                        ->firstWhere('id', (int) $request->input('service_paket_id'));
+                        ->firstWhere('id', $requestedServicePaketId);
+
+                    // Tetap izinkan paket lama yang masih ada di database agar alur service sebelumnya tidak ikut rusak.
+                    if (! $paket && $requestedServicePaketId > 0) {
+                        $paket = ServicePaket::query()
+                            ->with(['peralatans', 'jenisRefill'])
+                            ->find($requestedServicePaketId);
+                    }
 
                     if (!$paket) {
                         throw ValidationException::withMessages([

@@ -16,7 +16,7 @@ class PublicOrderServicePricingTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_registered_service_order_uses_price_per_selected_unit_size(): void
+    public function test_registered_service_order_uses_standard_package_price_for_each_selected_unit(): void
     {
         config(['broadcasting.default' => 'null']);
 
@@ -122,11 +122,10 @@ class PublicOrderServicePricingTest extends TestCase
 
         $this->assertSame('service', $pesanan->tipe);
         $this->assertSame('service', $pesanan->service_jenis_layanan);
-        $this->assertSame(250000.0, (float) $pesanan->service_estimasi_biaya);
-        $this->assertSame(250000.0, (float) $pesanan->total);
+        $this->assertSame(300000.0, (float) $pesanan->service_estimasi_biaya);
+        $this->assertSame(300000.0, (float) $pesanan->total);
         $this->assertStringContainsString('2 kg', (string) $pesanan->service_keluhan);
         $this->assertStringContainsString('4 kg', (string) $pesanan->service_keluhan);
-        $this->assertStringContainsString('Rp100.000', (string) $pesanan->service_keluhan);
         $this->assertStringContainsString('Rp150.000', (string) $pesanan->service_keluhan);
     }
 
