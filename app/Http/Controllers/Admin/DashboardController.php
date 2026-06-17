@@ -12,6 +12,7 @@ use App\Models\Service;
 use App\Models\UnitApar;
 use App\Models\User;
 use App\Models\WebsiteVisit;
+use App\Services\AdminAnalyticsService;
 use App\Services\FinalRevenueService;
 use App\Services\ProductAnalyticsService;
 use Carbon\Carbon;
@@ -19,7 +20,11 @@ use Illuminate\Database\Eloquent\Builder;
 
 class DashboardController extends Controller
 {
-    public function __invoke(ProductAnalyticsService $productAnalytics, FinalRevenueService $finalRevenue)
+    public function __invoke(
+        ProductAnalyticsService $productAnalytics,
+        FinalRevenueService $finalRevenue,
+        AdminAnalyticsService $analytics
+    )
     {
         /** @var User|null $user */
         $user = auth()->user();
@@ -43,7 +48,7 @@ class DashboardController extends Controller
         $monthStart = $now->copy()->startOfMonth()->toDateString();
         $monthEnd = $now->copy()->endOfMonth()->toDateString();
         $monthlyRevenue = $finalRevenue->breakdown($monthStart, $monthEnd);
-        $overallRevenue = $finalRevenue->breakdown();
+        $revenueComposition = $analytics->revenueComposition();
 
         $paidProductOrders = Pesanan::query()
             ->where('tipe', 'produk')
@@ -91,11 +96,7 @@ class DashboardController extends Controller
             'Ditolak / Batal' => $this->countBucket($statusCounts, $rejectedStatuses),
         ];
 
-        $unitStatusChart = [
-            'Aktif' => UnitApar::query()->whereDate('tgl_expired', '>', $expiringLimit)->count(),
-            'Akan Expired' => UnitApar::query()->whereBetween('tgl_expired', [$today, $expiringLimit])->count(),
-            'Expired' => UnitApar::query()->whereDate('tgl_expired', '<', $today)->count(),
-        ];
+        $unitStatusChart = $analytics->unitStatus($today);
 
         $months = collect(range(5, 0))->map(function (int $offset) use ($now, $finalRevenue) {
             $month = $now->copy()->subMonths($offset)->startOfMonth();
@@ -142,31 +143,27 @@ class DashboardController extends Controller
             ->take(6)
             ->get();
 
+        $monthlyPurchases = $analytics->monthlyPurchases($now);
+
         return view('dashboard', [
             'kpis' => [
                 'totalProduk' => Produk::count(),
                 'totalPelanggan' => Pelanggan::count(),
+                'pendapatanKeseluruhan' => array_sum(array_map('floatval', $revenueComposition['series'] ?? [])),
                 'totalPesanan' => Pesanan::count(),
                 'totalKomplain' => Complain::count(),
                 'totalUnitApar' => UnitApar::count(),
                 'pendapatanBulanIni' => $monthlyRevenue['total'],
-                'unitAkanExpired' => $unitStatusChart['Akan Expired'],
-                'unitExpired' => $unitStatusChart['Expired'],
+                'unitAkanExpired' => $unitStatusChart['series'][1] ?? 0,
+                'unitExpired' => $unitStatusChart['series'][2] ?? 0,
             ],
             'charts' => [
-                'revenueComposition' => [
-                    'labels' => ['Penjualan Produk', 'Service APAR', 'Refill APAR'],
-                    'series' => [$overallRevenue['product'], $overallRevenue['service'], $overallRevenue['refill']],
-                    'scopeLabel' => 'Semua transaksi selesai final',
-                ],
+                'revenueComposition' => $revenueComposition,
                 'transactionStatus' => [
                     'labels' => array_keys($transactionStatusChart),
                     'series' => array_values($transactionStatusChart),
                 ],
-                'unitStatus' => [
-                    'labels' => array_keys($unitStatusChart),
-                    'series' => array_values($unitStatusChart),
-                ],
+                'unitStatus' => $unitStatusChart,
                 'revenueTrend' => [
                     'labels' => $months->pluck('label')->all(),
                     'series' => [
@@ -188,6 +185,7 @@ class DashboardController extends Controller
                         ],
                     ],
                 ],
+                'monthlyPurchases' => $monthlyPurchases,
             ],
             'latest' => [
                 'orders' => Pesanan::query()

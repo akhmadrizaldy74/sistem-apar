@@ -5,6 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Models\JenisApar;
 use App\Models\JenisRefill;
 use App\Models\Pelanggan;
+use App\Models\Pengeluaran;
 use App\Models\Pesanan;
 use App\Models\PesananDetail;
 use App\Models\Produk;
@@ -53,8 +54,10 @@ class DashboardRevenueTest extends TestCase
 
         $dashboardCharts = $dashboard->viewData('charts');
         $dashboardKpis = $dashboard->viewData('kpis');
+        $laporanCharts = $laporan->viewData('charts');
         $laporanSummary = $laporan->viewData('summary');
         $laporanCombinedData = $laporan->viewData('combinedData');
+        $keuanganCharts = $keuangan->viewData('charts');
         $keuanganTotals = $keuangan->viewData('totals');
         $penjualan = $this->actingAs($admin)->get(route('admin.laporan.penjualan'));
 
@@ -63,9 +66,28 @@ class DashboardRevenueTest extends TestCase
         $penjualanTransactions = $penjualan->viewData('transactions');
 
         $this->assertSame(1800000.0, (float) $dashboardKpis['pendapatanBulanIni']);
+        $this->assertSame(2200000.0, (float) $dashboardKpis['pendapatanKeseluruhan']);
         $this->assertSame([1500000.0, 300000.0, 400000.0], array_map('floatval', $dashboardCharts['revenueComposition']['series']));
         $this->assertSame(2200000.0, (float) $laporanSummary['totalPemasukan']);
         $this->assertSame(2200000.0, (float) $keuanganTotals['total_pemasukan']);
+        $this->assertSame($dashboardCharts['revenueComposition']['labels'], $laporanCharts['revenueComposition']['labels']);
+        $this->assertSame($dashboardCharts['revenueComposition']['colors'], $laporanCharts['revenueComposition']['colors']);
+        $this->assertSame(
+            array_map('floatval', $dashboardCharts['revenueComposition']['series']),
+            array_map('floatval', $laporanCharts['revenueComposition']['series'])
+        );
+        $this->assertSame($dashboardCharts['unitStatus']['labels'], $laporanCharts['unitStatus']['labels']);
+        $this->assertSame($dashboardCharts['unitStatus']['colors'], $laporanCharts['unitStatus']['colors']);
+        $this->assertSame(
+            array_map('intval', $dashboardCharts['unitStatus']['series']),
+            array_map('intval', $laporanCharts['unitStatus']['series'])
+        );
+        $this->assertSame($dashboardCharts['revenueComposition']['labels'], $keuanganCharts['revenueComposition']['labels']);
+        $this->assertSame($dashboardCharts['revenueComposition']['colors'], $keuanganCharts['revenueComposition']['colors']);
+        $this->assertSame(
+            array_map('floatval', $dashboardCharts['revenueComposition']['series']),
+            array_map('floatval', $keuanganCharts['revenueComposition']['series'])
+        );
         $this->assertSame(
             (float) $laporanSummary['totalPemasukan'],
             array_sum(array_map('floatval', $dashboardCharts['revenueComposition']['series']))
@@ -74,6 +96,17 @@ class DashboardRevenueTest extends TestCase
         $this->assertCount(2, $penjualanTransactions);
         $this->assertTrue($penjualanTransactions->contains(fn (array $row) => $row['jenis_transaksi'] === 'Penjualan Produk' && (float) $row['total'] === 1500000.0));
         $this->assertTrue($penjualanTransactions->contains(fn (array $row) => $row['jenis_transaksi'] === 'Refill APAR' && (float) $row['total'] === 400000.0));
+        $dashboard->assertSeeText('Total Pendapatan');
+        $dashboard->assertSeeText('Bulan Ini');
+        $dashboard->assertSeeText('Keseluruhan');
+        $dashboard->assertSee('data-revenue-period', false);
+        $dashboard->assertSee('data-month-value="Rp 1.800.000"', false);
+        $dashboard->assertSee('data-overall-value="Rp 2.200.000"', false);
+        $dashboard->assertDontSeeText('Prioritas');
+        $dashboard->assertDontSeeText('Pesanan Menunggu');
+        $dashboard->assertDontSeeText('Unit Akan Expired');
+        $dashboard->assertDontSeeText('Unit Expired');
+        $dashboard->assertDontSeeText('Semua transaksi utama dalam kondisi aman');
     }
 
     public function test_dashboard_revenue_defaults_to_zero_when_no_final_transactions_exist(): void
@@ -93,7 +126,99 @@ class DashboardRevenueTest extends TestCase
         $charts = $response->viewData('charts');
 
         $this->assertSame(0.0, (float) $kpis['pendapatanBulanIni']);
+        $this->assertSame(0.0, (float) $kpis['pendapatanKeseluruhan']);
         $this->assertSame([0.0, 0.0, 0.0], array_map('floatval', $charts['revenueComposition']['series']));
+        $response->assertSeeText('Total Pendapatan');
+        $response->assertSeeText('Bulan Ini');
+        $response->assertSeeText('Keseluruhan');
+        $response->assertSee('data-revenue-period', false);
+        $response->assertSee('data-month-value="Rp 0"', false);
+        $response->assertSee('data-overall-value="Rp 0"', false);
+        $response->assertDontSeeText('Pendapatan Final Bulan Ini');
+        $response->assertDontSeeText('Prioritas');
+        $response->assertDontSeeText('Pesanan Menunggu');
+        $response->assertDontSeeText('Unit Akan Expired');
+        $response->assertDontSeeText('Unit Expired');
+        $response->assertDontSeeText('Semua transaksi utama dalam kondisi aman');
+    }
+
+    public function test_dashboard_monthly_purchase_chart_uses_fallback_when_no_purchase_expense_exists(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'no_telpon' => '081111111142',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('dashboard'));
+
+        $response->assertOk();
+        $response->assertSeeText('Grafik Pembelian Bulanan');
+
+        $monthlyPurchases = $response->viewData('charts')['monthlyPurchases'];
+
+        $this->assertTrue((bool) $monthlyPurchases['isFallback']);
+        $this->assertSame(12, count($monthlyPurchases['labels']));
+        $this->assertSame(12, count($monthlyPurchases['shortLabels']));
+        $this->assertSame('Des', $monthlyPurchases['shortLabels'][11]);
+        $this->assertSame(500000.0, (float) $monthlyPurchases['series'][0]);
+        $this->assertSame(1800000.0, (float) $monthlyPurchases['series'][11]);
+    }
+
+    public function test_dashboard_monthly_purchase_chart_uses_saved_purchase_expense_data(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'no_telpon' => '081111111143',
+        ]);
+
+        Pengeluaran::create([
+            'kategori' => 'lainnya',
+            'jenis_pengeluaran' => Pengeluaran::JENIS_PEMBELIAN_APAR,
+            'nama_item' => 'APAR 3 Kg',
+            'qty' => 1,
+            'satuan' => 'Unit',
+            'harga_beli' => 150000,
+            'total' => 150000,
+            'nominal' => 150000,
+            'tanggal' => now()->startOfYear()->addDays(4)->toDateString(),
+        ]);
+
+        Pengeluaran::create([
+            'kategori' => 'refill',
+            'jenis_pengeluaran' => Pengeluaran::JENIS_PEMBELIAN_REFILL,
+            'nama_item' => 'Dry Powder',
+            'qty' => 2,
+            'satuan' => 'Kg',
+            'harga_beli' => 125000,
+            'total' => 250000,
+            'nominal' => 0,
+            'tanggal' => now()->startOfYear()->addMonths(5)->addDays(2)->toDateString(),
+        ]);
+
+        Pengeluaran::create([
+            'kategori' => 'peralatan',
+            'jenis_pengeluaran' => Pengeluaran::JENIS_PEMBELIAN_PERALATAN,
+            'nama_item' => 'Selang',
+            'qty' => 1,
+            'satuan' => 'Unit',
+            'harga_beli' => 300000,
+            'total' => 300000,
+            'nominal' => 300000,
+            'tanggal' => now()->copy()->subYear()->startOfYear()->addMonths(9)->toDateString(),
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('dashboard'));
+
+        $response->assertOk();
+
+        $monthlyPurchases = $response->viewData('charts')['monthlyPurchases'];
+
+        $this->assertFalse((bool) $monthlyPurchases['isFallback']);
+        $this->assertSame('Januari', $monthlyPurchases['labels'][0]);
+        $this->assertSame('Jan', $monthlyPurchases['shortLabels'][0]);
+        $this->assertSame(150000.0, (float) $monthlyPurchases['series'][0]);
+        $this->assertSame(250000.0, (float) $monthlyPurchases['series'][5]);
+        $this->assertSame(0.0, (float) $monthlyPurchases['series'][11]);
     }
 
     private function createRevenueFixtures(): array

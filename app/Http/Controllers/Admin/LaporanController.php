@@ -14,6 +14,7 @@ use App\Models\Refill;
 use App\Models\Service;
 use App\Models\UnitApar;
 use App\Models\WebsiteVisit;
+use App\Services\AdminAnalyticsService;
 use App\Services\FinalRevenueService;
 use App\Services\ProductAnalyticsService;
 use App\Support\ServiceUnitDisplay;
@@ -25,7 +26,12 @@ use Illuminate\Support\Collection;
 
 class LaporanController extends Controller
 {
-    public function index(Request $request, ProductAnalyticsService $productAnalytics, FinalRevenueService $finalRevenue)
+    public function index(
+        Request $request,
+        ProductAnalyticsService $productAnalytics,
+        FinalRevenueService $finalRevenue,
+        AdminAnalyticsService $analytics
+    )
     {
         $filters = $this->filters($request);
         $now = now();
@@ -80,10 +86,12 @@ class LaporanController extends Controller
         $totalPemasukan = $revenueBreakdown['total'];
         $labaBersih = $totalPemasukan - $totalPengeluaran;
 
-        $revenueComposition = [
-            'labels' => ['Penjualan Produk', 'Service APAR', 'Refill APAR'],
-            'series' => [$totalNilaiPesanan, $totalBiayaService, $totalBiayaRefill],
-        ];
+        $revenueComposition = $analytics->revenueComposition(
+            $filters['tanggal_dari'],
+            $filters['tanggal_sampai'],
+            $filters['pelanggan_id'],
+            'Semua transaksi selesai final pada periode laporan.'
+        );
 
         $pendingCount = Pesanan::where('tipe', 'produk')->whereIn('status', ['pending', 'menunggu', 'menunggu persetujuan'])->count();
         $diprosesCount = Pesanan::where('tipe', 'produk')->whereIn('status', ['diproses', 'ditugaskan ke teknisi', 'dikerjakan teknisi'])->count();
@@ -94,14 +102,8 @@ class LaporanController extends Controller
             'series' => [$pendingCount, $diprosesCount, $selesaiCount, $ditolakCount],
         ];
 
-        $expiringLimit = $now->copy()->addDays(30);
-        $unitAktif = UnitApar::whereDate('tgl_expired', '>', $expiringLimit)->count();
-        $unitAkanExpired = UnitApar::whereBetween('tgl_expired', [$now, $expiringLimit])->count();
-        $unitExpired = UnitApar::whereDate('tgl_expired', '<', $now)->count();
-        $unitStatus = [
-            'labels' => ['Aktif', 'Akan Expired', 'Expired'],
-            'series' => [$unitAktif, $unitAkanExpired, $unitExpired],
-        ];
+        $unitStatus = $analytics->unitStatus(Carbon::today());
+        $monthlyPurchases = $analytics->monthlyPurchases($now);
 
         $combinedData = collect();
 
@@ -204,12 +206,20 @@ class LaporanController extends Controller
             'peralatan' => (float) Peralatan::sum('stok'),
         ];
 
+        $charts = [
+            'revenueComposition' => $revenueComposition,
+            'unitStatus' => $unitStatus,
+            'monthlyPurchases' => $monthlyPurchases,
+        ];
+
         return view('admin.laporan.index', compact(
             'filters',
             'summary',
+            'charts',
             'revenueComposition',
             'transactionStatus',
             'unitStatus',
+            'monthlyPurchases',
             'combinedData',
             'visitorStats',
             'visitorRecords',
@@ -325,7 +335,11 @@ class LaporanController extends Controller
         return view('admin.laporan.service', compact('serviceRows', 'stats', 'filters', 'pelanggans'));
     }
 
-    public function keuangan(Request $request, FinalRevenueService $finalRevenue)
+    public function keuangan(
+        Request $request,
+        FinalRevenueService $finalRevenue,
+        AdminAnalyticsService $analytics
+    )
     {
         $filters = $this->filters($request);
 
@@ -379,6 +393,17 @@ class LaporanController extends Controller
             ->sortDesc()
             ->all();
 
+        $charts = [
+            'revenueComposition' => $analytics->revenueComposition(
+                $filters['tanggal_dari'],
+                $filters['tanggal_sampai'],
+                $filters['pelanggan_id'],
+                'Semua transaksi selesai final pada periode laporan keuangan.'
+            ),
+            'expenseBreakdown' => $analytics->expenseBreakdown($pengeluarans),
+            'cashflowTrend' => $analytics->cashflowTrend($filters['pelanggan_id'], now()),
+        ];
+
         $pelanggans = Pelanggan::orderBy('nama')->get();
 
         $trendData = [];
@@ -415,6 +440,7 @@ class LaporanController extends Controller
             'totals',
             'filters',
             'pelanggans',
+            'charts',
             'trendData',
             'incomeBreakdown',
             'expenseBreakdown',

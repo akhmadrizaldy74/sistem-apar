@@ -14,6 +14,7 @@ use App\Models\Service;
 use App\Models\Testimoni;
 use App\Models\UnitApar;
 use App\Models\WebsiteVisit;
+use App\Services\AdminAnalyticsService;
 use App\Services\FinalRevenueService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -22,7 +23,7 @@ use Illuminate\Http\Request;
 
 class AdminRealtimeController extends Controller
 {
-    public function dashboard(FinalRevenueService $finalRevenue): JsonResponse
+    public function dashboard(FinalRevenueService $finalRevenue, AdminAnalyticsService $analytics): JsonResponse
     {
         $today = Carbon::today();
         $now = now();
@@ -30,6 +31,7 @@ class AdminRealtimeController extends Controller
         $monthStart = $now->copy()->startOfMonth()->toDateString();
         $monthEnd = $now->copy()->endOfMonth()->toDateString();
         $monthlyRevenue = $finalRevenue->breakdown($monthStart, $monthEnd);
+        $overallRevenue = $analytics->revenueComposition();
 
         $waitingStatuses = [
             Pesanan::STATUS_PERMINTAAN_MASUK,
@@ -51,6 +53,7 @@ class AdminRealtimeController extends Controller
         $kpis = [
             'totalProduk' => Produk::count(),
             'totalPelanggan' => Pelanggan::count(),
+            'pendapatanKeseluruhan' => array_sum(array_map('floatval', $overallRevenue['series'] ?? [])),
             'totalPesanan' => Pesanan::count(),
             'totalKomplain' => Complain::count(),
             'totalUnitApar' => UnitApar::count(),

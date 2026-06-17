@@ -1,362 +1,407 @@
 <x-app-layout>
+    @php
+        $formatRupiah = static fn ($amount) => 'Rp ' . number_format((float) $amount, 0, ',', '.');
+        $monthlyPurchases = $charts['monthlyPurchases'] ?? [
+            'labels' => [],
+            'shortLabels' => [],
+            'series' => [],
+            'year' => now()->year,
+            'isFallback' => true,
+            'sourceLabel' => '',
+            'valueLabel' => 'Total Pembelian',
+        ];
+        $purchaseSeries = collect($monthlyPurchases['series'] ?? [])->map(fn ($value) => (float) $value)->values();
+    @endphp
+
     <x-slot name="header">
-        <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-            <div>
-                <p class="text-xs font-bold uppercase tracking-widest text-red-600">Laporan</p>
-                <h2 class="mt-1 text-2xl font-black text-gray-900 tracking-tight">Laporan Operasional</h2>
-                <p class="mt-1 text-sm text-gray-500 font-medium">Rekap data transaksi dan keuangan untuk owner.</p>
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div class="max-w-3xl">
+                <p class="text-sm font-bold text-red-600">Laporan</p>
+                <h2 class="mt-1 text-2xl font-black tracking-tight text-slate-900 md:text-3xl">Laporan Operasional</h2>
+                <p class="mt-2 text-sm font-medium leading-6 text-slate-500 md:text-[15px]">
+                    Rekap transaksi, kondisi unit APAR, pengeluaran, dan performa operasional dengan tampilan yang selaras dengan dashboard.
+                </p>
             </div>
-            <div class="flex gap-2">
-                <a href="{{ route('admin.laporan.index.pdf', request()->query()) }}"
-                   class="inline-flex items-center gap-2 px-4 py-2.5 bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700 transition shadow-sm">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
-                    Cetak PDF
-                </a>
-            </div>
+            <a href="{{ route('admin.laporan.index.pdf', request()->query()) }}"
+               class="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-700 px-5 py-3 text-sm font-black text-white shadow-xl shadow-red-700/20 transition hover:bg-red-800">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                Cetak PDF
+            </a>
         </div>
     </x-slot>
 
-    <div class="space-y-4">
+    <div class="mx-auto max-w-[1360px] space-y-6 text-[13px] md:text-sm">
         @include('admin.laporan.partials.tabs')
 
-        {{-- A. Filter Section --}}
-        <form method="GET" class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
-            <div class="flex flex-wrap items-end gap-3">
+        <form method="GET" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <div class="grid gap-4 lg:grid-cols-[1fr_1fr_1fr_auto]">
                 <div>
-                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Tanggal Dari</label>
+                    <label class="mb-2 block text-sm font-bold text-slate-600">Tanggal Dari</label>
                     <input type="date" name="tanggal_dari" value="{{ request('tanggal_dari') }}"
-                        class="text-sm rounded-lg border-gray-200 px-3 py-2 focus:border-red-400 focus:ring-1 focus:ring-red-400 outline-none w-36">
+                        class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100">
                 </div>
                 <div>
-                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Tanggal Sampai</label>
+                    <label class="mb-2 block text-sm font-bold text-slate-600">Tanggal Sampai</label>
                     <input type="date" name="tanggal_sampai" value="{{ request('tanggal_sampai') }}"
-                        class="text-sm rounded-lg border-gray-200 px-3 py-2 focus:border-red-400 focus:ring-1 focus:ring-red-400 outline-none w-36">
+                        class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100">
                 </div>
                 <div>
-                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Pelanggan</label>
-                    <select name="pelanggan_id" class="text-sm rounded-lg border-gray-200 px-3 py-2 focus:border-red-400 focus:ring-1 focus:ring-red-400 outline-none">
-                        <option value="">Semua</option>
+                    <label class="mb-2 block text-sm font-bold text-slate-600">Pelanggan</label>
+                    <select name="pelanggan_id" class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100">
+                        <option value="">Semua Pelanggan</option>
                         @foreach($pelanggans as $p)
                             <option value="{{ $p->id }}" {{ request('pelanggan_id') == $p->id ? 'selected' : '' }}>{{ $p->nama }}</option>
                         @endforeach
                     </select>
                 </div>
-                <button type="submit" class="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 transition shadow-sm">
-                    Tampilkan
-                </button>
-                @if(request('tanggal_dari') || request('tanggal_sampai') || request('pelanggan_id'))
-                    <a href="{{ route('admin.laporan.index') }}" class="px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg transition">
-                        Reset
-                    </a>
-                @endif
+                <div class="flex flex-col gap-3 lg:justify-end">
+                    <button type="submit" class="rounded-2xl bg-red-700 px-5 py-3 text-sm font-black text-white transition hover:bg-red-800">
+                        Tampilkan
+                    </button>
+                    @if(request('tanggal_dari') || request('tanggal_sampai') || request('pelanggan_id'))
+                        <a href="{{ route('admin.laporan.index') }}" class="rounded-2xl border border-red-200 px-5 py-3 text-center text-sm font-black text-red-700 transition hover:bg-red-50">
+                            Reset Filter
+                        </a>
+                    @endif
+                </div>
             </div>
         </form>
 
-        {{-- B. Ringkasan Keuangan --}}
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
-                <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-600 mb-1">Total Pemasukan</p>
-                <p class="text-xl font-black text-emerald-700">Rp {{ number_format($summary['totalPemasukan'], 0, ',', '.') }}</p>
+        <div class="grid gap-4 lg:grid-cols-3">
+            <div class="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-5 shadow-sm">
+                <p class="text-sm font-bold text-emerald-700">Total Pemasukan</p>
+                <p class="mt-2 text-2xl font-black text-emerald-800">{{ $formatRupiah($summary['totalPemasukan']) }}</p>
+                <p class="mt-2 text-sm font-medium text-emerald-700/80">Berdasarkan transaksi yang sudah selesai final.</p>
             </div>
-            <div class="rounded-xl border border-red-200 bg-red-50 p-4 shadow-sm">
-                <p class="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-1">Total Pengeluaran</p>
-                <p class="text-xl font-black text-red-700">Rp {{ number_format($summary['totalPengeluaran'], 0, ',', '.') }}</p>
+            <div class="rounded-2xl border border-red-200 bg-red-50/80 p-5 shadow-sm">
+                <p class="text-sm font-bold text-red-700">Total Pengeluaran</p>
+                <p class="mt-2 text-2xl font-black text-red-800">{{ $formatRupiah($summary['totalPengeluaran']) }}</p>
+                <p class="mt-2 text-sm font-medium text-red-700/80">Pengeluaran operasional yang tercatat di sistem.</p>
             </div>
-            <div class="rounded-xl border p-4 shadow-sm {{ $summary['labaBersih'] >= 0 ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50' }}">
-                <p class="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Laba / Rugi</p>
-                <p class="text-xl font-black {{ $summary['labaBersih'] >= 0 ? 'text-emerald-700' : 'text-red-700' }}">
-                    {{ $summary['labaBersih'] >= 0 ? '+' : '' }}Rp {{ number_format($summary['labaBersih'], 0, ',', '.') }}
+            <div class="rounded-2xl border p-5 shadow-sm {{ $summary['labaBersih'] >= 0 ? 'border-blue-200 bg-blue-50/80' : 'border-amber-200 bg-amber-50/80' }}">
+                <p class="text-sm font-bold {{ $summary['labaBersih'] >= 0 ? 'text-blue-700' : 'text-amber-700' }}">Laba / Rugi</p>
+                <p class="mt-2 text-2xl font-black {{ $summary['labaBersih'] >= 0 ? 'text-blue-800' : 'text-amber-800' }}">
+                    {{ $summary['labaBersih'] >= 0 ? '+' : '' }}{{ $formatRupiah($summary['labaBersih']) }}
                 </p>
+                <p class="mt-2 text-sm font-medium {{ $summary['labaBersih'] >= 0 ? 'text-blue-700/80' : 'text-amber-700/80' }}">Selisih pemasukan final dan pengeluaran operasional.</p>
             </div>
         </div>
 
-        {{-- C. Ringkasan Transaksi Compact --}}
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <div class="bg-white rounded-xl border border-gray-100 p-3 shadow-sm">
-                <p class="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">Pesanan</p>
-                <p class="text-lg font-black text-gray-900">{{ number_format($summary['totalPesanan']) }}</p>
+        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <p class="text-sm font-bold text-slate-600">Pesanan Final</p>
+                <p class="mt-3 text-2xl font-black text-slate-900">{{ number_format($summary['totalPesanan']) }}</p>
             </div>
-            <div class="bg-white rounded-xl border border-gray-100 p-3 shadow-sm">
-                <p class="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">Service</p>
-                <p class="text-lg font-black text-gray-900">{{ number_format($summary['totalService']) }}</p>
+            <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <p class="text-sm font-bold text-slate-600">Service Final</p>
+                <p class="mt-3 text-2xl font-black text-slate-900">{{ number_format($summary['totalService']) }}</p>
             </div>
-            <div class="bg-white rounded-xl border border-gray-100 p-3 shadow-sm">
-                <p class="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">Refill</p>
-                <p class="text-lg font-black text-gray-900">{{ number_format($summary['totalRefill']) }}</p>
+            <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <p class="text-sm font-bold text-slate-600">Refill Final</p>
+                <p class="mt-3 text-2xl font-black text-slate-900">{{ number_format($summary['totalRefill']) }}</p>
             </div>
-            <div class="bg-white rounded-xl border border-gray-100 p-3 shadow-sm">
-                <p class="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">Unit APAR</p>
-                <p class="text-lg font-black text-gray-900">{{ number_format($summary['totalUnit']) }}</p>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
-                <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Stok Produk Siap Jual</p>
-                <p class="text-xl font-black text-gray-900">{{ number_format($stockSummary['produk'], 0, ',', '.') }} unit</p>
-            </div>
-            <div class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
-                <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Stok Refill Tersedia</p>
-                <p class="text-xl font-black text-emerald-700">{{ number_format($stockSummary['refill'], 0, ',', '.') }} Kg</p>
-            </div>
-            <div class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
-                <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Stok Peralatan</p>
-                <p class="text-xl font-black text-blue-700">{{ number_format($stockSummary['peralatan'], 0, ',', '.') }} unit</p>
+            <div class="rounded-2xl border border-blue-100 bg-blue-50/70 p-4 shadow-sm sm:p-5">
+                <p class="text-sm font-bold text-blue-700">Unit APAR</p>
+                <p class="mt-3 text-2xl font-black text-blue-800">{{ number_format($summary['totalUnit']) }}</p>
             </div>
         </div>
 
-        {{-- D. Produk Sering Dilihat & Dibeli --}}
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {{-- Produk yang Sering Dilihat --}}
-            <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                <div class="border-b border-gray-100 px-4 py-3 bg-gray-50/50">
-                    <h3 class="font-bold text-gray-900 text-sm">Produk yang Sering Dilihat</h3>
-                    <p class="text-[10px] text-gray-500">Produk dengan jumlah tampilan tertinggi.</p>
+        <div class="grid gap-4 lg:grid-cols-3">
+            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <p class="text-sm font-bold text-slate-600">Stok Produk Siap Jual</p>
+                <p class="mt-2 text-2xl font-black text-slate-900">{{ number_format($stockSummary['produk'], 0, ',', '.') }} unit</p>
+            </div>
+            <div class="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-5 shadow-sm">
+                <p class="text-sm font-bold text-emerald-700">Stok Refill Tersedia</p>
+                <p class="mt-2 text-2xl font-black text-emerald-800">{{ number_format($stockSummary['refill'], 0, ',', '.') }} Kg</p>
+            </div>
+            <div class="rounded-2xl border border-blue-100 bg-blue-50/70 p-5 shadow-sm">
+                <p class="text-sm font-bold text-blue-700">Stok Peralatan</p>
+                <p class="mt-2 text-2xl font-black text-blue-800">{{ number_format($stockSummary['peralatan'], 0, ',', '.') }} unit</p>
+            </div>
+        </div>
+
+        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="border-b border-slate-100 bg-slate-50/70 px-5 py-4 sm:px-6">
+                <h3 class="text-base font-black text-slate-900 md:text-lg">Analitik Ringkas</h3>
+                <p class="mt-1 text-sm font-medium text-slate-500">Diagram laporan dibuat sama dengan dashboard agar pembacaan data tetap konsisten.</p>
+            </div>
+            <div class="grid gap-5 p-5 lg:grid-cols-2 sm:p-6">
+                <article class="flex min-h-[360px] flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <h4 class="text-base font-black text-slate-900">Sumber Pendapatan</h4>
+                            <p class="mt-1 text-sm font-medium leading-6 text-slate-500">
+                                {{ $charts['revenueComposition']['scopeLabel'] ?? 'Semua transaksi selesai final' }}
+                            </p>
+                        </div>
+                        <span class="shrink-0 rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-600">Final</span>
+                    </div>
+                    <div class="mt-4 flex flex-1 flex-col justify-between gap-4">
+                        <div class="flex min-h-[250px] items-center justify-center">
+                            <div id="report-revenue-composition-chart" class="h-[250px] w-full max-w-[290px]"></div>
+                        </div>
+                        <div id="report-revenue-composition-legend" class="grid gap-2 text-sm font-semibold text-slate-600"></div>
+                    </div>
+                </article>
+
+                <article class="flex min-h-[360px] flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <h4 class="text-base font-black text-slate-900">Status Unit APAR</h4>
+                            <p class="mt-1 text-sm font-medium leading-6 text-slate-500">
+                                Konsep, warna, dan totalnya dibuat sama seperti dashboard admin.
+                            </p>
+                        </div>
+                        <span class="shrink-0 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-600">Unit</span>
+                    </div>
+                    <div class="mt-4 flex flex-1 flex-col justify-between gap-4">
+                        <div class="flex min-h-[250px] items-center justify-center">
+                            <div id="report-unit-status-chart" class="h-[250px] w-full max-w-[290px]"></div>
+                        </div>
+                        <div id="report-unit-status-legend" class="grid gap-2 text-sm font-semibold text-slate-600"></div>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="border-b border-slate-100 bg-slate-50/70 px-5 py-4 sm:px-6">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                        <h3 class="text-base font-black text-slate-900 md:text-lg">Grafik Pembelian Bulanan</h3>
+                        <p class="mt-1 text-sm font-medium text-slate-500">Format dan perilaku grafik mengikuti dashboard agar pembacaan tetap seragam.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+                            Tahun {{ $monthlyPurchases['year'] ?? now()->year }}
+                        </span>
+                        <span class="rounded-full px-3 py-1 text-xs font-bold {{ !empty($monthlyPurchases['isFallback']) ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700' }}">
+                            {{ !empty($monthlyPurchases['isFallback']) ? 'Data visual sementara' : 'Data pengeluaran tersimpan' }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="space-y-5 p-5 sm:p-6">
+                <div class="grid gap-3 lg:grid-cols-3">
+                    <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                        <p class="text-xs font-bold text-slate-500">Total Pembelian Tahun Ini</p>
+                        <p class="mt-1 text-xl font-black text-slate-900">{{ $formatRupiah($purchaseSeries->sum()) }}</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                        <p class="text-xs font-bold text-slate-500">Data Ditampilkan</p>
+                        <p class="mt-1 text-xl font-black text-slate-900">{{ count($monthlyPurchases['labels'] ?? []) }} bulan</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                        <p class="text-xs font-bold text-slate-500">Catatan Data</p>
+                        <p class="mt-1 text-sm font-semibold leading-6 text-slate-600">{{ $monthlyPurchases['sourceLabel'] ?? '-' }}</p>
+                    </div>
+                </div>
+                <div class="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
+                    <div class="h-[310px] sm:h-[350px]">
+                        <div id="report-monthly-purchases-chart" class="h-full w-full"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="grid gap-5 lg:grid-cols-2">
+            <section class="overflow-hidden rounded-2xl border border-violet-200 bg-white shadow-sm">
+                <div class="border-b border-violet-100 bg-violet-50/40 px-5 py-4 sm:px-6">
+                    <h3 class="text-base font-black text-slate-900">Produk yang Sering Dilihat</h3>
+                    <p class="mt-1 text-sm font-medium text-slate-500">Produk dengan jumlah tampilan tertinggi.</p>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left">
-                        <thead class="bg-gray-50/50">
+                        <thead class="bg-slate-50/80">
                             <tr>
-                                <th class="px-4 py-2.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider">#</th>
-                                <th class="px-4 py-2.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Nama Produk</th>
-                                <th class="px-4 py-2.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Jenis</th>
-                                <th class="px-4 py-2.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Ukuran</th>
-                                <th class="px-4 py-2.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-right">Dilihat</th>
+                                <th class="px-5 py-3 text-xs font-bold text-slate-500">#</th>
+                                <th class="px-5 py-3 text-xs font-bold text-slate-500">Nama Produk</th>
+                                <th class="px-5 py-3 text-xs font-bold text-slate-500">Jenis</th>
+                                <th class="px-5 py-3 text-xs font-bold text-slate-500">Ukuran</th>
+                                <th class="px-5 py-3 text-right text-xs font-bold text-slate-500">Dilihat</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-50">
+                        <tbody class="divide-y divide-slate-100">
                             @forelse($mostViewedProducts as $idx => $product)
-                            <tr class="hover:bg-gray-50/30">
-                                <td class="px-4 py-2 text-[10px] text-gray-500">{{ $idx + 1 }}</td>
-                                <td class="px-4 py-2 text-[10px] font-semibold text-gray-900">{{ $product['product_name'] }}</td>
-                                <td class="px-4 py-2 text-[10px] text-gray-600">{{ $product['jenis_apar'] }}</td>
-                                <td class="px-4 py-2 text-[10px] text-gray-600">{{ $product['ukuran'] }}</td>
-                                <td class="px-4 py-2 text-[10px] text-right font-bold text-violet-600">{{ number_format($product['view_count']) }}x</td>
-                            </tr>
+                                <tr class="transition hover:bg-slate-50">
+                                    <td class="px-5 py-3 text-sm text-slate-500">{{ $idx + 1 }}</td>
+                                    <td class="px-5 py-3 text-sm font-semibold text-slate-900">{{ $product['product_name'] }}</td>
+                                    <td class="px-5 py-3 text-sm text-slate-600">{{ $product['jenis_apar'] }}</td>
+                                    <td class="px-5 py-3 text-sm text-slate-600">{{ $product['ukuran'] }}</td>
+                                    <td class="px-5 py-3 text-right text-sm font-black text-violet-600">{{ number_format($product['view_count']) }}x</td>
+                                </tr>
                             @empty
-                            <tr>
-                                <td colspan="5" class="px-4 py-6 text-center text-[10px] text-gray-400">Belum ada data produk yang dilihat.</td>
-                            </tr>
+                                <tr>
+                                    <td colspan="5" class="px-5 py-8 text-center text-sm text-slate-500">Belum ada data produk yang dilihat.</td>
+                                </tr>
                             @endforelse
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </section>
 
-            {{-- Produk yang Sering Dibeli --}}
-            <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                <div class="border-b border-gray-100 px-4 py-3 bg-gray-50/50">
-                    <h3 class="font-bold text-gray-900 text-sm">Produk yang Sering Dibeli</h3>
-                    <p class="text-[10px] text-gray-500">Produk dengan jumlah penjualan tertinggi.</p>
+            <section class="overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm">
+                <div class="border-b border-emerald-100 bg-emerald-50/40 px-5 py-4 sm:px-6">
+                    <h3 class="text-base font-black text-slate-900">Produk yang Sering Dibeli</h3>
+                    <p class="mt-1 text-sm font-medium text-slate-500">Produk dengan jumlah penjualan tertinggi.</p>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left">
-                        <thead class="bg-gray-50/50">
+                        <thead class="bg-slate-50/80">
                             <tr>
-                                <th class="px-4 py-2.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider">#</th>
-                                <th class="px-4 py-2.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Nama Produk</th>
-                                <th class="px-4 py-2.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Jenis</th>
-                                <th class="px-4 py-2.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Ukuran</th>
-                                <th class="px-4 py-2.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-right">Dibeli</th>
+                                <th class="px-5 py-3 text-xs font-bold text-slate-500">#</th>
+                                <th class="px-5 py-3 text-xs font-bold text-slate-500">Nama Produk</th>
+                                <th class="px-5 py-3 text-xs font-bold text-slate-500">Jenis</th>
+                                <th class="px-5 py-3 text-xs font-bold text-slate-500">Ukuran</th>
+                                <th class="px-5 py-3 text-right text-xs font-bold text-slate-500">Dibeli</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-50">
+                        <tbody class="divide-y divide-slate-100">
                             @forelse($mostSoldProducts as $idx => $product)
-                            <tr class="hover:bg-gray-50/30">
-                                <td class="px-4 py-2 text-[10px] text-gray-500">{{ $idx + 1 }}</td>
-                                <td class="px-4 py-2 text-[10px] font-semibold text-gray-900">{{ $product['product_name'] }}</td>
-                                <td class="px-4 py-2 text-[10px] text-gray-600">{{ $product['jenis_apar'] }}</td>
-                                <td class="px-4 py-2 text-[10px] text-gray-600">{{ $product['ukuran'] }}</td>
-                                <td class="px-4 py-2 text-[10px] text-right font-bold text-emerald-600">{{ number_format($product['total_sold']) }}x</td>
-                            </tr>
+                                <tr class="transition hover:bg-slate-50">
+                                    <td class="px-5 py-3 text-sm text-slate-500">{{ $idx + 1 }}</td>
+                                    <td class="px-5 py-3 text-sm font-semibold text-slate-900">{{ $product['product_name'] }}</td>
+                                    <td class="px-5 py-3 text-sm text-slate-600">{{ $product['jenis_apar'] }}</td>
+                                    <td class="px-5 py-3 text-sm text-slate-600">{{ $product['ukuran'] }}</td>
+                                    <td class="px-5 py-3 text-right text-sm font-black text-emerald-600">{{ number_format($product['total_sold']) }}x</td>
+                                </tr>
                             @empty
-                            <tr>
-                                <td colspan="5" class="px-4 py-6 text-center text-[10px] text-gray-400">Belum ada data produk yang dibeli.</td>
-                            </tr>
+                                <tr>
+                                    <td colspan="5" class="px-5 py-8 text-center text-sm text-slate-500">Belum ada data produk yang dibeli.</td>
+                                </tr>
                             @endforelse
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </section>
         </div>
 
-        {{-- E. Chart Section --}}
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div class="border-b border-gray-100 px-4 py-3 bg-gray-50/50">
-                <h3 class="font-bold text-gray-900 text-sm">Analitik Ringkas</h3>
-                <p class="text-[10px] text-gray-500">Komposisi pendapatan, status transaksi, dan kondisi unit APAR.</p>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4">
-                <div class="text-center">
-                    <h4 class="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">Komposisi Pendapatan</h4>
-                    <div id="revenue-composition-chart" class="mx-auto" style="height: 220px; width: 220px; max-height: 220px; max-width: 220px;"></div>
-                </div>
-                <div class="text-center">
-                    <h4 class="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">Status Unit APAR</h4>
-                    <div id="unit-status-chart" class="mx-auto" style="height: 220px; width: 220px; max-height: 220px; max-width: 220px;"></div>
-                </div>
-            </div>
-        </div>
-
-        {{-- F. Rekap Transaksi --}}
-        <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-            <div class="border-b border-gray-100 px-4 py-3 bg-gray-50/50">
-                <h3 class="font-bold text-gray-900 text-sm">Rekap Transaksi</h3>
-                <p class="text-[10px] text-gray-500">Data pesanan dan service terbaru.</p>
+        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="border-b border-slate-100 bg-slate-50/70 px-5 py-4 sm:px-6">
+                <h3 class="text-base font-black text-slate-900">Rekap Transaksi</h3>
+                <p class="mt-1 text-sm font-medium text-slate-500">Data pesanan, service, dan refill terbaru yang sudah masuk ke laporan.</p>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
-                    <thead class="bg-gray-50/50">
+                    <thead class="bg-slate-50/80">
                         <tr>
-                            <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Tanggal</th>
-                            <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Jenis</th>
-                            <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Pelanggan</th>
-                            <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Keterangan</th>
-                            <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Status</th>
-                            <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Sumber</th>
-                            <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-right">Pemasukan</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">Tanggal</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">Jenis</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">Pelanggan</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">Keterangan</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">Status</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">Sumber</th>
+                            <th class="px-5 py-3 text-right text-xs font-bold text-slate-500">Pemasukan</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-50">
+                    <tbody class="divide-y divide-slate-100">
                         @forelse($combinedData->sortByDesc('tanggal')->take(15) as $row)
-                            <tr class="hover:bg-gray-50/30">
-                                <td class="px-4 py-3 text-[10px] font-medium text-gray-600 whitespace-nowrap">
-                                    {{ \Carbon\Carbon::parse($row['tanggal'])->format('d M Y') }}
-                                </td>
-                                <td class="px-4 py-3">
+                            <tr class="transition hover:bg-slate-50">
+                                <td class="px-5 py-3 text-sm font-medium text-slate-700 whitespace-nowrap">{{ \Carbon\Carbon::parse($row['tanggal'])->format('d M Y') }}</td>
+                                <td class="px-5 py-3">
                                     @if($row['jenis'] === 'Pesanan')
-                                        <span class="px-2 py-0.5 bg-blue-50 text-blue-700 text-[9px] font-bold uppercase rounded">Pesanan</span>
+                                        <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">Pesanan</span>
                                     @elseif($row['jenis'] === 'Refill')
-                                        <span class="px-2 py-0.5 bg-amber-50 text-amber-700 text-[9px] font-bold uppercase rounded">Refill</span>
+                                        <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">Refill</span>
                                     @else
-                                        <span class="px-2 py-0.5 bg-violet-50 text-violet-700 text-[9px] font-bold uppercase rounded">Service</span>
+                                        <span class="rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">Service</span>
                                     @endif
                                 </td>
-                                <td class="px-4 py-3 text-[10px] font-semibold text-gray-900">{{ $row['pelanggan'] }}</td>
-                                <td class="px-4 py-3 text-[10px] text-gray-600">{{ $row['keterangan'] }}</td>
-                                <td class="px-4 py-3">
+                                <td class="px-5 py-3 text-sm font-semibold text-slate-900">{{ $row['pelanggan'] }}</td>
+                                <td class="px-5 py-3 text-sm text-slate-600">{{ $row['keterangan'] }}</td>
+                                <td class="px-5 py-3">
                                     @php
                                         $s = strtolower((string) $row['status']);
                                         $statusClass = match(true) {
                                             str_contains($s, 'selesai') || str_contains($s, 'final') => 'bg-emerald-50 text-emerald-700',
                                             str_contains($s, 'ditolak') || str_contains($s, 'batal') => 'bg-red-50 text-red-700',
                                             str_contains($s, 'diproses') || str_contains($s, 'teknisi') || str_contains($s, 'ditugas') => 'bg-amber-50 text-amber-700',
-                                            default => 'bg-gray-50 text-gray-700',
+                                            default => 'bg-slate-100 text-slate-700',
                                         };
                                     @endphp
-                                    <span class="px-2 py-0.5 {{ $statusClass }} text-[9px] font-bold uppercase rounded">{{ $row['status'] }}</span>
+                                    <span class="rounded-full px-3 py-1 text-xs font-bold {{ $statusClass }}">{{ $row['status'] }}</span>
                                 </td>
-                                <td class="px-4 py-3 text-[10px] font-semibold text-gray-600">
-                                    {{ $row['source'] ?? '-' }}
-                                </td>
-                                <td class="px-4 py-3 text-right text-[10px] font-bold text-emerald-700 whitespace-nowrap">
+                                <td class="px-5 py-3 text-sm font-semibold text-slate-600">{{ $row['source'] ?? '-' }}</td>
+                                <td class="px-5 py-3 text-right text-sm font-black text-emerald-700 whitespace-nowrap">
                                     @if($row['pemasukan'] > 0)
-                                        Rp {{ number_format($row['pemasukan'], 0, ',', '.') }}
+                                        {{ $formatRupiah($row['pemasukan']) }}
                                     @else
-                                        <span class="text-gray-300">-</span>
+                                        <span class="text-slate-300">-</span>
                                     @endif
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="px-4 py-8 text-center text-[10px] text-gray-400">Belum ada data transaksi.</td>
+                                <td colspan="7" class="px-5 py-8 text-center text-sm text-slate-500">Belum ada data transaksi.</td>
                             </tr>
                         @endforelse
                     </tbody>
-                    @if($combinedData->isNotEmpty())
-                        <tfoot class="bg-gray-50/80 border-t border-gray-100">
-                            <tr>
-                                <td colspan="6" class="px-4 py-2 text-right text-[10px] font-bold text-gray-600 uppercase tracking-wider">Total</td>
-                                <td class="px-4 py-2 text-right text-[10px] font-bold text-emerald-700 whitespace-nowrap">
-                                    Rp {{ number_format($combinedData->sum('pemasukan'), 0, ',', '.') }}
-                                </td>
-                            </tr>
-                        </tfoot>
-                    @endif
                 </table>
             </div>
-        </div>
+        </section>
 
-        {{-- G. Rincian Pengeluaran --}}
-        <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-            <div class="border-b border-gray-100 px-4 py-3 bg-gray-50/50">
-                <div class="flex items-center justify-between">
+        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="border-b border-slate-100 bg-slate-50/70 px-5 py-4 sm:px-6">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                        <h3 class="font-bold text-gray-900 text-sm">Rincian Pengeluaran</h3>
-                        <p class="text-[10px] text-gray-500">Detail semua pengeluaran dalam periode ini.</p>
+                        <h3 class="text-base font-black text-slate-900">Rincian Pengeluaran</h3>
+                        <p class="mt-1 text-sm font-medium text-slate-500">Detail semua pengeluaran yang masuk pada periode laporan.</p>
                     </div>
-                    @php
-                        $totalPengeluaran = $pengeluarans->sum('effective_amount');
-                    @endphp
-                    <span class="px-3 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-full">
-                        Total: Rp {{ number_format($totalPengeluaran, 0, ',', '.') }}
+                    <span class="inline-flex w-fit rounded-full bg-red-100 px-4 py-1.5 text-sm font-bold text-red-700">
+                        Total: {{ $formatRupiah($pengeluarans->sum('effective_amount')) }}
                     </span>
                 </div>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
-                    <thead class="bg-gray-50/50">
+                    <thead class="bg-slate-50/80">
                         <tr>
-                            <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider">#</th>
-                            <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Tanggal</th>
-                            <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Jenis</th>
-                            <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Keterangan</th>
-                            <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-right">Jumlah</th>
-                            <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider text-right">Total</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">#</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">Tanggal</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">Jenis</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">Keterangan</th>
+                            <th class="px-5 py-3 text-right text-xs font-bold text-slate-500">Jumlah</th>
+                            <th class="px-5 py-3 text-right text-xs font-bold text-slate-500">Total</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-50">
+                    <tbody class="divide-y divide-slate-100">
                         @forelse($pengeluarans as $i => $peng)
                             @php
-                                $jenisLabel = match($peng->jenis_pengeluaran ?? $peng->kategori ?? 'lain') {
-                                    'pembelian_apar' => 'Pembelian APAR',
-                                    'pembelian_refill' => 'Pembelian Refill',
-                                    'pembelian_peralatan' => 'Peralatan',
-                                    'pengeluaran_lainnya' => 'Lainnya',
-                                    default => $peng->jenis_pengeluaran ?? $peng->kategori ?? 'Lainnya',
-                                };
                                 $keterangan = $peng->nama_item ?? $peng->keterangan ?? '-';
                                 $jumlah = $peng->qty ?? 1;
                                 $satuan = $peng->satuan ?? 'unit';
-                                $total = $peng->effective_amount;
                             @endphp
-                            <tr class="hover:bg-gray-50/30">
-                                <td class="px-4 py-2.5 text-[10px] text-gray-500">{{ $i + 1 }}</td>
-                                <td class="px-4 py-2.5 text-[10px] text-gray-700 whitespace-nowrap">
-                                    {{ $peng->tanggal ? \Carbon\Carbon::parse($peng->tanggal)->format('d M Y') : '-' }}
-                                </td>
-                                <td class="px-4 py-2.5">
-                                    <span class="px-2 py-0.5 bg-red-50 text-red-700 text-[9px] font-bold rounded">{{ $jenisLabel }}</span>
-                                </td>
-                                <td class="px-4 py-2.5 text-[10px] text-gray-600">{{ $keterangan }}</td>
-                                <td class="px-4 py-2.5 text-[10px] text-gray-600 text-right">{{ number_format($jumlah) }} {{ $satuan }}</td>
-                                <td class="px-4 py-2.5 text-[10px] text-right font-bold text-red-600">Rp {{ number_format($total, 0, ',', '.') }}</td>
+                            <tr class="transition hover:bg-slate-50">
+                                <td class="px-5 py-3 text-sm text-slate-500">{{ $i + 1 }}</td>
+                                <td class="px-5 py-3 text-sm text-slate-700 whitespace-nowrap">{{ $peng->tanggal ? \Carbon\Carbon::parse($peng->tanggal)->format('d M Y') : '-' }}</td>
+                                <td class="px-5 py-3"><span class="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700">{{ $peng->jenis_pengeluaran_label }}</span></td>
+                                <td class="px-5 py-3 text-sm text-slate-600">{{ $keterangan }}</td>
+                                <td class="px-5 py-3 text-right text-sm text-slate-600">{{ number_format($jumlah) }} {{ $satuan }}</td>
+                                <td class="px-5 py-3 text-right text-sm font-black text-red-700">{{ $formatRupiah($peng->effective_amount) }}</td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-4 py-8 text-center text-[10px] text-gray-400">Belum ada data pengeluaran.</td>
+                                <td colspan="6" class="px-5 py-8 text-center text-sm text-slate-500">Belum ada data pengeluaran.</td>
                             </tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
-        </div>
+        </section>
 
-        {{-- H. Data Pengunjung Website --}}
-        <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-            <div class="border-b border-gray-100 px-4 py-3 bg-gray-50/50">
-                <div class="flex items-center justify-between">
+        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="border-b border-slate-100 bg-slate-50/70 px-5 py-4 sm:px-6">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                        <h3 class="font-bold text-gray-900 text-sm">Data Pengunjung Website</h3>
-                        <p class="text-[10px] text-gray-500">Menampilkan {{ $visitorLimit }} aktivitas terbaru di halaman publik.</p>
+                        <h3 class="text-base font-black text-slate-900">Data Pengunjung Website</h3>
+                        <p class="mt-1 text-sm font-medium text-slate-500">Menampilkan {{ $visitorLimit }} aktivitas terbaru di halaman publik.</p>
                     </div>
                     <div class="flex items-center gap-2">
-                        <span class="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">
-                            {{ $visitorRecords->count() }} Records
-                        </span>
+                        <span class="rounded-full bg-blue-100 px-4 py-1.5 text-sm font-bold text-blue-700">{{ $visitorRecords->count() }} record</span>
                         <select
                             onchange="window.location.href=this.value"
-                            class="rounded-full border border-gray-200 bg-white px-3 py-1 text-[10px] font-bold text-gray-600 focus:border-blue-400 focus:ring-blue-100"
+                            class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-bold text-slate-600 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                             aria-label="Jumlah data pengunjung yang ditampilkan"
                         >
                             @foreach($visitorLimitOptions as $limitOption)
@@ -373,19 +418,19 @@
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
-                    <thead class="bg-gray-50/50">
+                    <thead class="bg-slate-50/80">
                         <tr>
-                            <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider">#</th>
-                            <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Tanggal</th>
-                            <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Jam</th>
-                            <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider">IP</th>
-                            <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Aktivitas</th>
-                            <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Produk Dilihat</th>
-                            <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Browser</th>
-                            <th class="px-4 py-3 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Status</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">#</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">Tanggal</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">Jam</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">IP</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">Aktivitas</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">Produk Dilihat</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">Browser</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">Status</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-50">
+                    <tbody class="divide-y divide-slate-100">
                         @forelse($visitorRecords as $i => $visit)
                             @php
                                 $userAgent = $visit->user_agent ?? '';
@@ -401,18 +446,12 @@
                                 $activity = $label['activity'] ?? 'Membuka Halaman';
                                 $detail = $label['detail'] ?? $visit->page_title ?? '-';
                             @endphp
-                            <tr class="hover:bg-gray-50/30">
-                                <td class="px-4 py-2.5 text-[10px] text-gray-500">{{ $i + 1 }}</td>
-                                <td class="px-4 py-2.5 text-[10px] font-medium text-gray-900 whitespace-nowrap">
-                                    {{ optional($visit->visited_at)->translatedFormat('d M Y') ?? '-' }}
-                                </td>
-                                <td class="px-4 py-2.5 text-[10px] text-gray-600">
-                                    {{ optional($visit->visited_at)->format('H:i') ?? '-' }}
-                                </td>
-                                <td class="px-4 py-2.5 text-[10px] text-gray-700">
-                                    {{ $visit->ip_address ?? '-' }}
-                                </td>
-                                <td class="px-4 py-2.5">
+                            <tr class="transition hover:bg-slate-50">
+                                <td class="px-5 py-3 text-sm text-slate-500">{{ $i + 1 }}</td>
+                                <td class="px-5 py-3 text-sm font-medium text-slate-900 whitespace-nowrap">{{ optional($visit->visited_at)->translatedFormat('d M Y') ?? '-' }}</td>
+                                <td class="px-5 py-3 text-sm text-slate-600">{{ optional($visit->visited_at)->format('H:i') ?? '-' }}</td>
+                                <td class="px-5 py-3 text-sm text-slate-700">{{ $visit->ip_address ?? '-' }}</td>
+                                <td class="px-5 py-3">
                                     @php
                                         $activityBadge = match(true) {
                                             str_contains($activity, 'Melihat Produk') => 'bg-violet-50 text-violet-700',
@@ -421,179 +460,84 @@
                                             str_contains($activity, 'Daftar Produk') => 'bg-indigo-50 text-indigo-700',
                                             str_contains($activity, 'Keranjang') => 'bg-amber-50 text-amber-700',
                                             str_contains($activity, 'Form Pemesanan') => 'bg-rose-50 text-rose-700',
-                                            default => 'bg-gray-50 text-gray-700',
+                                            default => 'bg-slate-100 text-slate-700',
                                         };
                                     @endphp
-                                    <span class="px-2 py-0.5 {{ $activityBadge }} text-[9px] font-bold rounded">{{ $activity }}</span>
+                                    <span class="rounded-full px-3 py-1 text-xs font-bold {{ $activityBadge }}">{{ $activity }}</span>
                                 </td>
-                                <td class="px-4 py-2.5 text-[10px] text-gray-600 max-w-[120px] truncate" title="{{ $detail }}">
-                                    {{ $detail }}
-                                </td>
-                                <td class="px-4 py-2.5 text-[10px] text-gray-600">
-                                    {{ $browser }} - {{ $device }}
-                                </td>
-                                <td class="px-4 py-2.5">
-                                    <span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-[9px] font-bold uppercase rounded">Pengunjung</span>
-                                </td>
+                                <td class="px-5 py-3 text-sm text-slate-600 max-w-[160px] truncate" title="{{ $detail }}">{{ $detail }}</td>
+                                <td class="px-5 py-3 text-sm text-slate-600">{{ $browser }} - {{ $device }}</td>
+                                <td class="px-5 py-3"><span class="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">Pengunjung</span></td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="px-4 py-8 text-center text-[10px] text-gray-400">Belum ada data pengunjung website.</td>
+                                <td colspan="8" class="px-5 py-8 text-center text-sm text-slate-500">Belum ada data pengunjung website.</td>
                             </tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
-        </div>
-
+        </section>
     </div>
 
-    <script type="application/json" id="revenue-composition-data">@json($revenueComposition)</script>
-    <script type="application/json" id="transaction-status-data">@json($transactionStatus)</script>
-    <script type="application/json" id="unit-status-data">@json($unitStatus)</script>
+    <script type="application/json" id="report-revenue-composition-data">@json($charts['revenueComposition'])</script>
+    <script type="application/json" id="report-unit-status-data">@json($charts['unitStatus'])</script>
+    <script type="application/json" id="report-monthly-purchases-data">@json($charts['monthlyPurchases'])</script>
 
     @push('scripts')
-        <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+        @include('admin.partials.analytics-charts-script')
         <script>
             document.addEventListener('DOMContentLoaded', () => {
-                const parseJson = (id, fallback = {}) => {
-                    const el = document.getElementById(id);
-                    if (!el) return fallback;
-                    try { return JSON.parse(el.textContent || ''); } catch { return fallback; }
-                };
+                const chartKit = window.AdminAnalyticsCharts;
 
-                const revenueComposition = parseJson('revenue-composition-data');
-                const transactionStatus = parseJson('transaction-status-data');
-                const unitStatus = parseJson('unit-status-data');
+                if (!chartKit) {
+                    return;
+                }
 
-                const palette = {
-                    red: '#dc2626',
-                    blue: '#2563eb',
-                    amber: '#f59e0b',
-                    emerald: '#059669',
-                    soft: '#e2e8f0'
-                };
+                const revenueComposition = chartKit.parseJson('report-revenue-composition-data');
+                const unitStatus = chartKit.parseJson('report-unit-status-data');
+                const monthlyPurchases = chartKit.parseJson('report-monthly-purchases-data');
 
-                const makeChart = (selector, labels, series, colors, config = {}) => {
-                    const hasData = (series || []).some(v => Number(v) > 0);
-                    const total = (series || []).reduce((a, b) => a + Number(b || 0), 0);
-                    
-                    const isCurrency = config.isCurrency ?? false;
-                    const totalLabel = config.totalLabel ?? 'Total';
-                    
-                    const formatValue = (val) => {
-                        if (isCurrency) {
-                            return new Intl.NumberFormat('id-ID', {
-                                style: 'currency',
-                                currency: 'IDR',
-                                maximumFractionDigits: 0
-                            }).format(val || 0);
-                        }
-                        return new Intl.NumberFormat('id-ID').format(val || 0);
-                    };
+                chartKit.createChart('#report-revenue-composition-chart', chartKit.makeCurrencyDonutChart({
+                    labels: revenueComposition.labels,
+                    series: revenueComposition.series,
+                    colors: revenueComposition.colors,
+                    totalLabel: revenueComposition.totalLabel || 'Total',
+                }));
 
-                    const options = {
-                        chart: {
-                            type: 'donut',
-                            height: 220,
-                            width: 220,
-                            toolbar: { show: false },
-                            animations: { enabled: true, easing: 'easeinout', speed: 800 }
-                        },
-                        series: hasData ? series : [1],
-                        labels: hasData ? labels : ['Tidak Ada Data'],
-                        colors: hasData ? colors : [palette.soft],
-                        stroke: { width: 3, colors: ['#ffffff'] },
-                        dataLabels: { enabled: false },
-                        legend: {
-                            position: 'bottom',
-                            fontSize: '10px',
-                            fontFamily: 'system-ui, sans-serif',
-                            labels: { colors: '#64748b' },
-                            markers: { width: 8, height: 8, radius: 2 },
-                            itemMargin: { horizontal: 6, vertical: 0 }
-                        },
-                        plotOptions: {
-                            pie: {
-                                expandOnClick: false,
-                                customScale: 1.0,
-                                donut: {
-                                    size: '72%',
-                                    labels: {
-                                        show: true,
-                                        name: {
-                                            show: true,
-                                            fontSize: '11px',
-                                            fontFamily: 'system-ui, sans-serif',
-                                            fontWeight: 600,
-                                            color: '#94a3b8',
-                                            offsetY: -8
-                                        },
-                                        value: {
-                                            show: true,
-                                            fontSize: '14px',
-                                            fontFamily: 'system-ui, sans-serif',
-                                            fontWeight: 700,
-                                            color: '#0f172a',
-                                            offsetY: 6,
-                                            formatter: (val) => hasData ? formatValue(val) : formatValue(0)
-                                        },
-                                        total: {
-                                            show: true,
-                                            showAlways: true,
-                                            label: totalLabel,
-                                            fontSize: '11px',
-                                            fontFamily: 'system-ui, sans-serif',
-                                            fontWeight: 600,
-                                            color: '#94a3b8',
-                                            formatter: (w) => {
-                                                if (!hasData) return formatValue(0);
-                                                const sum = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
-                                                return formatValue(sum);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        tooltip: {
-                            enabled: true,
-                            y: {
-                                formatter: (val) => {
-                                    if (!hasData) return 'Tidak ada data';
-                                    const percent = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
-                                    return formatValue(val) + ' (' + percent + '%)';
-                                }
-                            }
-                        },
-                        states: {
-                            hover: { filter: { type: 'none' } },
-                            active: { filter: { type: 'none' } }
-                        },
-                        responsive: [{
-                            breakpoint: 640,
-                            options: {
-                                legend: { position: 'bottom', fontSize: '9px' }
-                            }
-                        }]
-                    };
-                    const el = document.querySelector(selector);
-                    if (el) new ApexCharts(el, options).render();
-                };
+                chartKit.renderLegend(document.querySelector('#report-revenue-composition-legend'), {
+                    labels: revenueComposition.labels,
+                    series: revenueComposition.series,
+                    colors: revenueComposition.colors,
+                    valueFormatter: (value) => chartKit.rupiah(value),
+                    emptyLabel: 'Belum ada data pendapatan final.',
+                });
 
-                makeChart('#revenue-composition-chart',
-                    revenueComposition.labels || [],
-                    revenueComposition.series || [],
-                    [palette.red, palette.blue, palette.amber],
-                    { isCurrency: true, totalLabel: 'Total' }
-                );
+                chartKit.createChart('#report-unit-status-chart', chartKit.makeCountDonutChart({
+                    labels: unitStatus.labels,
+                    series: unitStatus.series,
+                    colors: unitStatus.colors,
+                    totalLabel: unitStatus.totalLabel || 'Total Unit',
+                    unitLabel: 'unit',
+                }));
 
-                makeChart('#unit-status-chart',
-                    unitStatus.labels || [],
-                    unitStatus.series || [],
-                    [palette.emerald, palette.amber, palette.red],
-                    { isCurrency: false, totalLabel: 'Unit' }
-                );
+                chartKit.renderLegend(document.querySelector('#report-unit-status-legend'), {
+                    labels: unitStatus.labels,
+                    series: unitStatus.series,
+                    colors: unitStatus.colors,
+                    valueFormatter: (value) => `${chartKit.numberId(value)} unit`,
+                    emptyLabel: 'Belum ada data status unit.',
+                });
+
+                chartKit.createChart('#report-monthly-purchases-chart', chartKit.makeMonthlyPurchasesChart({
+                    labels: monthlyPurchases.labels,
+                    shortLabels: monthlyPurchases.shortLabels,
+                    series: monthlyPurchases.series,
+                    year: monthlyPurchases.year,
+                    valueLabel: monthlyPurchases.valueLabel,
+                    lineColor: monthlyPurchases.lineColor,
+                    lineFill: monthlyPurchases.lineFill,
+                }));
             });
         </script>
     @endpush
