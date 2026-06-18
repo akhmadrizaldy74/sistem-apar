@@ -88,10 +88,11 @@ class UnitApar extends Model
         $kodeTanggal = Carbon::parse($tanggal)->format('dmY');
         $baseSerial = $namaAwal . '-' . $kodeTanggal;
 
-        $pelangganId = $pelanggan ? $pelanggan->id : null;
-        $existingCount = self::where('pelanggan_id', $pelangganId)->count();
+        $existingCount = self::query()
+            ->where('no_seri', 'like', $baseSerial . '-%')
+            ->count();
         $urutan = $existingCount + 1;
-        
+
         $serial = sprintf('%s-%02d', $baseSerial, $urutan);
 
         while (self::where('no_seri', $serial)->exists()) {

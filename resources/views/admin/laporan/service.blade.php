@@ -50,12 +50,12 @@
                 <p class="text-4xl font-black text-gray-900 mt-3">{{ $stats['total_transaksi'] }}</p>
             </div>
             <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Sumber Online</p>
-                <p class="text-4xl font-black text-amber-700 mt-3">{{ $stats['online'] }}</p>
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Transaksi Pelanggan</p>
+                <p class="text-4xl font-black text-amber-700 mt-3">{{ $stats['transaksi_pelanggan'] }}</p>
             </div>
             <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Sumber Offline</p>
-                <p class="text-4xl font-black text-emerald-700 mt-3">{{ $stats['offline'] }}</p>
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Riwayat Lama</p>
+                <p class="text-4xl font-black text-emerald-700 mt-3">{{ $stats['riwayat_lama'] }}</p>
             </div>
             <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
                 <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Biaya Final</p>

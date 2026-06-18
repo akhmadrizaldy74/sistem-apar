@@ -32,19 +32,19 @@ class StokController extends Controller
     public function storePeralatan(Request $request)
     {
         return redirect()->route('admin.peralatan.create')
-            ->with('error', 'Master peralatan dikelola dari menu Master Data > Data Peralatan, bukan dari menu Stok.');
+            ->with('error', 'Master peralatan dikelola dari menu Master Data > Master Service & Peralatan, bukan dari menu Stok.');
     }
 
     public function updatePeralatan(Request $request, Peralatan $peralatan)
     {
         return redirect()->route('admin.peralatan.edit', $peralatan)
-            ->with('error', 'Perubahan master peralatan dilakukan dari menu Master Data > Data Peralatan.');
+            ->with('error', 'Perubahan master peralatan dilakukan dari menu Master Data > Master Service & Peralatan.');
     }
 
     public function destroyPeralatan(Peralatan $peralatan)
     {
         return redirect()->route('admin.peralatan.index')
-            ->with('error', 'Penghapusan master peralatan dilakukan dari menu Master Data > Data Peralatan.');
+            ->with('error', 'Penghapusan master peralatan dilakukan dari menu Master Data > Master Service & Peralatan.');
     }
 
     public function storeBatch(Request $request)

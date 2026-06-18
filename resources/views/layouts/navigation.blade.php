@@ -26,14 +26,14 @@
                         <x-nav-link :href="route('admin.unit-apar.index')" :active="request()->routeIs('admin.unit-apar.*')">
                             Unit APAR
                         </x-nav-link>
-                        <x-nav-link :href="route('admin.service.index')" :active="request()->routeIs('admin.service.*') || request()->routeIs('admin.refill.*')">
-                            Layanan
+                        <x-nav-link :href="route('admin.pesanan.index')" :active="request()->routeIs('admin.pesanan.*') || request()->routeIs('admin.service.*') || request()->routeIs('admin.refill.*')">
+                            Pesanan
                         </x-nav-link>
                         <x-nav-link :href="route('admin.stok.index')" :active="request()->routeIs('admin.stok.*')">
                             Stok
                         </x-nav-link>
                         <div class="relative" x-data="{ open: false }" @click.outside="open = false" @close.stop="open = false">
-                            <x-nav-link :href="'#'" @click.prevent="open = ! open" class="cursor-pointer" :class="{'text-red-700 font-bold': open || request()->routeIs('admin.jenis-apar.*') || request()->routeIs('admin.jenis-refill.*') || request()->routeIs('admin.peralatan.index')}">
+                            <x-nav-link :href="'#'" @click.prevent="open = ! open" class="cursor-pointer" :class="{'text-red-700 font-bold': open || request()->routeIs('admin.jenis-apar.*') || request()->routeIs('admin.jenis-refill.*') || request()->routeIs('admin.peralatan.*') || request()->routeIs('admin.service-paket.*')}">
                                 Master Data
                                 <div class="ms-1 inline-block">
                                     <svg class="fill-current h-3 w-3 transition-transform duration-200" :class="{'rotate-180': open}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
@@ -64,8 +64,8 @@
                                     </a>
                                     <a href="{{ route('admin.peralatan.index') }}"
                                        class="block px-5 py-2.5 text-sm font-medium transition duration-150 ease-in-out
-                                              {{ request()->routeIs('admin.peralatan.*') ? 'text-red-700 bg-red-50 font-bold' : 'text-gray-700 hover:bg-gray-50' }}">
-                                        Data Peralatan
+                                              {{ request()->routeIs('admin.peralatan.*', 'admin.service-paket.*') ? 'text-red-700 bg-red-50 font-bold' : 'text-gray-700 hover:bg-gray-50' }}">
+                                        Master Service &amp; Peralatan
                                     </a>
                                 </div>
                             </div>

@@ -230,7 +230,7 @@ class PengeluaranController extends Controller
 
         if ($hargaStandar <= 0) {
             throw ValidationException::withMessages([
-                'peralatan_id' => 'Harga standar untuk peralatan "' . $peralatan->nama . '" belum tersedia. Isi harga standar terlebih dahulu di Master Data Peralatan.',
+                'peralatan_id' => 'Harga standar untuk peralatan "' . $peralatan->nama . '" belum tersedia. Isi harga standar terlebih dahulu di menu Master Data > Master Service & Peralatan.',
             ]);
         }
 

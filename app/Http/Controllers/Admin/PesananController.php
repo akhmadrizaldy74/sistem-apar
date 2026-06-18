@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Services\InventoryService;
 use App\Services\FinalTransactionStockService;
 use App\Services\OrderPricingService;
+use App\Support\AdminPesananData;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -330,142 +331,20 @@ class PesananController extends Controller
         }
 
         $this->syncMissingUnitApars();
-        $processPelangganId = request()->integer('process_pelanggan');
-        $openNego = request()->boolean('open_nego');
-
-        $pesanans = Pesanan::with(['pelanggan', 'details.produk.jenisApar', 'unitApars.produk'])
-            ->where('tipe', 'produk')
-            ->orderByDesc('tanggal')
-            ->orderByDesc('created_at')
-            ->paginate(20)
-            ->withQueryString();
-
-        $targetNegoPesanan = null;
-        if ($processPelangganId > 0) {
-            $targetNegoQuery = Pesanan::with(['details.produk'])
-                ->where('tipe', 'produk')
-                ->where('pelanggan_id', $processPelangganId)
-                ->whereIn('status', ['menunggu', 'menunggu persetujuan', 'pending', 'diproses'])
-                ->latest('tanggal');
-
-            if ($purchasePriceStatusColumn = Pesanan::purchasePriceStatusStorageColumn()) {
-                $targetNegoQuery->whereNull($purchasePriceStatusColumn);
-            }
-
-            $targetNegoPesanan = $targetNegoQuery->first();
-        }
-
-        $autoOpenNegoId = ($openNego && $targetNegoPesanan) ? (int) $targetNegoPesanan->id : null;
-        $prefillItems = old('items');
-        if (!$prefillItems && $targetNegoPesanan && $targetNegoPesanan->details->count()) {
-            $prefillItems = $targetNegoPesanan->details->map(function ($detail) {
-                return [
-                    'produk_id' => (int) $detail->produk_id,
-                    'kapasitas' => (string) ($detail->kapasitas ?? ($detail->produk?->kapasitas ?? '')),
-                    'merek' => (string) ($detail->merek ?? ($detail->produk?->merek ?? '')),
-                    'jumlah' => (int) $detail->jumlah,
-                ];
-            })->values()->all();
-        }
-        if (!$prefillItems) {
-            $prefillItems = [['produk_id' => '', 'kapasitas' => '', 'merek' => '', 'jumlah' => 1]];
-        }
-
-        $pelanggans = $this->linkedPelangganSelection()->get();
-        $produks = Produk::with(['jenisApar', 'stokBatches'])->orderBy('nama')->get();
-        $produkCatalog = $produks->map(fn ($produk) => [
-            'id' => $produk->id,
-            'nama' => $produk->nama,
-            'kapasitas' => $produk->kapasitas,
-            'merek' => $produk->merek,
-            'harga' => (int) $produk->harga,
-            'jenis' => $produk->jenisApar?->nama ?: 'Tanpa Jenis',
-            'stok' => (int) $produk->stok_tersedia,
-        ])->values();
-
-        $teknisis = \App\Models\User::where('role', 'teknisi')->orderBy('name')->get();
-
-        // Prepare detail data for modal
-        $pesananDetailData = $pesanans->map(function ($pesanan) {
-            $pricingSummary = $pesanan->pricingSummary();
-            $purchasePriceLabel = $pesanan->purchasePriceStatusLabel();
-            $requestedPurchasePrice = $pesanan->requestedPurchasePrice();
-            $approvedPurchasePrice = $pesanan->approvedPurchaseFinalPrice();
-            $purchasePriceAdminNote = trim((string) ($pesanan->catatan_admin_harga ?? $pesanan->catatan_admin ?? ''));
-            $sumber = 'Input';
-            if ($pesanan->sumber_pesanan === 'website') { $sumber = 'Online'; }
-            elseif ($pesanan->sumber_pesanan === 'whatsapp') { $sumber = 'WhatsApp'; }
-            elseif ($pesanan->sumber_pesanan === 'telepon') { $sumber = 'Telepon'; }
-            elseif (in_array($pesanan->sumber_pesanan, ['datang_langsung', 'offline'])) { $sumber = 'Offline'; }
-            elseif ($pesanan->sumber_pesanan === 'data_lama') { $sumber = 'Data lama'; }
-
-            return [
-                'id' => $pesanan->id,
-                'label' => $pesanan->transactionDisplayName(),
-                'pelanggan' => $pesanan->pelanggan?->nama ?? '-',
-                'no_wa' => $pesanan->pelanggan?->no_wa ?? '-',
-                'alamat' => $pesanan->pelanggan?->alamat ?? '-',
-                'tanggal' => $pesanan->displayTransactionDateTime(),
-                'sumber' => $sumber,
-                'status' => $pesanan->status,
-                'status_label' => $pesanan->publicStatusLabel(),
-                'hide_payment_badge' => $pesanan->shouldHidePaymentStatusBadge(),
-                'payment_status_label' => $pesanan->isPaymentConfirmed() ? 'Lunas' : 'Belum Bayar',
-                'metode' => $pesanan->metode_pengiriman === 'diantar_internal' ? 'Diantar' : 'Ambil Sendiri',
-                'bank' => strtoupper($pesanan->bank ?? '-'),
-                'total_unit' => $pesanan->details->sum('jumlah'),
-                'subtotal' => number_format((float) $pricingSummary['subtotalProduk'], 0, ',', '.'),
-                'diskon' => (float) $pricingSummary['nominalDiskon'] > 0 ? number_format((float) $pricingSummary['nominalDiskon'], 0, ',', '.') : null,
-                'diskon_persen' => (int) $pricingSummary['diskonPersen'],
-                'ongkir' => number_format((float) $pricingSummary['ongkir'], 0, ',', '.'),
-                'total' => number_format((float) $pricingSummary['totalPembayaran'], 0, ',', '.'),
-                'bukti_pembayaran' => $pesanan->bukti_pembayaran,
-                'teknisi' => $pesanan->teknisi?->name,
-                'is_paid' => $pesanan->isPaymentConfirmed(),
-                'purchase_price' => [
-                    'has_request' => $pesanan->hasPurchasePriceRequest(),
-                    'is_pending' => $pesanan->hasPendingPurchasePriceRequest(),
-                    'is_approved' => $pesanan->hasApprovedPurchasePriceRequest(),
-                    'is_rejected' => $pesanan->hasRejectedPurchasePriceRequest(),
-                    'label' => $purchasePriceLabel,
-                    'badge_classes' => $pesanan->purchasePriceStatusClasses(),
-                    'requested_price' => !is_null($requestedPurchasePrice)
-                        ? number_format((float) $requestedPurchasePrice, 0, ',', '.')
-                        : null,
-                    'final_price' => !is_null($approvedPurchasePrice)
-                        ? number_format((float) $approvedPurchasePrice, 0, ',', '.')
-                        : null,
-                    'normal_total' => number_format((float) ($pricingSummary['normalTotalPembayaran'] ?? $pricingSummary['totalPembayaran'] ?? 0), 0, ',', '.'),
-                    'current_total' => number_format((float) ($pricingSummary['totalPembayaran'] ?? 0), 0, ',', '.'),
-                    'customer_note' => $pesanan->purchasePriceCustomerNote(),
-                    'admin_note' => $purchasePriceAdminNote !== '' ? $purchasePriceAdminNote : null,
-                    'acc_url' => route('admin.pesanan.pengajuan-harga.acc', $pesanan),
-                    'reject_url' => route('admin.pesanan.pengajuan-harga.tolak', $pesanan),
-                ],
-                'items' => $pesanan->details->map(function ($d) {
-                    return [
-                        'nama' => $d->produk?->nama ?? 'Produk Terhapus',
-                        'jenis' => $d->produk?->jenisApar?->nama ?? '-',
-                        'kapasitas' => $d->kapasitas ?? '-',
-                        'merek' => $d->merek ?? '-',
-                        'jumlah' => (int) $d->jumlah,
-                        'harga' => number_format((float) $d->harga, 0, ',', '.'),
-                        'subtotal' => number_format((float) $d->subtotal, 0, ',', '.'),
-                    ];
-                })->all(),
-            ];
-        })->values();
+        $revenuePeriod = AdminPesananData::normalizeRevenuePeriod(request('revenue_period'));
+        $pesanans = AdminPesananData::query()->get();
+        $pesananDetailData = AdminPesananData::detailData($pesanans);
+        $summary = AdminPesananData::summary($revenuePeriod);
+        $splitPesanan = AdminPesananData::split($pesanans);
+        $pesananAktif = $splitPesanan['aktif'];
+        $pesananRiwayat = $splitPesanan['riwayat'];
 
         return view('admin.pesanan.index', compact(
             'pesanans',
-            'pelanggans',
-            'produks',
-            'produkCatalog',
-            'processPelangganId',
-            'prefillItems',
-            'targetNegoPesanan',
-            'autoOpenNegoId',
-            'teknisis',
+            'summary',
+            'revenuePeriod',
+            'pesananAktif',
+            'pesananRiwayat',
             'pesananDetailData'
         ));
     }
@@ -521,11 +400,17 @@ class PesananController extends Controller
 
     public function create()
     {
-        return redirect()->route('admin.pesanan.index');
+        return redirect()
+            ->route('admin.pesanan.index')
+            ->with('error', 'Input manual pembelian unit sudah dinonaktifkan. Transaksi baru harus dibuat pelanggan melalui sistem.');
     }
 
     public function store(Request $request)
     {
+        return redirect()
+            ->route('admin.pesanan.index')
+            ->with('error', 'Input manual pembelian unit sudah dinonaktifkan. Transaksi baru harus dibuat pelanggan melalui sistem.');
+
         $request->merge([
             'items' => collect($request->input('items', []))
                 ->filter(fn ($item) => collect($item)->filter(fn ($value) => $value !== null && $value !== '')->isNotEmpty())
@@ -979,21 +864,72 @@ class PesananController extends Controller
         return back()->with('success', 'Pesanan berhasil diselesaikan final oleh admin.');
     }
 
-    public function destroy(Request $request, Pesanan $pesanan)
+    private function resolveAdminPesananRedirect(Request $request): string
     {
-        $fallbackRoute = $pesanan->tipe === 'service'
-            ? route('admin.service.index')
-            : route('admin.pesanan.index');
-
-        $pesanan->delete();
-
+        $fallbackRoute = route('admin.pesanan.index');
         $previousUrl = $request->headers->get('referer');
 
         if ($previousUrl && str_starts_with($previousUrl, url('/'))) {
-            return redirect()->to($previousUrl)->with('success', 'Pesanan berhasil dihapus.');
+            return $previousUrl;
         }
 
-        return redirect()->to($fallbackRoute)->with('success', 'Pesanan berhasil dihapus.');
+        return $fallbackRoute;
+    }
+
+    private function handleHide(Request $request, Pesanan $pesanan, ?string $jenis = null)
+    {
+        $redirectTarget = $this->resolveAdminPesananRedirect($request);
+
+        if ($jenis !== null && !$pesanan->matchesAdminDestroyType($jenis)) {
+            return redirect()->to($redirectTarget);
+        }
+
+        if (!$pesanan->hideFromAdminPesananMenu()) {
+            return redirect()->to($redirectTarget)->with('error', 'Fitur sembunyikan transaksi belum siap digunakan.');
+        }
+
+        return redirect()->to($redirectTarget)->with('success', 'Transaksi berhasil disembunyikan dari menu Pesanan.');
+    }
+
+    private function handleDestroy(Request $request, Pesanan $pesanan, ?string $jenis = null)
+    {
+        $redirectTarget = $this->resolveAdminPesananRedirect($request);
+
+        if ($jenis !== null && !$pesanan->matchesAdminDestroyType($jenis)) {
+            return redirect()->to($redirectTarget);
+        }
+
+        if ($pesanan->isLockedForAdminDeletion()) {
+            return redirect()->to($redirectTarget);
+        }
+
+        DB::transaction(function () use ($pesanan) {
+            $pesanan->loadMissing(['service.refill']);
+
+            if ($pesanan->service) {
+                $pesanan->service->refill()?->delete();
+                $pesanan->service->delete();
+            }
+
+            $pesanan->delete();
+        });
+
+        return redirect()->to($redirectTarget)->with('success', 'Pesanan berhasil dihapus.');
+    }
+
+    public function hide(Request $request, string $jenis, Pesanan $pesanan)
+    {
+        return $this->handleHide($request, $pesanan, $jenis);
+    }
+
+    public function destroyTyped(Request $request, string $jenis, Pesanan $pesanan)
+    {
+        return $this->handleHide($request, $pesanan, $jenis);
+    }
+
+    public function destroy(Request $request, Pesanan $pesanan)
+    {
+        return $this->handleDestroy($request, $pesanan);
     }
 
     public function invoicePdf(Pesanan $pesanan)

@@ -259,14 +259,7 @@ class PublicController extends Controller
 
     private function resolveFeedbackCustomer(Request $request): ?Pelanggan
     {
-        $authenticatedCustomer = $this->authenticatedCustomer();
-        if ($authenticatedCustomer) {
-            return $authenticatedCustomer;
-        }
-
-        $normalizedNoWa = $this->normalizePhone((string) $request->input('no_wa'));
-
-        return Pelanggan::where('no_wa', $normalizedNoWa)->first();
+        return $this->authenticatedCustomer();
     }
 
     private function feedbackLinkDescription(Pelanggan $pelanggan, Pesanan $pesanan): string
@@ -2441,10 +2434,11 @@ private function fetchPhoton(string $query): array
         $pelanggan = $this->resolveFeedbackCustomer($request);
 
         if (!$pelanggan) {
+            $message = 'Silakan login menggunakan akun pelanggan untuk mengirim komplain.';
             if ($request->expectsJson()) {
-                return response()->json(['success' => false, 'message' => 'Data pelanggan tidak ditemukan. Pastikan nomor WA sudah pernah transaksi.'], 400);
+                return response()->json(['success' => false, 'message' => $message], 403);
             }
-            return back()->with('error', 'Data pelanggan tidak ditemukan. Pastikan nomor WA sudah pernah transaksi.')->withInput();
+            return redirect()->route('login')->with('error', $message);
         }
 
         $selectedOrder = $this->resolveFeedbackOrder($request, $pelanggan);
@@ -2519,10 +2513,11 @@ private function fetchPhoton(string $query): array
         $pelanggan = $this->resolveFeedbackCustomer($request);
 
         if (!$pelanggan) {
+            $message = 'Silakan login menggunakan akun pelanggan untuk mengirim testimoni.';
             if ($request->expectsJson()) {
-                return response()->json(['success' => false, 'message' => 'Data pelanggan tidak ditemukan. Pastikan nomor WA sudah pernah transaksi.'], 400);
+                return response()->json(['success' => false, 'message' => $message], 403);
             }
-            return back()->with('error', 'Data pelanggan tidak ditemukan. Pastikan nomor WA sudah pernah transaksi.')->withInput();
+            return redirect()->route('login')->with('error', $message);
         }
 
         $selectedOrder = $this->resolveFeedbackOrder($request, $pelanggan);

@@ -5,8 +5,8 @@
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
             </a>
             <div>
-                <h2 class="text-3xl font-black text-gray-900 tracking-tight">Tambah Data Peralatan</h2>
-                <p class="text-sm text-gray-500 font-medium">Tambah item peralatan baru ke master data</p>
+                <h2 class="text-3xl font-black text-gray-900 tracking-tight">Tambah Peralatan Service</h2>
+                <p class="text-sm text-gray-500 font-medium">Tambah item peralatan baru ke master service dan peralatan.</p>
             </div>
         </div>
     </x-slot>
@@ -40,7 +40,7 @@
                         <svg class="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         <div>
                             <p class="text-sm font-bold text-amber-800">Informasi Master Data</p>
-                            <p class="text-xs text-amber-700 mt-1">Master data peralatan hanya menyimpan nama item dan harga standar. Penambahan stok dilakukan dari menu <strong>Pengeluaran</strong>.</p>
+                            <p class="text-xs text-amber-700 mt-1">Master peralatan hanya menyimpan nama item dan harga standar. Penambahan stok dilakukan dari menu <strong>Pengeluaran</strong>.</p>
                         </div>
                     </div>
                 </div>

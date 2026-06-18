@@ -12,8 +12,14 @@ class PeralatanController extends Controller
     public function index(ServiceMasterSyncService $serviceMasterSyncService)
     {
         $peralatans = $serviceMasterSyncService->visiblePeralatans();
+        $servicePakets = $serviceMasterSyncService->visibleServicePakets(['peralatans'])
+            ->loadCount('services');
 
-        return view('admin.peralatan.index', compact('peralatans'));
+        return view('admin.peralatan.index', [
+            'peralatans' => $peralatans,
+            'servicePakets' => $servicePakets,
+            'activeTab' => request()->query('tab', 'jenis-service'),
+        ]);
     }
 
     public function create()

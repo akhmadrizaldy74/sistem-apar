@@ -112,7 +112,7 @@
                         value="{{ old('no_wa', $pelanggan->no_wa ?? '') }}"
                         {{ $pelanggan ? 'readonly' : 'required' }}
                         placeholder="Contoh: 08123456789">
-                    <div class="feedback-field-note">Komplain akan ditindaklanjuti admin melalui nomor WhatsApp ini.</div>
+                    <div class="feedback-field-note">Komplain akan ditindaklanjuti admin melalui nomor WhatsApp akun pelanggan yang sedang login.</div>
                     @error('no_wa')
                         <span class="feedback-invalid">{{ $message }}</span>
                     @enderror

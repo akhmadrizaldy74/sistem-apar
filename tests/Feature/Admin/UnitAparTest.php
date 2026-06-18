@@ -4,9 +4,12 @@ namespace Tests\Feature\Admin;
 
 use App\Models\JenisApar;
 use App\Models\Pelanggan;
+use App\Models\Pesanan;
 use App\Models\Produk;
+use App\Models\StokBatch;
 use App\Models\UnitApar;
 use App\Models\User;
+use App\Services\FinalTransactionStockService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -59,8 +62,8 @@ class UnitAparTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Monitoring APAR');
-        $response->assertSee('Pantau kelayakan dan masa berlaku unit APAR milik pelanggan.');
-        $response->assertSee('Registrasi APAR');
+        $response->assertSee('Pantau unit APAR yang dibuat otomatis dari transaksi pelanggan yang sudah selesai final.');
+        $response->assertDontSee('Registrasi Manual');
         $response->assertSee('Lihat Detail');
         $response->assertSee('Hapus');
         $response->assertDontSee('Cetak Laporan');
@@ -75,7 +78,7 @@ class UnitAparTest extends TestCase
         $this->assertSame(1, $summary['expired']);
     }
 
-    public function test_admin_can_register_unit_apar_from_monitoring_page(): void
+    public function test_admin_cannot_register_unit_apar_manually_from_monitoring_page(): void
     {
         $admin = $this->createAdmin();
         ['pelanggan' => $pelanggan, 'produk' => $produk] = $this->createFixture();
@@ -90,21 +93,8 @@ class UnitAparTest extends TestCase
         ]);
 
         $response->assertRedirect(route('admin.unit-apar.index'));
-        $response->assertSessionHas('success', 'Unit APAR berhasil diregistrasikan.');
-
-        $unit = UnitApar::query()->first();
-
-        $this->assertNotNull($unit);
-        $this->assertNotEmpty($unit->no_seri);
-        $this->assertSame($pelanggan->id, $unit->pelanggan_id);
-        $this->assertSame($produk->id, $unit->produk_id);
-        $this->assertSame('layak', $unit->kondisi_awal);
-        $this->assertSame('Unit lobby utama', $unit->catatan_unit);
-        $this->assertSame('2026-05-01', $unit->tgl_produksi->toDateString());
-        $this->assertSame(
-            UnitApar::calculateExpiry('2026-05-01', '6 Kg', 'Dry Chemical Powder')->toDateString(),
-            $unit->tgl_expired->toDateString()
-        );
+        $response->assertSessionHas('error', 'Registrasi manual unit APAR dinonaktifkan. Unit dibuat otomatis dari transaksi pelanggan yang selesai final.');
+        $this->assertDatabaseCount('unit_apars', 0);
     }
 
     public function test_admin_can_view_read_only_unit_apar_detail(): void
@@ -172,6 +162,95 @@ class UnitAparTest extends TestCase
         $this->assertDatabaseMissing('unit_apars', ['id' => $unit->id]);
     }
 
+    public function test_unit_apar_filter_only_shows_linked_customer_accounts(): void
+    {
+        $admin = $this->createAdmin();
+        ['pelanggan' => $pelanggan, 'produk' => $produk] = $this->createFixture();
+
+        $dummy = Pelanggan::create([
+            'nama' => 'Budi Santoso',
+            'no_wa' => '081200000001',
+            'status' => 'tetap',
+        ]);
+
+        UnitApar::create([
+            'pelanggan_id' => $pelanggan->id,
+            'produk_id' => $produk->id,
+            'no_seri' => 'AKHMAD-18062026-01',
+            'tgl_beli' => '2026-06-18',
+            'tgl_produksi' => '2026-06-18',
+            'ukuran' => '6 Kg',
+            'bahan' => 'Dry Chemical Powder',
+            'kondisi_awal' => 'layak',
+            'tgl_expired' => '2027-06-18',
+        ]);
+
+        UnitApar::create([
+            'pelanggan_id' => $dummy->id,
+            'produk_id' => $produk->id,
+            'no_seri' => 'DUMMY-18062026-01',
+            'tgl_beli' => '2026-06-18',
+            'tgl_produksi' => '2026-06-18',
+            'ukuran' => '6 Kg',
+            'bahan' => 'Dry Chemical Powder',
+            'kondisi_awal' => 'layak',
+            'tgl_expired' => '2027-06-18',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.unit-apar.index'));
+
+        $response->assertOk();
+        $response->assertSee('PT Pelanggan Uji');
+        $response->assertDontSee('Budi Santoso');
+        $response->assertDontSee('DUMMY-18062026-01');
+    }
+
+    public function test_final_product_order_creates_unit_apar_automatically_with_customer_date_serials(): void
+    {
+        ['pelanggan' => $pelanggan, 'produk' => $produk] = $this->createFixture(customerName: 'Akhmad Rizaldy');
+
+        StokBatch::create([
+            'produk_id' => $produk->id,
+            'jumlah_masuk' => 5,
+            'sisa_qty' => 5,
+            'tgl_produksi' => '2026-06-10',
+            'tgl_expired' => '2027-06-10',
+            'keterangan' => 'Batch unit test',
+        ]);
+
+        $pesanan = Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'user_id' => $pelanggan->user_id,
+            'tipe' => 'produk',
+            'status' => 'selesai final',
+            'tanggal' => '2026-06-18',
+            'total' => 1500000,
+            'total_harga' => 1500000,
+        ]);
+
+        $pesanan->details()->create([
+            'produk_id' => $produk->id,
+            'merek' => $produk->merek,
+            'kapasitas' => $produk->kapasitas,
+            'jumlah' => 2,
+            'harga' => 750000,
+            'subtotal' => 1500000,
+        ]);
+
+        app(FinalTransactionStockService::class)->apply($pesanan->fresh());
+
+        $units = UnitApar::query()
+            ->where('pesanan_id', $pesanan->id)
+            ->orderBy('no_seri')
+            ->get();
+
+        $this->assertCount(2, $units);
+        $this->assertSame('AKHMAD-18062026-01', $units[0]->no_seri);
+        $this->assertSame('AKHMAD-18062026-02', $units[1]->no_seri);
+        $this->assertSame('2027-06-10', $units[0]->tgl_expired->toDateString());
+        $this->assertSame('2027-06-10', $units[1]->tgl_expired->toDateString());
+    }
+
     private function createAdmin(): User
     {
         return User::factory()->create([
@@ -180,10 +259,17 @@ class UnitAparTest extends TestCase
         ]);
     }
 
-    private function createFixture(): array
+    private function createFixture(string $customerName = 'PT Pelanggan Uji'): array
     {
+        $user = User::factory()->create([
+            'role' => 'pelanggan',
+            'name' => $customerName,
+            'no_telpon' => '081234567899',
+        ]);
+
         $pelanggan = Pelanggan::create([
-            'nama' => 'PT Pelanggan Uji',
+            'user_id' => $user->id,
+            'nama' => $customerName,
             'no_wa' => '081234567899',
             'status' => 'tetap',
         ]);
@@ -202,6 +288,6 @@ class UnitAparTest extends TestCase
             'stok' => 10,
         ]);
 
-        return compact('pelanggan', 'produk');
+        return compact('user', 'pelanggan', 'produk');
     }
 }

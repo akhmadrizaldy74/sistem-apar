@@ -8,6 +8,7 @@ use App\Models\Produk;
 use App\Models\UnitApar;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
@@ -156,9 +157,17 @@ class UnitAparController extends Controller
         ];
     }
 
+    protected function visibleCustomerQuery(): Builder
+    {
+        return Pelanggan::query()
+            ->visibleInDirectory()
+            ->orderBy('nama');
+    }
+
     public function index()
     {
         $units = UnitApar::with(['pelanggan', 'produk.jenisApar'])
+            ->whereHas('pelanggan', fn (Builder $query) => $query->visibleInDirectory())
             ->latest('tgl_beli')
             ->get();
 
@@ -166,26 +175,12 @@ class UnitAparController extends Controller
             ->map(fn (UnitApar $unit) => $this->transformUnitForIndex($unit))
             ->values();
 
-        $pelanggans = Pelanggan::query()
-            ->orderBy('nama')
+        $pelanggans = $this->visibleCustomerQuery()
             ->get(['id', 'nama']);
-
-        $produks = Produk::with('jenisApar')
-            ->orderBy('nama')
-            ->get();
-
-        $productOptions = $produks
-            ->mapWithKeys(fn (Produk $produk) => [
-                (string) $produk->id => [
-                    'ukuran' => (string) ($produk->kapasitas ?? '-'),
-                    'bahan' => (string) ($produk->jenisApar?->nama ?? '-'),
-                ],
-            ])
-            ->all();
 
         $summary = $this->buildSummary($unitItems);
 
-        return view('admin.unit-apar.index', compact('unitItems', 'summary', 'pelanggans', 'produks', 'productOptions'));
+        return view('admin.unit-apar.index', compact('unitItems', 'summary', 'pelanggans'));
     }
 
     public function show(UnitApar $unitApar)
@@ -203,67 +198,14 @@ class UnitAparController extends Controller
 
     public function store(Request $request)
     {
-        $produkId = $request->input('produk_id') ?: $request->input('model_produk_id');
-        $noSeri = $request->input('no_seri') ?: $request->input('kode_unit') ?: $request->input('nomor_seri_unit');
-        $tanggalDasar = $this->normalizeBaseDateInput($request);
-        $kondisiAwal = $request->input('kondisi_awal') ?: $request->input('kondisi_awal_unit');
-
-        $request->merge([
-            'produk_id' => $produkId,
-            'no_seri' => trim((string) $noSeri) ?: null,
-            'tanggal_dasar_masa_berlaku' => $tanggalDasar,
-            'tgl_beli' => $tanggalDasar,
-            'tgl_produksi' => $tanggalDasar,
-            'kondisi_awal' => $this->normalizeKondisiAwal($kondisiAwal, 'layak'),
-        ]);
-
-        $request->validate([
-            'pelanggan_id' => 'required|exists:pelanggans,id',
-            'produk_id' => 'required|exists:produks,id',
-            'no_seri' => 'nullable|string|max:255|unique:unit_apars,no_seri',
-            'tanggal_dasar_masa_berlaku' => 'required|date',
-            'kondisi_awal' => 'required|in:layak,tidak_aktif',
-        ], [
-            'pelanggan_id.required' => 'Pelanggan wajib dipilih.',
-            'pelanggan_id.exists' => 'Pelanggan yang dipilih tidak ditemukan.',
-            'produk_id.required' => 'Produk wajib dipilih.',
-            'produk_id.exists' => 'Produk yang dipilih tidak ditemukan.',
-            'tanggal_dasar_masa_berlaku.required' => 'Tanggal dasar masa berlaku wajib diisi.',
-            'tanggal_dasar_masa_berlaku.date' => 'Format tanggal dasar masa berlaku tidak valid.',
-            'kondisi_awal.required' => 'Kondisi awal wajib dipilih.',
-            'kondisi_awal.in' => 'Kondisi awal unit tidak valid.',
-            'no_seri.unique' => 'Nomor unit sudah digunakan.',
-        ]);
-
-        $data = $request->only([
-            'pelanggan_id',
-            'produk_id',
-            'no_seri',
-            'tgl_beli',
-            'tgl_produksi',
-            'kondisi_awal',
-        ]);
-
-        $produk = Produk::with('jenisApar')->findOrFail($request->produk_id);
-        $pelanggan = Pelanggan::findOrFail($request->pelanggan_id);
-        $effectiveDate = (string) $request->input('tanggal_dasar_masa_berlaku');
-
-        $data['ukuran'] = $produk->kapasitas ?? '-';
-        $data['bahan'] = $produk->jenisApar?->nama ?? '-';
-        $data['tgl_beli'] = $effectiveDate;
-        $data['tgl_produksi'] = $effectiveDate;
-        $data['kondisi_awal'] = $this->normalizeKondisiAwal($request->input('kondisi_awal'), 'layak');
-        $data['no_seri'] = $data['no_seri'] ?: $this->generateUnitSerial($pelanggan, $produk, $effectiveDate);
-        $data['tgl_expired'] = UnitApar::calculateExpiry($effectiveDate, $data['ukuran'], $data['bahan']);
-
-        UnitApar::create($data);
-
-        return redirect()->route('admin.unit-apar.index')->with('success', 'Unit APAR berhasil diregistrasikan.');
+        return redirect()
+            ->route('admin.unit-apar.index')
+            ->with('error', 'Registrasi manual unit APAR dinonaktifkan. Unit dibuat otomatis dari transaksi pelanggan yang selesai final.');
     }
 
     public function edit(UnitApar $unitApar)
     {
-        $pelanggans = Pelanggan::all();
+        $pelanggans = $this->visibleCustomerQuery()->get();
         $produks = Produk::all();
 
         return view('admin.unit-apar.edit', compact('unitApar', 'pelanggans', 'produks'));
@@ -310,7 +252,7 @@ class UnitAparController extends Controller
         ]);
 
         $produk = Produk::with('jenisApar')->findOrFail($request->produk_id);
-        $pelanggan = Pelanggan::findOrFail($request->pelanggan_id);
+        $pelanggan = $this->visibleCustomerQuery()->findOrFail($request->pelanggan_id);
         $effectiveDate = (string) $request->input('tanggal_dasar_masa_berlaku');
 
         $data['ukuran'] = $produk->kapasitas ?? '-';

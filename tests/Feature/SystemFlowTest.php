@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Complain;
 use App\Models\JenisApar;
 use App\Models\JenisRefill;
 use App\Models\Pelanggan;
@@ -11,6 +12,7 @@ use App\Models\Refill;
 use App\Models\Service;
 use App\Models\ServicePaket;
 use App\Models\StokBatch;
+use App\Models\Testimoni;
 use App\Models\UnitApar;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -90,6 +92,114 @@ class SystemFlowTest extends TestCase
         $response->assertSee('Laporan Operasional');
     }
 
+    public function test_admin_report_customer_filters_only_show_linked_customer_accounts(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+        ]);
+
+        $this->createLinkedCustomer('Akhmad Rizaldy', '628111000001', 'Jl. Online');
+
+        Pelanggan::create([
+            'nama' => 'Budi Santoso',
+            'no_wa' => '628111000002',
+            'alamat' => 'Jl. Dummy',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.laporan.index'));
+
+        $response->assertOk();
+        $response->assertSee('Akhmad Rizaldy');
+        $response->assertDontSee('Budi Santoso');
+    }
+
+    public function test_admin_testimoni_page_hides_manual_add_button_and_blocks_manual_store(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+        ]);
+
+        $pelanggan = $this->createLinkedCustomer('Pelanggan Testimoni', '628111000003', 'Jl. Testimoni');
+
+        $response = $this->actingAs($admin)->get(route('admin.testimoni.index'));
+
+        $response->assertOk();
+        $response->assertSee('Kelola testimoni pelanggan yang masuk dari akun pelanggan.');
+        $response->assertDontSee('Tambah Testimoni');
+        $response->assertDontSee(route('admin.testimoni.store'), false);
+
+        $storeResponse = $this->actingAs($admin)->post(route('admin.testimoni.store'), [
+            'pelanggan_id' => $pelanggan->id,
+            'rating' => 5,
+            'review' => 'Admin mencoba menambah testimoni.',
+        ]);
+
+        $storeResponse->assertRedirect(route('admin.testimoni.index'));
+        $storeResponse->assertSessionHas('error', 'Admin tidak dapat menambahkan testimoni. Testimoni hanya bisa dibuat oleh pelanggan dari akun pelanggan.');
+        $this->assertDatabaseCount('testimonis', 0);
+    }
+
+    public function test_testimoni_and_complain_require_authenticated_customer_account(): void
+    {
+        $pelanggan = $this->createLinkedCustomer('Akhmad Rizaldy', '628111000004', 'Jl. Riwayat');
+
+        $pesanan = Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'user_id' => $pelanggan->user_id,
+            'tipe' => 'produk',
+            'status' => Pesanan::STATUS_SELESAI_FINAL,
+            'tanggal' => now()->toDateString(),
+            'total' => 350000,
+            'total_harga' => 350000,
+        ]);
+
+        $guestTestimoni = $this->post(route('testimoni.store'), [
+            'no_wa' => $pelanggan->no_wa,
+            'pesanan_id' => $pesanan->id,
+            'rating' => 5,
+            'review' => 'Guest mencoba kirim testimoni.',
+        ]);
+        $guestTestimoni->assertRedirect(route('login'));
+        $guestTestimoni->assertSessionHas('error', 'Silakan login menggunakan akun pelanggan untuk mengirim testimoni.');
+
+        $guestComplain = $this->post(route('complain.store'), [
+            'no_wa' => $pelanggan->no_wa,
+            'pesanan_id' => $pesanan->id,
+            'isi_complain' => 'Guest mencoba kirim komplain.',
+        ]);
+        $guestComplain->assertRedirect(route('login'));
+        $guestComplain->assertSessionHas('error', 'Silakan login menggunakan akun pelanggan untuk mengirim komplain.');
+
+        $customerTestimoni = $this->actingAs($pelanggan->user)->post(route('testimoni.store'), [
+            'no_wa' => $pelanggan->no_wa,
+            'pesanan_id' => $pesanan->id,
+            'rating' => 5,
+            'review' => 'Pelanggan mengirim testimoni.',
+        ]);
+        $customerTestimoni->assertRedirect(route('riwayat-apar'));
+        $customerTestimoni->assertSessionHas('success');
+
+        $customerComplain = $this->actingAs($pelanggan->user)->post(route('complain.store'), [
+            'no_wa' => $pelanggan->no_wa,
+            'pesanan_id' => $pesanan->id,
+            'isi_complain' => 'Pelanggan mengirim komplain.',
+        ]);
+        $customerComplain->assertRedirect(route('riwayat-apar'));
+        $customerComplain->assertSessionHas('success');
+
+        $this->assertDatabaseCount('testimonis', 1);
+        $this->assertDatabaseCount('complains', 1);
+        $this->assertDatabaseHas('testimonis', [
+            'pelanggan_id' => $pelanggan->id,
+            'review' => 'Pelanggan mengirim testimoni.',
+        ]);
+        $this->assertDatabaseHas('complains', [
+            'pelanggan_id' => $pelanggan->id,
+            'pesanan_id' => $pesanan->id,
+            'isi_complain' => 'Pelanggan mengirim komplain.',
+        ]);
+    }
+
     public function test_admin_can_download_service_report_pdf(): void
     {
         $admin = User::factory()->create([
@@ -142,7 +252,7 @@ class SystemFlowTest extends TestCase
         $response->assertHeader('content-type', 'application/pdf');
     }
 
-    public function test_admin_can_create_multi_item_order_and_download_invoice_pdf(): void
+    public function test_admin_pembelian_unit_page_is_full_online_and_blocks_manual_store(): void
     {
         $admin = User::factory()->create([
             'role' => 'admin',
@@ -193,6 +303,11 @@ class SystemFlowTest extends TestCase
             'keterangan' => 'Stok test',
         ]);
 
+        $pageResponse = $this->actingAs($admin)->get(route('admin.pesanan.index'));
+        $pageResponse->assertOk();
+        $pageResponse->assertSee('Pesanan');
+        $pageResponse->assertDontSee('Input Pesanan Offline');
+
         $storeResponse = $this->actingAs($admin)->post(route('admin.pesanan.store'), [
             'tipe' => 'produk',
             'pelanggan_id' => $pelanggan->id,
@@ -214,23 +329,357 @@ class SystemFlowTest extends TestCase
         ]);
 
         $storeResponse->assertRedirect(route('admin.pesanan.index'));
-
-        $pesanan = Pesanan::with(['details', 'unitApars'])->firstOrFail();
-        $this->assertCount(2, $pesanan->details);
-        $this->assertCount(3, $pesanan->unitApars);
-        $this->assertSame(3350000, (int) $pesanan->total);
-
-        $laporanResponse = $this->actingAs($admin)->get(route('admin.laporan.pesanan'));
-        $laporanResponse->assertOk();
-        $laporanResponse->assertSee('Laporan Pesanan');
-        $laporanResponse->assertSee('CV Aman');
-
-        $pdfResponse = $this->actingAs($admin)->get(route('admin.pesanan.invoice.pdf', $pesanan));
-        $pdfResponse->assertOk();
-        $pdfResponse->assertHeader('content-type', 'application/pdf');
+        $storeResponse->assertSessionHas('error', 'Input manual pembelian unit sudah dinonaktifkan. Transaksi baru harus dibuat pelanggan melalui sistem.');
+        $this->assertDatabaseCount('pesanans', 0);
+        $this->assertDatabaseCount('pesanan_details', 0);
+        $this->assertDatabaseCount('unit_apars', 0);
     }
 
-    public function test_admin_can_save_product_order_even_if_there_is_an_empty_row(): void
+    public function test_admin_pesanan_page_merges_product_refill_and_service_transactions(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+        ]);
+
+        $pelanggan = Pelanggan::create([
+            'nama' => 'PT Gabungan APAR',
+            'no_wa' => '628123450123',
+            'alamat' => 'Jl. Pesanan Terpadu',
+        ]);
+
+        $jenisApar = JenisApar::create([
+            'nama' => 'Powder',
+            'deskripsi' => 'Powder',
+        ]);
+
+        $produk = Produk::create([
+            'nama' => 'APAR Powder 6 Kg',
+            'merek' => 'SAFE',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '6 kg',
+            'penggunaan' => 'Gudang',
+            'harga' => 500000,
+            'deskripsi' => 'Produk demo',
+            'stok' => 20,
+        ]);
+
+        $jenisRefill = JenisRefill::create([
+            'nama' => 'Powder',
+            'deskripsi' => 'Powder',
+            'harga_per_kg' => 45000,
+        ]);
+
+        $servicePaket = ServicePaket::create([
+            'nama' => 'Ganti Valve APAR',
+            'label' => 'ganti_valve_apar',
+            'harga' => 250000,
+            'rincian_layanan' => 'Penggantian valve APAR',
+        ]);
+
+        $pesananProduk = Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'tipe' => 'produk',
+            'tanggal' => now()->toDateString(),
+            'total' => 1000000,
+            'total_harga' => 1000000,
+            'status' => Pesanan::STATUS_PENDING,
+            'sumber_pesanan' => 'website',
+        ]);
+
+        $pesananProduk->details()->create([
+            'produk_id' => $produk->id,
+            'merek' => $produk->merek,
+            'kapasitas' => $produk->kapasitas,
+            'jumlah' => 2,
+            'harga' => 500000,
+            'subtotal' => 1000000,
+        ]);
+
+        Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'tipe' => 'service',
+            'service_jenis_layanan' => 'refill',
+            'service_jenis_refill_id' => $jenisRefill->id,
+            'service_jenis_apar' => 'Powder',
+            'service_ukuran_apar' => '6 kg',
+            'service_jumlah_unit' => 4,
+            'service_total_kg' => 4,
+            'service_estimasi_biaya' => 180000,
+            'tanggal' => now()->subDay()->toDateString(),
+            'total' => 180000,
+            'total_harga' => 180000,
+            'status' => Pesanan::STATUS_DIPROSES,
+            'sumber_pesanan' => 'website',
+        ]);
+
+        Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'tipe' => 'service',
+            'service_jenis_layanan' => 'service',
+            'service_paket_id' => $servicePaket->id,
+            'service_jenis_apar' => 'Powder',
+            'service_ukuran_apar' => '6 kg',
+            'service_jumlah_unit' => 2,
+            'service_estimasi_biaya' => 250000,
+            'tanggal' => now()->subDays(2)->toDateString(),
+            'total' => 250000,
+            'total_harga' => 250000,
+            'status' => Pesanan::STATUS_DITUGASKAN_KE_TEKNISI,
+            'sumber_pesanan' => 'website',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.pesanan.index'));
+
+        $response->assertOk();
+        $response->assertSee('Pesanan');
+        $response->assertSee('Daftar Pesanan');
+        $response->assertSee('Pembelian Unit');
+        $response->assertSee('Refill APAR');
+        $response->assertSee('Service APAR');
+        $response->assertSee('Ganti Valve APAR');
+        $response->assertDontSee('Transaksi Layanan');
+        $response->assertDontSee('Transaksi Pelanggan');
+        $response->assertDontSee('Riwayat Lama');
+        $response->assertDontSee('Pesanan Produk');
+    }
+
+    public function test_admin_can_hide_active_service_order_from_pesanan_page(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+        ]);
+
+        $pelanggan = Pelanggan::create([
+            'nama' => 'PT Hapus Aktif',
+            'no_wa' => '628777100001',
+            'alamat' => 'Jl. Delete Aktif',
+        ]);
+
+        $pesanan = Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'tipe' => 'service',
+            'service_jenis_layanan' => 'service',
+            'service_estimasi_biaya' => 175000,
+            'total' => 175000,
+            'total_harga' => 175000,
+            'status' => Pesanan::STATUS_DIPROSES,
+            'tanggal' => now()->toDateString(),
+            'sumber_pesanan' => 'website',
+        ]);
+
+        $service = Service::create([
+            'pesanan_id' => $pesanan->id,
+            'jenis_service' => 'Service APAR',
+            'tgl_service' => now()->toDateString(),
+            'biaya' => 175000,
+            'status_konfirmasi' => 'pending',
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->from(route('admin.pesanan.index'))
+            ->patch(route('admin.pesanan.hide', [
+                'jenis' => $pesanan->adminDestroyTypeSlug(),
+                'pesanan' => $pesanan,
+            ]));
+
+        $response->assertRedirect(route('admin.pesanan.index'));
+        $response->assertSessionHas('success', 'Transaksi berhasil disembunyikan dari menu Pesanan.');
+        $this->assertDatabaseHas('pesanans', ['id' => $pesanan->id]);
+        $this->assertDatabaseHas('services', ['id' => $service->id]);
+        $this->assertNotNull($pesanan->fresh()->hidden_from_pesanan_at);
+
+        $pageResponse = $this->actingAs($admin)->get(route('admin.pesanan.index'));
+        $pageResponse->assertOk();
+        $pageResponse->assertDontSee('PT Hapus Aktif');
+    }
+
+    public function test_admin_can_hide_final_product_order_from_pesanan_page_without_removing_report_data(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+        ]);
+
+        $jenisApar = JenisApar::create([
+            'nama' => 'Powder',
+            'deskripsi' => 'Powder',
+        ]);
+
+        $produk = Produk::create([
+            'nama' => 'APAR Final Aman',
+            'merek' => 'SAFE',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '6 kg',
+            'penggunaan' => 'Gudang',
+            'harga' => 400000,
+            'deskripsi' => 'Produk final aman',
+            'stok' => 10,
+        ]);
+
+        $pelanggan = Pelanggan::create([
+            'nama' => 'PT Final Aman',
+            'no_wa' => '628777100002',
+            'alamat' => 'Jl. Final Aman',
+        ]);
+
+        $pesanan = Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'tipe' => 'produk',
+            'total' => 400000,
+            'total_harga' => 400000,
+            'status' => Pesanan::STATUS_SELESAI_FINAL,
+            'stok_dikurangi' => true,
+            'tanggal' => now()->toDateString(),
+            'sumber_pesanan' => 'website',
+        ]);
+
+        $pesanan->details()->create([
+            'produk_id' => $produk->id,
+            'merek' => $produk->merek,
+            'kapasitas' => $produk->kapasitas,
+            'jumlah' => 1,
+            'harga' => 400000,
+            'subtotal' => 400000,
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->from(route('admin.pesanan.index'))
+            ->patch(route('admin.pesanan.hide', [
+                'jenis' => $pesanan->adminDestroyTypeSlug(),
+                'pesanan' => $pesanan,
+            ]));
+
+        $response->assertRedirect(route('admin.pesanan.index'));
+        $response->assertSessionHas('success', 'Transaksi berhasil disembunyikan dari menu Pesanan.');
+        $this->assertDatabaseHas('pesanans', ['id' => $pesanan->id]);
+        $this->assertNotNull($pesanan->fresh()->hidden_from_pesanan_at);
+
+        $pageResponse = $this->actingAs($admin)->get(route('admin.pesanan.index'));
+        $pageResponse->assertOk();
+        $pageResponse->assertDontSee('PT Final Aman');
+
+        $summary = \App\Support\AdminPesananData::summary('all');
+        $this->assertSame(400000.0, (float) $summary['penghasilanPesanan']);
+
+        $invoiceResponse = $this->actingAs($admin)->get(route('invoice.show', $pesanan));
+        $invoiceResponse->assertOk();
+    }
+
+    public function test_admin_can_hide_final_refill_order_from_pesanan_page(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+        ]);
+
+        $pelanggan = Pelanggan::create([
+            'nama' => 'PT Refill Final',
+            'no_wa' => '628777100099',
+            'alamat' => 'Jl. Refill Final',
+        ]);
+
+        $pesanan = Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'tipe' => 'service',
+            'service_jenis_layanan' => 'refill',
+            'service_estimasi_biaya' => 225000,
+            'total' => 225000,
+            'total_harga' => 225000,
+            'status' => Pesanan::STATUS_SELESAI_FINAL,
+            'stok_dikurangi' => true,
+            'tanggal' => now()->toDateString(),
+            'sumber_pesanan' => 'website',
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->from(route('admin.pesanan.index'))
+            ->patch(route('admin.pesanan.hide', [
+                'jenis' => $pesanan->adminDestroyTypeSlug(),
+                'pesanan' => $pesanan,
+            ]));
+
+        $response->assertRedirect(route('admin.pesanan.index'));
+        $response->assertSessionHas('success', 'Transaksi berhasil disembunyikan dari menu Pesanan.');
+        $this->assertDatabaseHas('pesanans', ['id' => $pesanan->id]);
+        $this->assertNotNull($pesanan->fresh()->hidden_from_pesanan_at);
+    }
+
+    public function test_admin_can_hide_final_service_order_from_pesanan_page(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+        ]);
+
+        $pelanggan = Pelanggan::create([
+            'nama' => 'PT Service Final',
+            'no_wa' => '628777100088',
+            'alamat' => 'Jl. Service Final',
+        ]);
+
+        $pesanan = Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'tipe' => 'service',
+            'service_jenis_layanan' => 'service',
+            'service_estimasi_biaya' => 315000,
+            'total' => 315000,
+            'total_harga' => 315000,
+            'status' => Pesanan::STATUS_SELESAI_FINAL,
+            'stok_dikurangi' => true,
+            'tanggal' => now()->toDateString(),
+            'sumber_pesanan' => 'website',
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->from(route('admin.pesanan.index'))
+            ->patch(route('admin.pesanan.hide', [
+                'jenis' => $pesanan->adminDestroyTypeSlug(),
+                'pesanan' => $pesanan,
+            ]));
+
+        $response->assertRedirect(route('admin.pesanan.index'));
+        $response->assertSessionHas('success', 'Transaksi berhasil disembunyikan dari menu Pesanan.');
+        $this->assertDatabaseHas('pesanans', ['id' => $pesanan->id]);
+        $this->assertNotNull($pesanan->fresh()->hidden_from_pesanan_at);
+    }
+
+    public function test_admin_pesanan_page_shows_hide_button_for_final_order(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+        ]);
+
+        $pelanggan = Pelanggan::create([
+            'nama' => 'PT Tombol Hapus Final',
+            'no_wa' => '628777100077',
+            'alamat' => 'Jl. Tombol Final',
+        ]);
+
+        $pesanan = Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'tipe' => 'service',
+            'service_jenis_layanan' => 'service',
+            'service_estimasi_biaya' => 250000,
+            'total' => 250000,
+            'total_harga' => 250000,
+            'status' => Pesanan::STATUS_SELESAI_FINAL,
+            'stok_dikurangi' => true,
+            'tanggal' => now()->toDateString(),
+            'sumber_pesanan' => 'website',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.pesanan.index'));
+
+        $response->assertOk();
+        $response->assertDontSee('Terkunci');
+        $response->assertSee(
+            route('admin.pesanan.hide', [
+                'jenis' => $pesanan->adminDestroyTypeSlug(),
+                'pesanan' => $pesanan,
+            ]),
+            false
+        );
+        $response->assertSee('Data ini sudah masuk laporan. Hapus hanya akan menyembunyikan transaksi dari menu Pesanan, bukan menghapus dari laporan. Lanjutkan?', false);
+    }
+
+    public function test_admin_manual_product_order_store_remains_blocked_even_with_empty_rows(): void
     {
         $admin = User::factory()->create([
             'role' => 'admin',
@@ -283,12 +732,13 @@ class SystemFlowTest extends TestCase
         ]);
 
         $response->assertRedirect(route('admin.pesanan.index'));
-        $this->assertDatabaseCount('pesanans', 1);
-        $this->assertDatabaseCount('pesanan_details', 1);
-        $this->assertDatabaseCount('unit_apars', 2);
+        $response->assertSessionHas('error', 'Input manual pembelian unit sudah dinonaktifkan. Transaksi baru harus dibuat pelanggan melalui sistem.');
+        $this->assertDatabaseCount('pesanans', 0);
+        $this->assertDatabaseCount('pesanan_details', 0);
+        $this->assertDatabaseCount('unit_apars', 0);
     }
 
-    public function test_admin_cannot_create_service_through_pesanan_after_module_split(): void
+    public function test_admin_pesanan_module_rejects_service_payloads_because_manual_flow_is_disabled(): void
     {
         $admin = User::factory()->create([
             'role' => 'admin',
@@ -326,12 +776,12 @@ class SystemFlowTest extends TestCase
             ]);
 
         $response->assertRedirect(route('admin.pesanan.index'));
-        $response->assertSessionHasErrors('tipe');
+        $response->assertSessionHas('error', 'Input manual pembelian unit sudah dinonaktifkan. Transaksi baru harus dibuat pelanggan melalui sistem.');
         $this->assertDatabaseCount('pesanans', 0);
         $this->assertDatabaseCount('services', 0);
     }
 
-    public function test_admin_can_create_service_from_service_menu(): void
+    public function test_admin_service_menu_is_full_online_and_blocks_manual_store(): void
     {
         $admin = User::factory()->create([
             'role' => 'admin',
@@ -349,15 +799,20 @@ class SystemFlowTest extends TestCase
             'kapasitas' => '6 kg',
             'penggunaan' => 'Ruang panel',
             'harga' => 825000,
-            'deskripsi' => 'Produk demo untuk service offline',
+            'deskripsi' => 'Produk demo untuk service pelanggan',
         ]);
 
-        $paket = \App\Models\ServicePaket::create([
+        $paket = ServicePaket::create([
             'nama' => 'Ganti Selang',
             'label' => 'ganti_selang',
             'harga' => 150000,
             'deskripsi' => 'Paket ganti selang',
         ]);
+
+        $pageResponse = $this->actingAs($admin)->get(route('admin.service.index'));
+        $pageResponse->assertOk();
+        $pageResponse->assertDontSee('Input Service Offline');
+        $pageResponse->assertDontSee('Master Jenis Service');
 
         $storeResponse = $this->actingAs($admin)->post(route('admin.service.store'), [
             'pelanggan_id' => $pelanggan->id,
@@ -370,28 +825,14 @@ class SystemFlowTest extends TestCase
         ]);
 
         $storeResponse->assertRedirect(route('admin.service.index'));
-
-        $pesanan = Pesanan::query()->latest('id')->first();
-        $this->assertNotNull($pesanan);
-
-        $finalResponse = $this->actingAs($admin)->post(route('admin.service.request.status', $pesanan), [
-            'status' => Pesanan::STATUS_SELESAI_FINAL,
-        ]);
-
-        $finalResponse->assertRedirect();
-        $this->assertDatabaseHas('services', [
-            'service_paket_id' => $paket->id,
-        ]);
-        $this->assertDatabaseCount('pesanans', 1);
-        $this->assertDatabaseHas('unit_apars', [
-            'pesanan_id' => $pesanan->id,
-            'bahan' => 'Powder',
-            'ukuran' => '6 kg',
-        ]);
+        $storeResponse->assertSessionHas('error', 'Input manual service sudah dinonaktifkan. Permintaan baru harus diajukan pelanggan melalui sistem.');
+        $this->assertDatabaseCount('pesanans', 0);
+        $this->assertDatabaseCount('services', 0);
+        $this->assertDatabaseCount('unit_apars', 0);
         $this->assertDatabaseCount('refills', 0);
     }
 
-    public function test_admin_can_create_refill_from_refill_menu(): void
+    public function test_admin_refill_menu_is_full_online_and_blocks_manual_store(): void
     {
         $admin = User::factory()->create([
             'role' => 'admin',
@@ -422,8 +863,12 @@ class SystemFlowTest extends TestCase
             'kapasitas' => '5 kg',
             'penggunaan' => 'Ruang panel',
             'harga' => 825000,
-            'deskripsi' => 'Produk demo untuk refill offline',
+            'deskripsi' => 'Produk demo untuk refill pelanggan',
         ]);
+
+        $pageResponse = $this->actingAs($admin)->get(route('admin.refill.index'));
+        $pageResponse->assertOk();
+        $pageResponse->assertDontSee('Input Refill Offline');
 
         $response = $this->actingAs($admin)->post(route('admin.refill.store'), [
             'pelanggan_id' => $pelanggan->id,
@@ -435,29 +880,11 @@ class SystemFlowTest extends TestCase
         ]);
 
         $response->assertRedirect(route('admin.refill.index'));
-        $pesanan = Pesanan::query()->latest('id')->first();
-        $this->assertNotNull($pesanan);
-        $this->assertDatabaseHas('pesanans', [
-            'pelanggan_id' => $pelanggan->id,
-            'service_jenis_layanan' => 'refill',
-            'service_jenis_refill_id' => $jenisRefill->id,
-        ]);
-        $this->assertDatabaseHas('services', [
-            'jenis_service' => 'Refill APAR',
-        ]);
+        $response->assertSessionHas('error', 'Input manual refill sudah dinonaktifkan. Permintaan baru harus diajukan pelanggan melalui sistem.');
+        $this->assertDatabaseCount('pesanans', 0);
+        $this->assertDatabaseCount('services', 0);
         $this->assertDatabaseCount('refills', 0);
-
-        $finalResponse = $this->actingAs($admin)->post(route('admin.refill.update-status', $pesanan), [
-            'status' => Pesanan::STATUS_SELESAI_FINAL,
-        ]);
-
-        $finalResponse->assertRedirect();
-        $this->assertDatabaseHas('refills', [
-            'jenis_refill_id' => $jenisRefill->id,
-        ]);
-        $this->assertDatabaseCount('pesanans', 1);
-        $this->assertDatabaseCount('services', 1);
-        $this->assertDatabaseCount('refills', 1);
+        $this->assertDatabaseCount('unit_apars', 0);
     }
 
     public function test_laporan_pesanan_hanya_menampilkan_pesanan_produk(): void
@@ -819,8 +1246,11 @@ class SystemFlowTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.pesanan.index'));
 
         $response->assertOk();
-        $response->assertSee('SELESAI FINAL');
+        $response->assertSee('Selesai Final');
         $response->assertDontSee('Pembayaran Lunas');
+        $response->assertDontSee('Terkunci');
+        $response->assertSee('Data ini sudah masuk laporan. Hapus hanya akan menyembunyikan transaksi dari menu Pesanan, bukan menghapus dari laporan. Lanjutkan?', false);
+        $response->assertDontSee('Yakin ingin menghapus pesanan ini?', false);
     }
 
     public function test_final_invoice_hides_payment_status_and_only_shows_final_status(): void

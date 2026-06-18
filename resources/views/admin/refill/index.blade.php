@@ -2,18 +2,14 @@
     <x-slot name="header">
         <div class="flex flex-col md:flex-row justify-between items-center w-full gap-4">
             <div>
-                <h2 class="text-3xl font-black text-gray-900 tracking-tight">Refill APAR</h2>
-                <p class="text-sm text-gray-500 font-medium">Kelola transaksi refill APAR dari pelanggan online maupun offline.</p>
+                <h2 class="text-[24px] font-black text-gray-900 tracking-tight">Refill APAR</h2>
+                <p class="text-sm text-gray-500 font-medium">Kelola permintaan refill APAR yang masuk dari pelanggan.</p>
             </div>
-            <button type="button" onclick="window.dispatchEvent(new CustomEvent('open-refill-modal'))" class="px-5 py-3 border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 font-bold rounded-xl transition shadow-sm text-xs flex items-center gap-2 uppercase tracking-wider">
-                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-                Input Refill Offline
-            </button>
         </div>
     </x-slot>
 
     @php
-        $offlineRefills = $requestRefills->filter(fn ($refill) => in_array((string) $refill->sumber_pesanan, ['datang_langsung', 'offline', 'input_admin'], true));
+        $riwayatLamaRefills = $requestRefills->filter(fn ($refill) => $refill->isLegacyAdminSource());
         $dikerjakanTeknisi = $requestRefills->filter(fn ($refill) => in_array((string) $refill->status, ['ditugaskan ke teknisi', 'dikerjakan teknisi'], true));
         $actionButtonBase = 'inline-flex items-center justify-center px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition shadow-sm';
         $actionButtonNeutral = $actionButtonBase . ' border-gray-200 bg-white text-gray-600 hover:bg-gray-50';
@@ -121,7 +117,7 @@
                 'estimasi' => number_format((float) ($refill->service_estimasi_biaya ?? 0), 0, ',', '.'),
                 'ukuran' => $refill->service_ukuran_apar ?? '-',
                 'unit' => (int) ($refill->service_jumlah_unit ?? 0),
-                'source' => in_array((string) $refill->sumber_pesanan, ['datang_langsung', 'offline', 'input_admin'], true) ? 'Offline' : 'Online',
+                'source' => $refill->adminSourceLabel(),
                 'teknisi' => $refill->teknisi?->name ?? 'Belum ditugaskan',
                 'catatan' => $refill->catatan_admin ?: $refill->serviceCustomerNote() ?: $refill->keterangan ?: '-',
                 'status' => $refill->status,
@@ -155,7 +151,7 @@
                 'estimasi' => number_format((float) ($pesanan?->payableTotal() ?? $refill?->biaya ?? 0), 0, ',', '.'),
                 'ukuran' => $pesanan?->service_ukuran_apar ?? $refill?->unitApar?->produk?->kapasitas ?? '-',
                 'unit' => $pesanan ? (int) ($pesanan->service_jumlah_unit ?? 1) : 1,
-                'source' => $pesanan ? (in_array((string) $pesanan->sumber_pesanan, ['datang_langsung', 'offline', 'input_admin'], true) ? 'Offline' : 'Online') : 'Offline',
+                'source' => $pesanan ? $pesanan->adminSourceLabel() : 'Riwayat Lama',
                 'teknisi' => $pesanan?->teknisi?->name ?? 'Selesai',
                 'catatan' => $pesanan?->catatan_admin ?: $pesanan?->serviceCustomerNote() ?: $refill?->service?->keterangan ?: '-',
                 'status' => $pesanan?->status ?? 'selesai final',
@@ -168,19 +164,19 @@
         }))->values();
     @endphp
 
-    <div class="space-y-8" x-data="{ openModal: {{ $errors->any() ? 'true' : 'false' }} }" @open-refill-modal.window="openModal = true">
+    <div class="space-y-8" x-data="{ openModal: {{ $errors->any() ? 'true' : 'false' }} }">
         <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
             <div class="bg-white p-5 sm:p-6 lg:p-8 rounded-2xl shadow-sm border border-gray-100">
-                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Data Refill</p>
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Permintaan</p>
                 <p class="text-4xl font-black text-gray-900">{{ $requestRefills->count() + $completedRequestRefills->count() + $legacyRefills->count() }}</p>
             </div>
             <div class="bg-white p-5 sm:p-6 lg:p-8 rounded-2xl shadow-sm border border-gray-100">
-                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Offline</p>
-                <p class="text-4xl font-black text-emerald-700">{{ $offlineRefills->count() }}</p>
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Transaksi Pelanggan</p>
+                <p class="text-4xl font-black text-emerald-700">{{ $requestRefills->count() - $riwayatLamaRefills->count() }}</p>
             </div>
             <div class="bg-white p-5 sm:p-6 lg:p-8 rounded-2xl shadow-sm border border-gray-100">
-                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Online</p>
-                <p class="text-4xl font-black text-amber-700">{{ $requestRefills->count() - $offlineRefills->count() }}</p>
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Riwayat Lama</p>
+                <p class="text-4xl font-black text-amber-700">{{ $riwayatLamaRefills->count() }}</p>
             </div>
             <div class="bg-white p-5 sm:p-6 lg:p-8 rounded-2xl shadow-sm border border-gray-100">
                 <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Proses Teknisi</p>
@@ -191,7 +187,7 @@
         <div class="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
             <div class="px-8 py-6 border-b border-gray-50 bg-gray-50/30">
                 <h3 class="text-lg font-black text-gray-900">Data Refill dari Pelanggan</h3>
-                <p class="mt-1 text-xs font-semibold text-gray-500">Permintaan refill yang masuk dari pelanggan online maupun input offline admin.</p>
+                <p class="mt-1 text-sm font-semibold text-gray-500">Permintaan refill yang sedang diproses admin.</p>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
@@ -210,7 +206,7 @@
                         @forelse($requestRefills as $refill)
                             @php
                                 $refillCustomer = $resolveCustomer($refill);
-                                $isOffline = in_array((string) $refill->sumber_pesanan, ['datang_langsung', 'offline', 'input_admin'], true);
+                                $isLegacySource = $refill->isLegacyAdminSource();
                                 $canAssign = $refill->isPaymentConfirmed() && !$refill->teknisi_id;
                                 $statusBadge = match ((string) $refill->status) {
                                     'selesai final', 'selesai' => ['bg-emerald-50 text-emerald-700', 'SELESAI FINAL'],
@@ -247,7 +243,7 @@
                                 </td>
                                 <td class="px-8 py-6 text-right">
                                     <div class="flex flex-wrap items-center justify-end gap-2">
-                                        @if(!$isOffline)
+                                        @if(!$isLegacySource)
                                             <button
                                                 type="button"
                                                 onclick="openRefillProofModal(@js(!empty($refill->bukti_pembayaran) ? '/storage/' . ltrim($refill->bukti_pembayaran, '/') : null), @js([
@@ -327,8 +323,7 @@
                                 $pesanan = $isLegacy ? null : $item;
                                 $refill = $isLegacy ? $item : null;
                                 
-                                $sumberPesanan = $pesanan ? (string) $pesanan->sumber_pesanan : 'offline';
-                                $refillHistoryIsOffline = in_array($sumberPesanan, ['datang_langsung', 'offline', 'input_admin'], true);
+                                $refillHistoryIsLegacy = $pesanan ? $pesanan->isLegacyAdminSource() : true;
                                 
                                 $tanggal = $pesanan ? $pesanan->displayTransactionDateTime() : $refill->displayTransactionDateTime();
                                 $trxName = $pesanan ? $pesanan->transactionDisplayName() : $refill->transactionDisplayName();
@@ -366,7 +361,7 @@
                                             : (!empty($refill?->service?->pesanan?->bukti_pembayaran) ? '/storage/' . ltrim($refill->service->pesanan->bukti_pembayaran, '/') : null);
                                     @endphp
                                     <div class="flex flex-wrap items-center justify-end gap-2">
-                                        @if(!$refillHistoryIsOffline && $refillProofUrl)
+                                        @if(!$refillHistoryIsLegacy && $refillProofUrl)
                                             <button
                                                 type="button"
                                                 onclick="openRefillProofModal(@js($refillProofUrl), @js([
@@ -456,6 +451,7 @@
             </div>
         </div>
 
+        @if(false)
         <div x-show="openModal" x-cloak class="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto p-3 sm:items-center sm:p-6">
             <div class="absolute inset-0 bg-gray-950/50 backdrop-blur-sm" @click="openModal = false"></div>
             <div x-show="openModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 scale-95" x-transition:enter-end="opacity-100 translate-y-0 scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 scale-100" x-transition:leave-end="opacity-0 translate-y-4 scale-95" class="app-modal-shell relative my-3 max-w-5xl sm:my-6">
@@ -664,6 +660,7 @@
                 </div>
             </div>
         </div>
+        @endif
     </div>
 
     <script>
@@ -693,7 +690,7 @@
                     ${entry.code ? `<p class="mt-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400">${entry.code}</p>` : ''}
                 </div>
             `).join('');
-            const proofHtml = data.source === 'Online'
+            const proofHtml = data.proof_url
                 ? `<div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
                     <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Bukti Pembayaran</p>
                     ${data.proof_url
@@ -722,7 +719,7 @@
                 </div>
                 <div class="bg-gray-50 rounded-xl p-4 grid grid-cols-2 gap-3 text-sm">
                     <div>
-                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Sumber</p>
+                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Kategori Data</p>
                         <p class="font-black text-slate-900">${data.source}</p>
                     </div>
                     ${paymentStatusHtml}

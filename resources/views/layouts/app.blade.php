@@ -60,6 +60,35 @@
             .no-scrollbar::-webkit-scrollbar { display: none; }
             .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
             [x-cloak] { display: none !important; }
+            body.admin-surface {
+                font-family: 'Manrope', 'Figtree', sans-serif;
+            }
+            body.admin-surface main {
+                font-size: 15.5px;
+            }
+            body.admin-surface main table th {
+                font-size: 0.78rem !important;
+                letter-spacing: 0.15em;
+            }
+            body.admin-surface main table td {
+                font-size: 1rem;
+            }
+            body.admin-surface .responsive-table-wrap {
+                overflow-x: auto;
+                overflow-y: visible;
+            }
+            #sidebar .sidebar-label {
+                font-size: 0.88rem;
+                letter-spacing: 0.1em;
+            }
+            #sidebar .sidebar-group-label {
+                font-size: 0.7rem;
+                letter-spacing: 0.2em;
+            }
+            #sidebar .sidebar-footer-text {
+                font-size: 0.72rem;
+                letter-spacing: 0.14em;
+            }
 
             /* ========= DARK MODE — COMPREHENSIVE ========= */
             .dark { --tw-bg-opacity: 1; }
@@ -294,21 +323,13 @@
                             <span class="sidebar-label truncate">RIWAYAT PEKERJAAN</span>
                         </x-nav-link-sidebar>
                     @else
-                        {{-- Group: LAYANAN APAR --}}
+                        {{-- Group: TRANSAKSI --}}
                         <div class="sidebar-group-wrap px-4 pt-4 pb-1">
-                            <p class="sidebar-group-label text-[9px] font-black text-slate-600 uppercase tracking-widest">Layanan APAR</p>
+                            <p class="sidebar-group-label text-[9px] font-black text-slate-600 uppercase tracking-widest">Transaksi</p>
                         </div>
-                        <x-nav-link-sidebar :href="route('admin.pesanan.index')" :active="request()->routeIs('admin.pesanan.*')" class="sidebar-nav-link">
+                        <x-nav-link-sidebar :href="route('admin.pesanan.index')" :active="request()->routeIs('admin.pesanan.*') || request()->routeIs('admin.service.*') || request()->routeIs('admin.refill.*')" class="sidebar-nav-link">
                             <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
                             <span class="sidebar-label truncate">PESANAN</span>
-                        </x-nav-link-sidebar>
-                        <x-nav-link-sidebar :href="route('admin.service.index')" :active="request()->routeIs('admin.service.*')" class="sidebar-nav-link">
-                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a4 4 0 00-5.656-5.656l-8.486 8.485A2 2 0 108.114 21l8.485-8.486a4 4 0 00-5.656-5.656L4.458 13.343" /></svg>
-                            <span class="sidebar-label truncate">SERVICE APAR</span>
-                        </x-nav-link-sidebar>
-                        <x-nav-link-sidebar :href="route('admin.refill.index')" :active="request()->routeIs('admin.refill.*')" class="sidebar-nav-link">
-                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                            <span class="sidebar-label truncate">REFILL APAR</span>
                         </x-nav-link-sidebar>
 
                         {{-- Group: MANAJEMEN --}}
@@ -328,7 +349,7 @@
                             <span class="sidebar-label truncate">PRODUK</span>
                         </x-nav-link-sidebar>
                         
-                        <div x-data="{ open: {{ request()->routeIs('admin.jenis-apar.*', 'admin.jenis-refill.*', 'admin.peralatan.*') ? 'true' : 'false' }} }" class="sidebar-group-wrap relative">
+                        <div x-data="{ open: {{ request()->routeIs('admin.jenis-apar.*', 'admin.jenis-refill.*', 'admin.peralatan.*', 'admin.service-paket.*') ? 'true' : 'false' }} }" class="sidebar-group-wrap relative">
                             <button @click="open = !open" class="sidebar-nav-link flex items-center justify-between w-full px-4 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800 transition">
                                 <div class="flex items-center gap-3">
                                     <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
@@ -339,7 +360,7 @@
                             <div x-show="open" class="flex flex-col pl-12 pr-4 py-1 space-y-1 bg-slate-900/50">
                                 <a href="{{ route('admin.jenis-apar.index') }}" class="text-xs font-semibold py-2 px-3 rounded-lg transition {{ request()->routeIs('admin.jenis-apar.*') ? 'text-red-400 bg-slate-800' : 'text-slate-400 hover:text-white hover:bg-slate-800' }}">Jenis APAR</a>
                                 <a href="{{ route('admin.jenis-refill.index') }}" class="text-xs font-semibold py-2 px-3 rounded-lg transition {{ request()->routeIs('admin.jenis-refill.*') ? 'text-red-400 bg-slate-800' : 'text-slate-400 hover:text-white hover:bg-slate-800' }}">Jenis Refil</a>
-                                <a href="{{ route('admin.peralatan.index') }}" class="text-xs font-semibold py-2 px-3 rounded-lg transition {{ request()->routeIs('admin.peralatan.*') ? 'text-red-400 bg-slate-800' : 'text-slate-400 hover:text-white hover:bg-slate-800' }}">Data Peralatan</a>
+                                <a href="{{ route('admin.peralatan.index') }}" class="text-xs font-semibold py-2 px-3 rounded-lg transition {{ request()->routeIs('admin.peralatan.*', 'admin.service-paket.*') ? 'text-red-400 bg-slate-800' : 'text-slate-400 hover:text-white hover:bg-slate-800' }}">Master Service &amp; Peralatan</a>
                             </div>
                         </div>
 

@@ -14,6 +14,7 @@ use App\Models\Service;
 use App\Models\Testimoni;
 use App\Models\UnitApar;
 use App\Models\WebsiteVisit;
+use App\Support\AdminPesananData;
 use App\Services\AdminAnalyticsService;
 use App\Services\FinalRevenueService;
 use Carbon\Carbon;
@@ -82,39 +83,19 @@ class AdminRealtimeController extends Controller
 
     public function pesanan(Request $request): JsonResponse
     {
-        $pesanans = Pesanan::with(['pelanggan', 'details.produk.jenisApar', 'unitApars.produk'])
-            ->where('tipe', 'produk')
-            ->orderByDesc('tanggal')
-            ->orderByDesc('created_at')
-            ->paginate(20)
-            ->withQueryString();
-
-        $nilaiPesanan = $pesanans->sum('total');
-        $totalItem = $pesanans->sum(fn (Pesanan $pesanan) => $pesanan->details->sum('jumlah'));
-        $pesananOnline = $pesanans->filter(fn (Pesanan $pesanan) => $pesanan->sumber_pesanan === 'website')->count();
-        $pesananOffline = $pesanans->filter(fn (Pesanan $pesanan) => in_array((string) $pesanan->sumber_pesanan, ['datang_langsung', 'offline', 'input_admin'], true))->count();
-        $finishedStatuses = ['selesai', 'selesai final', 'ditolak'];
-        $pesananRiwayat = $pesanans->getCollection()
-            ->filter(fn (Pesanan $pesanan) => in_array((string) $pesanan->status, $finishedStatuses, true))
-            ->values();
-        $pesananAktif = $pesanans->getCollection()
-            ->reject(fn (Pesanan $pesanan) => in_array((string) $pesanan->status, $finishedStatuses, true))
-            ->values();
-
-        $summary = [
-            'totalPesanan' => $pesanans->count(),
-            'totalItem' => $totalItem,
-            'nilaiPesanan' => $nilaiPesanan,
-            'pesananOnline' => $pesananOnline,
-            'pesananOffline' => $pesananOffline,
-        ];
+        $revenuePeriod = AdminPesananData::normalizeRevenuePeriod($request->input('revenue_period'));
+        $pesanans = AdminPesananData::query()->get();
+        $splitPesanan = AdminPesananData::split($pesanans);
+        $pesananAktif = $splitPesanan['aktif'];
+        $pesananRiwayat = $splitPesanan['riwayat'];
+        $summary = AdminPesananData::summary($revenuePeriod);
 
         return response()->json([
             'success' => true,
             'summary_html' => view('admin.pesanan.partials.summary-cards', compact('summary'))->render(),
             'active_rows_html' => view('admin.pesanan.partials.active-rows', ['pesananAktif' => $pesananAktif])->render(),
             'history_rows_html' => view('admin.pesanan.partials.history-rows', ['pesananRiwayat' => $pesananRiwayat])->render(),
-            'detail_data' => $this->pesananDetailData($pesanans->getCollection()),
+            'detail_data' => AdminPesananData::detailData($pesanans),
             'updated_at' => now()->toIso8601String(),
         ]);
     }
@@ -230,78 +211,4 @@ class AdminRealtimeController extends Controller
         ]);
     }
 
-    /**
-     * @param \Illuminate\Support\Collection<int, Pesanan> $pesanans
-     * @return array<int, array<string, mixed>>
-     */
-    private function pesananDetailData($pesanans): array
-    {
-        return $pesanans->map(function (Pesanan $pesanan) {
-            $pricingSummary = $pesanan->pricingSummary();
-            $purchasePriceLabel = $pesanan->purchasePriceStatusLabel();
-            $requestedPurchasePrice = $pesanan->requestedPurchasePrice();
-            $approvedPurchasePrice = $pesanan->approvedPurchaseFinalPrice();
-            $purchasePriceAdminNote = trim((string) ($pesanan->catatan_admin_harga ?? $pesanan->catatan_admin ?? ''));
-            $sumber = match ((string) $pesanan->sumber_pesanan) {
-                'website' => 'Online',
-                'whatsapp' => 'WhatsApp',
-                'telepon' => 'Telepon',
-                'datang_langsung', 'offline' => 'Offline',
-                'data_lama' => 'Data lama',
-                default => 'Input',
-            };
-
-            return [
-                'id' => $pesanan->id,
-                'label' => $pesanan->transactionDisplayName(),
-                'pelanggan' => $pesanan->pelanggan?->nama ?? '-',
-                'no_wa' => $pesanan->pelanggan?->no_wa ?? '-',
-                'alamat' => $pesanan->pelanggan?->alamat ?? '-',
-                'tanggal' => $pesanan->displayTransactionDateTime(),
-                'sumber' => $sumber,
-                'status' => $pesanan->status,
-                'status_label' => $pesanan->publicStatusLabel(),
-                'hide_payment_badge' => $pesanan->shouldHidePaymentStatusBadge(),
-                'payment_status_label' => $pesanan->isPaymentConfirmed() ? 'Lunas' : 'Belum Bayar',
-                'metode' => $pesanan->metode_pengiriman === 'diantar_internal' ? 'Diantar' : 'Ambil Sendiri',
-                'bank' => strtoupper($pesanan->bank ?? '-'),
-                'total_unit' => $pesanan->details->sum('jumlah'),
-                'subtotal' => number_format((float) $pricingSummary['subtotalProduk'], 0, ',', '.'),
-                'diskon' => (float) $pricingSummary['nominalDiskon'] > 0 ? number_format((float) $pricingSummary['nominalDiskon'], 0, ',', '.') : null,
-                'diskon_persen' => (int) $pricingSummary['diskonPersen'],
-                'ongkir' => number_format((float) $pricingSummary['ongkir'], 0, ',', '.'),
-                'total' => number_format((float) $pricingSummary['totalPembayaran'], 0, ',', '.'),
-                'bukti_pembayaran' => $pesanan->bukti_pembayaran,
-                'teknisi' => $pesanan->teknisi?->name,
-                'is_paid' => $pesanan->isPaymentConfirmed(),
-                'purchase_price' => [
-                    'has_request' => $pesanan->hasPurchasePriceRequest(),
-                    'is_pending' => $pesanan->hasPendingPurchasePriceRequest(),
-                    'is_approved' => $pesanan->hasApprovedPurchasePriceRequest(),
-                    'is_rejected' => $pesanan->hasRejectedPurchasePriceRequest(),
-                    'label' => $purchasePriceLabel,
-                    'badge_classes' => $pesanan->purchasePriceStatusClasses(),
-                    'requested_price' => ! is_null($requestedPurchasePrice) ? number_format((float) $requestedPurchasePrice, 0, ',', '.') : null,
-                    'final_price' => ! is_null($approvedPurchasePrice) ? number_format((float) $approvedPurchasePrice, 0, ',', '.') : null,
-                    'normal_total' => number_format((float) ($pricingSummary['normalTotalPembayaran'] ?? $pricingSummary['totalPembayaran'] ?? 0), 0, ',', '.'),
-                    'current_total' => number_format((float) ($pricingSummary['totalPembayaran'] ?? 0), 0, ',', '.'),
-                    'customer_note' => $pesanan->purchasePriceCustomerNote(),
-                    'admin_note' => $purchasePriceAdminNote !== '' ? $purchasePriceAdminNote : null,
-                    'acc_url' => route('admin.pesanan.pengajuan-harga.acc', $pesanan),
-                    'reject_url' => route('admin.pesanan.pengajuan-harga.tolak', $pesanan),
-                ],
-                'items' => $pesanan->details->map(function ($detail) {
-                    return [
-                        'nama' => $detail->produk?->nama ?? 'Produk Terhapus',
-                        'jenis' => $detail->produk?->jenisApar?->nama ?? '-',
-                        'kapasitas' => $detail->kapasitas ?? '-',
-                        'merek' => $detail->merek ?? '-',
-                        'jumlah' => (int) $detail->jumlah,
-                        'harga' => number_format((float) $detail->harga, 0, ',', '.'),
-                        'subtotal' => number_format((float) $detail->subtotal, 0, ',', '.'),
-                    ];
-                })->all(),
-            ];
-        })->values()->all();
-    }
 }

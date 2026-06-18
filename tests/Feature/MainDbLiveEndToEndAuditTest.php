@@ -342,9 +342,9 @@ class MainDbLiveEndToEndAuditTest extends TestCase
 
         $this->runAdminCustomerCrud();
         $this->runAdminProductAndMasterDataCrud();
-        $this->runAdminOfflineOrderFlow();
-        $this->runAdminOfflineServiceFlow();
-        $this->runAdminOfflineRefillFlow();
+        $this->runAdminManualOrderBlockCheck();
+        $this->runAdminManualServiceBlockCheck();
+        $this->runAdminManualRefillBlockCheck();
         $this->runStockAndExpenseChecks();
         $this->runUnitAparChecks();
         $this->runAdminComplainAndTestimoniChecks();
@@ -1376,17 +1376,18 @@ class MainDbLiveEndToEndAuditTest extends TestCase
         );
     }
 
-    private function runAdminOfflineOrderFlow(): void
+    private function runAdminManualOrderBlockCheck(): void
     {
         $product = $this->ensureUatProduct();
         $customer = $this->adminCustomer ?: $this->customer;
         $today = Carbon::today('Asia/Jakarta')->toDateString();
+        $marker = $this->customerMarker . ' - pembelian unit manual admin';
 
         $order = $this->actingAs($this->admin)->post('/admin/pesanan', [
             'tipe' => 'produk',
             'pelanggan_id' => $customer->id,
             'tanggal' => $today,
-            'catatan_admin' => $this->customerMarker . ' - pesanan offline',
+            'catatan_admin' => $marker,
             'items' => [
                 [
                     'produk_id' => $product->id,
@@ -1396,91 +1397,32 @@ class MainDbLiveEndToEndAuditTest extends TestCase
                 ],
             ],
         ]);
+        $errorMessage = session('error');
 
         $pesanan = Pesanan::query()
             ->where('pelanggan_id', $customer->id)
             ->where('tipe', 'produk')
-            ->where('sumber_pesanan', 'datang_langsung')
+            ->where('catatan_admin', $marker)
             ->latest('id')
             ->first();
-
-        $assign = $pesanan ? $this->actingAs($this->admin)->post('/admin/pesanan/' . $pesanan->id . '/assign-teknisi') : null;
-        if ($pesanan) {
-            $this->actingAs($this->teknisi)->post('/teknisi/tugas/' . $pesanan->id . '/mulai');
-            $this->actingAs($this->teknisi)->post('/teknisi/tugas/' . $pesanan->id . '/selesai', [
-                'catatan' => $this->customerMarker . ' - teknisi pesanan offline',
-            ]);
-            $final = $this->actingAs($this->admin)->post('/admin/pesanan/' . $pesanan->id . '/selesai-final');
-            $pesanan->refresh();
-
-            $this->created['product_order_offline'] = [
-                'id' => $pesanan->id,
-                'status' => $pesanan->status,
-            ];
-
-            $this->record(
-                feature: 'Pesanan Offline Admin',
-                role: 'admin/teknisi',
-                steps: [
-                    'Admin input pesanan offline memakai pelanggan yang sudah ada.',
-                    'Assign ke teknisi.',
-                    'Teknisi menyelesaikan dan admin finalisasi.',
-                ],
-                expected: 'Pesanan offline masuk ke data aktif, lalu berakhir `Selesai Final` dan pindah ke riwayat.',
-                actual: 'Store ' . $order->getStatusCode() . ', assign ' . ($assign?->getStatusCode() ?? '-') . ', status akhir ' . $pesanan->status . '.',
-                status: $order->isRedirect() && $assign && $assign->isRedirect() && $pesanan->status === 'selesai final' ? 'Berhasil' : 'Gagal'
-            );
-
-            $invoice = $this->actingAs($this->admin)->get('/invoice/' . $pesanan->id);
-            $invoicePdf = $this->actingAs($this->admin)->get('/invoice/' . $pesanan->id . '/pdf');
-            $this->record(
-                feature: 'Invoice Pesanan Offline',
-                role: 'admin',
-                steps: ['Buka invoice HTML dan PDF pesanan offline.'],
-                expected: 'Invoice pesanan offline terbuka normal.',
-                actual: 'Invoice HTML/PDF status ' . $invoice->getStatusCode() . '/' . $invoicePdf->getStatusCode() . '.',
-                status: $invoice->getStatusCode() === 200 && $invoicePdf->getStatusCode() === 200 ? 'Berhasil' : 'Gagal'
-            );
-        }
-
-        $extraOrder = $this->actingAs($this->admin)->post('/admin/pesanan', [
-            'tipe' => 'produk',
-            'pelanggan_id' => $customer->id,
-            'tanggal' => $today,
-            'catatan_admin' => $this->customerMarker . ' - pesanan offline ekstra stok',
-            'items' => [
-                [
-                    'produk_id' => $product->id,
-                    'kapasitas' => $product->kapasitas,
-                    'merek' => $product->merek,
-                    'jumlah' => 3,
-                ],
-            ],
-        ]);
-        $extraPesanan = Pesanan::query()
-            ->where('pelanggan_id', $customer->id)
-            ->where('tipe', 'produk')
-            ->where('sumber_pesanan', 'datang_langsung')
-            ->latest('id')
-            ->first();
-        $this->created['product_order_offline_extra'] = $extraPesanan ? [
-            'id' => $extraPesanan->id,
-            'status' => $extraPesanan->status,
-        ] : null;
 
         $this->record(
-            feature: 'Stok Habis via Transaksi Real',
+            feature: 'Pembelian Unit Manual Admin Dinonaktifkan',
             role: 'admin',
             steps: [
-                'Buat pesanan offline tambahan untuk menghabiskan stok produk uji.',
+                'Admin mencoba membuat pembelian unit manual dari halaman admin.',
             ],
-            expected: 'Stok produk uji bergerak ke level habis melalui transaksi real, bukan edit manual.',
-            actual: 'Store pesanan ekstra status ' . $extraOrder->getStatusCode() . ', stok produk sekarang ' . $product->fresh()->stok . '.',
-            status: $extraOrder->isRedirect() ? 'Berhasil' : 'Gagal'
+            expected: 'Sistem menolak input manual pembelian unit dan meminta transaksi baru dibuat pelanggan melalui sistem.',
+            actual: 'Store status ' . $order->getStatusCode() . ', error `' . ($errorMessage ?: '-') . '`, pesanan baru ' . ($pesanan?->id ?? 'tidak terbentuk') . '.',
+            status: $order->isRedirect()
+                && $errorMessage === 'Input manual pembelian unit sudah dinonaktifkan. Transaksi baru harus dibuat pelanggan melalui sistem.'
+                && ! $pesanan
+                ? 'Berhasil'
+                : 'Gagal'
         );
     }
 
-    private function runAdminOfflineServiceFlow(): void
+    private function runAdminManualServiceBlockCheck(): void
     {
         $customer = $this->adminCustomer ?: $this->customer;
         $unit = UnitApar::query()->where('pelanggan_id', $customer->id)->latest('id')->first();
@@ -1488,13 +1430,13 @@ class MainDbLiveEndToEndAuditTest extends TestCase
             ->whereHas('peralatans', fn ($query) => $query->where('stok', '>', 0))
             ->orderBy('harga')
             ->first() ?? ServicePaket::query()->orderBy('harga')->first();
-        $marker = $this->customerMarker . ' - service offline';
+        $marker = $this->customerMarker . ' - service manual admin';
 
         if (! $unit || ! $paket) {
             $this->record(
-                feature: 'Service Offline Admin',
+                feature: 'Service Manual Admin Dinonaktifkan',
                 role: 'admin',
-                steps: ['Cari unit APAR pelanggan admin dan paket service untuk transaksi offline.'],
+                steps: ['Cari unit APAR pelanggan admin dan paket service untuk verifikasi blokir input manual.'],
                 expected: 'Unit dan paket tersedia.',
                 actual: 'Unit ' . ($unit?->id ?? '-') . ', paket ' . ($paket?->id ?? '-') . '.',
                 status: 'Gagal'
@@ -1512,60 +1454,33 @@ class MainDbLiveEndToEndAuditTest extends TestCase
             'tgl_service' => Carbon::today('Asia/Jakarta')->toDateString(),
             'catatan_admin' => $marker,
         ]);
+        $errorMessage = session('error');
 
         $pesanan = Pesanan::query()
             ->where('pelanggan_id', $customer->id)
             ->where('tipe', 'service')
-            ->where('sumber_pesanan', 'datang_langsung')
             ->where('service_jenis_layanan', 'service')
             ->where('catatan_admin', $marker)
             ->latest('id')
             ->first();
 
-        if ($pesanan) {
-            $this->actingAs($this->teknisi)->post('/teknisi/tugas/' . $pesanan->id . '/mulai');
-            $this->actingAs($this->teknisi)->post('/teknisi/tugas/' . $pesanan->id . '/selesai', [
-                'catatan' => $this->customerMarker . ' - teknisi service offline',
-            ]);
-            $final = $this->actingAs($this->admin)->post('/admin/pesanan/' . $pesanan->id . '/selesai-final');
-            $pesanan->refresh();
-            $service = Service::query()->where('pesanan_id', $pesanan->id)->latest('id')->first();
-
-            $this->created['service_offline'] = [
-                'pesanan_id' => $pesanan->id,
-                'service_id' => $service?->id,
-                'status' => $pesanan->status,
-            ];
-
-            $this->record(
-                feature: 'Service Offline Admin',
-                role: 'admin/teknisi',
-                steps: [
-                    'Input service offline dari admin dengan pelanggan yang sudah ada.',
-                    'Teknisi mengerjakan.',
-                    'Admin finalisasi menjadi `Selesai Final`.',
-                ],
-                expected: 'Service offline selesai final dan masuk riwayat service.',
-                actual: 'Store ' . $store->getStatusCode() . ', final ' . $final->getStatusCode() . ', status akhir ' . $pesanan->status . ', service log ' . ($service?->id ?? '-') . '.',
-                status: $store->isRedirect() && $pesanan->status === 'selesai final' && $service ? 'Berhasil' : 'Gagal'
-            );
-            return;
-        }
-
         $this->record(
-            feature: 'Service Offline Admin',
-            role: 'admin/teknisi',
+            feature: 'Service Manual Admin Dinonaktifkan',
+            role: 'admin',
             steps: [
-                'Input service offline dari admin dengan pelanggan yang sudah ada.',
-                'Cek apakah pesanan service offline benar-benar terbentuk.',
+                'Admin mencoba membuat permintaan service manual dari halaman admin.',
             ],
-            expected: 'Service offline minimal membentuk pesanan baru agar bisa diteruskan ke teknisi.',
-            actual: 'Store ' . $store->getStatusCode() . ', tetapi pesanan service offline dengan marker audit tidak ditemukan.',
-            status: 'Gagal'
+            expected: 'Sistem menolak input manual service dan meminta permintaan baru diajukan pelanggan melalui sistem.',
+            actual: 'Store status ' . $store->getStatusCode() . ', error `' . ($errorMessage ?: '-') . '`, pesanan baru ' . ($pesanan?->id ?? 'tidak terbentuk') . '.',
+            status: $store->isRedirect()
+                && $errorMessage === 'Input manual service sudah dinonaktifkan. Permintaan baru harus diajukan pelanggan melalui sistem.'
+                && ! $pesanan
+                ? 'Berhasil'
+                : 'Gagal'
         );
     }
 
-    private function runAdminOfflineRefillFlow(): void
+    private function runAdminManualRefillBlockCheck(): void
     {
         $customer = $this->adminCustomer ?: $this->customer;
         $unit = UnitApar::query()->where('pelanggan_id', $customer->id)->latest('id')->first();
@@ -1573,9 +1488,9 @@ class MainDbLiveEndToEndAuditTest extends TestCase
 
         if (! $unit || ! $jenisRefill) {
             $this->record(
-                feature: 'Refill Offline Admin',
+                feature: 'Refill Manual Admin Dinonaktifkan',
                 role: 'admin',
-                steps: ['Cari unit APAR pelanggan admin dan master refill untuk transaksi offline.'],
+                steps: ['Cari unit APAR pelanggan admin dan master refill untuk verifikasi blokir input manual.'],
                 expected: 'Unit dan jenis refill tersedia.',
                 actual: 'Unit ' . ($unit?->id ?? '-') . ', jenis refill ' . ($jenisRefill?->id ?? '-') . '.',
                 status: 'Gagal'
@@ -1590,45 +1505,32 @@ class MainDbLiveEndToEndAuditTest extends TestCase
             'ukuran_apar' => $unit->ukuran ?: '1 kg',
             'jumlah_unit' => 1,
             'tgl_refill' => Carbon::today('Asia/Jakarta')->toDateString(),
-            'catatan_admin' => $this->customerMarker . ' - refill offline',
+            'catatan_admin' => $this->customerMarker . ' - refill manual admin',
         ]);
+        $errorMessage = session('error');
 
         $pesanan = Pesanan::query()
             ->where('pelanggan_id', $customer->id)
             ->where('tipe', 'service')
-            ->where('sumber_pesanan', 'datang_langsung')
             ->where('service_jenis_layanan', 'refill')
+            ->where('catatan_admin', $this->customerMarker . ' - refill manual admin')
             ->latest('id')
             ->first();
 
-        if ($pesanan) {
-            $this->actingAs($this->teknisi)->post('/teknisi/tugas/' . $pesanan->id . '/mulai');
-            $this->actingAs($this->teknisi)->post('/teknisi/tugas/' . $pesanan->id . '/selesai', [
-                'catatan' => $this->customerMarker . ' - teknisi refill offline',
-            ]);
-            $final = $this->actingAs($this->admin)->post('/admin/pesanan/' . $pesanan->id . '/selesai-final');
-            $pesanan->refresh();
-            $refill = Refill::query()->whereHas('service', fn ($q) => $q->where('pesanan_id', $pesanan->id))->latest('id')->first();
-
-            $this->created['refill_offline'] = [
-                'pesanan_id' => $pesanan->id,
-                'refill_id' => $refill?->id,
-                'status' => $pesanan->status,
-            ];
-
-            $this->record(
-                feature: 'Refill Offline Admin',
-                role: 'admin/teknisi',
-                steps: [
-                    'Input refill offline dari admin dengan pelanggan yang sudah ada.',
-                    'Teknisi menyelesaikan tugas.',
-                    'Admin finalisasi menjadi `Selesai Final`.',
-                ],
-                expected: 'Refill offline selesai final dan masuk riwayat refill.',
-                actual: 'Store ' . $store->getStatusCode() . ', final ' . $final->getStatusCode() . ', status akhir ' . $pesanan->status . ', refill log ' . ($refill?->id ?? '-') . '.',
-                status: $store->isRedirect() && $pesanan->status === 'selesai final' && $refill ? 'Berhasil' : 'Gagal'
-            );
-        }
+        $this->record(
+            feature: 'Refill Manual Admin Dinonaktifkan',
+            role: 'admin',
+            steps: [
+                'Admin mencoba membuat permintaan refill manual dari halaman admin.',
+            ],
+            expected: 'Sistem menolak input manual refill dan meminta permintaan baru diajukan pelanggan melalui sistem.',
+            actual: 'Store status ' . $store->getStatusCode() . ', error `' . ($errorMessage ?: '-') . '`, pesanan baru ' . ($pesanan?->id ?? 'tidak terbentuk') . '.',
+            status: $store->isRedirect()
+                && $errorMessage === 'Input manual refill sudah dinonaktifkan. Permintaan baru harus diajukan pelanggan melalui sistem.'
+                && ! $pesanan
+                ? 'Berhasil'
+                : 'Gagal'
+        );
     }
 
     private function runStockAndExpenseChecks(): void
@@ -1710,39 +1612,16 @@ class MainDbLiveEndToEndAuditTest extends TestCase
             ->latest('id')
             ->first();
 
-        $update = $unit
-            ? $this->actingAs($this->admin)->put('/admin/unit-apar/' . $unit->id, [
-                'pelanggan_id' => $customer->id,
-                'produk_id' => $product->id,
-                'no_seri' => $unit->no_seri,
-                'tgl_beli' => Carbon::today('Asia/Jakarta')->subDays(2)->toDateString(),
-                'tgl_produksi' => Carbon::today('Asia/Jakarta')->subDays(2)->toDateString(),
-                'lokasi_unit' => 'Gudang UAT Main Test Update',
-                'kondisi_awal' => 'perlu_servis',
-                'catatan_unit' => $this->customerMarker . ' - unit manual update',
-            ])
-            : null;
-        $detail = $unit ? $this->actingAs($this->admin)->get('/admin/unit-apar/' . $unit->id) : null;
-
-        if ($unit) {
-            $this->created['unit_apars'][] = [
-                'id' => $unit->id,
-                'no_seri' => $unit->no_seri,
-                'manual' => true,
-            ];
-        }
-
         $this->record(
-            feature: 'Unit APAR Manual',
+            feature: 'Unit APAR Full Online',
             role: 'admin',
             steps: [
-                'Registrasi unit APAR manual.',
-                'Edit unit APAR manual.',
-                'Buka detail unit APAR.',
+                'Coba akses route store Unit APAR manual dari admin.',
+                'Pastikan data unit manual tidak dibuat.',
             ],
-            expected: 'Unit APAR manual tersimpan, bisa diedit, dan tampil di detail.',
-            actual: 'Store ' . $store->getStatusCode() . ', update ' . ($update?->getStatusCode() ?? '-') . ', detail ' . ($detail?->getStatusCode() ?? '-') . '.',
-            status: $store->isRedirect() && $update && $update->isRedirect() && $detail && $detail->getStatusCode() === 200 ? 'Berhasil' : 'Gagal'
+            expected: 'Registrasi manual ditolak karena unit APAR harus dibuat otomatis dari transaksi pelanggan yang selesai final.',
+            actual: 'Store ' . $store->getStatusCode() . ', unit manual ditemukan: ' . ($unit ? 'ya' : 'tidak') . '.',
+            status: $store->isRedirect() && !$unit ? 'Berhasil' : 'Gagal'
         );
 
         $aparReport = $this->actingAs($this->admin)->get('/admin/laporan/apar');

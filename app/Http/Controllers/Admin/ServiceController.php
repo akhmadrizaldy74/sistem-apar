@@ -161,7 +161,9 @@ class ServiceController extends Controller
 
     public function create()
     {
-        return redirect()->route('admin.service.index');
+        return redirect()
+            ->route('admin.service.index')
+            ->with('error', 'Input manual service sudah dinonaktifkan. Permintaan baru harus diajukan pelanggan melalui sistem.');
     }
 
     public function store(
@@ -170,6 +172,10 @@ class ServiceController extends Controller
         ServiceMasterSyncService $serviceMasterSyncService
     )
     {
+        return redirect()
+            ->route('admin.service.index')
+            ->with('error', 'Input manual service sudah dinonaktifkan. Permintaan baru harus diajukan pelanggan melalui sistem.');
+
         $serviceMasterSyncService->sync();
 
         $request->merge([

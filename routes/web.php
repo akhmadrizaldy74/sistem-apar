@@ -131,6 +131,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/pesanan/{pesanan}/assign-teknisi', [PesananController::class, 'assignTeknisi'])->name('pesanan.assign-teknisi');
     Route::post('/pesanan/{pesanan}/konfirmasi-pelanggan', [PesananController::class, 'konfirmasiKePelanggan'])->name('pesanan.konfirmasi-pelanggan');
     Route::post('/pesanan/{pesanan}/selesai-final', [PesananController::class, 'selesaiFinal'])->name('pesanan.selesai-final');
+    Route::patch('/pesanan/{jenis}/{pesanan}/hide', [PesananController::class, 'hide'])->name('pesanan.hide');
+    Route::delete('/pesanan/{jenis}/{pesanan}', [PesananController::class, 'destroyTyped'])->name('pesanan.destroy-typed');
     Route::resource('pesanan', PesananController::class);
     Route::resource('jenis-apar', JenisAparController::class)->except(['show']);
     Route::resource('jenis-refill', JenisRefillController::class);

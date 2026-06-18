@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Traits\Auditable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\StockMovement;
 use App\Services\InventoryService;
@@ -120,6 +121,7 @@ class Pesanan extends Model
         'teknisi_selesai_at',
         'teknisi_catatan',
         'stok_dikurangi',
+        'hidden_from_pesanan_at',
     ];
 
     protected $casts = [
@@ -138,6 +140,7 @@ class Pesanan extends Model
         'pembayaran_terkonfirmasi_at' => 'datetime',
         'teknisi_selesai_at' => 'datetime',
         'stok_dikurangi' => 'boolean',
+        'hidden_from_pesanan_at' => 'datetime',
         'harga_pengajuan' => 'float',
         'harga_final' => 'float',
         'disetujui_pada' => 'datetime',
@@ -275,6 +278,41 @@ class Pesanan extends Model
         $normalized = trim((string) ($value ?? ''));
 
         return $normalized !== '' ? $normalized : null;
+    }
+
+    public function scopeVisibleInAdminPesananMenu(Builder $query): Builder
+    {
+        if (!static::supportsDatabaseColumn('hidden_from_pesanan_at')) {
+            return $query;
+        }
+
+        return $query->whereNull('hidden_from_pesanan_at');
+    }
+
+    public function isHiddenFromAdminPesananMenu(): bool
+    {
+        if (!$this->hasDatabaseColumn('hidden_from_pesanan_at')) {
+            return false;
+        }
+
+        return !is_null($this->hidden_from_pesanan_at);
+    }
+
+    public function hideFromAdminPesananMenu(): bool
+    {
+        if (!$this->hasDatabaseColumn('hidden_from_pesanan_at')) {
+            return false;
+        }
+
+        if ($this->isHiddenFromAdminPesananMenu()) {
+            return true;
+        }
+
+        $this->forceFill([
+            'hidden_from_pesanan_at' => now(),
+        ]);
+
+        return $this->save();
     }
 
     protected static function normalizePurchasePriceStatus(mixed $status): ?string
@@ -432,6 +470,155 @@ class Pesanan extends Model
         }
 
         return 'Pesanan Produk';
+    }
+
+    public function adminOrderTypeLabel(): string
+    {
+        if ($this->isRefillOrder()) {
+            return 'Refill APAR';
+        }
+
+        if ($this->isServiceOrder()) {
+            return 'Service APAR';
+        }
+
+        return 'Pembelian Unit';
+    }
+
+    public function adminDestroyTypeSlug(): string
+    {
+        if ($this->isRefillOrder()) {
+            return 'refill-apar';
+        }
+
+        if ($this->isServiceOrder()) {
+            return 'service-apar';
+        }
+
+        return 'pembelian-unit';
+    }
+
+    public function matchesAdminDestroyType(string $jenis): bool
+    {
+        return trim(mb_strtolower($jenis)) === $this->adminDestroyTypeSlug();
+    }
+
+    public function adminOrderTypeBadgeClasses(): string
+    {
+        if ($this->isRefillOrder()) {
+            return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+        }
+
+        if ($this->isServiceOrder()) {
+            return 'bg-violet-50 text-violet-700 border border-violet-200';
+        }
+
+        return 'bg-red-50 text-red-700 border border-red-200';
+    }
+
+    public function adminOrderUnitCount(): int
+    {
+        if ($this->isProductOrder()) {
+            return (int) $this->details->sum('jumlah');
+        }
+
+        $serviceUnitCount = (int) ($this->service_jumlah_unit ?? 0);
+        if ($serviceUnitCount > 0) {
+            return $serviceUnitCount;
+        }
+
+        $display = $this->serviceUnitDisplay();
+        return max(1, (int) ($display['quantity'] ?? 1));
+    }
+
+    public function adminOrderDetailTitle(): string
+    {
+        if ($this->isProductOrder()) {
+            $firstProduk = $this->details->first();
+            $title = $firstProduk?->produk?->nama ?? 'Pembelian Unit';
+            $remainingProducts = max(0, $this->details->count() - 1);
+
+            if ($remainingProducts > 0) {
+                $title .= ' + ' . $remainingProducts . ' lainnya';
+            }
+
+            return $title;
+        }
+
+        if ($this->isRefillOrder()) {
+            return $this->serviceJenisRefill?->nama_label ?: 'Refill APAR';
+        }
+
+        return $this->servicePaket?->nama ?: 'Service APAR';
+    }
+
+    public function adminOrderDetailMeta(): string
+    {
+        if ($this->isProductOrder()) {
+            return $this->details->count() . ' item • ' . $this->adminOrderUnitCount() . ' unit';
+        }
+
+        if ($this->isRefillOrder()) {
+            $parts = [$this->adminOrderUnitCount() . ' unit'];
+
+            if ((float) ($this->service_total_kg ?? 0) > 0) {
+                $parts[] = $this->formatCompactAdminNumber((float) $this->service_total_kg) . ' kg';
+            }
+
+            return implode(' • ', $parts);
+        }
+
+        return $this->adminOrderUnitCount() . ' unit';
+    }
+
+    public function adminStatusLabel(): string
+    {
+        $normalizedStatus = trim(strtolower(str_replace('_', ' ', (string) $this->status)));
+
+        if ($this->isProductOrder() && $this->hasPendingPurchasePriceRequest()) {
+            return 'Menunggu Persetujuan Harga';
+        }
+
+        return match ($normalizedStatus) {
+            self::STATUS_SELESAI_FINAL,
+            self::STATUS_SELESAI => 'Selesai Final',
+            self::STATUS_DITOLAK,
+            'batal',
+            'dibatalkan',
+            'cancelled',
+            'canceled' => 'Ditolak',
+            self::STATUS_DIKONFIRMASI_ADMIN => 'Dikonfirmasi Admin',
+            self::STATUS_SELESAI_OLEH_TEKNISI => 'Selesai oleh Teknisi',
+            self::STATUS_DIKERJAKAN_TEKNISI => 'Dikerjakan Teknisi',
+            self::STATUS_DITUGASKAN_KE_TEKNISI => 'Ditugaskan ke Teknisi',
+            self::STATUS_DIPROSES,
+            self::STATUS_DISETUJUI => 'Diproses',
+            self::STATUS_PENDING,
+            self::STATUS_PERMINTAAN_MASUK,
+            self::STATUS_DIREVIEW_ADMIN,
+            self::STATUS_MENUNGGU_PENJADWALAN,
+            self::STATUS_MENUNGGU_PENGAMBILAN,
+            self::STATUS_MENUNGGU_KEDATANGAN_UNIT,
+            self::STATUS_MENUNGGU_PERSETUJUAN_BIAYA,
+            'menunggu persetujuan',
+            'menunggu',
+            'menunggu diproses admin' => 'Menunggu',
+            default => ucwords($normalizedStatus ?: '-'),
+        };
+    }
+
+    public function adminStatusBadgeClasses(): string
+    {
+        return match ($this->adminStatusLabel()) {
+            'Selesai Final' => 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+            'Menunggu', 'Menunggu Persetujuan Harga' => 'bg-amber-50 text-amber-700 border border-amber-200',
+            'Diproses' => 'bg-blue-50 text-blue-700 border border-blue-200',
+            'Ditugaskan ke Teknisi' => 'bg-purple-50 text-purple-700 border border-purple-200',
+            'Dikerjakan Teknisi' => 'bg-indigo-50 text-indigo-700 border border-indigo-200',
+            'Selesai oleh Teknisi', 'Dikonfirmasi Admin' => 'bg-cyan-50 text-cyan-700 border border-cyan-200',
+            'Ditolak' => 'bg-red-50 text-red-700 border border-red-200',
+            default => 'bg-slate-100 text-slate-700 border border-slate-200',
+        };
     }
 
     public function displayTransactionAt(): ?\Illuminate\Support\Carbon
@@ -653,6 +840,14 @@ class Pesanan extends Model
         return $this->isCompleted();
     }
 
+    public function isLockedForAdminDeletion(): bool
+    {
+        return in_array((string) $this->status, [
+            self::STATUS_SELESAI,
+            self::STATUS_SELESAI_FINAL,
+        ], true) || $this->stok_dikurangi;
+    }
+
     public function canGiveReview(): bool
     {
         return $this->isCompleted() && !$this->getAttribute('linkedTestimoni');
@@ -697,6 +892,35 @@ class Pesanan extends Model
         return $this->metode_pengiriman === 'diantar_internal'
             ? 'Ekspedisi / Diantar'
             : 'Ambil Sendiri';
+    }
+
+    public static function legacySourceValues(): array
+    {
+        return [
+            'datang_langsung',
+            'offline',
+            'input_admin',
+            'telepon',
+            'whatsapp',
+            'data_lama',
+        ];
+    }
+
+    public static function isLegacySourceValue(?string $source): bool
+    {
+        return in_array((string) $source, static::legacySourceValues(), true);
+    }
+
+    public function isLegacyAdminSource(): bool
+    {
+        return static::isLegacySourceValue($this->sumber_pesanan);
+    }
+
+    public function adminSourceLabel(): string
+    {
+        return $this->isLegacyAdminSource()
+            ? 'Riwayat Lama'
+            : 'Transaksi Pelanggan';
     }
 
     public function isProductOrder(): bool
@@ -945,7 +1169,16 @@ class Pesanan extends Model
 
     public function shouldHidePaymentStatusBadge(): bool
     {
-        return $this->publicStatusLabel() === 'Selesai Final';
+        return $this->adminStatusLabel() === 'Selesai Final';
+    }
+
+    private function formatCompactAdminNumber(float $value): string
+    {
+        if (fmod($value, 1.0) === 0.0) {
+            return number_format($value, 0, ',', '.');
+        }
+
+        return rtrim(rtrim(number_format($value, 2, ',', '.'), '0'), ',');
     }
 
     public function getTimelineStep(): int

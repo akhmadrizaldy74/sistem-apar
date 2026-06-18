@@ -43,6 +43,9 @@ class ServiceMasterRevisionTest extends TestCase
         $peralatanResponse = $this->actingAs($admin)->get(route('admin.peralatan.index'));
 
         $peralatanResponse->assertOk();
+        $peralatanResponse->assertSeeText('Master Service & Peralatan');
+        $peralatanResponse->assertSeeText('Jenis Service');
+        $peralatanResponse->assertSeeText('Peralatan Service');
         $peralatanResponse->assertSeeText('Safety Pin APAR');
         $peralatanResponse->assertSeeText('Selang APAR Powder/Foam');
         $peralatanResponse->assertSeeText('Baut Bracket APAR');
@@ -57,12 +60,16 @@ class ServiceMasterRevisionTest extends TestCase
         $serviceResponse = $this->actingAs($admin)->get(route('admin.service-paket.index'));
 
         $serviceResponse->assertOk();
+        $serviceResponse->assertSeeText('Master Service & Peralatan');
+        $serviceResponse->assertSeeText('Jenis Service');
+        $serviceResponse->assertSeeText('Peralatan Service');
         $serviceResponse->assertSeeText('Service Ringan');
         $serviceResponse->assertSeeText('Ganti Selang Powder/Foam');
         $serviceResponse->assertSeeText('Ganti Selang CO2');
         $serviceResponse->assertSeeText('Ganti Valve APAR');
         $serviceResponse->assertSeeText('Ganti Pressure Gauge');
         $serviceResponse->assertSeeText('Pasang/Ganti Bracket');
+        $serviceResponse->assertDontSeeText('Master Jenis Service');
         $serviceResponse->assertDontSeeText('Nozzle');
     }
 

@@ -1,8 +1,8 @@
 <x-app-layout>
     <x-slot name="header">
         <div>
-            <h2 class="text-3xl font-black tracking-tight text-slate-900">Master Jenis Service</h2>
-            <p class="mt-1 text-sm font-semibold text-slate-500">Daftar jenis service final dengan harga standar dan relasi peralatan resmi.</p>
+            <h2 class="text-3xl font-black tracking-tight text-slate-900">Master Service &amp; Peralatan</h2>
+            <p class="mt-1 text-sm font-semibold text-slate-500">Jenis service sekarang digabung dengan peralatan service agar pengelolaan master data tetap rapi dalam satu area.</p>
         </div>
     </x-slot>
 
@@ -22,7 +22,7 @@
                 <table class="min-w-full divide-y divide-slate-100">
                     <thead class="bg-slate-50">
                         <tr>
-                            <th class="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Paket</th>
+                            <th class="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Jenis Service</th>
                             <th class="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Harga Standar</th>
                             <th class="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Peralatan Digunakan</th>
                             <th class="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>

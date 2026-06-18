@@ -111,11 +111,17 @@ class RefillController extends Controller
 
     public function create()
     {
-        return redirect()->route('admin.refill.index');
+        return redirect()
+            ->route('admin.refill.index')
+            ->with('error', 'Input manual refill sudah dinonaktifkan. Permintaan baru harus diajukan pelanggan melalui sistem.');
     }
 
     public function store(Request $request)
     {
+        return redirect()
+            ->route('admin.refill.index')
+            ->with('error', 'Input manual refill sudah dinonaktifkan. Permintaan baru harus diajukan pelanggan melalui sistem.');
+
         $request->merge([
             'pelanggan_id' => $request->input('pelanggan_id'),
             'status_unit' => $request->input('status_unit', $request->filled('unit_apar_id') ? 'terdaftar' : 'belum_terdaftar'),

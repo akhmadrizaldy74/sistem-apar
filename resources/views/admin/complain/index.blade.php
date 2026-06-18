@@ -3,7 +3,7 @@
         <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
                 <h2 class="text-3xl font-black tracking-tight text-gray-900">Manajemen Komplain</h2>
-                <p class="text-sm font-medium text-gray-500">Daftar komplain dari pelanggan yang masuk melalui formulir publik.</p>
+                <p class="text-sm font-medium text-gray-500">Daftar komplain dari pelanggan yang masuk melalui akun pelanggan.</p>
             </div>
             <div id="complain-counts">
                 @include('admin.complain.partials.counts', ['counts' => $counts])

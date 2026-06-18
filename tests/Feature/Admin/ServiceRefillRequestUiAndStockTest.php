@@ -57,6 +57,7 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.refill.index'));
 
         $response->assertOk();
+        $response->assertDontSeeText('Input Refill Offline');
         $response->assertSeeText('APAR Tidak Terdaftar');
         $response->assertSeeText('APAR Powder 9 kg');
         $response->assertSeeText('Powder');
@@ -95,6 +96,8 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.service.index'));
 
         $response->assertOk();
+        $response->assertDontSeeText('Input Service Offline');
+        $response->assertDontSeeText('Master Jenis Service');
         $response->assertSeeText('APAR Tidak Terdaftar');
         $response->assertSeeText('APAR Foam 6 kg');
         $response->assertSeeText('Hydrotest Ringan');
@@ -334,7 +337,7 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
         $this->assertSame('2026-06-20', $serviceLog->tgl_service->toDateString());
     }
 
-    public function test_admin_can_create_refill_offline_for_multiple_registered_units(): void
+    public function test_admin_refill_store_is_blocked_for_manual_multi_unit_requests(): void
     {
         $admin = User::factory()->create([
             'role' => 'admin',
@@ -403,18 +406,18 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
             'unit_apar_ids' => [$unitSatu->id, $unitDua->id],
             'jenis_refill_id' => $jenisRefill->id,
             'tgl_refill' => now()->toDateString(),
-            'catatan_admin' => 'Refill offline multi-unit terdaftar.',
+            'catatan_admin' => 'Refill manual multi-unit terdaftar.',
         ]);
 
         $response->assertRedirect(route('admin.refill.index'));
-        $this->assertDatabaseCount('pesanans', 2);
-        $this->assertDatabaseCount('services', 2);
-        $this->assertDatabaseCount('refills', 2);
+        $response->assertSessionHas('error', 'Input manual refill sudah dinonaktifkan. Permintaan baru harus diajukan pelanggan melalui sistem.');
+        $this->assertDatabaseCount('pesanans', 0);
+        $this->assertDatabaseCount('services', 0);
+        $this->assertDatabaseCount('refills', 0);
         $this->assertDatabaseCount('unit_apars', 2);
-        $this->assertSame([100000.0, 200000.0], Pesanan::query()->orderBy('total')->pluck('total')->map(fn ($value) => (float) $value)->all());
     }
 
-    public function test_admin_can_create_service_offline_for_multiple_registered_units(): void
+    public function test_admin_service_store_is_blocked_for_manual_multi_unit_requests(): void
     {
         $admin = User::factory()->create([
             'role' => 'admin',
@@ -477,15 +480,15 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
             'unit_apar_ids' => [$unitSatu->id, $unitDua->id],
             'service_paket_id' => $paket->id,
             'tgl_service' => now()->toDateString(),
-            'catatan_admin' => 'Service offline multi-unit terdaftar.',
+            'catatan_admin' => 'Service manual multi-unit terdaftar.',
         ]);
 
         $response->assertRedirect(route('admin.service.index'));
-        $this->assertDatabaseCount('pesanans', 2);
-        $this->assertDatabaseCount('services', 2);
+        $response->assertSessionHas('error', 'Input manual service sudah dinonaktifkan. Permintaan baru harus diajukan pelanggan melalui sistem.');
+        $this->assertDatabaseCount('pesanans', 0);
+        $this->assertDatabaseCount('services', 0);
         $this->assertDatabaseCount('unit_apars', 2);
-        $this->assertSame(2, Service::query()->whereIn('unit_apar_id', [$unitSatu->id, $unitDua->id])->count());
-        $this->assertSame([1, 1], Pesanan::query()->orderBy('id')->pluck('service_jumlah_unit')->map(fn ($value) => (int) $value)->all());
+        $this->assertSame(0, Service::query()->whereIn('unit_apar_id', [$unitSatu->id, $unitDua->id])->count());
     }
 
     public function test_refill_stock_is_reduced_only_once_when_final_status_is_saved_twice(): void

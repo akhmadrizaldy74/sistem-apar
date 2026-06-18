@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Testimoni;
-use App\Models\Pelanggan;
 use Illuminate\Http\Request;
 
 class TestimoniController extends Controller
@@ -25,28 +24,15 @@ class TestimoniController extends Controller
             'approved' => Testimoni::where('status', 'approved')->count(),
             'rejected' => Testimoni::where('status', 'rejected')->count(),
         ];
-        $pelanggans = Pelanggan::orderBy('nama')->get();
 
-        return view('admin.testimoni.index', compact('testimonis', 'pelanggans', 'counts'));
+        return view('admin.testimoni.index', compact('testimonis', 'counts'));
     }
 
     public function store(Request $request)
     {
-        $request->validate([
-            'pelanggan_id' => 'required|exists:pelanggans,id',
-            'rating'       => 'required|integer|min:1|max:5',
-            'review'       => 'required|string',
-        ]);
-
-        Testimoni::create([
-            'pelanggan_id' => $request->pelanggan_id,
-            'rating'       => $request->rating,
-            'review'       => $request->review,
-            'tanggal'      => now(),
-            'status'       => 'approved',
-        ]);
-
-        return back()->with('success', 'Testimoni berhasil ditambahkan.');
+        return redirect()
+            ->route('admin.testimoni.index')
+            ->with('error', 'Admin tidak dapat menambahkan testimoni. Testimoni hanya bisa dibuat oleh pelanggan dari akun pelanggan.');
     }
 
     public function update(Request $request, Testimoni $testimoni)

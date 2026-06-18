@@ -42,7 +42,7 @@ class LaporanController extends Controller
             $visitorLimit = 10;
         }
 
-        $pelanggans = Pelanggan::orderBy('nama')->get();
+        $pelanggans = Pelanggan::query()->visibleInDirectory()->orderBy('nama')->get();
 
         $pesananQuery = $finalRevenue->productOrdersQuery(
             $filters['tanggal_dari'],
@@ -250,7 +250,7 @@ class LaporanController extends Controller
             'expired' => $units->filter(fn ($unit) => $unit->tgl_expired && $unit->tgl_expired->isPast())->count(),
         ];
 
-        $pelanggans = Pelanggan::orderBy('nama')->get();
+        $pelanggans = Pelanggan::query()->visibleInDirectory()->orderBy('nama')->get();
 
         return view('admin.laporan.apar', compact('units', 'stats', 'filters', 'pelanggans'));
     }
@@ -258,7 +258,7 @@ class LaporanController extends Controller
     public function penjualan(Request $request, FinalRevenueService $finalRevenue)
     {
         $filters = $this->filters($request);
-        $pelanggans = Pelanggan::orderBy('nama')->get();
+        $pelanggans = Pelanggan::query()->visibleInDirectory()->orderBy('nama')->get();
 
         $pesanans = $finalRevenue->productOrdersQuery(
             $filters['tanggal_dari'],
@@ -306,7 +306,7 @@ class LaporanController extends Controller
     public function service(Request $request, FinalRevenueService $finalRevenue)
     {
         $filters = $this->filters($request);
-        $pelanggans = Pelanggan::orderBy('nama')->get();
+        $pelanggans = Pelanggan::query()->visibleInDirectory()->orderBy('nama')->get();
 
         $services = $finalRevenue->serviceTransactionsQuery(
             $filters['tanggal_dari'],
@@ -328,8 +328,8 @@ class LaporanController extends Controller
         $stats = [
             'total_transaksi' => $serviceRows->count(),
             'total_biaya' => (float) $serviceRows->sum('total'),
-            'online' => $serviceRows->where('source', 'Online')->count(),
-            'offline' => $serviceRows->where('source', 'Offline')->count(),
+            'transaksi_pelanggan' => $serviceRows->where('source', 'Transaksi Pelanggan')->count(),
+            'riwayat_lama' => $serviceRows->where('source', 'Riwayat Lama')->count(),
         ];
 
         return view('admin.laporan.service', compact('serviceRows', 'stats', 'filters', 'pelanggans'));
@@ -404,7 +404,7 @@ class LaporanController extends Controller
             'cashflowTrend' => $analytics->cashflowTrend($filters['pelanggan_id'], now()),
         ];
 
-        $pelanggans = Pelanggan::orderBy('nama')->get();
+        $pelanggans = Pelanggan::query()->visibleInDirectory()->orderBy('nama')->get();
 
         $trendData = [];
         for ($i = 5; $i >= 0; $i--) {
@@ -1015,9 +1015,9 @@ class LaporanController extends Controller
             return '-';
         }
 
-        return in_array((string) $source, ['datang_langsung', 'offline', 'input_admin', 'telepon'], true)
-            ? 'Offline'
-            : 'Online';
+        return Pesanan::isLegacySourceValue($source)
+            ? 'Riwayat Lama'
+            : 'Transaksi Pelanggan';
     }
 
     private function formatQty(float $value): string

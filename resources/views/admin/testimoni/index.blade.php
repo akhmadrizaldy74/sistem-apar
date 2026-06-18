@@ -1,13 +1,10 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div class="flex flex-col gap-4">
             <div>
                 <h2 class="text-3xl font-black text-gray-900 tracking-tight">Manajemen Testimoni</h2>
-                <p class="text-sm text-gray-500 font-medium">Kelola ulasan pelanggan yang tampil di Landing Page. Hanya testimoni berstatus <strong>Approved</strong> yang tampil di publik.</p>
+                <p class="text-sm text-gray-500 font-medium">Kelola testimoni pelanggan yang masuk dari akun pelanggan. Hanya testimoni yang disetujui yang tampil di landing page.</p>
             </div>
-            <button onclick="document.getElementById('addModal').style.display='flex'" class="px-6 py-3 bg-red-700 text-white rounded-2xl text-sm font-black hover:bg-red-800 transition shadow-xl shadow-red-700/25 flex items-center gap-2">
-                <i class="fa-solid fa-plus"></i> Tambah Testimoni
-            </button>
         </div>
     </x-slot>
 
@@ -36,44 +33,6 @@
         </div>
         <div id="testimoni-pagination" class="px-8 py-4 border-t border-gray-50 {{ $testimonis->hasPages() ? '' : 'hidden' }}">
             {!! $testimonis->hasPages() ? $testimonis->links()->render() : '' !!}
-        </div>
-    </div>
-
-    {{-- Modal Tambah --}}
-    <div id="addModal" class="fixed inset-0 bg-gray-900/50 z-50 hidden items-center justify-center p-4">
-        <div class="bg-white rounded-[2rem] w-full max-w-md p-8 shadow-2xl">
-            <h3 class="text-xl font-black text-gray-900 mb-6">Tambah Testimoni</h3>
-            <form action="{{ route('admin.testimoni.store') }}" method="POST" class="space-y-4">
-                @csrf
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">Pelanggan</label>
-                    <select name="pelanggan_id" required class="w-full rounded-xl border-gray-200">
-                        <option value="">-- Pilih Pelanggan --</option>
-                        @foreach($pelanggans as $p)
-                            <option value="{{ $p->id }}">{{ $p->nama }} ({{ $p->no_wa }})</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">Rating (1-5 Bintang)</label>
-                    <div class="flex gap-1" id="addRatingStars">
-                        @for($i=1;$i<=5;$i++)
-                            <button type="button" onclick="setRating({{ $i }}, 'add')" id="add-star-{{ $i }}" class="text-2xl text-gray-200 hover:text-amber-400 transition">
-                                <i class="fa-solid fa-star"></i>
-                            </button>
-                        @endfor
-                        <input type="hidden" name="rating" id="addRatingInput" value="5" />
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">Review</label>
-                    <textarea name="review" required rows="3" class="w-full rounded-xl border-gray-200"></textarea>
-                </div>
-                <div class="flex gap-3 justify-end pt-2">
-                    <button type="button" onclick="closeModals()" class="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold text-sm">Batal</button>
-                    <button type="submit" class="px-6 py-3 bg-gray-900 text-white rounded-xl font-bold text-sm">Simpan</button>
-                </div>
-            </form>
         </div>
     </div>
 
@@ -186,11 +145,20 @@
         }
 
         function closeModals() {
-            document.getElementById('addModal').style.display = 'none';
-            document.getElementById('editModal').style.display = 'none';
-            document.getElementById('rejectModal').style.display = 'none';
-            document.getElementById('photoModal').classList.add('hidden');
-            document.getElementById('photoModal').classList.remove('flex');
+            const editModal = document.getElementById('editModal');
+            const rejectModal = document.getElementById('rejectModal');
+            const photoModal = document.getElementById('photoModal');
+
+            if (editModal) {
+                editModal.style.display = 'none';
+            }
+            if (rejectModal) {
+                rejectModal.style.display = 'none';
+            }
+            if (photoModal) {
+                photoModal.classList.add('hidden');
+                photoModal.classList.remove('flex');
+            }
         }
 
         document.addEventListener('click', function(e) {

@@ -19,8 +19,13 @@ class ServicePaketController extends Controller
     {
         $servicePakets = $serviceMasterSyncService->visibleServicePakets(['jenisRefill', 'peralatans'])
             ->loadCount('services');
+        $peralatans = $serviceMasterSyncService->visiblePeralatans();
 
-        return view('admin.service-paket.index', compact('servicePakets'));
+        return view('admin.peralatan.index', [
+            'servicePakets' => $servicePakets,
+            'peralatans' => $peralatans,
+            'activeTab' => 'jenis-service',
+        ]);
     }
 
     public function create(ServiceMasterSyncService $serviceMasterSyncService)

@@ -9,13 +9,17 @@
         ? $pesanan->serviceUnitDisplay()
         : ($unitApar ? ServiceUnitDisplay::forUnitApar($unitApar) : ServiceUnitDisplay::empty());
 
-    $sumberPesanan = (string) ($pesanan?->sumber_pesanan ?? 'offline');
-    $isOffline = in_array($sumberPesanan, ['datang_langsung', 'offline', 'input_admin'], true);
+    $sourceLabel = $pesanan instanceof Pesanan
+        ? $pesanan->adminSourceLabel()
+        : 'Riwayat Lama';
+    $isLegacySource = $pesanan instanceof Pesanan
+        ? $pesanan->isLegacyAdminSource()
+        : true;
 @endphp
 
 <div class="flex items-center gap-2 flex-wrap mb-2">
-    <span class="inline-flex px-3 py-1 rounded-full {{ $isOffline ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-600' }} text-[10px] font-black uppercase tracking-widest">
-        {{ $isOffline ? 'Offline' : 'Online' }}
+    <span class="inline-flex px-3 py-1 rounded-full {{ $isLegacySource ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-600' }} text-[10px] font-black uppercase tracking-widest">
+        {{ $sourceLabel }}
     </span>
 </div>
 
