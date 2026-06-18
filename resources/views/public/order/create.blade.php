@@ -236,6 +236,7 @@
         $cartHasItems = $cartItems->isNotEmpty();
         $prefilledOrderItems = collect($prefilledOrderItems ?? []);
         $prefillServiceOrder = $prefillServiceOrder ?? null;
+        $selectedCheckoutMode = old('tipe_layanan', $prefillServiceOrder ? 'service' : 'beli');
         $orderSummary = $orderSummary ?? [
             'subtotalProduk' => 0,
             'totalUnit' => 0,
@@ -249,7 +250,11 @@
         ];
         $prefilledOrderTotal = (float) $prefilledOrderItems->sum(fn ($item) => ((float) ($item['harga'] ?? 0)) * ((int) ($item['jumlah'] ?? 0)));
         $prefilledOrderQty = (int) $prefilledOrderItems->sum(fn ($item) => (int) ($item['jumlah'] ?? 0));
+        $selectedServiceMethod = old('service_metode_penanganan', $prefillServiceOrder ? 'dijemput' : 'dijemput');
         $selectedShippingMethod = old('metode_pengiriman', (($orderSummary['ongkir'] ?? 0) > 0 ? 'diantar' : 'pickup'));
+        if ($selectedCheckoutMode === 'service' && ! old('metode_pengiriman')) {
+            $selectedShippingMethod = $selectedServiceMethod === 'antar sendiri' ? 'pickup' : 'diantar';
+        }
         $selectedShippingMethod = in_array($selectedShippingMethod, ['diantar', 'pickup', 'ambil_sendiri', 'diantar_internal'], true)
             ? $selectedShippingMethod
             : 'pickup';
@@ -273,6 +278,7 @@
     <input type="hidden" id="inp-submit-source" name="submit_source" value="normal">
     <input type="hidden" id="inp-tipe-harga" name="tipe_harga" value="normal">
     <input type="hidden" id="inp-metode-pengiriman" value="{{ $selectedShippingMethod }}">
+    <input type="hidden" id="service-metode-penanganan-hidden" name="service_metode_penanganan" value="{{ $selectedServiceMethod }}">
     <input type="hidden" id="inp-bank" value="{{ $selectedBank }}">
     <input type="hidden" id="inp-ongkir" name="ongkir" value="{{ old('ongkir', (float) ($orderSummary['ongkir'] ?? 0)) }}">
     <input type="hidden" id="inp-shipping-distance" name="shipping_distance_km" value="{{ old('shipping_distance_km', 0) }}">
@@ -839,19 +845,6 @@
                     <p class="text-[11px] font-semibold text-slate-400 mt-1">Foto membantu admin melakukan pemeriksaan awal.</p>
                 </div>
                 <div class="md:col-span-2">
-                    <label class="order-label mb-3">Metode Penanganan <span>*</span></label>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <label class="flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 border-slate-200 bg-slate-50 cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
-                            <input type="radio" name="service_metode_penanganan" value="dijemput" {{ $metodeOld === 'dijemput' ? 'checked' : '' }} class="w-4 h-4 text-blue-600">
-                            <span class="text-sm font-bold text-slate-700">Dijemput</span>
-                        </label>
-                        <label class="flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 border-slate-200 bg-slate-50 cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
-                            <input type="radio" name="service_metode_penanganan" value="antar sendiri" {{ $metodeOld === 'antar sendiri' ? 'checked' : '' }} class="w-4 h-4 text-blue-600">
-                            <span class="text-sm font-bold text-slate-700">Antar Sendiri</span>
-                        </label>
-                    </div>
-                </div>
-                <div class="md:col-span-2">
                     <label class="order-label">Catatan / Keluhan</label>
                     <textarea name="service_keluhan" id="service-keluhan" rows="3" placeholder="Contoh: tabung perlu refill, minta pengecekan valve, atau ingin dijemput hari kerja." class="order-input resize-none">{{ old('service_keluhan', old('keterangan_service')) }}</textarea>
                 </div>
@@ -861,108 +854,6 @@
             </div>
 
             <div class="lg:col-span-2 lg:sticky lg:top-24">
-
-                <div id="section-beli-sidebar" class="hidden space-y-5">
-                    <div class="order-section-card p-6">
-                        <div class="flex items-center gap-3">
-                            <div class="section-icon-wrap bg-blue-50 text-blue-600">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6M7 4h10a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V6a2 2 0 012-2z"/></svg>
-                            </div>
-                            <div>
-                                <p class="text-xs font-black uppercase tracking-[0.18em] text-blue-600">Ringkasan Layanan</p>
-                                <h3 class="text-lg font-black text-slate-900">Checkout layanan yang sederhana</h3>
-                            </div>
-                        </div>
-                        <p class="mt-4 text-sm font-semibold leading-relaxed text-slate-500">Pilih jenis layanan, cek estimasi harga, lalu kirim pesanan. Sistem akan menghitung kebutuhan refill dan menampilkan kondisi stok otomatis.</p>
-                    </div>
-
-                    <div class="order-section-card p-6">
-                        @php
-                            $prefillSummaryItems = collect($prefillServiceOrder['selected_units'] ?? []);
-                            $prefillSummaryUnitLabel = $isPrefilledRegisteredRefill
-                                ? (($prefillServiceOrder['total_unit'] ?? $prefillSummaryItems->count()) . ' unit dari ' . ($prefillServiceOrder['group_label'] ?? 'Riwayat APAR'))
-                                : '-';
-                            $prefillSummaryItemLabel = $isPrefilledRegisteredRefill
-                                ? ($prefillSummaryItems->pluck('jenis_refill')->filter()->unique()->implode(', ') ?: 'Refill APAR')
-                                : 'Belum dipilih';
-                            $prefillSummarySizeLabel = $isPrefilledRegisteredRefill
-                                ? ($prefillSummaryItems->pluck('ukuran')->filter()->unique()->implode(', ') ?: '-')
-                                : '-';
-                            $prefillSummaryQtyLabel = $isPrefilledRegisteredRefill
-                                ? (($prefillServiceOrder['total_unit'] ?? 0) . ' unit')
-                                : '1 unit';
-                            $prefillSummaryKgLabel = $isPrefilledRegisteredRefill
-                                ? (number_format((float) ($prefillServiceOrder['total_kg'] ?? 0), floor((float) ($prefillServiceOrder['total_kg'] ?? 0)) == (float) ($prefillServiceOrder['total_kg'] ?? 0) ? 0 : 2, ',', '.') . ' Kg')
-                                : '-';
-                            $prefillSummaryPriceLabel = $isPrefilledRegisteredRefill
-                                ? ('Rp ' . number_format((float) ($prefillServiceOrder['total_price'] ?? 0), 0, ',', '.'))
-                                : 'Rp 0';
-                            $prefillSummaryMethodLabel = $metodeOld === 'antar sendiri' ? 'Antar Sendiri' : 'Dijemput';
-                        @endphp
-                        <div class="flex items-center gap-2 mb-4">
-                            <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                            </div>
-                            <div>
-                                <p class="text-sm font-black text-slate-800">Ringkasan Pesanan</p>
-                                <p class="text-[11px] font-semibold text-slate-500">Selalu ikut berubah saat form diisi.</p>
-                            </div>
-                        </div>
-                        <div class="summary-card space-y-3">
-                            <div class="summary-row">
-                                <span class="text-slate-500 font-semibold">Kategori</span>
-                                <span id="service-summary-category" class="font-black text-slate-800">Refill APAR</span>
-                            </div>
-                            <div id="service-summary-status-row" class="summary-row">
-                                <span class="text-slate-500 font-semibold">Status Unit</span>
-                                <span id="service-summary-status" class="font-black text-slate-800">{{ $isPrefilledRegisteredRefill ? 'APAR Terdaftar' : 'APAR Belum Terdaftar' }}</span>
-                            </div>
-                            <div id="service-summary-unit-row" class="summary-row {{ $isPrefilledRegisteredRefill ? '' : 'hidden' }}">
-                                <span class="text-slate-500 font-semibold">Unit APAR</span>
-                                <span id="service-summary-unit" class="font-black text-slate-800 text-right">{{ $prefillSummaryUnitLabel }}</span>
-                            </div>
-                            <div class="summary-row">
-                                <span class="text-slate-500 font-semibold">Layanan Dipilih</span>
-                                <span id="service-summary-item" class="font-black text-slate-800">{{ $prefillSummaryItemLabel }}</span>
-                            </div>
-                            <div class="summary-row">
-                                <span class="text-slate-500 font-semibold">Ukuran APAR</span>
-                                <span id="service-summary-size" class="font-black text-slate-800">{{ $prefillSummarySizeLabel }}</span>
-                            </div>
-                            <div class="summary-row">
-                                <span class="text-slate-500 font-semibold">Jumlah Unit</span>
-                                <span id="service-summary-qty" class="font-black text-slate-800">{{ $prefillSummaryQtyLabel }}</span>
-                            </div>
-                            <div class="summary-row">
-                                <span id="service-summary-usage-label" class="text-slate-500 font-semibold">Kebutuhan Refill</span>
-                                <span id="service-summary-kg" class="font-black text-slate-800">{{ $prefillSummaryKgLabel }}</span>
-                            </div>
-                            <div class="summary-row">
-                                <span class="text-slate-500 font-semibold">Metode Penanganan</span>
-                                <span id="service-summary-method" class="font-black text-slate-800">{{ $prefillSummaryMethodLabel }}</span>
-                            </div>
-                            <div class="summary-row total">
-                                <span class="text-slate-500 font-semibold">Estimasi Harga</span>
-                                <span id="service-summary-price" class="text-xl font-black text-blue-600">{{ $prefillSummaryPriceLabel }}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="order-section-card p-6 space-y-4">
-                        <div id="service-stock-warning" class="hidden rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700"></div>
-                        <div id="service-low-stock-warning" class="hidden rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800"></div>
-
-                        <div id="service-package-note" class="hidden rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                            <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Rincian Paket & Harga</p>
-                            <div id="service-package-rincian" class="mt-3 space-y-2 text-sm font-semibold text-slate-700"></div>
-                        </div>
-
-                        <button type="submit" id="btn-service-submit" class="btn-primary-action submit service w-full justify-center">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                            <span id="btn-service-submit-label">Lanjut ke Pembayaran</span>
-                        </button>
-                    </div>
-                </div>
                 <div id="section-service-sidebar" class="space-y-5">
 
                 {{-- Shipping Method --}}
@@ -971,7 +862,7 @@
                         <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
                         </div>
-                        <p class="text-sm font-black text-slate-800">Metode Pengiriman</p>
+                        <p id="method-card-title" class="text-sm font-black text-slate-800">Metode Pengiriman</p>
                     </div>
                     <div class="choice-grid shipping">
                         <label for="shipping-ambil-sendiri" class="flex-1 cursor-pointer">
@@ -979,9 +870,9 @@
                             <div data-shipping-card="pickup" class="choice-card shipping-card">
                                 <div class="choice-card-header">
                                     <div class="choice-card-copy">
-                                        <span class="choice-card-kicker">Metode Pengiriman</span>
-                                        <span class="choice-card-title">Ambil Sendiri</span>
-                                        <span class="choice-card-subtitle">Ambil pesanan langsung di lokasi kami tanpa biaya ongkir.</span>
+                                        <span id="method-option-a-kicker" class="choice-card-kicker">Metode Pengiriman</span>
+                                        <span id="method-option-a-title" class="choice-card-title">Ambil Sendiri</span>
+                                        <span id="method-option-a-subtitle" class="choice-card-subtitle">Ambil pesanan langsung di lokasi kami tanpa biaya ongkir.</span>
                                     </div>
                                     <span class="choice-card-indicator" aria-hidden="true"></span>
                                 </div>
@@ -992,9 +883,9 @@
                             <div data-shipping-card="diantar" class="choice-card shipping-card">
                                 <div class="choice-card-header">
                                     <div class="choice-card-copy">
-                                        <span class="choice-card-kicker">Metode Pengiriman</span>
-                                        <span class="choice-card-title">Diantar</span>
-                                        <span class="choice-card-subtitle">Pesanan dikirim ke alamat Anda dengan ongkir sesuai hasil perhitungan sistem.</span>
+                                        <span id="method-option-b-kicker" class="choice-card-kicker">Metode Pengiriman</span>
+                                        <span id="method-option-b-title" class="choice-card-title">Diantar</span>
+                                        <span id="method-option-b-subtitle" class="choice-card-subtitle">Pesanan dikirim ke alamat Anda dengan ongkir sesuai hasil perhitungan sistem.</span>
                                     </div>
                                     <span class="choice-card-indicator" aria-hidden="true"></span>
                                 </div>
@@ -1168,7 +1059,106 @@
                     </div>
                 </div>
 
-                <div class="order-section-card p-6">
+                @php
+                    $prefillSummaryItems = collect($prefillServiceOrder['selected_units'] ?? []);
+                    $prefillSummaryUnitLabel = $isPrefilledRegisteredRefill
+                        ? $prefillSummaryItems->pluck('nomor_unit')->filter()->implode(', ')
+                        : '-';
+                    $prefillSummaryItemLabel = $isPrefilledRegisteredRefill
+                        ? ($prefillSummaryItems->pluck('jenis_refill')->filter()->unique()->implode(', ') ?: 'Refill APAR')
+                        : 'Belum dipilih';
+                    $prefillSummarySizeLabel = $isPrefilledRegisteredRefill
+                        ? ($prefillSummaryItems->pluck('ukuran')->filter()->unique()->implode(', ') ?: '-')
+                        : '-';
+                    $prefillSummaryQtyLabel = $isPrefilledRegisteredRefill
+                        ? (($prefillServiceOrder['total_unit'] ?? 0) . ' unit')
+                        : '1 unit';
+                    $prefillSummaryKgLabel = $isPrefilledRegisteredRefill
+                        ? (number_format((float) ($prefillServiceOrder['total_kg'] ?? 0), floor((float) ($prefillServiceOrder['total_kg'] ?? 0)) == (float) ($prefillServiceOrder['total_kg'] ?? 0) ? 0 : 2, ',', '.') . ' Kg')
+                        : '-';
+                    $prefillSummaryPriceLabel = $isPrefilledRegisteredRefill
+                        ? ('Rp ' . number_format((float) ($prefillServiceOrder['total_price'] ?? 0), 0, ',', '.'))
+                        : 'Rp 0';
+                    $prefillSummaryMethodLabel = $metodeOld === 'antar sendiri' ? 'Antar Sendiri' : 'Dijemput';
+                @endphp
+
+                <div id="service-summary-card" class="order-section-card hidden p-6">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                        </div>
+                        <div>
+                            <p class="text-sm font-black text-slate-800">Ringkasan Pesanan</p>
+                            <p class="text-[11px] font-semibold text-slate-500">Selalu ikut berubah saat form layanan diisi.</p>
+                        </div>
+                    </div>
+
+                    <div class="summary-card space-y-3">
+                        <div class="summary-row">
+                            <span class="text-slate-500 font-semibold">Kategori</span>
+                            <span id="service-summary-category" class="font-black text-slate-800">Refill APAR</span>
+                        </div>
+                        <div id="service-summary-status-row" class="summary-row">
+                            <span class="text-slate-500 font-semibold">Status Unit</span>
+                            <span id="service-summary-status" class="font-black text-slate-800">{{ $isPrefilledRegisteredRefill ? 'APAR Terdaftar' : 'APAR Belum Terdaftar' }}</span>
+                        </div>
+                        <div id="service-summary-unit-row" class="summary-row {{ $isPrefilledRegisteredRefill ? '' : 'hidden' }}">
+                            <span class="text-slate-500 font-semibold">Unit APAR</span>
+                            <span id="service-summary-unit" class="font-black text-slate-800 text-right">{{ $prefillSummaryUnitLabel }}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span id="service-summary-item-label" class="text-slate-500 font-semibold">Jenis Refill</span>
+                            <span id="service-summary-item" class="font-black text-slate-800 text-right">{{ $prefillSummaryItemLabel }}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="text-slate-500 font-semibold">Ukuran APAR</span>
+                            <span id="service-summary-size" class="font-black text-slate-800 text-right">{{ $prefillSummarySizeLabel }}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="text-slate-500 font-semibold">Jumlah Unit</span>
+                            <span id="service-summary-qty" class="font-black text-slate-800">{{ $prefillSummaryQtyLabel }}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span id="service-summary-usage-label" class="text-slate-500 font-semibold">Kebutuhan Refill</span>
+                            <span id="service-summary-kg" class="font-black text-slate-800 text-right">{{ $prefillSummaryKgLabel }}</span>
+                        </div>
+                        <div id="service-summary-equipment-row" class="summary-row hidden">
+                            <span class="text-slate-500 font-semibold">Peralatan Digunakan</span>
+                            <span id="service-summary-equipment" class="font-black text-slate-800 text-right">-</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="text-slate-500 font-semibold">Metode Penanganan</span>
+                            <span id="service-summary-method" class="font-black text-slate-800">{{ $prefillSummaryMethodLabel }}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="text-slate-500 font-semibold">Ongkir</span>
+                            <span id="service-summary-ongkir" class="font-black text-slate-800">Rp 0</span>
+                        </div>
+                        <div class="summary-row total">
+                            <span id="service-summary-price-label" class="text-slate-500 font-semibold">Estimasi Harga / Total</span>
+                            <span id="service-summary-price" class="text-xl font-black text-blue-600">{{ $prefillSummaryPriceLabel }}</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 space-y-4">
+                        <div id="service-stock-warning" class="hidden rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700"></div>
+                        <div id="service-low-stock-warning" class="hidden rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800"></div>
+
+                        <div id="service-package-note" class="hidden rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Rincian Paket & Peralatan</p>
+                            <div id="service-package-rincian" class="mt-3 space-y-2 text-sm font-semibold text-slate-700"></div>
+                        </div>
+
+                        <button type="submit" id="btn-service-submit" class="btn-primary-action submit service w-full justify-center">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span id="btn-service-submit-label">Lanjut ke Pembayaran</span>
+                        </button>
+
+                        <p class="text-[10px] text-slate-400 font-semibold text-center">Pastikan metode penanganan, bank tujuan, dan detail layanan sudah sesuai sebelum melanjutkan.</p>
+                    </div>
+                </div>
+
+                <div id="product-summary-card" class="order-section-card p-6">
                     <div class="flex items-center gap-2 mb-4">
                         <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
@@ -1291,6 +1281,9 @@
     const lblOngkir = document.getElementById('lbl-ongkir');
     const btnSubmitLabel = document.getElementById('btn-submit-label');
     const btnSubmit = document.getElementById('btn-submit');
+    const productSummaryCard = document.getElementById('product-summary-card');
+    const serviceSummaryCard = document.getElementById('service-summary-card');
+    const sectionPromoBanyak = document.getElementById('section-promo-banyak');
     const activePromoStatus = document.getElementById('active-promo-status');
     const promoStatusText = document.getElementById('promo-status-text');
     const promoStatusSubtext = document.getElementById('promo-status-subtext');
@@ -1313,6 +1306,7 @@
     const bankSelectionError = document.getElementById('bank-selection-error');
     const shippingStatusNote = document.getElementById('shipping-status-note');
     const inpMetodePengiriman = document.getElementById('inp-metode-pengiriman');
+    const serviceMethodHidden = document.getElementById('service-metode-penanganan-hidden');
     const inpOngkir = document.getElementById('inp-ongkir');
     const inpShippingDistance = document.getElementById('inp-shipping-distance');
     const orderForm = document.getElementById('order-form');
@@ -1359,12 +1353,17 @@
     const serviceSummaryStatus = document.getElementById('service-summary-status');
     const serviceSummaryUnitRow = document.getElementById('service-summary-unit-row');
     const serviceSummaryUnit = document.getElementById('service-summary-unit');
+    const serviceSummaryItemLabel = document.getElementById('service-summary-item-label');
     const serviceSummaryItem = document.getElementById('service-summary-item');
     const serviceSummarySize = document.getElementById('service-summary-size');
     const serviceSummaryQty = document.getElementById('service-summary-qty');
     const serviceSummaryKg = document.getElementById('service-summary-kg');
+    const serviceSummaryEquipmentRow = document.getElementById('service-summary-equipment-row');
+    const serviceSummaryEquipment = document.getElementById('service-summary-equipment');
     const serviceSummaryUsageLabel = document.getElementById('service-summary-usage-label');
     const serviceSummaryMethod = document.getElementById('service-summary-method');
+    const serviceSummaryOngkir = document.getElementById('service-summary-ongkir');
+    const serviceSummaryPriceLabel = document.getElementById('service-summary-price-label');
     const serviceSummaryPrice = document.getElementById('service-summary-price');
     const serviceStockTitle = document.getElementById('service-stock-title');
     const serviceStockCurrent = document.getElementById('service-stock-current');
@@ -1374,6 +1373,13 @@
     const servicePackageNote = document.getElementById('service-package-note');
     const servicePackageRincian = document.getElementById('service-package-rincian');
     const serviceMethodRadios = [...document.querySelectorAll('input[name="service_metode_penanganan"]')];
+    const methodCardTitle = document.getElementById('method-card-title');
+    const methodOptionAKicker = document.getElementById('method-option-a-kicker');
+    const methodOptionATitle = document.getElementById('method-option-a-title');
+    const methodOptionASubtitle = document.getElementById('method-option-a-subtitle');
+    const methodOptionBKicker = document.getElementById('method-option-b-kicker');
+    const methodOptionBTitle = document.getElementById('method-option-b-title');
+    const methodOptionBSubtitle = document.getElementById('method-option-b-subtitle');
     let lastRenderedPurchaseGroup = null;
     let addressSearchTimer = null;
     let addressSuggestionItems = [];
@@ -1479,6 +1485,36 @@
         inpAlamatCombined.value = combined;
     }
 
+    function syncMethodCardCopy() {
+        const isProductCheckout = currentTab === 'beli';
+
+        if (methodCardTitle) {
+            methodCardTitle.textContent = isProductCheckout ? 'Metode Pengiriman' : 'Metode Penanganan';
+        }
+        if (methodOptionAKicker) {
+            methodOptionAKicker.textContent = isProductCheckout ? 'Metode Pengiriman' : 'Metode Penanganan';
+        }
+        if (methodOptionATitle) {
+            methodOptionATitle.textContent = isProductCheckout ? 'Ambil Sendiri' : 'Antar Sendiri';
+        }
+        if (methodOptionASubtitle) {
+            methodOptionASubtitle.textContent = isProductCheckout
+                ? 'Ambil pesanan langsung di lokasi kami tanpa biaya ongkir.'
+                : 'Antar unit APAR langsung ke lokasi PD. Anugrah Utama tanpa biaya ongkir.';
+        }
+        if (methodOptionBKicker) {
+            methodOptionBKicker.textContent = isProductCheckout ? 'Metode Pengiriman' : 'Metode Penanganan';
+        }
+        if (methodOptionBTitle) {
+            methodOptionBTitle.textContent = isProductCheckout ? 'Diantar' : 'Dijemput';
+        }
+        if (methodOptionBSubtitle) {
+            methodOptionBSubtitle.textContent = isProductCheckout
+                ? 'Pesanan dikirim ke alamat Anda dengan ongkir sesuai hasil perhitungan sistem.'
+                : 'Tim kami menjemput unit APAR ke alamat Anda dengan estimasi ongkir sesuai perhitungan sistem.';
+        }
+    }
+
     function setShippingStatus(message, type) {
         if (!message) {
             shippingStatusNote.className = 'shipping-status-note';
@@ -1486,17 +1522,19 @@
             return;
         }
 
+        const isProductCheckout = currentTab === 'beli';
+
         if (type === 'error') {
             shippingStatusNote.className = 'shipping-status-note show error';
             shippingStatusNote.innerHTML = `
-                <span class="shipping-status-label">Informasi Pengiriman</span>
+                <span class="shipping-status-label">${isProductCheckout ? 'Informasi Pengiriman' : 'Informasi Penanganan'}</span>
                 <span class="shipping-status-value">Belum bisa menghitung ongkir</span>
                 <span class="shipping-status-meta">${escapeHtml(message)}</span>
             `;
         } else if (type === 'success') {
             shippingStatusNote.className = 'shipping-status-note show success';
             shippingStatusNote.innerHTML = `
-                <span class="shipping-status-label">Ongkir Ekspedisi</span>
+                <span class="shipping-status-label">${isProductCheckout ? 'Ongkir Ekspedisi' : 'Ongkir Penjemputan'}</span>
                 <span class="shipping-status-value">${fmt(shippingCost)}</span>
                 <span class="shipping-status-meta">Jarak: ${formatDistance(shippingDistanceKm)} km</span>
             `;
@@ -1504,12 +1542,12 @@
             shippingStatusNote.className = 'shipping-status-note show compact';
             shippingStatusNote.innerHTML = `
                 <span class="shipping-status-label">Ongkir</span>
-                <span class="shipping-status-meta">Ongkir Rp 0 karena pesanan diambil sendiri.</span>
+                <span class="shipping-status-meta">${isProductCheckout ? 'Ongkir Rp 0 karena pesanan diambil sendiri.' : 'Ongkir Rp 0 karena unit APAR diantar sendiri.'}</span>
             `;
         } else {
             shippingStatusNote.className = 'shipping-status-note show compact';
             shippingStatusNote.innerHTML = `
-                <span class="shipping-status-label">Pengiriman Diantar</span>
+                <span class="shipping-status-label">${isProductCheckout ? 'Pengiriman Diantar' : 'Penjemputan APAR'}</span>
                 <span class="shipping-status-meta">${escapeHtml(message)}</span>
             `;
         }
@@ -1531,30 +1569,53 @@
             btnCheckOngkir.classList.toggle('hidden', isPickup);
             btnCheckOngkir.disabled = isPickup;
         }
+
+        syncMethodCardCopy();
     }
 
     function setShippingMethod(method) {
         shippingMethod = method === 'diantar' ? 'diantar' : 'pickup';
         inpMetodePengiriman.value = shippingMethod === 'pickup' ? 'ambil_sendiri' : 'diantar';
 
-        if (shippingMethod === 'pickup') {
+        if (serviceMethodHidden && currentTab !== 'beli') {
+            serviceMethodHidden.value = shippingMethod === 'pickup' ? 'antar sendiri' : 'dijemput';
+        }
+
+        if (currentTab === 'beli' && shippingMethod === 'pickup') {
             shippingCost = 0;
             shippingDistanceKm = 0;
             shippingQuoteReady = true;
             inpOngkir.value = '0';
             inpShippingDistance.value = '0';
             setShippingStatus('Ongkir Rp 0 karena pesanan diambil sendiri.', 'info');
-        } else {
+        } else if (currentTab === 'beli') {
             shippingCost = 0;
             shippingDistanceKm = 0;
             shippingQuoteReady = false;
             inpOngkir.value = '0';
             inpShippingDistance.value = '0';
             setShippingStatus('Klik "Hitung Ongkir" untuk melihat biaya pengiriman ke alamat Anda.', 'info');
+        } else if (shippingMethod === 'pickup') {
+            shippingCost = 0;
+            shippingDistanceKm = 0;
+            shippingQuoteReady = true;
+            inpOngkir.value = '0';
+            inpShippingDistance.value = '0';
+            setShippingStatus('Ongkir Rp 0 karena unit APAR diantar sendiri.', 'info');
+        } else {
+            shippingCost = 0;
+            shippingDistanceKm = 0;
+            shippingQuoteReady = false;
+            inpOngkir.value = '0';
+            inpShippingDistance.value = '0';
+            setShippingStatus('Klik "Hitung Ongkir" untuk melihat estimasi biaya penjemputan APAR.', 'info');
         }
 
         applyShippingModeVisual();
         syncDisplayedTotal();
+        if (currentTab !== 'beli') {
+            updateServiceSummary();
+        }
     }
 
     function invalidateShippingQuote(message) {
@@ -1713,7 +1774,9 @@
         const detailAddress = (inpAlamatDetail.value || '').trim();
         const lat = Number(inpAlamatLat.value || 0);
         const lng = Number(inpAlamatLng.value || 0);
-        const items = getSelectedItems().map((item) => ({ jumlah: item.jumlah }));
+        const items = currentTab === 'beli'
+            ? getSelectedItems().map((item) => ({ jumlah: item.jumlah }))
+            : [{ jumlah: Math.max(1, Number(buildServiceState().qty || 1)) }];
 
         if (!mapsAddress || !detailAddress) {
             setShippingStatus('Alamat OpenStreetMap dan detail alamat wajib diisi sebelum cek ongkir.', 'error');
@@ -1724,7 +1787,9 @@
             return;
         }
         if (!items.length) {
-            setShippingStatus('Pilih minimal satu produk sebelum cek ongkir.', 'error');
+            setShippingStatus(currentTab === 'beli'
+                ? 'Pilih minimal satu produk sebelum cek ongkir.'
+                : 'Lengkapi detail layanan terlebih dahulu sebelum menghitung ongkir penjemputan.', 'error');
             return;
         }
 
@@ -1829,6 +1894,15 @@
     }
 
     function syncDisplayedTotal() {
+        if (sectionPromoBanyak) {
+            sectionPromoBanyak.classList.toggle('hidden', currentTab !== 'beli');
+        }
+
+        if (currentTab !== 'beli') {
+            syncPurchasePriceRequestState();
+            return;
+        }
+
         const totalQty = getSelectedItemQuantityTotal();
         const totalOngkir = shippingMethod === 'diantar' ? shippingCost : 0;
         
@@ -1932,8 +2006,16 @@
     }
 
     function getSelectedServiceMethod() {
+        if (serviceMethodHidden && serviceMethodHidden.value) {
+            return serviceMethodHidden.value;
+        }
+
         const selected = serviceMethodRadios.find((radio) => radio.checked);
-        return selected ? selected.value : 'dijemput';
+        if (selected) {
+            return selected.value;
+        }
+
+        return shippingMethod === 'pickup' ? 'antar sendiri' : 'dijemput';
     }
 
     function isPrefilledServiceCheckout() {
@@ -2447,6 +2529,8 @@
             itemLabel: 'Belum dipilih',
             unitPrice: 0,
             totalPrice: 0,
+            ongkir: metode === 'dijemput' && shippingMethod === 'diantar' ? Number(shippingCost || 0) : 0,
+            grandTotal: 0,
             totalKg: 0,
             stockUnit: refill?.satuan_label || 'Kg',
             insufficientStock: false,
@@ -2556,6 +2640,8 @@
             }
         }
 
+        state.grandTotal = state.totalPrice + state.ongkir;
+
         return state;
     }
 
@@ -2598,12 +2684,17 @@
         if (serviceSummaryCategory) serviceSummaryCategory.textContent = state.kategori === 'service' ? 'Service APAR' : 'Refill APAR';
         if (serviceSummaryStatusRow) serviceSummaryStatusRow.classList.toggle('hidden', false);
         if (serviceSummaryStatus) serviceSummaryStatus.textContent = state.unitStatus === 'terdaftar' ? 'APAR Terdaftar' : 'APAR Belum Terdaftar';
-        if (serviceSummaryUnitRow) serviceSummaryUnitRow.classList.toggle('hidden', state.unitStatus !== 'terdaftar');
+        if (serviceSummaryUnitRow) serviceSummaryUnitRow.classList.toggle('hidden', state.unitStatus !== 'terdaftar' || state.registeredUnits.length < 1);
         if (serviceSummaryUnit) {
-            const purchaseLabel = state.registeredUnits[0]?.purchase_label || '-';
             serviceSummaryUnit.textContent = state.registeredUnits.length
-                ? `${state.registeredUnits.length} unit dari ${purchaseLabel}`
+                ? state.registeredUnits
+                    .map((unit) => unit.kode || unit.label || `UNIT-${unit.id}`)
+                    .filter(Boolean)
+                    .join(', ')
                 : '-';
+        }
+        if (serviceSummaryItemLabel) {
+            serviceSummaryItemLabel.textContent = state.kategori === 'service' ? 'Jenis Service' : 'Jenis Refill';
         }
         if (serviceSummaryItem) serviceSummaryItem.textContent = state.itemLabel;
         if (serviceSummarySize) serviceSummarySize.textContent = state.ukuran || '-';
@@ -2616,8 +2707,20 @@
                 ? `${(state.peralatanItems || []).length} item`
                 : (state.totalKg > 0 ? `${formatKg(state.totalKg)} ${state.stockUnit}` : '-');
         }
+        if (serviceSummaryEquipmentRow) {
+            serviceSummaryEquipmentRow.classList.toggle('hidden', state.kategori !== 'service' || (state.peralatanItems || []).length < 1);
+        }
+        if (serviceSummaryEquipment) {
+            serviceSummaryEquipment.textContent = state.kategori === 'service' && (state.peralatanItems || []).length
+                ? state.peralatanItems.map((item) => `${item.nama} x ${Number(item.jumlah || 0)}`).join(', ')
+                : '-';
+        }
         if (serviceSummaryMethod) serviceSummaryMethod.textContent = metodeLabel;
-        if (serviceSummaryPrice) serviceSummaryPrice.textContent = fmt(state.totalPrice || 0);
+        if (serviceSummaryOngkir) serviceSummaryOngkir.textContent = fmt(state.ongkir || 0);
+        if (serviceSummaryPriceLabel) {
+            serviceSummaryPriceLabel.textContent = (state.ongkir || 0) > 0 ? 'Total Pembayaran' : 'Estimasi Harga / Total';
+        }
+        if (serviceSummaryPrice) serviceSummaryPrice.textContent = fmt(state.grandTotal || 0);
         if (serviceStockTitle) {
             serviceStockTitle.textContent = state.kategori === 'service' ? 'Stok Peralatan Paket' : 'Stok Saat Ini';
         }
@@ -2625,7 +2728,7 @@
         if (serviceStockAfter) serviceStockAfter.textContent = state.afterStockLabel;
         if (serviceRegisteredCountNote) {
             if (state.unitStatus === 'terdaftar' && state.registeredUnits.length) {
-                serviceRegisteredCountNote.textContent = `${state.registeredUnits.length} Unit APAR dipilih - Total ${fmt(state.totalPrice || 0)}`;
+                serviceRegisteredCountNote.textContent = `${state.registeredUnits.length} Unit APAR dipilih - Total ${fmt(state.grandTotal || 0)}`;
                 serviceRegisteredCountNote.classList.remove('hidden');
             } else {
                 serviceRegisteredCountNote.classList.add('hidden');
@@ -2759,7 +2862,6 @@
         const cardService = document.getElementById('card-service');
         const iconService = document.getElementById('icon-service');
         const sectionBeliItems = document.getElementById('section-beli-items');
-        const sectionBeliSidebar = document.getElementById('section-beli-sidebar');
         const sectionServiceSidebar = document.getElementById('section-service-sidebar');
         const sectionServiceInline = document.getElementById('section-service-inline');
 
@@ -2777,16 +2879,17 @@
         }
 
         if (sectionBeliItems) sectionBeliItems.classList.toggle('hidden', !isB);
-        if (sectionServiceSidebar) sectionServiceSidebar.classList.toggle('hidden', !isB);
-        if (sectionBeliSidebar) sectionBeliSidebar.classList.toggle('hidden', isB);
+        if (sectionServiceSidebar) sectionServiceSidebar.classList.remove('hidden');
         if (sectionServiceInline) sectionServiceInline.classList.toggle('hidden', isB);
+        if (productSummaryCard) productSummaryCard.classList.toggle('hidden', !isB);
+        if (serviceSummaryCard) serviceSummaryCard.classList.toggle('hidden', isB);
+        if (sectionPromoBanyak) sectionPromoBanyak.classList.toggle('hidden', !isB);
 
         if (isB) {
             setShippingMethod(inpMetodePengiriman.value || 'pickup');
         } else {
-            inpMetodePengiriman.value = 'pickup';
-            inpOngkir.value = '0';
-            inpShippingDistance.value = '0';
+            const serviceMode = (serviceMethodHidden?.value || '') === 'antar sendiri' ? 'pickup' : 'diantar';
+            setShippingMethod(serviceMode);
         }
 
         updateServiceFormState();
@@ -2986,9 +3089,6 @@
 
             document.querySelectorAll('[name^="items["]').forEach((field) => { field.disabled = true; });
             inpTipeHarga.value = 'normal';
-            inpBank.value = '';
-            inpOngkir.value = '0';
-            inpShippingDistance.value = '0';
             document.getElementById('inp-use-cart-checkout').value = '0';
 
             if (serviceState.unitStatus === 'terdaftar' && !servicePurchaseGroup?.value) {
@@ -3043,6 +3143,26 @@
                 showAppAlert(serviceState.unitStatus === 'terdaftar'
                     ? 'Harga otomatis untuk Unit APAR terdaftar belum tersedia. Pastikan harga standar refil atau service sudah terisi.'
                     : 'Harga layanan untuk pilihan ini belum tersedia.', 'warning', 'Peringatan');
+                event.preventDefault();
+                return;
+            }
+
+            if (shippingMethod === 'diantar') {
+                if (!shippingQuoteReady) {
+                    showAppAlert('Silakan hitung ongkir penjemputan terlebih dahulu.', 'warning', 'Peringatan');
+                    event.preventDefault();
+                    return;
+                }
+
+                inpOngkir.value = String(shippingCost);
+                inpShippingDistance.value = String(shippingDistanceKm);
+            } else {
+                inpOngkir.value = '0';
+                inpShippingDistance.value = '0';
+            }
+
+            if (!inpBank.value) {
+                showBankError('Pilih bank tujuan terlebih dahulu untuk melanjutkan pemesanan.');
                 event.preventDefault();
                 return;
             }

@@ -34,7 +34,7 @@
                         </x-nav-link>
                         <div class="relative" x-data="{ open: false }" @click.outside="open = false" @close.stop="open = false">
                             <x-nav-link :href="'#'" @click.prevent="open = ! open" class="cursor-pointer" :class="{'text-red-700 font-bold': open || request()->routeIs('admin.jenis-apar.*') || request()->routeIs('admin.jenis-refill.*') || request()->routeIs('admin.peralatan.*') || request()->routeIs('admin.service-paket.*')}">
-                                Master Data
+                                Data Layanan
                                 <div class="ms-1 inline-block">
                                     <svg class="fill-current h-3 w-3 transition-transform duration-200" :class="{'rotate-180': open}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
@@ -60,12 +60,12 @@
                                     <a href="{{ route('admin.jenis-refill.index') }}"
                                        class="block px-5 py-2.5 text-sm font-medium transition duration-150 ease-in-out
                                               {{ request()->routeIs('admin.jenis-refill.*') ? 'text-red-700 bg-red-50 font-bold' : 'text-gray-700 hover:bg-gray-50' }}">
-                                        Jenis Refil
+                                        Jenis Refill
                                     </a>
                                     <a href="{{ route('admin.peralatan.index') }}"
                                        class="block px-5 py-2.5 text-sm font-medium transition duration-150 ease-in-out
                                               {{ request()->routeIs('admin.peralatan.*', 'admin.service-paket.*') ? 'text-red-700 bg-red-50 font-bold' : 'text-gray-700 hover:bg-gray-50' }}">
-                                        Master Service &amp; Peralatan
+                                        Service &amp; Peralatan
                                     </a>
                                 </div>
                             </div>

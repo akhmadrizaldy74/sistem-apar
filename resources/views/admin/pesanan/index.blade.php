@@ -2,8 +2,8 @@
     <x-slot name="header">
         <div class="flex w-full flex-col justify-between gap-4 md:flex-row md:items-center">
             <div>
-                <h2 class="text-[28px] font-black tracking-tight text-gray-900">Pesanan</h2>
-                <p class="text-sm font-medium text-gray-500">Kelola pembelian unit, refill APAR, dan service APAR yang masuk dari pelanggan.</p>
+                <h2 class="text-3xl font-black tracking-tight text-gray-900 sm:text-[2rem]">Pesanan</h2>
+                <p class="mt-2 max-w-3xl text-[15px] font-medium leading-7 text-gray-500">Kelola pembelian unit, refill APAR, dan service APAR yang masuk dari pelanggan dengan tampilan ringkas yang lebih jelas dibaca.</p>
             </div>
         </div>
     </x-slot>

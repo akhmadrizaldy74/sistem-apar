@@ -43,12 +43,15 @@ class ServiceMasterRevisionTest extends TestCase
         $peralatanResponse = $this->actingAs($admin)->get(route('admin.peralatan.index'));
 
         $peralatanResponse->assertOk();
-        $peralatanResponse->assertSeeText('Master Service & Peralatan');
+        $peralatanResponse->assertSeeText('Service & Peralatan');
+        $peralatanResponse->assertSeeText('Data Layanan');
         $peralatanResponse->assertSeeText('Jenis Service');
         $peralatanResponse->assertSeeText('Peralatan Service');
         $peralatanResponse->assertSeeText('Safety Pin APAR');
         $peralatanResponse->assertSeeText('Selang APAR Powder/Foam');
         $peralatanResponse->assertSeeText('Baut Bracket APAR');
+        $peralatanResponse->assertDontSeeText('Master Service & Peralatan');
+        $peralatanResponse->assertDontSeeText('Master Data');
         $peralatanResponse->assertDontSeeText('Safety Pin (Pin Pengaman)');
         $peralatanResponse->assertDontSeeText('Nozzle/Corong CO2');
 
@@ -60,7 +63,8 @@ class ServiceMasterRevisionTest extends TestCase
         $serviceResponse = $this->actingAs($admin)->get(route('admin.service-paket.index'));
 
         $serviceResponse->assertOk();
-        $serviceResponse->assertSeeText('Master Service & Peralatan');
+        $serviceResponse->assertSeeText('Service & Peralatan');
+        $serviceResponse->assertSeeText('Data Layanan');
         $serviceResponse->assertSeeText('Jenis Service');
         $serviceResponse->assertSeeText('Peralatan Service');
         $serviceResponse->assertSeeText('Service Ringan');
@@ -69,6 +73,8 @@ class ServiceMasterRevisionTest extends TestCase
         $serviceResponse->assertSeeText('Ganti Valve APAR');
         $serviceResponse->assertSeeText('Ganti Pressure Gauge');
         $serviceResponse->assertSeeText('Pasang/Ganti Bracket');
+        $serviceResponse->assertDontSeeText('Master Service & Peralatan');
+        $serviceResponse->assertDontSeeText('Master Data');
         $serviceResponse->assertDontSeeText('Master Jenis Service');
         $serviceResponse->assertDontSeeText('Nozzle');
     }

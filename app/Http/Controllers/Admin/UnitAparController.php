@@ -164,9 +164,16 @@ class UnitAparController extends Controller
             ->orderBy('nama');
     }
 
+    protected function ensureUnitVisible(UnitApar $unitApar): void
+    {
+        abort_if($unitApar->isHiddenFromListings(), 404);
+    }
+
     public function index()
     {
-        $units = UnitApar::with(['pelanggan', 'produk.jenisApar'])
+        $units = UnitApar::query()
+            ->visible()
+            ->with(['pelanggan', 'produk.jenisApar'])
             ->whereHas('pelanggan', fn (Builder $query) => $query->visibleInDirectory())
             ->latest('tgl_beli')
             ->get();
@@ -185,6 +192,8 @@ class UnitAparController extends Controller
 
     public function show(UnitApar $unitApar)
     {
+        $this->ensureUnitVisible($unitApar);
+
         $unit = $unitApar->load(['pelanggan', 'produk.jenisApar']);
         $statusMeta = $this->resolveUnitStatusMeta($unit->tgl_expired);
 
@@ -205,6 +214,8 @@ class UnitAparController extends Controller
 
     public function edit(UnitApar $unitApar)
     {
+        $this->ensureUnitVisible($unitApar);
+
         $pelanggans = $this->visibleCustomerQuery()->get();
         $produks = Produk::all();
 
@@ -213,6 +224,8 @@ class UnitAparController extends Controller
 
     public function update(Request $request, UnitApar $unitApar)
     {
+        $this->ensureUnitVisible($unitApar);
+
         $produkId = $request->input('produk_id') ?: $request->input('model_produk_id');
         $noSeri = $request->input('no_seri') ?: $request->input('kode_unit') ?: $request->input('nomor_seri_unit');
         $tanggalDasar = $this->normalizeBaseDateInput($request) ?: optional($unitApar->tgl_produksi ?? $unitApar->tgl_beli)->toDateString();
@@ -272,12 +285,14 @@ class UnitAparController extends Controller
 
     public function destroy(UnitApar $unitApar)
     {
-        if ($unitApar->produk) {
-            $unitApar->produk->increment('stok', 1);
+        if (! $unitApar->hideFromListings()) {
+            return redirect()
+                ->route('admin.unit-apar.index')
+                ->with('error', 'Unit APAR belum bisa disembunyikan. Jalankan migrasi terbaru terlebih dahulu.');
         }
 
-        $unitApar->delete();
-
-        return redirect()->route('admin.unit-apar.index')->with('success', 'Unit APAR berhasil dihapus.');
+        return redirect()
+            ->route('admin.unit-apar.index')
+            ->with('success', 'Unit APAR berhasil disembunyikan dari daftar.');
     }
 }

@@ -111,7 +111,7 @@ class PengeluaranController extends Controller
 
         $message = match ($pengeluaranData['jenis_pengeluaran']) {
             Pengeluaran::JENIS_PEMBELIAN_APAR => 'Data pengeluaran pembelian APAR berhasil disimpan dan stok otomatis diperbarui.',
-            Pengeluaran::JENIS_PEMBELIAN_REFILL => 'Data pengeluaran pembelian refil berhasil disimpan dan stok otomatis diperbarui.',
+            Pengeluaran::JENIS_PEMBELIAN_REFILL => 'Data pengeluaran pembelian refill berhasil disimpan dan stok otomatis diperbarui.',
             Pengeluaran::JENIS_PEMBELIAN_PERALATAN => 'Data pengeluaran pembelian peralatan berhasil disimpan dan stok otomatis diperbarui.',
             default => 'Data pengeluaran berhasil disimpan.',
         };
@@ -201,7 +201,7 @@ class PengeluaranController extends Controller
 
         if ($hargaStandar <= 0) {
             throw ValidationException::withMessages([
-                'jenis_refill_id' => 'Harga standar untuk jenis refil "' . $jenisRefill->nama . '" belum tersedia. Isi harga standar terlebih dahulu di Master Data Jenis Refil.',
+                'jenis_refill_id' => 'Harga standar untuk jenis refill "' . $jenisRefill->nama . '" belum tersedia. Isi harga standar terlebih dahulu di Data Layanan > Jenis Refill.',
             ]);
         }
 
@@ -230,7 +230,7 @@ class PengeluaranController extends Controller
 
         if ($hargaStandar <= 0) {
             throw ValidationException::withMessages([
-                'peralatan_id' => 'Harga standar untuk peralatan "' . $peralatan->nama . '" belum tersedia. Isi harga standar terlebih dahulu di menu Master Data > Master Service & Peralatan.',
+                'peralatan_id' => 'Harga standar untuk peralatan "' . $peralatan->nama . '" belum tersedia. Isi harga standar terlebih dahulu di menu Data Layanan > Service & Peralatan.',
             ]);
         }
 

@@ -144,11 +144,10 @@ class LandingPageController extends Controller
         $historyNotice = null;
 
         if ($pelanggan) {
-            $this->syncUnitsForPelanggan($pelanggan);
-
             $pelanggan->load([
-                'units.produk.jenisApar',
-                'units.services',
+                'units' => fn ($query) => $query
+                    ->visible()
+                    ->with(['produk.jenisApar', 'services']),
                 'pesanan' => function ($query) {
                     $query->orderByDesc('created_at');
                 },
@@ -264,6 +263,7 @@ class LandingPageController extends Controller
         }
 
         $selectedUnits = UnitApar::query()
+            ->visible()
             ->with('produk.jenisApar')
             ->where('pelanggan_id', $pelanggan->id)
             ->whereIn('id', $selectedUnitIds->all())
@@ -343,17 +343,22 @@ class LandingPageController extends Controller
                 'updated_at' => $p->updated_at->toIso8601String(),
             ]);
 
-        $units = $pelanggan->units->map(fn($u) => [
-            'id' => $u->id,
-            'no_seri' => $u->no_seri,
-            'nama' => $u->produk?->nama ?? 'APAR',
-            'jenis' => $u->produk?->jenisApar?->nama ?? '-',
-            'ukuran' => $u->produk?->kapasitas ?? $u->ukuran ?? '-',
-            'tgl_expired' => $u->tgl_expired?->format('d M Y'),
-            'is_expired' => $u->tgl_expired && $u->tgl_expired->isPast(),
-            'is_expiring_soon' => $u->tgl_expired && !$u->tgl_expired->isPast() && $u->tgl_expired->diffInDays(now()) <= 30,
-            'days_until_expiry' => $u->tgl_expired ? $u->tgl_expired->diffInDays(now()) : null,
-        ]);
+        $units = UnitApar::query()
+            ->visible()
+            ->with(['produk.jenisApar'])
+            ->where('pelanggan_id', $pelanggan->id)
+            ->get()
+            ->map(fn($u) => [
+                'id' => $u->id,
+                'no_seri' => $u->no_seri,
+                'nama' => $u->produk?->nama ?? 'APAR',
+                'jenis' => $u->produk?->jenisApar?->nama ?? '-',
+                'ukuran' => $u->produk?->kapasitas ?? $u->ukuran ?? '-',
+                'tgl_expired' => $u->tgl_expired?->format('d M Y'),
+                'is_expired' => $u->tgl_expired && $u->tgl_expired->isPast(),
+                'is_expiring_soon' => $u->tgl_expired && !$u->tgl_expired->isPast() && $u->tgl_expired->diffInDays(now()) <= 30,
+                'days_until_expiry' => $u->tgl_expired ? $u->tgl_expired->diffInDays(now()) : null,
+            ]);
 
         return response()->json([
             'success' => true,
@@ -363,62 +368,4 @@ class LandingPageController extends Controller
         ]);
     }
 
-    private function syncUnitsForPelanggan(Pelanggan $pelanggan): void
-    {
-        Pesanan::with(['details.produk.jenisApar', 'unitApars'])
-            ->where('pelanggan_id', $pelanggan->id)
-            ->where('tipe', 'produk')
-            ->where('status', 'selesai final')
-            ->get()
-            ->each(fn (Pesanan $pesanan) => $this->syncUnitAparsForPesanan($pesanan));
-    }
-
-    private function syncUnitAparsForPesanan(Pesanan $pesanan): void
-    {
-        if ($pesanan->tipe !== 'produk' || !in_array($pesanan->status, ['selesai final'], true)) {
-            return;
-        }
-
-        $pesanan->loadMissing(['details.produk.jenisApar', 'unitApars']);
-
-        foreach ($pesanan->details as $detail) {
-            $existingCount = $pesanan->unitApars
-                ->where('produk_id', $detail->produk_id)
-                ->count();
-
-            $missingCount = max(0, ((int) $detail->jumlah) - $existingCount);
-
-            if ($missingCount <= 0 || !$detail->produk) {
-                continue;
-            }
-
-            $this->createUnitAparsFromDetail($pesanan, $detail->produk, $missingCount, $existingCount + 1);
-            $pesanan->load('unitApars');
-        }
-    }
-
-    private function createUnitAparsFromDetail(Pesanan $pesanan, Produk $produk, int $jumlah, int $startFrom = 1): void
-    {
-        for ($urutan = $startFrom; $urutan < $startFrom + $jumlah; $urutan++) {
-            $serial = $this->generateSerialNumber($pesanan, $produk, $urutan);
-
-            UnitApar::create([
-                'pelanggan_id' => $pesanan->pelanggan_id,
-                'pesanan_id' => $pesanan->id,
-                'produk_id' => $produk->id,
-                'no_seri' => $serial,
-                'tgl_beli' => $pesanan->tanggal,
-                'tgl_produksi' => $pesanan->tanggal,
-                'ukuran' => $produk->kapasitas ?? '-',
-                'bahan' => $produk->jenisApar?->nama ?? '-',
-                'tgl_expired' => UnitApar::calculateExpiry($pesanan->tanggal, $produk->kapasitas ?? '-', $produk->jenisApar?->nama ?? '-'),
-            ]);
-        }
-    }
-
-    private function generateSerialNumber(Pesanan $pesanan, Produk $produk, int $urutan): string
-    {
-        $pesanan->loadMissing('pelanggan');
-        return UnitApar::generateSerialNumber($pesanan->pelanggan, $pesanan->tanggal);
-    }
 }

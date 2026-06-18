@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Jenis Refil') }}
+            {{ __('Jenis Refill') }}
         </h2>
     </x-slot>
 
@@ -9,7 +9,7 @@
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
                 <div class="flex justify-between mb-6">
-                    <h3 class="text-lg font-medium text-gray-900">Master Data Jenis Refil</h3>
+                    <h3 class="text-lg font-medium text-gray-900">Data Layanan Jenis Refill</h3>
                     <a href="{{ route('admin.jenis-refill.create') }}" class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700">
                         Tambah
                     </a>
@@ -47,8 +47,8 @@
 
                 <div class="mt-4 p-4 bg-gray-50 rounded-lg">
                     <p class="text-sm text-gray-500">
-                        <strong>Catatan:</strong> Stok refil dikelola melalui menu <a href="{{ route('admin.stok.index', ['tab' => 'refill']) }}" class="text-blue-600 hover:underline">Stok</a>.
-                        Penambahan stok dilakukan saat mencatat <a href="{{ route('admin.pengeluaran.index') }}" class="text-blue-600 hover:underline">Pembelian Refil</a>.
+                        <strong>Catatan:</strong> Stok refill dikelola melalui menu <a href="{{ route('admin.stok.index', ['tab' => 'refill']) }}" class="text-blue-600 hover:underline">Stok</a>.
+                        Penambahan stok dilakukan saat mencatat <a href="{{ route('admin.pengeluaran.index') }}" class="text-blue-600 hover:underline">Pembelian Refill</a>.
                     </p>
                 </div>
             </div>

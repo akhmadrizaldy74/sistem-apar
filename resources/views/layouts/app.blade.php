@@ -353,14 +353,14 @@
                             <button @click="open = !open" class="sidebar-nav-link flex items-center justify-between w-full px-4 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800 transition">
                                 <div class="flex items-center gap-3">
                                     <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                                    <span class="sidebar-label truncate font-semibold text-xs tracking-wider">MASTER DATA</span>
+                                    <span class="sidebar-label truncate font-semibold text-xs tracking-wider">DATA LAYANAN</span>
                                 </div>
                                 <svg class="w-4 h-4 sidebar-label transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                             </button>
                             <div x-show="open" class="flex flex-col pl-12 pr-4 py-1 space-y-1 bg-slate-900/50">
                                 <a href="{{ route('admin.jenis-apar.index') }}" class="text-xs font-semibold py-2 px-3 rounded-lg transition {{ request()->routeIs('admin.jenis-apar.*') ? 'text-red-400 bg-slate-800' : 'text-slate-400 hover:text-white hover:bg-slate-800' }}">Jenis APAR</a>
-                                <a href="{{ route('admin.jenis-refill.index') }}" class="text-xs font-semibold py-2 px-3 rounded-lg transition {{ request()->routeIs('admin.jenis-refill.*') ? 'text-red-400 bg-slate-800' : 'text-slate-400 hover:text-white hover:bg-slate-800' }}">Jenis Refil</a>
-                                <a href="{{ route('admin.peralatan.index') }}" class="text-xs font-semibold py-2 px-3 rounded-lg transition {{ request()->routeIs('admin.peralatan.*', 'admin.service-paket.*') ? 'text-red-400 bg-slate-800' : 'text-slate-400 hover:text-white hover:bg-slate-800' }}">Master Service &amp; Peralatan</a>
+                                <a href="{{ route('admin.jenis-refill.index') }}" class="text-xs font-semibold py-2 px-3 rounded-lg transition {{ request()->routeIs('admin.jenis-refill.*') ? 'text-red-400 bg-slate-800' : 'text-slate-400 hover:text-white hover:bg-slate-800' }}">Jenis Refill</a>
+                                <a href="{{ route('admin.peralatan.index') }}" class="text-xs font-semibold py-2 px-3 rounded-lg transition {{ request()->routeIs('admin.peralatan.*', 'admin.service-paket.*') ? 'text-red-400 bg-slate-800' : 'text-slate-400 hover:text-white hover:bg-slate-800' }}">Service &amp; Peralatan</a>
                             </div>
                         </div>
 

@@ -20,7 +20,10 @@ class RefillController extends Controller
     {
         return Pelanggan::query()
             ->visibleInDirectory()
-            ->with(['user', 'units.produk.jenisApar'])
+            ->with([
+                'user',
+                'units' => fn ($query) => $query->visible()->with('produk.jenisApar'),
+            ])
             ->orderBy('nama');
     }
 
@@ -56,7 +59,7 @@ class RefillController extends Controller
             ->orderByDesc('tgl_refill')
             ->orderByDesc('created_at')
             ->get();
-        $units = UnitApar::with(['pelanggan', 'produk'])->get();
+        $units = UnitApar::query()->visible()->with(['pelanggan', 'produk'])->get();
         $pelanggans = $this->linkedPelangganSelection()->get();
         $jenisRefills = JenisRefill::orderBy('nama')->get();
         $ukuranAparOptions = $this->buildUkuranAparOptions();
@@ -185,6 +188,7 @@ class RefillController extends Controller
             }
 
             $selectedUnits = UnitApar::query()
+                ->visible()
                 ->with(['produk.jenisApar'])
                 ->where('pelanggan_id', $pelanggan->id)
                 ->whereIn('id', $selectedUnitIds->all())
@@ -429,7 +433,7 @@ class RefillController extends Controller
 
     public function edit(Refill $refill)
     {
-        $units = UnitApar::with(['pelanggan', 'produk'])->get();
+        $units = UnitApar::query()->visible()->with(['pelanggan', 'produk'])->get();
         $jenisRefills = JenisRefill::orderBy('nama')->get();
         $refillPackages = $this->refillPackages();
 
@@ -447,20 +451,20 @@ class RefillController extends Controller
 
         $refill->update($request->only('unit_apar_id', 'jenis_refill_id', 'tgl_refill', 'biaya'));
 
-        return redirect()->route('admin.refill.index')->with('success', 'Data refil APAR berhasil diperbarui.');
+        return redirect()->route('admin.refill.index')->with('success', 'Data refill APAR berhasil diperbarui.');
     }
 
     public function destroy(Refill $refill)
     {
         $refill->delete();
 
-        return redirect()->route('admin.refill.index')->with('success', 'Data refil APAR berhasil dihapus.');
+        return redirect()->route('admin.refill.index')->with('success', 'Data refill APAR berhasil dihapus.');
     }
 
     public function assignTeknisi(Request $request, Pesanan $pesanan)
     {
         if ($pesanan->service_jenis_layanan !== 'refill') {
-            return back()->with('error', 'Data ini bukan refil APAR.');
+            return back()->with('error', 'Data ini bukan refill APAR.');
         }
 
         // Auto-select teknisi: prioritize teknisi with least active assignments
@@ -486,7 +490,7 @@ class RefillController extends Controller
     public function updateStatus(Request $request, Pesanan $pesanan)
     {
         if ($pesanan->service_jenis_layanan !== 'refill') {
-            return back()->with('error', 'Data ini bukan refil APAR.');
+            return back()->with('error', 'Data ini bukan refill APAR.');
         }
 
         $validated = $request->validate([
@@ -517,7 +521,7 @@ class RefillController extends Controller
             app(FinalTransactionStockService::class)->apply($pesanan);
         }
 
-        return back()->with('success', 'Status refil APAR berhasil diperbarui.');
+        return back()->with('success', 'Status refill APAR berhasil diperbarui.');
     }
 
     protected function refillPackages(): array
@@ -587,6 +591,7 @@ class RefillController extends Controller
             ->pluck('kapasitas')
             ->merge(
                 UnitApar::query()
+                    ->visible()
                     ->whereNotNull('ukuran')
                     ->pluck('ukuran')
             )

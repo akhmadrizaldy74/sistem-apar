@@ -3,7 +3,7 @@
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
                 <h2 class="text-3xl font-black tracking-tight text-gray-900">Manajemen Pengeluaran</h2>
-                <p class="text-sm font-medium text-gray-500">Kelola data pengeluaran pembelian APAR, refil, dan peralatan.</p>
+                <p class="text-sm font-medium text-gray-500">Kelola data pengeluaran pembelian APAR, refill, dan peralatan.</p>
             </div>
             <button
                 type="button"
@@ -96,9 +96,9 @@
                 <p class="mt-2 text-xs font-semibold text-gray-500">Unit APAR yang masuk ke stok</p>
             </div>
             <div class="rounded-[2rem] border border-gray-100 bg-white p-5 shadow-sm sm:p-6">
-                <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Pembelian Refil</p>
+                <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Pembelian Refill</p>
                 <p class="mt-3 text-3xl font-black text-gray-900">{{ $formatQty($totalRefill) }}</p>
-                <p class="mt-2 text-xs font-semibold text-gray-500">Akumulasi kuantitas media refil</p>
+                <p class="mt-2 text-xs font-semibold text-gray-500">Akumulasi kuantitas media refill</p>
             </div>
             <div class="rounded-[2rem] border border-gray-100 bg-white p-5 shadow-sm sm:p-6">
                 <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Pembelian Peralatan</p>
@@ -109,7 +109,7 @@
 
         <div class="rounded-[2rem] border border-blue-100 bg-blue-50/70 p-5">
             <p class="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600">Alur Sistem</p>
-            <p class="mt-2 text-sm font-semibold leading-relaxed text-blue-900">Tambah stok APAR, refil, dan peralatan sekarang dicatat dari menu Pengeluaran. Stok tidak diubah manual, tetapi bertambah otomatis setelah transaksi pembelian disimpan.</p>
+            <p class="mt-2 text-sm font-semibold leading-relaxed text-blue-900">Tambah stok APAR, refill, dan peralatan sekarang dicatat dari menu Pengeluaran. Stok tidak diubah manual, tetapi bertambah otomatis setelah transaksi pembelian disimpan.</p>
         </div>
 
         <div class="overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-sm">
@@ -147,9 +147,9 @@
                                     @if($item->produk)
                                         <p class="mt-1 text-[11px] font-semibold text-gray-500">{{ $item->produk->merek ?: '-' }} • {{ $item->produk->jenisApar?->nama ?: '-' }} • {{ $item->produk->kapasitas ?: '-' }}</p>
                                     @elseif($item->jenisRefill)
-                                        <p class="mt-1 text-[11px] font-semibold text-gray-500">Jenis Refil dari master data</p>
+                                        <p class="mt-1 text-[11px] font-semibold text-gray-500">Jenis Refill dari Data Layanan</p>
                                     @elseif($item->peralatan)
-                                        <p class="mt-1 text-[11px] font-semibold text-gray-500">Peralatan dari master data</p>
+                                        <p class="mt-1 text-[11px] font-semibold text-gray-500">Peralatan dari Data Layanan</p>
                                     @elseif($item->isLegacyOtherExpense())
                                         <p class="mt-1 text-[11px] font-semibold text-gray-500">Data lama non-stok</p>
                                     @endif
@@ -216,7 +216,7 @@
                             <select id="jenis_pengeluaran" name="jenis_pengeluaran" x-model="jenisPengeluaran" required class="w-full rounded-xl border-none bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition focus:ring-2 focus:ring-red-600/20">
                                 <option value="">Pilih Jenis Pembelian</option>
                                 <option value="{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}">Pembelian APAR</option>
-                                <option value="{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_REFILL }}">Pembelian Refil</option>
+                                <option value="{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_REFILL }}">Pembelian Refill</option>
                                 <option value="{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_PERALATAN }}">Pembelian Peralatan</option>
                             </select>
                         </div>
@@ -580,7 +580,7 @@
                     }
 
                     if (this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_REFILL }}') {
-                        return 'Total Pengeluaran Pembelian Refil';
+                        return 'Total Pengeluaran Pembelian Refill';
                     }
 
                     if (this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_PERALATAN }}') {
@@ -595,11 +595,11 @@
                     }
 
                     if (this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_REFILL }}') {
-                        return 'Harga standar refil diambil otomatis dari master data dan total dihitung langsung dari kuantitas pembelian.';
+                        return 'Harga standar refill diambil otomatis dari Data Layanan dan total dihitung langsung dari kuantitas pembelian.';
                     }
 
                     if (this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_PERALATAN }}') {
-                        return 'Harga standar peralatan diambil otomatis dari master data dan total dihitung langsung dari kuantitas pembelian.';
+                        return 'Harga standar peralatan diambil otomatis dari Data Layanan dan total dihitung langsung dari kuantitas pembelian.';
                     }
 
                     return 'Nominal pengeluaran akan tampil otomatis dalam format Rupiah Indonesia.';

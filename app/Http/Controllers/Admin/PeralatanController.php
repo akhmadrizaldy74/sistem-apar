@@ -42,7 +42,7 @@ class PeralatanController extends Controller
 
         return redirect()
             ->route('admin.peralatan.index')
-            ->with('success', 'Master peralatan berhasil ditambahkan. Tambah stok dilakukan dari menu Pengeluaran.');
+            ->with('success', 'Peralatan service berhasil ditambahkan. Tambah stok dilakukan dari menu Pengeluaran.');
     }
 
     public function edit(Peralatan $peralatan)
@@ -64,7 +64,7 @@ class PeralatanController extends Controller
 
         return redirect()
             ->route('admin.peralatan.index')
-            ->with('success', 'Master peralatan berhasil diperbarui.');
+            ->with('success', 'Peralatan service berhasil diperbarui.');
     }
 
     public function destroy(Peralatan $peralatan)

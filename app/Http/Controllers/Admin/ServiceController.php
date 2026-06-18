@@ -24,7 +24,10 @@ class ServiceController extends Controller
     {
         return Pelanggan::query()
             ->visibleInDirectory()
-            ->with(['user', 'units.produk.jenisApar'])
+            ->with([
+                'user',
+                'units' => fn ($query) => $query->visible()->with('produk.jenisApar'),
+            ])
             ->orderBy('nama');
     }
 
@@ -51,7 +54,7 @@ class ServiceController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
-        $units = UnitApar::with(['pelanggan', 'produk.jenisApar'])->get();
+        $units = UnitApar::query()->visible()->with(['pelanggan', 'produk.jenisApar'])->get();
         $ukuranAparOptions = $this->buildUkuranAparOptions();
         $pelanggans = $this->linkedPelangganSelection()->get();
 
@@ -248,6 +251,7 @@ class ServiceController extends Controller
             }
 
             $selectedUnits = UnitApar::query()
+                ->visible()
                 ->with(['produk.jenisApar'])
                 ->where('pelanggan_id', $pelanggan->id)
                 ->whereIn('id', $selectedUnitIds->all())
@@ -518,10 +522,10 @@ class ServiceController extends Controller
     public function edit(Service $service, ServiceMasterSyncService $serviceMasterSyncService)
     {
         if ($service->jenis_service === 'Refill') {
-            return redirect()->route('admin.refill.index')->with('success', 'Data refil dikelola dari menu Refil APAR.');
+            return redirect()->route('admin.refill.index')->with('success', 'Data refill dikelola dari menu Refill APAR.');
         }
 
-        $units = UnitApar::with(['pelanggan', 'produk.jenisApar'])->get();
+        $units = UnitApar::query()->visible()->with(['pelanggan', 'produk.jenisApar'])->get();
         $servicePakets = $serviceMasterSyncService->visibleServicePakets(['peralatans']);
 
         return view('admin.service.edit', compact('service', 'units', 'servicePakets'));
@@ -699,6 +703,7 @@ class ServiceController extends Controller
             ->pluck('kapasitas')
             ->merge(
                 UnitApar::query()
+                    ->visible()
                     ->whereNotNull('ukuran')
                     ->pluck('ukuran')
             )

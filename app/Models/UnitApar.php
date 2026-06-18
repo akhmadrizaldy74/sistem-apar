@@ -4,11 +4,14 @@ namespace App\Models;
 
 use App\Traits\Auditable;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema;
 
 class UnitApar extends Model
 {
     use Auditable;
+
     protected $fillable = [
         'pelanggan_id',
         'pesanan_id',
@@ -22,13 +25,17 @@ class UnitApar extends Model
         'kondisi_awal',
         'catatan_unit',
         'tgl_expired',
+        'hidden_at',
     ];
 
     protected $casts = [
         'tgl_beli' => 'date',
         'tgl_produksi' => 'date',
         'tgl_expired' => 'date',
+        'hidden_at' => 'datetime',
     ];
+
+    protected static array $tableColumnCache = [];
 
     public function pelanggan()
     {
@@ -53,6 +60,44 @@ class UnitApar extends Model
     public function refills()
     {
         return $this->hasMany(Refill::class);
+    }
+
+    public static function supportsDatabaseColumn(string $column): bool
+    {
+        return (new static())->hasDatabaseColumn($column);
+    }
+
+    public function scopeVisible(Builder $query): Builder
+    {
+        if (! static::supportsDatabaseColumn('hidden_at')) {
+            return $query;
+        }
+
+        return $query->whereNull($query->getModel()->qualifyColumn('hidden_at'));
+    }
+
+    public function isHiddenFromListings(): bool
+    {
+        if (! static::supportsDatabaseColumn('hidden_at')) {
+            return false;
+        }
+
+        return ! is_null($this->getAttribute('hidden_at'));
+    }
+
+    public function hideFromListings(): bool
+    {
+        if (! static::supportsDatabaseColumn('hidden_at')) {
+            return false;
+        }
+
+        if ($this->isHiddenFromListings()) {
+            return true;
+        }
+
+        return (bool) $this->forceFill([
+            'hidden_at' => now(),
+        ])->save();
     }
 
     public static function extractSizeKg($ukuran): ?float
@@ -101,5 +146,20 @@ class UnitApar extends Model
         }
 
         return $serial;
+    }
+
+    protected function hasDatabaseColumn(string $column): bool
+    {
+        $table = $this->getTable();
+
+        if (! array_key_exists($table, static::$tableColumnCache)) {
+            try {
+                static::$tableColumnCache[$table] = Schema::getColumnListing($table);
+            } catch (\Throwable) {
+                static::$tableColumnCache[$table] = [];
+            }
+        }
+
+        return in_array($column, static::$tableColumnCache[$table], true);
     }
 }

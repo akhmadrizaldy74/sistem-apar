@@ -841,6 +841,55 @@ class PublicController extends Controller
         return $meta;
     }
 
+    private function buildServiceDeliveryMeta(Request $request, int $unitCount, string $serviceMetode, ?Pelanggan $pelanggan = null): array
+    {
+        $requestedMethod = trim((string) $request->input('metode_pengiriman', ''));
+        $normalizedRequestedMethod = $requestedMethod !== ''
+            ? $this->normalizeShippingMethod($requestedMethod)
+            : null;
+        $isPickup = $serviceMetode === 'antar sendiri';
+        $mapsAddress = trim((string) $request->input('alamat_maps', (string) ($pelanggan?->alamat_maps ?? '')));
+        $detailAddress = trim((string) $request->input('alamat_detail', (string) ($pelanggan?->alamat_detail ?? '')));
+        $lat = $this->sanitizeCoordinate($request->input('alamat_lat'));
+        $lng = $this->sanitizeCoordinate($request->input('alamat_lng'));
+        if (is_null($lat) && $pelanggan) {
+            $lat = $this->sanitizeCoordinate($pelanggan->alamat_lat);
+        }
+        if (is_null($lng) && $pelanggan) {
+            $lng = $this->sanitizeCoordinate($pelanggan->alamat_lng);
+        }
+
+        $meta = [
+            'metode_pengiriman' => $isPickup ? 'pickup' : 'diantar_internal',
+            'ongkir' => 0.0,
+            'distance_km' => null,
+            'alamat_maps' => $mapsAddress ?: null,
+            'alamat_detail' => $detailAddress ?: null,
+            'alamat_lat' => $lat,
+            'alamat_lng' => $lng,
+        ];
+
+        if ($isPickup || $normalizedRequestedMethod !== 'diantar') {
+            return $meta;
+        }
+
+        if ($mapsAddress === '' || $detailAddress === '') {
+            throw new \RuntimeException('Alamat penjemputan belum lengkap.');
+        }
+
+        if (is_null($lat) || is_null($lng) || $lat < -90 || $lat > 90 || $lng < -180 || $lng > 180) {
+            throw new \RuntimeException('Koordinat alamat tidak valid. Pilih alamat dari OpenStreetMap.');
+        }
+
+        $office = $this->officeCoordinates();
+        $distanceKm = $this->calculateDistanceKm($office['lat'], $office['lng'], $lat, $lng);
+
+        $meta['distance_km'] = $distanceKm;
+        $meta['ongkir'] = $this->estimateOngkir($distanceKm, max(1, $unitCount));
+
+        return $meta;
+    }
+
     // Removed negotiation helpers
 
     private function authenticatedCartItems(): Collection
@@ -874,6 +923,7 @@ class PublicController extends Controller
     private function registeredUnitAparQuery(Pelanggan $pelanggan)
     {
         return UnitApar::query()
+            ->visible()
             ->with(['produk.jenisApar', 'pesanan'])
             ->where('pelanggan_id', $pelanggan->id)
             ->where(function ($query) {
@@ -1679,7 +1729,13 @@ class PublicController extends Controller
                 $serviceJumlahUnit = max(1, $rawServiceJumlahUnit);
                 $originalServiceKeluhan = trim((string) $request->input('service_keluhan', (string) $request->input('keterangan_service', '-')));
                 $serviceKeluhan = $originalServiceKeluhan;
-                $serviceMetode = strtolower(trim((string) $request->input('service_metode_penanganan', 'dijemput')));
+                $requestedShippingMethod = trim((string) $request->input('metode_pengiriman', ''));
+                $serviceMetode = strtolower(trim((string) $request->input('service_metode_penanganan', '')));
+                if ($requestedShippingMethod !== '') {
+                    $serviceMetode = $this->normalizeShippingMethod($requestedShippingMethod) === 'diantar'
+                        ? 'dijemput'
+                        : 'antar sendiri';
+                }
                 if (!in_array($serviceMetode, ['dijemput', 'antar sendiri'], true)) {
                     $serviceMetode = 'dijemput';
                 }
@@ -1808,19 +1864,26 @@ class PublicController extends Controller
                 $servicePurchaseLabel = $selectedUnitApars->isNotEmpty()
                     ? $this->registeredUnitAparPurchaseLabel($selectedUnitApars->first())
                     : '';
+                $serviceDeliveryMeta = $this->buildServiceDeliveryMeta($request, $serviceJumlahUnit, $serviceMetode, $pelanggan);
+                $selectedBank = strtolower(trim((string) $request->input('bank_tujuan', (string) $request->input('bank', ''))));
+                if (!in_array($selectedBank, ['bca', 'mandiri', 'bri'], true)) {
+                    $selectedBank = '';
+                }
+                $serviceOngkir = (float) ($serviceDeliveryMeta['ongkir'] ?? 0);
 
                 $pesanan->tipe = 'service';
                 $pesanan->sumber_pesanan = 'website';
                 $pesanan->total = 0;
                 $pesanan->total_harga = 0;
                 $pesanan->tipe_harga = 'normal';
-                $pesanan->metode_pengiriman = $serviceMetode === 'antar sendiri' ? 'pickup' : 'diantar_internal';
-                $pesanan->bank = (string) $request->input('bank', '');
-                $pesanan->ongkir = 0;
-                $pesanan->alamat_maps = (string) $request->input('alamat_maps', '');
-                $pesanan->alamat_detail = (string) $request->input('alamat_detail', '');
-                $pesanan->alamat_lat = $this->sanitizeCoordinate($request->input('alamat_lat'));
-                $pesanan->alamat_lng = $this->sanitizeCoordinate($request->input('alamat_lng'));
+                $pesanan->metode_pengiriman = (string) ($serviceDeliveryMeta['metode_pengiriman'] ?? ($serviceMetode === 'antar sendiri' ? 'pickup' : 'diantar_internal'));
+                $pesanan->bank = $selectedBank;
+                $pesanan->ongkir = $serviceOngkir;
+                $pesanan->shipping_distance_km = $serviceDeliveryMeta['distance_km'];
+                $pesanan->alamat_maps = (string) ($serviceDeliveryMeta['alamat_maps'] ?? $request->input('alamat_maps', ''));
+                $pesanan->alamat_detail = (string) ($serviceDeliveryMeta['alamat_detail'] ?? $request->input('alamat_detail', ''));
+                $pesanan->alamat_lat = $serviceDeliveryMeta['alamat_lat'] ?? $this->sanitizeCoordinate($request->input('alamat_lat'));
+                $pesanan->alamat_lng = $serviceDeliveryMeta['alamat_lng'] ?? $this->sanitizeCoordinate($request->input('alamat_lng'));
                 $pesanan->service_jenis_layanan = $serviceJenisLayanan;
                 $pesanan->service_jenis_apar = $serviceJenisAparLabel;
                 $pesanan->service_ukuran_apar = $serviceUkuranApar;
@@ -1901,6 +1964,7 @@ class PublicController extends Controller
                     }
 
                     $serviceKeluhanForText = str_replace(["\r\n", "\r", "\n"], ' | ', $pesanan->service_keluhan ?: '-');
+                    $totalPembayaranService = $estimasiBiaya + $serviceOngkir;
 
                     $singleRegisteredRefill = $selectedUnitApars->isNotEmpty()
                         ? ($registeredRefillSummary['jenis_refill'] ?? null)
@@ -1917,8 +1981,8 @@ class PublicController extends Controller
                     $pesanan->service_paket_id = null;
                     $pesanan->service_total_kg = $totalKebutuhanKg;
                     $pesanan->service_estimasi_biaya = $estimasiBiaya;
-                    $pesanan->total = $estimasiBiaya;
-                    $pesanan->total_harga = $estimasiBiaya;
+                    $pesanan->total = $totalPembayaranService;
+                    $pesanan->total_harga = $totalPembayaranService;
                     $refillSummaryLabel = $selectedUnitApars->isNotEmpty()
                         ? collect($registeredRefillSummary['stock_requirements'] ?? [])
                             ->map(fn (array $requirement) => $requirement['jenis_refill']->nama_label ?? null)
@@ -1932,9 +1996,10 @@ class PublicController extends Controller
                         . " | Jumlah: {$serviceJumlahUnit} unit"
                         . " | Kebutuhan: {$totalKebutuhanKg} {$refillUnitLabel}"
                         . " | Metode: {$serviceMetode}"
+                        . ($serviceOngkir > 0 ? " | Ongkir: Rp" . number_format($serviceOngkir, 0, ',', '.') : '')
                         . " | Catatan: " . $serviceKeluhanForText;
                     $pesanan->save();
-                    $successMessage = 'Pesanan refill berhasil dibuat dengan estimasi ' . number_format($estimasiBiaya, 0, ',', '.')
+                    $successMessage = 'Pesanan refill berhasil dibuat dengan total estimasi ' . number_format($totalPembayaranService, 0, ',', '.')
                         . '. Silakan lanjutkan pembayaran untuk mengaktifkan proses pengerjaan.';
                 } else {
                     $requestedServicePaketId = (int) $request->input('service_paket_id');
@@ -1985,18 +2050,20 @@ class PublicController extends Controller
                     $pesanan->service_jenis_refill_id = null;
                     $pesanan->service_total_kg = null;
                     $pesanan->service_estimasi_biaya = $estimasiBiaya;
-                    $pesanan->total = $estimasiBiaya;
-                    $pesanan->total_harga = $estimasiBiaya;
+                    $totalPembayaranService = $estimasiBiaya + $serviceOngkir;
+                    $pesanan->total = $totalPembayaranService;
+                    $pesanan->total_harga = $totalPembayaranService;
                     $pesanan->keterangan = "Permintaan SERVICE {$paket->nama}"
                         . " | Status Unit: " . ($serviceUnitStatus === 'terdaftar' ? 'APAR Terdaftar' : 'APAR Belum Terdaftar')
                         . ($selectedUnitApars->isNotEmpty() ? " | Riwayat: {$servicePurchaseLabel}" : '')
                         . " | Ukuran: {$serviceUkuranApar}"
                         . " | Jumlah: {$serviceJumlahUnit} unit"
                         . " | Metode: {$serviceMetode}"
+                        . ($serviceOngkir > 0 ? " | Ongkir: Rp" . number_format($serviceOngkir, 0, ',', '.') : '')
                         . " | Catatan: " . str_replace(["\r\n", "\r", "\n"], ' | ', $pesanan->service_keluhan ?: '-');
                     $pesanan->save();
 
-                    $successMessage = 'Pesanan service berhasil dibuat dengan estimasi ' . number_format($estimasiBiaya, 0, ',', '.')
+                    $successMessage = 'Pesanan service berhasil dibuat dengan total estimasi ' . number_format($totalPembayaranService, 0, ',', '.')
                         . '. Silakan lanjutkan pembayaran untuk mengaktifkan proses pengerjaan.';
                 }
 
@@ -2295,9 +2362,6 @@ private function fetchPhoton(string $query): array
 
         $pesanan->refresh()->loadMissing(['details.produk', 'pelanggan', 'serviceJenisRefill', 'servicePaket.peralatans', 'service']);
         $pesanan->pelanggan?->update(['status' => 'tetap']);
-        if ($pesanan->tipe === 'produk') {
-            $this->syncUnitAparsForPesanan($pesanan->fresh(['details.produk.jenisApar', 'unitApars']));
-        }
 
         $tipeHargaLabel = $isApprovedSpecialPrice
             ? 'Harga Final'
@@ -2358,55 +2422,6 @@ private function fetchPhoton(string $query): array
     }
 
     // Removed checkNegoCode
-
-    private function syncUnitAparsForPesanan(Pesanan $pesanan): void
-    {
-        if ($pesanan->tipe !== 'produk' || !in_array($pesanan->status, ['selesai final'], true)) {
-            return;
-        }
-
-        $pesanan->loadMissing(['details.produk.jenisApar', 'unitApars']);
-
-        foreach ($pesanan->details as $detail) {
-            $existingCount = $pesanan->unitApars
-                ->where('produk_id', $detail->produk_id)
-                ->count();
-
-            $missingCount = max(0, ((int) $detail->jumlah) - $existingCount);
-
-            if ($missingCount <= 0 || !$detail->produk) {
-                continue;
-            }
-
-            $this->createUnitAparsFromDetail($pesanan, $detail->produk, $missingCount, $existingCount + 1);
-            $pesanan->load('unitApars');
-        }
-    }
-
-    private function createUnitAparsFromDetail(Pesanan $pesanan, Produk $produk, int $jumlah, int $startFrom = 1): void
-    {
-        for ($urutan = $startFrom; $urutan < $startFrom + $jumlah; $urutan++) {
-            $serial = $this->generateSerialNumber($pesanan, $produk, $urutan);
-
-            UnitApar::create([
-                'pelanggan_id' => $pesanan->pelanggan_id,
-                'pesanan_id' => $pesanan->id,
-                'produk_id' => $produk->id,
-                'no_seri' => $serial,
-                'tgl_beli' => $pesanan->tanggal,
-                'tgl_produksi' => $pesanan->tanggal,
-                'ukuran' => $produk->kapasitas ?? '-',
-                'bahan' => $produk->jenisApar?->nama ?? '-',
-                'tgl_expired' => UnitApar::calculateExpiry($pesanan->tanggal, $produk->kapasitas ?? '-', $produk->jenisApar?->nama ?? '-'),
-            ]);
-        }
-    }
-
-    private function generateSerialNumber(Pesanan $pesanan, Produk $produk, int $urutan): string
-    {
-        $pesanan->loadMissing('pelanggan');
-        return UnitApar::generateSerialNumber($pesanan->pelanggan, $pesanan->tanggal);
-    }
 
     public function complainCreate()
     {

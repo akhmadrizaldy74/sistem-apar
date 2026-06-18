@@ -330,7 +330,6 @@ class PesananController extends Controller
             $p->update(['status' => 'diproses']);
         }
 
-        $this->syncMissingUnitApars();
         $revenuePeriod = AdminPesananData::normalizeRevenuePeriod(request('revenue_period'));
         $pesanans = AdminPesananData::query()->get();
         $pesananDetailData = AdminPesananData::detailData($pesanans);
@@ -538,7 +537,6 @@ class PesananController extends Controller
                 ->with('success', 'Data service dan refill sekarang dikelola dari menu terpisah.');
         }
 
-        $this->syncUnitAparsForPesanan($pesanan->loadMissing('details.produk.jenisApar', 'unitApars'));
         $pesanan->load(['pelanggan', 'details.produk.jenisApar', 'unitApars.produk']);
         $showAssignAction = $this->canAssignTeknisi($pesanan);
         $showFinalizeAction = in_array((string) $pesanan->status, ['selesai oleh teknisi', 'dikonfirmasi admin'], true);
@@ -650,10 +648,6 @@ class PesananController extends Controller
 
         if (in_array($pesanan->status, ['diproses', 'selesai', 'selesai final'], true)) {
             $pesanan->pelanggan?->update(['status' => 'tetap']);
-        }
-
-        if ($pesanan->status === 'selesai final' && $pesanan->tipe === 'produk') {
-            $this->syncUnitAparsForPesanan($pesanan);
         }
 
         return redirect()->back()->with('success', 'Status pesanan berhasil diperbarui.');
@@ -772,7 +766,6 @@ class PesananController extends Controller
         ]);
 
         $pesanan->pelanggan?->update(['status' => 'tetap']);
-        $this->syncUnitAparsForPesanan($pesanan->fresh(['details.produk.jenisApar', 'unitApars']));
 
         return back()->with('success', 'Pembayaran berhasil dikonfirmasi. Pesanan siap di-assign.');
     }
@@ -848,10 +841,6 @@ class PesananController extends Controller
                 ]);
 
                 app(FinalTransactionStockService::class)->apply($pesanan);
-
-                if ($pesanan->tipe === 'produk') {
-                    $this->syncUnitAparsForPesanan($pesanan);
-                }
 
                 $pesanan->pelanggan?->update([
                     'status' => 'tetap',
@@ -940,7 +929,6 @@ class PesananController extends Controller
                 ->with('success', 'Invoice pesanan sekarang khusus pembelian produk.');
         }
 
-        $this->syncUnitAparsForPesanan($pesanan->loadMissing('details.produk.jenisApar', 'unitApars'));
         $pesanan->load(['pelanggan', 'details.produk.jenisApar', 'unitApars.produk']);
 
         return Pdf::loadView('admin.pesanan.pdf.invoice', compact('pesanan'))

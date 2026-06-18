@@ -28,10 +28,12 @@
     $deadline = \Illuminate\Support\Carbon::parse($pesanan->created_at)->addMinutes(60);
     $orderDate = $pesanan->tanggal ?: $pesanan->created_at;
     $orderCode = 'TNTI' . optional($orderDate)->format('dmY') . 'AJ' . str_pad((string) $pesanan->id, 3, '0', STR_PAD_LEFT);
-    $shippingLabel = $metodePengiriman === 'diantar_internal' ? 'Diantar' : 'Ambil Sendiri';
     $now = now();
     $isExpired = $deadline->lt($now);
     $isServiceOrder = $pesanan->tipe === 'service';
+    $shippingLabel = $isServiceOrder
+        ? ($pesanan->service_metode_penanganan === 'antar sendiri' ? 'Antar Sendiri' : 'Dijemput')
+        : ($metodePengiriman === 'diantar_internal' ? 'Diantar' : 'Ambil Sendiri');
     $pageTitle = $isServiceOrder ? 'Selesaikan Pembayaran Layanan Anda' : 'Selesaikan Pembayaran Anda';
     $pageDescription = $isServiceOrder
         ? 'Lanjutkan pembayaran refill atau service APAR, lalu sistem akan menampilkan status pengambilan atau pengerjaannya.'

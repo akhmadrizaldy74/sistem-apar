@@ -37,7 +37,7 @@ class JenisRefillController extends Controller
             'harga' => $request->harga,
         ]);
 
-        return redirect()->route('admin.jenis-refill.index')->with('success', 'Jenis refil berhasil ditambahkan.');
+        return redirect()->route('admin.jenis-refill.index')->with('success', 'Jenis Refill berhasil ditambahkan.');
     }
 
     public function show(JenisRefill $jenisRefill)
@@ -64,13 +64,13 @@ class JenisRefillController extends Controller
             'harga' => $request->harga,
         ]);
 
-        return redirect()->route('admin.jenis-refill.index')->with('success', 'Jenis refil berhasil diperbarui.');
+        return redirect()->route('admin.jenis-refill.index')->with('success', 'Jenis Refill berhasil diperbarui.');
     }
 
     public function destroy(JenisRefill $jenisRefill)
     {
         $jenisRefill->delete();
 
-        return redirect()->route('admin.jenis-refill.index')->with('success', 'Jenis refil berhasil dihapus.');
+        return redirect()->route('admin.jenis-refill.index')->with('success', 'Jenis Refill berhasil dihapus.');
     }
 }

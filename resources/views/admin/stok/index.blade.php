@@ -3,7 +3,7 @@
         <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
                 <h2 class="text-3xl font-black tracking-tight text-gray-900">Manajemen Stok</h2>
-                <p class="text-sm font-medium text-gray-500">Menampilkan stok APAR, refil, dan peralatan yang tersedia.</p>
+                <p class="text-sm font-medium text-gray-500">Menampilkan stok APAR, refill, dan peralatan yang tersedia.</p>
             </div>
         </div>
     </x-slot>
@@ -37,9 +37,9 @@
                     <p class="mt-1 text-xs font-semibold text-gray-500">{{ $produks->count() }} produk APAR dimonitor</p>
                 </div>
                 <div class="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Stok Refil</p>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Stok Refill</p>
                         <p class="mt-2 text-3xl font-black text-gray-900">{{ $formatQty($jenisRefills->sum(fn ($item) => (float) ($item->stok ?? 0))) }}</p>
-                        <p class="mt-1 text-xs font-semibold text-gray-500">{{ $jenisRefills->count() }} jenis refil dimonitor</p>
+                        <p class="mt-1 text-xs font-semibold text-gray-500">{{ $jenisRefills->count() }} jenis refill dimonitor</p>
                 </div>
                 <div class="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
                     <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Stok Peralatan</p>
@@ -63,7 +63,7 @@
                     :class="tab === 'refill' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
                     class="rounded-xl px-5 py-2.5 text-xs font-black uppercase tracking-widest transition"
                 >
-                    Stok Refil
+                    Stok Refill
                 </button>
                 <button
                     type="button"
@@ -141,19 +141,19 @@
             <section x-show="tab === 'refill'" x-cloak class="overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-sm">
                 <div class="flex items-center justify-between border-b border-gray-100 px-8 py-5">
                     <div>
-                        <h3 class="text-lg font-black text-gray-900">Stok Refil</h3>
-                        <p class="text-xs font-semibold text-gray-500">Pantau stok berdasarkan Jenis Refil. Penambahan stok dilakukan lewat transaksi pembelian di menu Pengeluaran.</p>
+                        <h3 class="text-lg font-black text-gray-900">Stok Refill</h3>
+                        <p class="text-xs font-semibold text-gray-500">Pantau stok berdasarkan Jenis Refill. Penambahan stok dilakukan lewat transaksi pembelian di menu Pengeluaran.</p>
                     </div>
                     <div class="flex items-center gap-4">
                         <a href="{{ route('admin.pengeluaran.index', ['open' => 1, 'jenis_pengeluaran' => \App\Models\Pengeluaran::JENIS_PEMBELIAN_REFILL]) }}" class="text-xs font-black uppercase tracking-widest text-red-600 hover:text-red-700">Catat Pembelian</a>
-                        <a href="{{ route('admin.refill.index') }}" class="text-xs font-black uppercase tracking-widest text-gray-500 hover:text-gray-700">Riwayat Refil</a>
+                        <a href="{{ route('admin.refill.index') }}" class="text-xs font-black uppercase tracking-widest text-gray-500 hover:text-gray-700">Riwayat Refill</a>
                     </div>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left">
                         <thead class="bg-gray-50/60">
                             <tr>
-                                <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Jenis Refil</th>
+                                <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Jenis Refill</th>
                                 <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Stok Saat Ini</th>
                                 <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Harga Standar</th>
                                 <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Status</th>
@@ -181,7 +181,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="4" class="px-8 py-12 text-center text-sm font-semibold text-gray-500">Belum ada data jenis refil.</td>
+                                    <td colspan="4" class="px-8 py-12 text-center text-sm font-semibold text-gray-500">Belum ada data jenis refill.</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -193,11 +193,11 @@
                 <div class="flex items-center justify-between border-b border-gray-100 px-8 py-5">
                     <div>
                         <h3 class="text-lg font-black text-gray-900">Stok Peralatan</h3>
-                        <p class="text-xs font-semibold text-gray-500">Pantau stok peralatan hasil pembelian. Master data dan stok dikelola di menu yang berbeda.</p>
+                        <p class="text-xs font-semibold text-gray-500">Pantau stok peralatan hasil pembelian. Data layanan dan stok dikelola di menu yang berbeda.</p>
                     </div>
                     <div class="flex items-center gap-3">
                         <a href="{{ route('admin.peralatan.index') }}" class="rounded-xl bg-gray-100 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-gray-700 transition hover:bg-gray-200">
-                            Kelola Master
+                            Kelola Peralatan
                         </a>
                         <a href="{{ route('admin.pengeluaran.index', ['open' => 1, 'jenis_pengeluaran' => \App\Models\Pengeluaran::JENIS_PEMBELIAN_PERALATAN]) }}" class="rounded-xl bg-red-700 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-red-700/20 transition hover:bg-red-800">
                             Catat Pembelian

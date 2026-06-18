@@ -32,6 +32,8 @@ class PublicOrderServicePricingTest extends TestCase
             'alamat' => 'Jl. Service',
             'alamat_maps' => 'Jl. Service',
             'alamat_detail' => 'Gudang belakang',
+            'alamat_lat' => -6.889,
+            'alamat_lng' => 107.610,
             'status' => 'tetap',
         ]);
 
@@ -101,9 +103,11 @@ class PublicOrderServicePricingTest extends TestCase
             'alamat_kota' => 'Bandung',
             'alamat_kecamatan' => 'Sukajadi',
             'alamat_kode_pos' => '40161',
-            'alamat_lat' => -6.889,
-            'alamat_lng' => 107.610,
+            'alamat_lat' => '-6.88900000',
+            'alamat_lng' => '107.61000000',
             'tipe_layanan' => 'service',
+            'metode_pengiriman' => 'diantar',
+            'bank_tujuan' => 'bca',
             'service_jenis_layanan' => 'service',
             'service_unit_status' => 'terdaftar',
             'service_purchase_group' => $purchaseDate,
@@ -122,8 +126,15 @@ class PublicOrderServicePricingTest extends TestCase
 
         $this->assertSame('service', $pesanan->tipe);
         $this->assertSame('service', $pesanan->service_jenis_layanan);
+        $this->assertSame('diantar_internal', $pesanan->metode_pengiriman);
+        $this->assertSame('bca', $pesanan->bank);
         $this->assertSame(300000.0, (float) $pesanan->service_estimasi_biaya);
-        $this->assertSame(300000.0, (float) $pesanan->total);
+        $this->assertGreaterThan(0, (float) $pesanan->ongkir);
+        $this->assertSame(
+            (float) $pesanan->service_estimasi_biaya + (float) $pesanan->ongkir,
+            (float) $pesanan->total
+        );
+        $this->assertNotNull($pesanan->shipping_distance_km);
         $this->assertStringContainsString('2 kg', (string) $pesanan->service_keluhan);
         $this->assertStringContainsString('4 kg', (string) $pesanan->service_keluhan);
         $this->assertStringContainsString('Rp150.000', (string) $pesanan->service_keluhan);
@@ -242,21 +253,36 @@ class PublicOrderServicePricingTest extends TestCase
             'kondisi_awal' => 'tidak_aktif',
         ]);
 
+        $hiddenManualUnit = UnitApar::create([
+            'pelanggan_id' => $pelanggan->id,
+            'produk_id' => $produk2Kg->id,
+            'no_seri' => 'AKHMAD-25052026-06',
+            'ukuran' => '2 kg',
+            'bahan' => 'Dry Chemical Powder',
+            'tgl_beli' => '2026-05-25',
+            'tgl_produksi' => '2026-05-25',
+            'tgl_expired' => '2026-11-25',
+            'kondisi_awal' => 'layak',
+            'hidden_at' => now(),
+        ]);
+
         $response = $this->actingAs($user)->get(route('order.create'));
 
         $response->assertOk();
-        $response->assertViewHas('registeredUnitApars', function ($units) use ($manualUnit, $finishedOrderUnit, $unfinishedOrderUnit, $inactiveManualUnit) {
+        $response->assertViewHas('registeredUnitApars', function ($units) use ($manualUnit, $finishedOrderUnit, $unfinishedOrderUnit, $inactiveManualUnit, $hiddenManualUnit) {
             $ids = collect($units)->pluck('id')->map(fn ($id) => (int) $id)->all();
 
             return in_array($manualUnit->id, $ids, true)
                 && in_array($finishedOrderUnit->id, $ids, true)
                 && !in_array($unfinishedOrderUnit->id, $ids, true)
                 && !in_array($inactiveManualUnit->id, $ids, true)
+                && !in_array($hiddenManualUnit->id, $ids, true)
                 && count($ids) === 2;
         });
         $response->assertSee('AKHMAD-21052026-01');
         $response->assertSee('AKHMAD-25052026-03');
         $response->assertDontSee('AKHMAD-25052026-04');
         $response->assertDontSee('AKHMAD-25052026-05');
+        $response->assertDontSee('AKHMAD-25052026-06');
     }
 }

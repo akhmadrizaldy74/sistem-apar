@@ -2,8 +2,8 @@
     <x-slot name="header">
         <div class="flex flex-col gap-4">
             <div>
-                <h2 class="text-3xl font-black tracking-tight text-slate-900">Monitoring APAR</h2>
-                <p class="mt-2 text-sm font-medium text-slate-500">Pantau unit APAR yang dibuat otomatis dari transaksi pelanggan yang sudah selesai final.</p>
+                <h2 class="text-3xl font-black tracking-tight text-slate-900">Unit APAR</h2>
+                <p class="mt-2 text-sm font-medium text-slate-500">Kelola dan pantau unit APAR pelanggan yang terhubung dengan transaksi pembelian, refill, dan service.</p>
             </div>
         </div>
     </x-slot>

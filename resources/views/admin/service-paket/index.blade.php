@@ -1,15 +1,15 @@
 <x-app-layout>
     <x-slot name="header">
         <div>
-            <h2 class="text-3xl font-black tracking-tight text-slate-900">Master Service &amp; Peralatan</h2>
-            <p class="mt-1 text-sm font-semibold text-slate-500">Jenis service sekarang digabung dengan peralatan service agar pengelolaan master data tetap rapi dalam satu area.</p>
+            <h2 class="text-3xl font-black tracking-tight text-slate-900">Service &amp; Peralatan</h2>
+            <p class="mt-1 text-sm font-semibold text-slate-500">Kelola jenis service dan peralatan service yang digunakan dalam layanan APAR.</p>
         </div>
     </x-slot>
 
     <div class="space-y-6">
         <div class="flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
             <div>
-                <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Master Data Final</p>
+                <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Data Layanan</p>
                 <p class="mt-2 text-sm font-semibold text-slate-500">Harga service bersifat standar per jenis service. Peralatan yang tampil di halaman ini dipakai sebagai acuan pengurangan stok saat service selesai final.</p>
             </div>
             <span class="inline-flex rounded-full bg-emerald-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-700">

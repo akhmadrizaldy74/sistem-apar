@@ -9,7 +9,7 @@
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
                 <div class="flex justify-between mb-6">
-                    <h3 class="text-lg font-medium text-gray-900">Master Data Jenis APAR</h3>
+                    <h3 class="text-lg font-medium text-gray-900">Data Layanan Jenis APAR</h3>
                     <a href="{{ route('admin.jenis-apar.create') }}" class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700">
                         Tambah
                     </a>

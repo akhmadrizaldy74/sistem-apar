@@ -61,8 +61,8 @@ class UnitAparTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.unit-apar.index'));
 
         $response->assertOk();
-        $response->assertSee('Monitoring APAR');
-        $response->assertSee('Pantau unit APAR yang dibuat otomatis dari transaksi pelanggan yang sudah selesai final.');
+        $response->assertSee('Unit APAR');
+        $response->assertSee('Kelola dan pantau unit APAR pelanggan yang terhubung dengan transaksi pembelian, refill, dan service.');
         $response->assertDontSee('Registrasi Manual');
         $response->assertSee('Lihat Detail');
         $response->assertSee('Hapus');
@@ -138,7 +138,7 @@ class UnitAparTest extends TestCase
         $this->assertSame('2027-06-14', UnitApar::calculateExpiry('2026-06-14', '9 kg', 'CO2')->toDateString());
     }
 
-    public function test_admin_can_delete_unit_apar_from_monitoring_page(): void
+    public function test_admin_can_hide_unit_apar_from_monitoring_page(): void
     {
         $admin = $this->createAdmin();
         ['pelanggan' => $pelanggan, 'produk' => $produk] = $this->createFixture();
@@ -158,8 +158,13 @@ class UnitAparTest extends TestCase
         $response = $this->actingAs($admin)->delete(route('admin.unit-apar.destroy', $unit));
 
         $response->assertRedirect(route('admin.unit-apar.index'));
-        $response->assertSessionHas('success', 'Unit APAR berhasil dihapus.');
-        $this->assertDatabaseMissing('unit_apars', ['id' => $unit->id]);
+        $response->assertSessionHas('success', 'Unit APAR berhasil disembunyikan dari daftar.');
+        $this->assertDatabaseHas('unit_apars', ['id' => $unit->id]);
+        $this->assertNotNull($unit->fresh()->hidden_at);
+
+        $indexResponse = $this->actingAs($admin)->get(route('admin.unit-apar.index'));
+        $indexResponse->assertOk();
+        $indexResponse->assertDontSee('UT-HAPUS-001');
     }
 
     public function test_unit_apar_filter_only_shows_linked_customer_accounts(): void
@@ -249,6 +254,65 @@ class UnitAparTest extends TestCase
         $this->assertSame('AKHMAD-18062026-02', $units[1]->no_seri);
         $this->assertSame('2027-06-10', $units[0]->tgl_expired->toDateString());
         $this->assertSame('2027-06-10', $units[1]->tgl_expired->toDateString());
+    }
+
+    public function test_hidden_units_are_not_recreated_when_admin_opens_pesanan_page(): void
+    {
+        $admin = $this->createAdmin();
+        ['pelanggan' => $pelanggan, 'produk' => $produk] = $this->createFixture(customerName: 'Akhmad Rizaldy');
+
+        StokBatch::create([
+            'produk_id' => $produk->id,
+            'jumlah_masuk' => 5,
+            'sisa_qty' => 5,
+            'tgl_produksi' => '2026-06-10',
+            'tgl_expired' => '2027-06-10',
+            'keterangan' => 'Batch unit test hidden',
+        ]);
+
+        $pesanan = Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'user_id' => $pelanggan->user_id,
+            'tipe' => 'produk',
+            'status' => 'selesai final',
+            'tanggal' => '2026-06-18',
+            'total' => 1500000,
+            'total_harga' => 1500000,
+        ]);
+
+        $pesanan->details()->create([
+            'produk_id' => $produk->id,
+            'merek' => $produk->merek,
+            'kapasitas' => $produk->kapasitas,
+            'jumlah' => 2,
+            'harga' => 750000,
+            'subtotal' => 1500000,
+        ]);
+
+        app(FinalTransactionStockService::class)->apply($pesanan->fresh());
+
+        $units = UnitApar::query()
+            ->where('pesanan_id', $pesanan->id)
+            ->orderBy('id')
+            ->get();
+
+        $this->assertCount(2, $units);
+
+        $hiddenUnit = $units->firstOrFail();
+
+        $this->actingAs($admin)
+            ->delete(route('admin.unit-apar.destroy', $hiddenUnit))
+            ->assertRedirect(route('admin.unit-apar.index'));
+
+        $this->assertCount(2, UnitApar::query()->where('pesanan_id', $pesanan->id)->get());
+        $this->assertSame(1, UnitApar::query()->visible()->where('pesanan_id', $pesanan->id)->count());
+        $this->assertNotNull($hiddenUnit->fresh()->hidden_at);
+
+        $response = $this->actingAs($admin)->get(route('admin.pesanan.index'));
+
+        $response->assertOk();
+        $this->assertCount(2, UnitApar::query()->where('pesanan_id', $pesanan->id)->get());
+        $this->assertSame(1, UnitApar::query()->visible()->where('pesanan_id', $pesanan->id)->count());
     }
 
     private function createAdmin(): User
