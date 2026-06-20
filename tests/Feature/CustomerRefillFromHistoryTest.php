@@ -217,6 +217,12 @@ class CustomerRefillFromHistoryTest extends TestCase
     public function test_finalized_multi_unit_registered_refill_updates_all_units_and_reduces_stock(): void
     {
         config(['broadcasting.default' => 'null']);
+        config([
+            'services.apar_service_pickup.store_lat' => -6.457629743293867,
+            'services.apar_service_pickup.store_lng' => 106.84730349536345,
+            'services.apar_service_pickup.rate_per_km' => 3500,
+            'services.apar_service_pickup.min_cost' => 15000,
+        ]);
 
         [$user, $pelanggan] = $this->createCustomer();
         $produk = $this->createPowderProduct();
@@ -264,16 +270,30 @@ class CustomerRefillFromHistoryTest extends TestCase
             'service_unit_apar_ids' => [$unitA->id, $unitB->id],
             'service_metode_penanganan' => 'dijemput',
             'service_keluhan' => 'Tolong refill dua unit ini.',
+            'shipping_weight' => 0,
         ]);
 
         $response->assertRedirect();
         $response->assertSessionDoesntHaveErrors();
 
         $pesanan = Pesanan::query()->latest('id')->firstOrFail();
+        $oneWayDistance = $this->haversineKm(
+            -6.457629743293867,
+            106.84730349536345,
+            (float) $pelanggan->alamat_lat,
+            (float) $pelanggan->alamat_lng,
+        );
+        $expectedDistance = round($oneWayDistance * 2, 2);
+        $expectedPickupCost = round(max(15000, $oneWayDistance * 2 * 3500), 0);
 
         $this->assertSame('service', $pesanan->tipe);
         $this->assertSame('refill', $pesanan->service_jenis_layanan);
         $this->assertSame(100000.0, (float) $pesanan->service_estimasi_biaya);
+        $this->assertSame($expectedPickupCost, (float) $pesanan->ongkir);
+        $this->assertSame($expectedDistance, (float) $pesanan->shipping_distance_km);
+        $this->assertNull($pesanan->shipping_courier);
+        $this->assertNull($pesanan->shipping_service);
+        $this->assertNull($pesanan->shipping_etd);
         $this->assertStringContainsString('FINAL-001', (string) $pesanan->service_keluhan);
         $this->assertStringContainsString('FINAL-002', (string) $pesanan->service_keluhan);
         $this->assertStringContainsString('Refill: Powder', (string) $pesanan->service_keluhan);
@@ -351,5 +371,19 @@ class CustomerRefillFromHistoryTest extends TestCase
                 ['ukuran' => '1 kg', 'harga' => 50000],
             ],
         ]);
+    }
+
+    private function haversineKm(float $fromLat, float $fromLng, float $toLat, float $toLng): float
+    {
+        $earthRadiusKm = 6371;
+        $latDelta = deg2rad($toLat - $fromLat);
+        $lngDelta = deg2rad($toLng - $fromLng);
+
+        $a = sin($latDelta / 2) ** 2
+            + cos(deg2rad($fromLat))
+            * cos(deg2rad($toLat))
+            * sin($lngDelta / 2) ** 2;
+
+        return 2 * $earthRadiusKm * asin(min(1, sqrt($a)));
     }
 }

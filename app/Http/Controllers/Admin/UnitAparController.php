@@ -15,6 +15,8 @@ use Illuminate\Support\Collection;
 class UnitAparController extends Controller
 {
     protected const NEAR_EXPIRY_DAYS = 30;
+    protected const DEFAULT_PER_PAGE = 10;
+    protected const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
     protected function generateUnitSerial(Pelanggan $pelanggan, Produk $produk, string $tanggalBeli): string
     {
@@ -66,7 +68,7 @@ class UnitAparController extends Controller
     {
         $status = $this->resolveUnitStatus($expiredAt);
         $label = match ($status) {
-            'expired' => 'Masa Berlaku Habis',
+            'expired' => 'Expired',
             'hampir' => 'Hampir Expired',
             default => 'Aktif',
         };
@@ -81,6 +83,12 @@ class UnitAparController extends Controller
             'expired' => 'bg-red-50 border-red-200 text-red-700',
             'hampir' => 'bg-amber-50 border-amber-200 text-amber-700',
             default => 'bg-emerald-50 border-emerald-200 text-emerald-700',
+        };
+
+        $dateClass = match ($status) {
+            'expired' => 'text-red-700',
+            'hampir' => 'text-amber-700',
+            default => 'text-slate-900',
         };
 
         $noticeText = 'Masa berlaku unit dipantau otomatis oleh sistem.';
@@ -101,29 +109,34 @@ class UnitAparController extends Controller
             'key' => $status,
             'label' => $label,
             'badge_class' => $badgeClass,
+            'date_class' => $dateClass,
             'notice_class' => $noticeClass,
             'notice_text' => $noticeText,
         ];
     }
 
+    protected function resolveUnitBaseDate(UnitApar $unit): ?CarbonInterface
+    {
+        return $unit->tgl_beli ?? $unit->tgl_produksi;
+    }
+
     protected function transformUnitForIndex(UnitApar $unit): array
     {
         $statusMeta = $this->resolveUnitStatusMeta($unit->tgl_expired);
-        $tanggalDasar = $unit->tgl_produksi ?? $unit->tgl_beli;
+        $tanggalMasuk = $this->resolveUnitBaseDate($unit);
 
         return [
             'id' => (int) $unit->id,
-            'pelanggan_id' => (string) $unit->pelanggan_id,
             'pelanggan_nama' => (string) ($unit->pelanggan?->nama ?? '-'),
             'no_seri' => (string) ($unit->no_seri ?: '-'),
             'produk_nama' => (string) ($unit->produk?->nama ?? '-'),
             'ukuran' => (string) ($unit->ukuran ?: $unit->produk?->kapasitas ?: '-'),
             'bahan' => (string) ($unit->bahan ?: $unit->produk?->jenisApar?->nama ?: '-'),
-            'tgl_dasar_label' => optional($tanggalDasar)->format('d M Y') ?: '-',
+            'tgl_masuk_label' => optional($tanggalMasuk)->format('d M Y') ?: '-',
             'tgl_expired_label' => optional($unit->tgl_expired)->format('d M Y') ?: '-',
-            'status' => $statusMeta['key'],
             'status_label' => $statusMeta['label'],
-            'search_text' => strtolower(trim(($unit->pelanggan?->nama ?? '') . ' ' . ($unit->no_seri ?? ''))),
+            'status_badge_class' => $statusMeta['badge_class'],
+            'expired_text_class' => $statusMeta['date_class'],
         ];
     }
 
@@ -147,13 +160,13 @@ class UnitAparController extends Controller
         };
     }
 
-    protected function buildSummary(Collection $unitItems): array
+    protected function buildSummary(Collection $units): array
     {
         return [
-            'total' => $unitItems->count(),
-            'aktif' => $unitItems->where('status', 'aktif')->count(),
-            'hampir' => $unitItems->where('status', 'hampir')->count(),
-            'expired' => $unitItems->where('status', 'expired')->count(),
+            'total' => $units->count(),
+            'aktif' => $units->filter(fn (UnitApar $unit) => $this->resolveUnitStatus($unit->tgl_expired) === 'aktif')->count(),
+            'hampir' => $units->filter(fn (UnitApar $unit) => $this->resolveUnitStatus($unit->tgl_expired) === 'hampir')->count(),
+            'expired' => $units->filter(fn (UnitApar $unit) => $this->resolveUnitStatus($unit->tgl_expired) === 'expired')->count(),
         ];
     }
 
@@ -164,40 +177,311 @@ class UnitAparController extends Controller
             ->orderBy('nama');
     }
 
+    protected function visibleProductQuery(): Builder
+    {
+        return Produk::query()
+            ->whereHas('units', function (Builder $unitQuery) {
+                $unitQuery->visible()
+                    ->whereHas('pelanggan', fn (Builder $pelangganQuery) => $pelangganQuery->visibleInDirectory());
+            })
+            ->orderBy('nama');
+    }
+
+    protected function perPageOptions(): array
+    {
+        return self::PER_PAGE_OPTIONS;
+    }
+
+    protected function normalizePerPage(mixed $value): int
+    {
+        $perPage = (int) $value;
+
+        return in_array($perPage, $this->perPageOptions(), true)
+            ? $perPage
+            : self::DEFAULT_PER_PAGE;
+    }
+
+    protected function statusOptions(): array
+    {
+        return [
+            'semua' => 'Semua',
+            'aktif' => 'Aktif',
+            'hampir' => 'Hampir Expired',
+            'expired' => 'Expired',
+        ];
+    }
+
+    protected function normalizeStatusFilter(mixed $value): string
+    {
+        $status = trim((string) $value);
+
+        return array_key_exists($status, $this->statusOptions())
+            ? $status
+            : 'semua';
+    }
+
+    protected function normalizeProductFilter(mixed $value): ?int
+    {
+        $produkId = (int) $value;
+
+        return $produkId > 0 ? $produkId : null;
+    }
+
+    protected function normalizeDateMode(Request $request): string
+    {
+        $mode = trim((string) $request->input('tanggal_mode', ''));
+
+        if (in_array($mode, ['all', 'single', 'range'], true)) {
+            return $mode;
+        }
+
+        if ($request->filled('tanggal_mulai') || $request->filled('tanggal_selesai')) {
+            return 'range';
+        }
+
+        if ($request->filled('tanggal')) {
+            return 'single';
+        }
+
+        return 'all';
+    }
+
+    protected function normalizeIndexFilters(Request $request): array
+    {
+        $tanggalMode = $this->normalizeDateMode($request);
+        $tanggal = $this->normalizeDateInput($request->input('tanggal'));
+        $tanggalMulai = $this->normalizeDateInput($request->input('tanggal_mulai'));
+        $tanggalSelesai = $this->normalizeDateInput($request->input('tanggal_selesai'));
+
+        if ($tanggalMode === 'range' && $tanggalMulai && $tanggalSelesai && $tanggalMulai > $tanggalSelesai) {
+            [$tanggalMulai, $tanggalSelesai] = [$tanggalSelesai, $tanggalMulai];
+        }
+
+        return [
+            'search' => trim((string) $request->input('search', '')),
+            'status' => $this->normalizeStatusFilter($request->input('status')),
+            'produk_id' => $this->normalizeProductFilter($request->input('produk_id')),
+            'per_page' => $this->normalizePerPage($request->input('per_page')),
+            'tanggal_mode' => $tanggalMode,
+            'tanggal' => $tanggal,
+            'tanggal_mulai' => $tanggalMulai,
+            'tanggal_selesai' => $tanggalSelesai,
+        ];
+    }
+
+    protected function baseUnitQuery(): Builder
+    {
+        return UnitApar::query()
+            ->visible()
+            ->with(['pelanggan', 'produk.jenisApar'])
+            ->whereHas('pelanggan', fn (Builder $query) => $query->visibleInDirectory());
+    }
+
+    protected function applyBaseDateFilter(Builder $query, array $filters): void
+    {
+        if ($filters['tanggal_mode'] === 'single' && $filters['tanggal']) {
+            $tanggal = $filters['tanggal'];
+
+            $query->where(function (Builder $innerQuery) use ($tanggal) {
+                $innerQuery->whereDate('tgl_beli', $tanggal)
+                    ->orWhere(function (Builder $fallbackQuery) use ($tanggal) {
+                        $fallbackQuery->whereNull('tgl_beli')
+                            ->whereDate('tgl_produksi', $tanggal);
+                    });
+            });
+
+            return;
+        }
+
+        if ($filters['tanggal_mode'] !== 'range') {
+            return;
+        }
+
+        if ($filters['tanggal_mulai']) {
+            $tanggalMulai = $filters['tanggal_mulai'];
+
+            $query->where(function (Builder $innerQuery) use ($tanggalMulai) {
+                $innerQuery->whereDate('tgl_beli', '>=', $tanggalMulai)
+                    ->orWhere(function (Builder $fallbackQuery) use ($tanggalMulai) {
+                        $fallbackQuery->whereNull('tgl_beli')
+                            ->whereDate('tgl_produksi', '>=', $tanggalMulai);
+                    });
+            });
+        }
+
+        if ($filters['tanggal_selesai']) {
+            $tanggalSelesai = $filters['tanggal_selesai'];
+
+            $query->where(function (Builder $innerQuery) use ($tanggalSelesai) {
+                $innerQuery->whereDate('tgl_beli', '<=', $tanggalSelesai)
+                    ->orWhere(function (Builder $fallbackQuery) use ($tanggalSelesai) {
+                        $fallbackQuery->whereNull('tgl_beli')
+                            ->whereDate('tgl_produksi', '<=', $tanggalSelesai);
+                    });
+            });
+        }
+    }
+
+    protected function applyIndexFilters(Builder $query, array $filters): void
+    {
+        if ($filters['search'] !== '') {
+            $keyword = $filters['search'];
+
+            $query->where(function (Builder $innerQuery) use ($keyword) {
+                $innerQuery->where('no_seri', 'like', '%' . $keyword . '%')
+                    ->orWhereHas('pelanggan', fn (Builder $pelangganQuery) => $pelangganQuery->where('nama', 'like', '%' . $keyword . '%'))
+                    ->orWhereHas('produk', fn (Builder $produkQuery) => $produkQuery->where('nama', 'like', '%' . $keyword . '%'));
+            });
+        }
+
+        if ($filters['produk_id']) {
+            $query->where('produk_id', $filters['produk_id']);
+        }
+
+        $today = now()->startOfDay()->toDateString();
+        $nearExpiryLimit = now()->startOfDay()->addDays(self::NEAR_EXPIRY_DAYS)->toDateString();
+
+        match ($filters['status']) {
+            'aktif' => $query->where(function (Builder $innerQuery) use ($nearExpiryLimit) {
+                $innerQuery->whereNull('tgl_expired')
+                    ->orWhereDate('tgl_expired', '>', $nearExpiryLimit);
+            }),
+            'hampir' => $query
+                ->whereDate('tgl_expired', '>', $today)
+                ->whereDate('tgl_expired', '<=', $nearExpiryLimit),
+            'expired' => $query->whereDate('tgl_expired', '<=', $today),
+            default => null,
+        };
+
+        $this->applyBaseDateFilter($query, $filters);
+    }
+
+    protected function applyIndexOrdering(Builder $query): void
+    {
+        $tanggalMasukSql = 'COALESCE(unit_apars.tgl_beli, unit_apars.tgl_produksi)';
+
+        $query
+            ->orderByRaw($tanggalMasukSql . ' desc')
+            ->orderByDesc('unit_apars.id');
+    }
+
+    protected function formatFilterDateLabel(?string $date): ?string
+    {
+        if (! $date) {
+            return null;
+        }
+
+        return Carbon::parse($date)->format('d M Y');
+    }
+
+    protected function buildActiveFilters(array $filters, Collection $produks): array
+    {
+        $activeFilters = [];
+
+        if ($filters['search'] !== '') {
+            $activeFilters[] = [
+                'label' => 'Cari',
+                'value' => $filters['search'],
+            ];
+        }
+
+        if ($filters['status'] !== 'semua') {
+            $activeFilters[] = [
+                'label' => 'Status',
+                'value' => $this->statusOptions()[$filters['status']] ?? 'Semua',
+            ];
+        }
+
+        if ($filters['produk_id']) {
+            $produkNama = $produks->firstWhere('id', $filters['produk_id'])?->nama;
+
+            if ($produkNama) {
+                $activeFilters[] = [
+                    'label' => 'Produk',
+                    'value' => $produkNama,
+                ];
+            }
+        }
+
+        if ($filters['tanggal_mode'] === 'single' && $filters['tanggal']) {
+            $activeFilters[] = [
+                'label' => 'Tanggal',
+                'value' => $this->formatFilterDateLabel($filters['tanggal']),
+            ];
+        }
+
+        if ($filters['tanggal_mode'] === 'range' && ($filters['tanggal_mulai'] || $filters['tanggal_selesai'])) {
+            $activeFilters[] = [
+                'label' => 'Tanggal',
+                'value' => match (true) {
+                    $filters['tanggal_mulai'] && $filters['tanggal_selesai'] => $this->formatFilterDateLabel($filters['tanggal_mulai']) . ' - ' . $this->formatFilterDateLabel($filters['tanggal_selesai']),
+                    $filters['tanggal_mulai'] => 'Mulai ' . $this->formatFilterDateLabel($filters['tanggal_mulai']),
+                    default => 'Sampai ' . $this->formatFilterDateLabel($filters['tanggal_selesai']),
+                },
+            ];
+        }
+
+        return $activeFilters;
+    }
+
     protected function ensureUnitVisible(UnitApar $unitApar): void
     {
         abort_if($unitApar->isHiddenFromListings(), 404);
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $units = UnitApar::query()
-            ->visible()
-            ->with(['pelanggan', 'produk.jenisApar'])
-            ->whereHas('pelanggan', fn (Builder $query) => $query->visibleInDirectory())
-            ->latest('tgl_beli')
-            ->get();
+        $filters = $this->normalizeIndexFilters($request);
+        $produks = $this->visibleProductQuery()->get(['id', 'nama']);
 
-        $unitItems = $units
-            ->map(fn (UnitApar $unit) => $this->transformUnitForIndex($unit))
-            ->values();
+        $baseQuery = $this->baseUnitQuery();
+        $visibleUnitCount = (clone $baseQuery)->count('unit_apars.id');
+        $this->applyIndexFilters($baseQuery, $filters);
 
-        $pelanggans = $this->visibleCustomerQuery()
-            ->get(['id', 'nama']);
+        $summary = $this->buildSummary(
+            (clone $baseQuery)->get(['unit_apars.id', 'unit_apars.tgl_expired'])
+        );
 
-        $summary = $this->buildSummary($unitItems);
+        $units = clone $baseQuery;
+        $this->applyIndexOrdering($units);
 
-        return view('admin.unit-apar.index', compact('unitItems', 'summary', 'pelanggans'));
+        $units = $units->paginate($filters['per_page'])->withQueryString();
+        $units->setCollection(
+            $units->getCollection()
+                ->map(fn (UnitApar $unit) => $this->transformUnitForIndex($unit))
+                ->values()
+        );
+
+        return view('admin.unit-apar.index', [
+            'summary' => $summary,
+            'filters' => $filters,
+            'produks' => $produks,
+            'statusOptions' => $this->statusOptions(),
+            'perPageOptions' => $this->perPageOptions(),
+            'units' => $units,
+            'filteredUnitCount' => $units->total(),
+            'visibleUnitCount' => $visibleUnitCount,
+            'activeFilters' => $this->buildActiveFilters($filters, $produks),
+        ]);
     }
 
     public function show(UnitApar $unitApar)
     {
         $this->ensureUnitVisible($unitApar);
 
-        $unit = $unitApar->load(['pelanggan', 'produk.jenisApar']);
+        $unit = $unitApar->load([
+            'pelanggan',
+            'produk.jenisApar',
+            'services' => fn ($query) => $query
+                ->with(['servicePaket', 'pesanan.serviceJenisRefill', 'refill.jenisRefill'])
+                ->orderByDesc('tgl_service')
+                ->orderByDesc('id'),
+        ]);
         $statusMeta = $this->resolveUnitStatusMeta($unit->tgl_expired);
+        $refillHistories = $unit->services->filter(fn ($service) => !is_null($service->refill))->values();
+        $serviceHistories = $unit->services->filter(fn ($service) => is_null($service->refill))->values();
 
-        return view('admin.unit-apar.show', compact('unit', 'statusMeta'));
+        return view('admin.unit-apar.show', compact('unit', 'statusMeta', 'refillHistories', 'serviceHistories'));
     }
 
     public function create()

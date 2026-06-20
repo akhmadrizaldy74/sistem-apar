@@ -174,26 +174,13 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
         $this->assertSame(Pesanan::STATUS_SELESAI_FINAL, $pesanan->fresh()->status);
     }
 
-    public function test_refill_unregistered_final_creates_multiple_units_with_customer_prefix(): void
+    public function test_refill_unregistered_final_does_not_create_new_units_and_keeps_log_without_unit_binding(): void
     {
         $admin = User::factory()->create([
             'role' => 'admin',
         ]);
 
         $pelanggan = $this->createLinkedCustomer('Akhmad Rizaldy', '628111110020', 'Jl Prefix Customer');
-        $jenisApar = JenisApar::create([
-            'nama' => 'Foam',
-        ]);
-        Produk::create([
-            'nama' => 'APAR Foam 9 KG',
-            'merek' => 'SAFE',
-            'jenis_apar_id' => $jenisApar->id,
-            'kapasitas' => '9 kg',
-            'penggunaan' => 'Gudang',
-            'harga' => 950000,
-            'deskripsi' => 'Produk test foam 9 kg',
-            'stok' => 0,
-        ]);
         $jenisRefill = JenisRefill::create([
             'nama' => 'Foam',
             'stok' => 30,
@@ -234,20 +221,15 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $units = UnitApar::query()
-            ->where('pesanan_id', $pesanan->id)
-            ->orderBy('no_seri')
-            ->get();
+        $this->assertSame(0, UnitApar::query()->where('pesanan_id', $pesanan->id)->count());
 
-        $this->assertCount(2, $units);
-        $this->assertSame([
-            'AKHMAD-14062026-01',
-            'AKHMAD-14062026-02',
-        ], $units->pluck('no_seri')->all());
-        $this->assertTrue($units->every(fn (UnitApar $unit) => $unit->bahan === 'Foam'));
-        $this->assertTrue($units->every(fn (UnitApar $unit) => $unit->ukuran === '9 kg'));
-        $this->assertTrue($units->every(fn (UnitApar $unit) => $unit->kondisi_awal === 'layak'));
-        $this->assertTrue($units->every(fn (UnitApar $unit) => $unit->tgl_produksi->toDateString() === '2026-06-16'));
+        $serviceLog = Service::query()->where('pesanan_id', $pesanan->id)->first();
+        $this->assertNotNull($serviceLog);
+        $this->assertNull($serviceLog->unit_apar_id);
+        $this->assertSame('2026-06-16', $serviceLog->tgl_service->toDateString());
+        $this->assertSame('confirmed', $serviceLog->status_konfirmasi);
+
+        $this->assertNull(Refill::query()->where('service_id', $serviceLog->id)->first());
         $this->assertSame(12.0, (float) $jenisRefill->fresh()->stok);
     }
 
@@ -632,6 +614,7 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
 
         $firstResponse->assertRedirect();
         $this->assertSame(8, $peralatan->fresh()->stok);
+        $this->assertSame(0, UnitApar::query()->where('pesanan_id', $pesanan->id)->count());
 
         $secondResponse = $this->actingAs($admin)->post(route('admin.service.request.status', $pesanan->fresh()), [
             'status' => Pesanan::STATUS_SELESAI_FINAL,
@@ -639,6 +622,7 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
 
         $secondResponse->assertRedirect();
         $this->assertSame(8, $peralatan->fresh()->stok);
+        $this->assertSame(0, UnitApar::query()->where('pesanan_id', $pesanan->id)->count());
     }
 
     public function test_customer_history_hides_technician_name_for_service_transactions(): void

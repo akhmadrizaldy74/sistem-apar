@@ -11,6 +11,7 @@
     $initialTotal = (float) $pesanan->purchasePriceInitialTotal();
     $approvedAdjustment = max(0, $initialTotal - (float) ($pricingSummary['totalPembayaran'] ?? 0));
     $adminNote = $pesanan->purchasePriceAdminNote();
+    $shippingCostLabel = $pesanan->tipe === 'service' ? 'Biaya Penjemputan' : 'Biaya Pengiriman';
 @endphp
 
 <div class="grid md:grid-cols-2 gap-6">
@@ -276,7 +277,7 @@
                 </span>
             </div>
             <div class="flex justify-between items-center py-2 border-t border-slate-200">
-                <span class="text-sm text-slate-500">Biaya Pengiriman</span>
+                <span class="text-sm text-slate-500">{{ $shippingCostLabel }}</span>
                 <span class="text-sm font-semibold text-slate-700">
                     Rp {{ number_format($ongkir, 0, ',', '.') }}
                 </span>

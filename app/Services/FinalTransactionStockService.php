@@ -176,22 +176,6 @@ class FinalTransactionStockService
             ?: $resolvedUnits->first()?->id
             ?: $pesanan->unitApars()->orderBy('id')->value('id');
 
-        if (!$unitAparId) {
-            $unitApar = UnitApar::where('pelanggan_id', $pesanan->pelanggan_id)
-                ->where(function ($query) use ($pesanan) {
-                    $query->where('ukuran', $pesanan->service_ukuran_apar)
-                        ->orWhereRaw("CONCAT(ukuran, '') LIKE ?", ['%' . ($pesanan->service_ukuran_apar ?? '') . '%']);
-                })
-                ->orderByDesc('tgl_beli')
-                ->first();
-
-            if (!$unitApar) {
-                $unitApar = $this->ensureCompletedServiceUnits($pesanan)->first();
-            }
-
-            $unitAparId = $unitApar?->id;
-        }
-
         $service = Service::updateOrCreate(
             ['pesanan_id' => $pesanan->id],
             [
@@ -204,15 +188,19 @@ class FinalTransactionStockService
             ],
         );
 
-        Refill::updateOrCreate(
-            ['service_id' => $service->id],
-            [
-                'unit_apar_id' => $unitAparId,
-                'jenis_refill_id' => $pesanan->service_jenis_refill_id,
-                'tgl_refill' => $effectiveWorkDate,
-                'biaya' => (float) ($pesanan->service_estimasi_biaya ?? $pesanan->total_harga ?? $pesanan->total ?? 0),
-            ],
-        );
+        if ($unitAparId) {
+            Refill::updateOrCreate(
+                ['service_id' => $service->id],
+                [
+                    'unit_apar_id' => $unitAparId,
+                    'jenis_refill_id' => $pesanan->service_jenis_refill_id,
+                    'tgl_refill' => $effectiveWorkDate,
+                    'biaya' => (float) ($pesanan->service_estimasi_biaya ?? $pesanan->total_harga ?? $pesanan->total ?? 0),
+                ],
+            );
+        } else {
+            Refill::query()->where('service_id', $service->id)->delete();
+        }
 
         $unitsToRefresh = $resolvedUnits->isNotEmpty()
             ? $resolvedUnits
@@ -356,63 +344,22 @@ class FinalTransactionStockService
             return UnitApar::query()->whereKey($pesanan->service->unit_apar_id)->get();
         }
 
-        $desiredCount = max(1, (int) ($pesanan->service_jumlah_unit ?? 1));
         $existingUnits = UnitApar::query()
             ->where('pesanan_id', $pesanan->id)
             ->orderBy('id')
             ->get();
 
-        $missingCount = $desiredCount - $existingUnits->count();
-        for ($i = 0; $i < $missingCount; $i++) {
-            $existingUnits->push($this->createManualUnitFromPesanan($pesanan));
+        if ($existingUnits->isNotEmpty()) {
+            return $existingUnits->values();
         }
 
-        $existingUnits = $existingUnits->sortBy('id')->values()->take($desiredCount)->values();
-
-        if ($existingUnits->isNotEmpty() && $pesanan->service && !$pesanan->service->unit_apar_id) {
-            $pesanan->service->forceFill([
-                'unit_apar_id' => $existingUnits->first()->id,
-            ])->save();
+        if ($pesanan->service?->unit_apar_id) {
+            return UnitApar::query()
+                ->whereKey($pesanan->service->unit_apar_id)
+                ->get();
         }
 
-        return $existingUnits;
-    }
-
-    private function createManualUnitFromPesanan(Pesanan $pesanan): UnitApar
-    {
-        $tanggalUnit = $pesanan->resolvedOperationalDate();
-        $serialDate = optional($pesanan->tanggal)->toDateString() ?: $tanggalUnit;
-        $media = $this->manualUnitMedia($pesanan);
-        $produk = $this->resolveUnitProduct(
-            (string) ($pesanan->service_ukuran_apar ?? ''),
-            $media,
-        );
-        if (!$produk) {
-            throw new \RuntimeException(
-                'Produk APAR dengan media '
-                . $media
-                . ' ukuran '
-                . ($pesanan->service_ukuran_apar ?: '-')
-                . ' belum tersedia. Tambahkan produk yang sesuai terlebih dahulu sebelum finalisasi.'
-            );
-        }
-        $catatan = $pesanan->isRefillOrder()
-            ? 'Unit dibuat otomatis dari refill pelanggan - APAR tidak terdaftar.'
-            : 'Unit dibuat otomatis dari service pelanggan - APAR tidak terdaftar.';
-
-        return UnitApar::create([
-            'pelanggan_id' => $pesanan->pelanggan_id,
-            'pesanan_id' => $pesanan->id,
-            'produk_id' => $produk?->id,
-            'no_seri' => UnitApar::generateSerialNumber($pesanan->pelanggan, $serialDate),
-            'tgl_beli' => $tanggalUnit,
-            'tgl_produksi' => $tanggalUnit,
-            'ukuran' => $pesanan->service_ukuran_apar,
-            'bahan' => $media,
-            'kondisi_awal' => 'layak',
-            'catatan_unit' => $catatan,
-            'tgl_expired' => UnitApar::calculateExpiry($tanggalUnit, $pesanan->service_ukuran_apar, $media),
-        ]);
+        return collect();
     }
 
     private function ensureProductUnitsFromBatchAllocations(Pesanan $pesanan, array $batchAllocations): void
@@ -476,22 +423,6 @@ class FinalTransactionStockService
             'catatan_unit' => 'Unit dibuat otomatis dari pesanan produk yang selesai final.',
             'tgl_expired' => $expiredDate,
         ]);
-    }
-
-    private function resolveUnitProduct(string $ukuran, string $media): ?Produk
-    {
-        $ukuran = trim($ukuran);
-        $media = trim($media);
-
-        return Produk::query()
-            ->where('kapasitas', $ukuran)
-            ->whereHas('jenisApar', function ($query) use ($media) {
-                $query->whereRaw('LOWER(nama) LIKE ?', ['%' . strtolower($media) . '%']);
-            })
-            ->first()
-            ?? Produk::query()
-                ->where('kapasitas', $ukuran)
-                ->first();
     }
 
     private function manualUnitMedia(Pesanan $pesanan): string

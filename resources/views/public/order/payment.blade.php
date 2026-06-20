@@ -34,6 +34,9 @@
     $shippingLabel = $isServiceOrder
         ? ($pesanan->service_metode_penanganan === 'antar sendiri' ? 'Antar Sendiri' : 'Dijemput')
         : ($metodePengiriman === 'diantar_internal' ? 'Diantar' : 'Ambil Sendiri');
+    $shippingCostLabel = $isServiceOrder
+        ? 'Biaya Penjemputan'
+        : ($metodePengiriman === 'diantar_internal' ? 'Ongkir Diantar' : 'Ongkir Ambil Sendiri');
     $pageTitle = $isServiceOrder ? 'Selesaikan Pembayaran Layanan Anda' : 'Selesaikan Pembayaran Anda';
     $pageDescription = $isServiceOrder
         ? 'Lanjutkan pembayaran refill atau service APAR, lalu sistem akan menampilkan status pengambilan atau pengerjaannya.'
@@ -324,7 +327,7 @@
                             @endif
                         @endunless
                         <div class="flex items-center justify-between text-sm">
-                            <span class="font-semibold text-slate-500">{{ $metodePengiriman === 'diantar_internal' ? 'Ongkir Diantar' : 'Ongkir Ambil Sendiri' }}</span>
+                            <span class="font-semibold text-slate-500">{{ $shippingCostLabel }}</span>
                             <span class="font-black text-slate-800">Rp {{ number_format($ongkir, 0, ',', '.') }}</span>
                         </div>
                         <div class="flex items-center justify-between text-sm">

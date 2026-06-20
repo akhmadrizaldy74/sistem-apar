@@ -19,6 +19,7 @@ use App\Services\InventoryService;
 use App\Services\OrderPricingService;
 use App\Services\PaidOrderStockService;
 use App\Services\RajaOngkirService;
+use App\Services\ServicePickupPricingService;
 use App\Services\ServiceMasterSyncService;
 use App\Services\ServicePackagePricingService;
 use App\Support\RegisteredRefillUnitSupport;
@@ -663,6 +664,28 @@ class PublicController extends Controller
         return app(RajaOngkirService::class);
     }
 
+    private function servicePickupPricingService(): ServicePickupPricingService
+    {
+        return app(ServicePickupPricingService::class);
+    }
+
+    private function authenticatedCheckoutCustomer(): ?Pelanggan
+    {
+        if (!Auth::check()) {
+            return null;
+        }
+
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        if ($user->isAdmin() || $user->isTeknisi()) {
+            return null;
+        }
+
+        $user->loadMissing('pelanggan');
+
+        return $user->pelanggan;
+    }
+
     private function shippingWeightFromSize(?string $size): int
     {
         $weightKg = $this->extractAparCapacityKg($size);
@@ -788,6 +811,24 @@ class PublicController extends Controller
         return $meta;
     }
 
+    private function attachServicePickupQuote(array $meta): array
+    {
+        $quote = $this->servicePickupPricingService()->quote(
+            $meta['alamat_lat'] ?? null,
+            $meta['alamat_lng'] ?? null,
+        );
+
+        $meta['ongkir'] = (float) ($quote['cost'] ?? 0);
+        $meta['shipping_courier'] = null;
+        $meta['shipping_service'] = null;
+        $meta['shipping_etd'] = null;
+        $meta['shipping_weight'] = 0;
+        $meta['distance_km'] = (float) ($quote['round_trip_distance_km'] ?? 0);
+        $meta['pickup_quote'] = $quote;
+
+        return $meta;
+    }
+
     private function buildDeliveryMeta(Request $request, array $items, ?Pelanggan $pelanggan = null): array
     {
         $method = $this->normalizeShippingMethod((string) $request->input('metode_pengiriman', 'pickup'));
@@ -816,10 +857,8 @@ class PublicController extends Controller
         string $serviceMetode,
         ?Pelanggan $pelanggan = null
     ): array {
-        $requestedMethod = trim((string) $request->input('metode_pengiriman', ''));
-        $normalizedRequestedMethod = $requestedMethod !== ''
-            ? $this->normalizeShippingMethod($requestedMethod)
-            : null;
+        unset($selectedUnitApars, $serviceUkuranApar, $unitCount);
+
         $isPickup = $serviceMetode === 'antar sendiri';
 
         $meta = $this->baseShippingMeta(
@@ -828,15 +867,11 @@ class PublicController extends Controller
             pelanggan: $pelanggan,
         );
 
-        if ($isPickup || $normalizedRequestedMethod !== 'diantar') {
+        if ($isPickup) {
             return $meta;
         }
 
-        return $this->attachRajaOngkirQuote(
-            meta: $meta,
-            weight: $this->calculateServiceShippingWeight($selectedUnitApars, $serviceUkuranApar, $unitCount),
-            courier: trim((string) $request->input('shipping_courier', '')) ?: null,
-        );
+        return $this->attachServicePickupQuote($meta);
     }
 
     private function resolveRajaOngkirWeightFromRequest(Request $request): int
@@ -1624,7 +1659,7 @@ class PublicController extends Controller
             'shipping_courier' => 'nullable|string|max:80',
             'shipping_service' => 'nullable|string|max:120',
             'shipping_etd' => 'nullable|string|max:120',
-            'shipping_weight' => 'nullable|integer|min:1',
+            'shipping_weight' => 'nullable|integer|min:0',
         ];
 
         if ($isCartCheckout) {
@@ -2223,6 +2258,9 @@ class PublicController extends Controller
         } catch (ValidationException $e) {
             DB::rollBack();
             throw $e;
+        } catch (RuntimeException $e) {
+            DB::rollBack();
+            return back()->with('error', $e->getMessage())->withInput();
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Terjadi kesalahan sistem: ' . $e->getMessage())->withInput();
@@ -2274,14 +2312,27 @@ class PublicController extends Controller
             'service_unit_apar_ids.*' => 'integer|exists:unit_apars,id',
             'service_ukuran_apar' => 'nullable|string|max:120',
             'service_jumlah_unit' => 'nullable|integer|min:1|max:1000',
+            'alamat_lat' => 'nullable|numeric|between:-90,90',
+            'alamat_lng' => 'nullable|numeric|between:-180,180',
         ]);
 
+        $orderType = mb_strtolower(trim((string) ($validated['order_type'] ?? '')));
         $handlingMethod = trim((string) ($validated['handling_method'] ?? ''));
-        if ($this->normalizeShippingMethod($handlingMethod) === 'pickup'
-            || in_array(mb_strtolower($handlingMethod), ['antar sendiri', 'ambil_sendiri'], true)) {
+        $isServicePickupQuote = in_array($orderType, ['service', 'refill'], true);
+        $isZeroCostPickupMethod = $isServicePickupQuote
+            ? in_array(mb_strtolower($handlingMethod), ['antar sendiri', 'ambil_sendiri', 'pickup'], true)
+            : (
+                $this->normalizeShippingMethod($handlingMethod) === 'pickup'
+                || in_array(mb_strtolower($handlingMethod), ['antar sendiri', 'ambil_sendiri'], true)
+            );
+
+        if ($isZeroCostPickupMethod) {
             return response()->json([
                 'success' => true,
-                'message' => 'Ongkir Rp 0 untuk metode tanpa pengiriman.',
+                'message' => $isServicePickupQuote
+                    ? 'Biaya penjemputan Rp 0 untuk metode Antar Sendiri.'
+                    : 'Ongkir Rp 0 untuk metode tanpa pengiriman.',
+                'quote_type' => 'pickup',
                 'courier' => null,
                 'courier_name' => null,
                 'service' => null,
@@ -2292,11 +2343,45 @@ class PublicController extends Controller
                 'weight' => 0,
                 'destination_id' => $validated['destination_id'] ?? null,
                 'destination_label' => $validated['destination_label'] ?? null,
+                'distance_km' => 0,
+                'round_trip_distance_km' => 0,
+                'rate_per_km' => $isServicePickupQuote ? $this->servicePickupPricingService()->ratePerKm() : null,
+                'minimum_cost' => $isServicePickupQuote ? $this->servicePickupPricingService()->minimumCost() : null,
                 'raw' => config('app.debug') ? ['mode' => 'pickup'] : null,
             ]);
         }
 
         try {
+            if ($isServicePickupQuote) {
+                $pelanggan = $this->authenticatedCheckoutCustomer();
+                $customerLat = $this->sanitizeCoordinate($validated['alamat_lat'] ?? null)
+                    ?? $this->sanitizeCoordinate($pelanggan?->alamat_lat);
+                $customerLng = $this->sanitizeCoordinate($validated['alamat_lng'] ?? null)
+                    ?? $this->sanitizeCoordinate($pelanggan?->alamat_lng);
+                $quote = $this->servicePickupPricingService()->quote($customerLat, $customerLng);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Biaya penjemputan berhasil dihitung.',
+                    'quote_type' => 'service_pickup',
+                    'courier' => null,
+                    'courier_name' => null,
+                    'service' => null,
+                    'service_description' => null,
+                    'etd' => null,
+                    'cost' => $quote['cost'],
+                    'formatted_cost' => 'Rp ' . number_format((float) $quote['cost'], 0, ',', '.'),
+                    'weight' => 0,
+                    'destination_id' => null,
+                    'destination_label' => null,
+                    'distance_km' => $quote['distance_km'],
+                    'round_trip_distance_km' => $quote['round_trip_distance_km'],
+                    'rate_per_km' => $quote['rate_per_km'],
+                    'minimum_cost' => $quote['minimum_cost'],
+                    'raw' => config('app.debug') ? $quote : null,
+                ]);
+            }
+
             $destinationId = trim((string) ($validated['destination_id'] ?? ''));
             if ($destinationId === '') {
                 throw new RuntimeException('Lokasi pengiriman belum dapat digunakan untuk menghitung ongkir. Silakan perbarui alamat pengiriman Anda.');
@@ -2316,6 +2401,7 @@ class PublicController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Ongkir berhasil dihitung.',
+                'quote_type' => 'product_delivery',
                 'courier' => $quote['courier_code'],
                 'courier_name' => $quote['courier_name'],
                 'service' => $quote['service'],
@@ -2326,6 +2412,10 @@ class PublicController extends Controller
                 'weight' => $quote['weight'],
                 'destination_id' => $destinationId,
                 'destination_label' => $validated['destination_label'] ?? null,
+                'distance_km' => null,
+                'round_trip_distance_km' => null,
+                'rate_per_km' => null,
+                'minimum_cost' => null,
                 'raw' => config('app.debug') ? $quote : null,
             ]);
         } catch (RuntimeException $exception) {

@@ -67,8 +67,9 @@
     .shipping-status-label{display:block;font-size:.62rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8}
     .shipping-status-value{display:block;margin-top:.18rem;font-size:1rem;font-weight:900;line-height:1.2;color:#0f172a}
     .shipping-status-meta{display:block;margin-top:.2rem;font-size:.74rem;font-weight:700;line-height:1.4;color:#64748b}
+    .shipping-status-detail{display:block;margin-top:.2rem;font-size:.74rem;font-weight:700;line-height:1.4;color:#64748b}
     .shipping-status-note.success .shipping-status-label,.shipping-status-note.success .shipping-status-value{color:#991b1b}
-    .shipping-status-note.success .shipping-status-meta{color:#7f1d1d}
+    .shipping-status-note.success .shipping-status-meta,.shipping-status-note.success .shipping-status-detail{color:#7f1d1d}
     .shipping-status-note.error .shipping-status-label,.shipping-status-note.error .shipping-status-value{color:#b91c1c}
     .shipping-status-note.error .shipping-status-meta{color:#991b1b}
     .btn-primary-action{display:inline-flex;align-items:center;gap:.5rem;padding:.75rem 1.5rem;border-radius:1rem;font-size:.875rem;font-weight:800;border:none;cursor:pointer;transition:all .2s ease}
@@ -1179,7 +1180,7 @@
                             <span id="service-summary-etd" class="font-black text-slate-800">-</span>
                         </div>
                         <div class="summary-row">
-                            <span class="text-slate-500 font-semibold">Biaya Pengiriman</span>
+                            <span class="text-slate-500 font-semibold">Biaya Penjemputan</span>
                             <span id="service-summary-ongkir" class="font-black text-slate-800">Rp 0</span>
                         </div>
                         <div class="summary-row total">
@@ -1339,12 +1340,15 @@
     let shippingMethod = (document.querySelector('input[name="metode_pengiriman"]:checked')?.value || 'ambil_sendiri') === 'diantar' ? 'diantar' : 'pickup';
     let shippingCost = shippingMethod === 'diantar' ? Number(INITIAL_PRODUCT_SUMMARY.ongkir || 0) : 0;
     let shippingDistanceKm = 0;
+    let shippingRoundTripDistanceKm = 0;
     let shippingQuoteReady = shippingMethod === 'pickup' || shippingCost > 0;
     let shippingCourierCode = '';
     let shippingCourierName = '';
     let shippingServiceName = '';
     let shippingEtd = '';
     let shippingWeight = 0;
+    let shippingRatePerKm = 0;
+    let shippingMinimumCost = 0;
     let rowIndex = 0;
     let purchasePriceRequestOpen = INITIAL_SPECIAL_PRICE_REQUEST_OPEN;
 
@@ -1607,7 +1611,7 @@
         if (methodOptionASubtitle) {
             methodOptionASubtitle.textContent = isProductCheckout
                 ? 'Ambil pesanan langsung di lokasi kami tanpa biaya ongkir.'
-                : 'Antar unit APAR langsung ke lokasi PD. Anugrah Utama tanpa biaya ongkir.';
+                : 'Anda mengantar unit APAR langsung ke lokasi PD. Anugrah Utama tanpa biaya penjemputan.';
         }
         if (methodOptionBKicker) {
             methodOptionBKicker.textContent = isProductCheckout ? 'Metode Pengiriman' : 'Metode Penanganan';
@@ -1618,8 +1622,30 @@
         if (methodOptionBSubtitle) {
             methodOptionBSubtitle.textContent = isProductCheckout
                 ? 'Pesanan dikirim ke alamat Anda dengan biaya pengiriman sesuai hasil cek ekspedisi.'
-                : 'Tim kami menjemput unit APAR ke alamat Anda dengan biaya penjemputan sesuai hasil cek ekspedisi.';
+                : 'Kami menjemput unit APAR ke alamat Anda dengan biaya penjemputan.';
         }
+    }
+
+    function shippingQuoteActionLabel() {
+        return currentTab === 'beli' ? 'Hitung Ongkir' : 'Hitung Biaya Penjemputan';
+    }
+
+    function shippingQuoteLoadingLabel() {
+        return currentTab === 'beli' ? 'Menghitung Ongkir' : 'Menghitung Biaya Penjemputan';
+    }
+
+    function shippingQuoteResetMessage() {
+        return currentTab === 'beli'
+            ? 'Lokasi pengiriman berubah. Silakan hitung ongkir lagi.'
+            : 'Lokasi penjemputan berubah. Silakan hitung biaya penjemputan lagi.';
+    }
+
+    function renderShippingQuoteButton(loading = false) {
+        if (!btnCheckOngkir) return;
+
+        btnCheckOngkir.innerHTML = loading
+            ? '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> ' + shippingQuoteLoadingLabel()
+            : '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg> ' + shippingQuoteActionLabel();
     }
 
     function shippingServiceLabel() {
@@ -1631,12 +1657,15 @@
     function clearShippingQuoteFields() {
         shippingCost = 0;
         shippingDistanceKm = 0;
+        shippingRoundTripDistanceKm = 0;
         shippingQuoteReady = shippingMethod === 'pickup';
         shippingCourierCode = '';
         shippingCourierName = '';
         shippingServiceName = '';
         shippingEtd = '';
         shippingWeight = 0;
+        shippingRatePerKm = 0;
+        shippingMinimumCost = 0;
 
         if (inpOngkir) inpOngkir.value = '0';
         if (inpShippingDistance) inpShippingDistance.value = '0';
@@ -1657,18 +1686,30 @@
 
         if (type === 'error') {
             shippingStatusNote.className = 'shipping-status-note show error';
-            shippingStatusNote.innerHTML = `
+                shippingStatusNote.innerHTML = `
                 <span class="shipping-status-label">${isProductCheckout ? 'Informasi Pengiriman' : 'Informasi Penanganan'}</span>
-                <span class="shipping-status-value">Belum bisa menghitung ongkir</span>
+                <span class="shipping-status-value">${isProductCheckout ? 'Belum bisa menghitung ongkir' : 'Belum bisa menghitung biaya penjemputan'}</span>
                 <span class="shipping-status-meta">${escapeHtml(message)}</span>
             `;
         } else if (type === 'success') {
-            shippingStatusNote.className = 'shipping-status-note show success';
+            if (isProductCheckout) {
+                shippingStatusNote.className = 'shipping-status-note show success';
             shippingStatusNote.innerHTML = `
-                <span class="shipping-status-label">${isProductCheckout ? 'Biaya Pengiriman' : 'Biaya Penjemputan'}</span>
+                <span class="shipping-status-label">Biaya Pengiriman</span>
                 <span class="shipping-status-value">${escapeHtml(shippingServiceLabel() || 'Layanan tersedia')}</span>
                 <span class="shipping-status-meta">Estimasi ${escapeHtml(shippingEtd || '-')} • ${fmt(shippingCost)}</span>
             `;
+            } else {
+                shippingStatusNote.className = 'shipping-status-note show success';
+                shippingStatusNote.innerHTML = `
+                    <span class="shipping-status-label">Biaya Penjemputan</span>
+                    <span class="shipping-status-value">${fmt(shippingCost)}</span>
+                    <span class="shipping-status-detail">Jarak toko ke lokasi: ${formatDistance(shippingDistanceKm)} km</span>
+                    <span class="shipping-status-detail">Pulang-pergi: ${formatDistance(shippingRoundTripDistanceKm)} km</span>
+                    <span class="shipping-status-detail">Tarif penjemputan: ${fmt(shippingRatePerKm)} / km</span>
+                    <span class="shipping-status-detail">Total biaya penjemputan: ${fmt(shippingCost)}</span>
+                `;
+            }
         } else if (shippingMethod === 'pickup') {
             shippingStatusNote.className = 'shipping-status-note';
             shippingStatusNote.innerHTML = '';
@@ -1699,6 +1740,7 @@
         }
 
         syncMethodCardCopy();
+        renderShippingQuoteButton(false);
     }
 
     function setShippingMethod(method) {
@@ -1724,7 +1766,7 @@
         } else {
             clearShippingQuoteFields();
             shippingQuoteReady = false;
-            setShippingStatus('Klik "Hitung Ongkir" untuk melihat biaya penjemputan ke alamat Anda.', 'info');
+            setShippingStatus('Klik "Hitung Biaya Penjemputan" untuk melihat biaya penjemputan ke alamat Anda.', 'info');
         }
 
         applyShippingModeVisual();
@@ -1738,7 +1780,7 @@
         if (shippingMethod !== 'diantar') return;
         clearShippingQuoteFields();
         shippingQuoteReady = false;
-        setShippingStatus(message || 'Lokasi pengiriman berubah. Silakan hitung ongkir lagi.', 'info');
+        setShippingStatus(message || shippingQuoteResetMessage(), 'info');
         syncDisplayedTotal();
     }
 
@@ -1927,7 +1969,7 @@
         const query = (rajaOngkirSearchInput.value || '').trim();
         if (inpShippingDestinationId) inpShippingDestinationId.value = '';
         if (inpShippingDestinationLabel) inpShippingDestinationLabel.value = '';
-        invalidateShippingQuote('Lokasi pengiriman berubah. Silakan hitung ongkir lagi.');
+        invalidateShippingQuote();
 
         if (rajaOngkirSearchTimer) clearTimeout(rajaOngkirSearchTimer);
 
@@ -1957,7 +1999,7 @@
 
         hideShippingDestinationSuggestions();
         updateShippingDestinationHelper('Lokasi pengiriman berhasil dipilih.', 'success');
-        invalidateShippingQuote('Lokasi pengiriman dipilih. Silakan hitung ongkir lagi.');
+        invalidateShippingQuote();
     }
 
     function clearAddressSelection(options = {}) {
@@ -1988,7 +2030,7 @@
 
         updateSelectedAddressPreview('');
         updateCombinedAddress();
-        invalidateShippingQuote('Lokasi pengiriman berubah. Silakan hitung ongkir lagi.');
+        invalidateShippingQuote();
     }
 
     function buildGeocodingQueries(item) {
@@ -2107,7 +2149,7 @@
             markerInstance.on('dragend', function(e) {
                 var pos = e.target.getLatLng();
                 updateOrderCoord(pos.lat, pos.lng);
-                invalidateShippingQuote('Lokasi pengiriman berubah. Silakan hitung ongkir lagi.');
+                invalidateShippingQuote();
             });
         }
 
@@ -2135,7 +2177,7 @@
 
             placeMarker(e.latlng.lat, e.latlng.lng);
             updateOrderCoord(e.latlng.lat, e.latlng.lng);
-            invalidateShippingQuote('Lokasi pengiriman berubah. Silakan hitung ongkir lagi.');
+            invalidateShippingQuote();
         });
     }
 
@@ -2164,7 +2206,7 @@
             if (inpKodePos) inpKodePos.value = locationItem.zip_code || locationItem.kode_pos || '';
         }
         updateCombinedAddress();
-        invalidateShippingQuote('Lokasi pengiriman dipilih. Silakan hitung ongkir lagi.');
+        invalidateShippingQuote();
         hideAddressSuggestions();
         if (lat && lng) initLeafletMap(Number(lat), Number(lng), true);
     }
@@ -2212,16 +2254,22 @@
         const detailAddress = (inpAlamatDetail.value || '').trim();
         const destinationId = (inpShippingDestinationId?.value || '').trim();
         const destinationLabel = (inpShippingDestinationLabel?.value || '').trim();
+        const addressLat = (inpAlamatLat?.value || '').trim();
+        const addressLng = (inpAlamatLng?.value || '').trim();
         const items = currentTab === 'beli'
             ? getSelectedItems().map((item) => ({ produk_id: item.produk_id, jumlah: item.jumlah }))
             : [];
         const serviceState = currentTab === 'beli' ? null : buildServiceState();
 
-        if (!mapsAddress || !detailAddress) {
+        if (currentTab === 'beli' && (!mapsAddress || !detailAddress)) {
             setShippingStatus('Lokasi pengiriman belum lengkap. Silakan pilih lokasi pengiriman terlebih dahulu.', 'error');
             return;
         }
-        if (!destinationId) {
+        if (currentTab !== 'beli' && (!addressLat || !addressLng)) {
+            setShippingStatus('Lokasi penjemputan belum lengkap. Silakan perbarui alamat terlebih dahulu.', 'error');
+            return;
+        }
+        if (currentTab === 'beli' && !destinationId) {
             setShippingStatus(USE_AUTHENTICATED_CUSTOMER
                 ? 'Lokasi pengiriman belum dapat digunakan untuk menghitung ongkir. Silakan perbarui alamat pengiriman Anda.'
                 : 'Lokasi pengiriman belum dapat digunakan untuk menghitung ongkir. Silakan pilih lokasi pengiriman terlebih dahulu.', 'error');
@@ -2230,16 +2278,16 @@
         if (currentTab === 'beli' && !items.length) {
             setShippingStatus(currentTab === 'beli'
                 ? 'Pilih minimal satu produk sebelum cek ongkir.'
-                : 'Lengkapi detail layanan terlebih dahulu sebelum menghitung ongkir penjemputan.', 'error');
+                : 'Lengkapi detail layanan terlebih dahulu sebelum menghitung biaya penjemputan.', 'error');
             return;
         }
         if (currentTab !== 'beli' && (!serviceState || !serviceState.qty || !serviceState.totalPrice)) {
-            setShippingStatus('Lengkapi detail layanan terlebih dahulu sebelum menghitung ongkir penjemputan.', 'error');
+            setShippingStatus('Lengkapi detail layanan terlebih dahulu sebelum menghitung biaya penjemputan.', 'error');
             return;
         }
 
         btnCheckOngkir.disabled = true;
-        btnCheckOngkir.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Menghitung Ongkir';
+        renderShippingQuoteButton(true);
         setShippingStatus('', 'info');
 
         try {
@@ -2252,13 +2300,13 @@
                     items,
                 }
                 : {
-                    destination_id: destinationId,
-                    destination_label: destinationLabel,
                     order_type: serviceState.kategori,
                     handling_method: serviceState.metode,
                     service_unit_apar_ids: serviceState.registeredUnits.map((unit) => unit.id),
                     service_ukuran_apar: serviceState.ukuran,
                     service_jumlah_unit: serviceState.qty,
+                    alamat_lat: addressLat,
+                    alamat_lng: addressLng,
                 };
 
             const response = await fetch(SHIPPING_COST_URL, {
@@ -2276,7 +2324,8 @@
             if (!response.ok || !data.success) throw new Error(data.message || 'Gagal menghitung ongkir.');
 
             shippingCost = Number(data.cost || 0);
-            shippingDistanceKm = 0;
+            shippingDistanceKm = Number(data.distance_km || 0);
+            shippingRoundTripDistanceKm = Number(data.round_trip_distance_km || 0);
             shippingQuoteReady = shippingCost >= 0;
             shippingCourierCode = String(data.courier || '');
             shippingCourierName = String(data.courier_name || '');
@@ -2285,8 +2334,10 @@
                 .join(' - ');
             shippingEtd = String(data.etd || '');
             shippingWeight = Number(data.weight || 0);
+            shippingRatePerKm = Number(data.rate_per_km || 0);
+            shippingMinimumCost = Number(data.minimum_cost || 0);
             inpOngkir.value = String(shippingCost);
-            inpShippingDistance.value = '0';
+            inpShippingDistance.value = String(currentTab === 'beli' ? 0 : shippingRoundTripDistanceKm);
             if (inpShippingCourier) inpShippingCourier.value = shippingCourierCode;
             if (inpShippingService) inpShippingService.value = shippingServiceName;
             if (inpShippingEtd) inpShippingEtd.value = shippingEtd;
@@ -2301,7 +2352,7 @@
             invalidateShippingQuote(error.message || 'Gagal menghitung ongkir.');
         } finally {
             btnCheckOngkir.disabled = false;
-            btnCheckOngkir.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg> Hitung Ongkir';
+            renderShippingQuoteButton(false);
         }
     }
 
@@ -3227,7 +3278,7 @@
         }
         if (serviceSummaryOngkir) serviceSummaryOngkir.textContent = fmt(state.ongkir || 0);
         if (serviceSummaryPriceLabel) {
-            serviceSummaryPriceLabel.textContent = (state.ongkir || 0) > 0 ? 'Total Pembayaran' : 'Estimasi Harga / Total';
+            serviceSummaryPriceLabel.textContent = 'Total Pembayaran';
         }
         if (serviceSummaryPrice) serviceSummaryPrice.textContent = fmt(state.grandTotal || 0);
         if (serviceStockTitle) {
@@ -3664,7 +3715,7 @@
                 }
 
                 inpOngkir.value = String(shippingCost);
-                inpShippingDistance.value = String(shippingDistanceKm);
+                inpShippingDistance.value = String(shippingRoundTripDistanceKm || shippingDistanceKm);
                 if (inpShippingCourier) inpShippingCourier.value = shippingCourierCode;
                 if (inpShippingService) inpShippingService.value = shippingServiceName;
                 if (inpShippingEtd) inpShippingEtd.value = shippingEtd;

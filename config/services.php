@@ -43,4 +43,11 @@ return [
         'default_weight' => (int) env('RAJAONGKIR_DEFAULT_WEIGHT', 1000),
     ],
 
+    'apar_service_pickup' => [
+        'store_lat' => (float) env('APAR_SERVICE_PICKUP_STORE_LAT', -6.457629743293867),
+        'store_lng' => (float) env('APAR_SERVICE_PICKUP_STORE_LNG', 106.84730349536345),
+        'rate_per_km' => (float) env('APAR_SERVICE_PICKUP_RATE_PER_KM', 3500),
+        'min_cost' => (float) env('APAR_SERVICE_PICKUP_MIN_COST', 15000),
+    ],
+
 ];

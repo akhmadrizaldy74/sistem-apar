@@ -40,6 +40,8 @@
         $shippingEtd = $pesanan->shipping_etd ?: null;
         $pricingSummary = $pesanan->pricingSummary();
         $approvedAdjustment = max(0, (float) $pesanan->purchasePriceInitialTotal() - (float) ($pricingSummary['totalPembayaran'] ?? 0));
+        $shippingCostLabel = $pesanan->tipe === 'service' ? 'Biaya Penjemputan' : 'Biaya Pengiriman';
+        $shippingDestinationLabel = $pesanan->tipe === 'service' ? 'Lokasi Penjemputan' : 'Tujuan Ongkir';
     @endphp
     <!-- Top Brand & Invoice Metadata Header -->
     <div class="row" style="border-b: 2px solid #dc2626; padding-bottom: 15px;">
@@ -86,7 +88,7 @@
                 <h2>Rincian Transaksi:</h2>
                 <p><strong>Metode Pemesanan:</strong> {{ strtoupper($pesanan->trackingMethodLabel()) }}</p>
                 @if($shippingDestination)
-                    <p><strong>Tujuan Ongkir:</strong> {{ $shippingDestination }}</p>
+                    <p><strong>{{ $shippingDestinationLabel }}:</strong> {{ $shippingDestination }}</p>
                 @endif
                 @if($shippingServiceLabel)
                     <p><strong>Layanan Kirim:</strong> {{ $shippingServiceLabel }}</p>
@@ -214,7 +216,7 @@
                 <td class="text-right" style="background-color: #f9fafb;">{{ (float) ($pricingSummary['nominalDiskon'] ?? 0) > 0 ? '-' : '' }}Rp {{ number_format((float) ($pricingSummary['nominalDiskon'] ?? 0), 0, ',', '.') }}</td>
             </tr>
             <tr>
-                <td class="text-right" style="background-color: #f9fafb;">Biaya Pengiriman</td>
+                <td class="text-right" style="background-color: #f9fafb;">{{ $shippingCostLabel }}</td>
                 <td class="text-right" style="background-color: #f9fafb;">Rp {{ number_format((float) ($pricingSummary['ongkir'] ?? 0), 0, ',', '.') }}</td>
             </tr>
             @if($approvedAdjustment > 0)

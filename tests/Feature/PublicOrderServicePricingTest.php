@@ -10,41 +10,20 @@ use App\Models\ServicePaket;
 use App\Models\UnitApar;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class PublicOrderServicePricingTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_registered_service_order_uses_standard_package_price_for_each_selected_unit(): void
+    public function test_registered_service_order_uses_distance_based_pickup_cost_for_each_selected_unit(): void
     {
         config(['broadcasting.default' => 'null']);
         config([
-            'services.rajaongkir.key' => 'test-key',
-            'services.rajaongkir.base_url' => 'https://rajaongkir.komerce.id/api/v1',
-            'services.rajaongkir.origin_id' => '501',
-            'services.rajaongkir.couriers' => 'jne',
-            'services.rajaongkir.default_weight' => 1000,
-        ]);
-
-        Http::fake([
-            'https://rajaongkir.komerce.id/api/v1/calculate/domestic-cost' => Http::response([
-                'meta' => [
-                    'code' => 200,
-                    'message' => 'OK',
-                ],
-                'data' => [
-                    [
-                        'name' => 'JNE',
-                        'code' => 'jne',
-                        'service' => 'REG',
-                        'description' => 'Layanan Reguler',
-                        'cost' => 18000,
-                        'etd' => '1-2 hari',
-                    ],
-                ],
-            ], 200),
+            'services.apar_service_pickup.store_lat' => -6.457629743293867,
+            'services.apar_service_pickup.store_lng' => 106.84730349536345,
+            'services.apar_service_pickup.rate_per_km' => 3500,
+            'services.apar_service_pickup.min_cost' => 15000,
         ]);
 
         $user = User::factory()->create([
@@ -146,6 +125,7 @@ class PublicOrderServicePricingTest extends TestCase
             'service_paket_id' => $paketC->id,
             'service_metode_penanganan' => 'dijemput',
             'service_keluhan' => 'Mohon service lengkap.',
+            'shipping_weight' => 0,
         ]);
 
         $response->assertRedirect();
@@ -154,26 +134,94 @@ class PublicOrderServicePricingTest extends TestCase
         $this->assertDatabaseCount('pesanans', 1);
 
         $pesanan = Pesanan::query()->latest('id')->firstOrFail();
+        $oneWayDistance = $this->haversineKm(
+            -6.457629743293867,
+            106.84730349536345,
+            -6.889,
+            107.610,
+        );
+        $expectedDistance = round($oneWayDistance * 2, 2);
+        $expectedPickupCost = round(max(15000, $oneWayDistance * 2 * 3500), 0);
 
         $this->assertSame('service', $pesanan->tipe);
         $this->assertSame('service', $pesanan->service_jenis_layanan);
         $this->assertSame('diantar_internal', $pesanan->metode_pengiriman);
         $this->assertSame('bca', $pesanan->bank);
         $this->assertSame(300000.0, (float) $pesanan->service_estimasi_biaya);
-        $this->assertSame(18000.0, (float) $pesanan->ongkir);
+        $this->assertSame($expectedPickupCost, (float) $pesanan->ongkir);
         $this->assertSame(
             (float) $pesanan->service_estimasi_biaya + (float) $pesanan->ongkir,
             (float) $pesanan->total
         );
-        $this->assertNull($pesanan->shipping_distance_km);
-        $this->assertSame('jne', $pesanan->shipping_courier);
-        $this->assertSame('REG - Layanan Reguler', $pesanan->shipping_service);
-        $this->assertSame('1-2 hari', $pesanan->shipping_etd);
+        $this->assertSame($expectedDistance, (float) $pesanan->shipping_distance_km);
+        $this->assertNull($pesanan->shipping_courier);
+        $this->assertNull($pesanan->shipping_service);
+        $this->assertNull($pesanan->shipping_etd);
         $this->assertSame('11454', $pesanan->shipping_destination_id);
-        $this->assertSame(6000, (int) $pesanan->shipping_weight);
+        $this->assertSame(0, (int) $pesanan->shipping_weight);
         $this->assertStringContainsString('2 kg', (string) $pesanan->service_keluhan);
         $this->assertStringContainsString('4 kg', (string) $pesanan->service_keluhan);
         $this->assertStringContainsString('Rp150.000', (string) $pesanan->service_keluhan);
+    }
+
+    public function test_service_pickup_quote_returns_round_trip_distance_and_pickup_cost(): void
+    {
+        config(['broadcasting.default' => 'null']);
+        config([
+            'services.apar_service_pickup.store_lat' => -6.457629743293867,
+            'services.apar_service_pickup.store_lng' => 106.84730349536345,
+            'services.apar_service_pickup.rate_per_km' => 3500,
+            'services.apar_service_pickup.min_cost' => 15000,
+        ]);
+
+        $user = User::factory()->create([
+            'role' => 'pelanggan',
+            'no_telpon' => '081234567892',
+        ]);
+
+        Pelanggan::create([
+            'user_id' => $user->id,
+            'nama' => 'Pelanggan Quote Service',
+            'no_wa' => '081234567892',
+            'alamat' => 'Jl. Pickup Quote',
+            'alamat_maps' => 'Jl. Pickup Quote',
+            'alamat_detail' => 'Gudang belakang',
+            'alamat_lat' => -6.595038,
+            'alamat_lng' => 106.816635,
+            'status' => 'tetap',
+        ]);
+
+        $oneWayDistance = $this->haversineKm(
+            -6.457629743293867,
+            106.84730349536345,
+            -6.595038,
+            106.816635,
+        );
+        $roundTripDistance = round($oneWayDistance * 2, 2);
+        $expectedCost = round(max(15000, $oneWayDistance * 2 * 3500), 0);
+
+        $response = $this->actingAs($user)->postJson(route('rajaongkir.cost'), [
+            'order_type' => 'service',
+            'handling_method' => 'dijemput',
+            'alamat_lat' => -6.595038,
+            'alamat_lng' => 106.816635,
+            'service_ukuran_apar' => '2 kg',
+            'service_jumlah_unit' => 1,
+        ]);
+
+        $response->assertOk()
+            ->assertJson([
+                'success' => true,
+                'quote_type' => 'service_pickup',
+                'cost' => $expectedCost,
+                'distance_km' => round($oneWayDistance, 2),
+                'round_trip_distance_km' => $roundTripDistance,
+                'rate_per_km' => 3500,
+                'minimum_cost' => 15000,
+                'courier' => null,
+                'service' => null,
+                'etd' => null,
+            ]);
     }
 
     public function test_registered_units_include_manual_admin_units_and_exclude_unfinished_orders(): void
@@ -324,5 +372,19 @@ class PublicOrderServicePricingTest extends TestCase
         $response->assertDontSee('AKHMAD-25052026-04');
         $response->assertDontSee('AKHMAD-25052026-05');
         $response->assertDontSee('AKHMAD-25052026-06');
+    }
+
+    private function haversineKm(float $fromLat, float $fromLng, float $toLat, float $toLng): float
+    {
+        $earthRadiusKm = 6371;
+        $latDelta = deg2rad($toLat - $fromLat);
+        $lngDelta = deg2rad($toLng - $fromLng);
+
+        $a = sin($latDelta / 2) ** 2
+            + cos(deg2rad($fromLat))
+            * cos(deg2rad($toLat))
+            * sin($lngDelta / 2) ** 2;
+
+        return 2 * $earthRadiusKm * asin(min(1, sqrt($a)));
     }
 }

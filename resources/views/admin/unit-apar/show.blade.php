@@ -24,6 +24,8 @@
                 'Halo Bapak/Ibu, kami ingin menginformasikan status APAR Anda dengan nomor unit ' . ($unit->no_seri ?: '-') . '.'
             )
             : null;
+        $refillHistories = $refillHistories ?? collect();
+        $serviceHistories = $serviceHistories ?? collect();
     @endphp
 
     <div class="mx-auto max-w-5xl space-y-6">
@@ -113,6 +115,65 @@
                 <div class="sm:col-span-2 lg:col-span-1">
                     <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Keterangan</p>
                     <p class="mt-2 text-sm font-semibold text-slate-700">{{ $unit->catatan_unit ?: '-' }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div class="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+                <div class="border-b border-slate-100 px-6 py-5 sm:px-8">
+                    <h3 class="text-lg font-black text-slate-900">Riwayat Refill</h3>
+                    <p class="mt-1 text-sm font-medium text-slate-500">Riwayat refill terakhir untuk unit ini.</p>
+                </div>
+
+                <div class="space-y-4 px-6 py-6 sm:px-8">
+                    @forelse ($refillHistories as $service)
+                        @php
+                            $refill = $service->refill;
+                        @endphp
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                            <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <p class="text-sm font-black text-slate-900">{{ $refill?->jenisRefill?->nama_label ?: 'Refill APAR' }}</p>
+                                    <p class="mt-1 text-xs font-semibold uppercase tracking-widest text-slate-400">{{ optional($service->tgl_service)->format('d M Y') ?: '-' }}</p>
+                                </div>
+                                <p class="text-sm font-black text-slate-700">Rp {{ number_format((float) ($service->biaya ?? 0), 0, ',', '.') }}</p>
+                            </div>
+
+                            <p class="mt-3 text-sm font-medium text-slate-600">
+                                {{ trim((string) ($service->keterangan ?: $service->catatan_teknisi ?: 'Tidak ada catatan tambahan.')) }}
+                            </p>
+                        </div>
+                    @empty
+                        <p class="text-sm font-semibold text-slate-500">Belum ada riwayat refill untuk unit ini.</p>
+                    @endforelse
+                </div>
+            </div>
+
+            <div class="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+                <div class="border-b border-slate-100 px-6 py-5 sm:px-8">
+                    <h3 class="text-lg font-black text-slate-900">Riwayat Service</h3>
+                    <p class="mt-1 text-sm font-medium text-slate-500">Riwayat service dan perawatan unit ini.</p>
+                </div>
+
+                <div class="space-y-4 px-6 py-6 sm:px-8">
+                    @forelse ($serviceHistories as $service)
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                            <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <p class="text-sm font-black text-slate-900">{{ $service->jenis_service ?: ($service->servicePaket?->nama ?: 'Service APAR') }}</p>
+                                    <p class="mt-1 text-xs font-semibold uppercase tracking-widest text-slate-400">{{ optional($service->tgl_service)->format('d M Y') ?: '-' }}</p>
+                                </div>
+                                <p class="text-sm font-black text-slate-700">Rp {{ number_format((float) ($service->biaya ?? 0), 0, ',', '.') }}</p>
+                            </div>
+
+                            <p class="mt-3 text-sm font-medium text-slate-600">
+                                {{ trim((string) ($service->keterangan ?: $service->catatan_teknisi ?: 'Tidak ada catatan tambahan.')) }}
+                            </p>
+                        </div>
+                    @empty
+                        <p class="text-sm font-semibold text-slate-500">Belum ada riwayat service untuk unit ini.</p>
+                    @endforelse
                 </div>
             </div>
         </div>

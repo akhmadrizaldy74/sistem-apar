@@ -74,6 +74,7 @@ class PublicOrderPickupCheckoutTest extends TestCase
             'submit_source' => 'normal',
             'ongkir' => 999999,
             'shipping_distance_km' => 999,
+            'shipping_weight' => 0,
             'items' => [
                 [
                     'produk_id' => $produk->id,

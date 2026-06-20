@@ -19,6 +19,8 @@
             $shippingEtd = $pesanan->shipping_etd ?: null;
             $pricingSummary = $pesanan->pricingSummary();
             $approvedAdjustment = max(0, (float) $pesanan->purchasePriceInitialTotal() - (float) ($pricingSummary['totalPembayaran'] ?? 0));
+            $shippingCostLabel = $pesanan->tipe === 'service' ? 'Biaya Penjemputan' : 'Biaya Pengiriman';
+            $shippingDestinationLabel = $pesanan->tipe === 'service' ? 'Lokasi Penjemputan' : 'Tujuan Ongkir';
         @endphp
         
         <!-- Action Buttons Top -->
@@ -114,7 +116,7 @@
                             </div>
                             @if($shippingDestination)
                                 <div class="flex md:justify-end gap-4">
-                                    <dt class="font-bold text-slate-400">Tujuan Ongkir:</dt>
+                                    <dt class="font-bold text-slate-400">{{ $shippingDestinationLabel }}:</dt>
                                     <dd class="font-black text-slate-800">{{ $shippingDestination }}</dd>
                                 </div>
                             @endif
@@ -296,7 +298,7 @@
                             <span class="font-black">{{ (float) ($pricingSummary['nominalDiskon'] ?? 0) > 0 ? '-' : '' }}Rp {{ number_format((float) ($pricingSummary['nominalDiskon'] ?? 0), 0, ',', '.') }}</span>
                         </div>
                         <div class="flex items-center justify-between text-sm font-semibold text-slate-500">
-                            <span>Biaya Pengiriman</span>
+                            <span>{{ $shippingCostLabel }}</span>
                             <span class="font-black text-slate-900">Rp {{ number_format((float) ($pricingSummary['ongkir'] ?? 0), 0, ',', '.') }}</span>
                         </div>
                         @if($approvedAdjustment > 0)

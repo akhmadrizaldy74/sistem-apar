@@ -62,20 +62,161 @@ class UnitAparTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Unit APAR');
-        $response->assertSee('Kelola dan pantau unit APAR pelanggan yang terhubung dengan transaksi pembelian, refill, dan service.');
+        $response->assertSee('Daftar unit dibuat lebih ringkas supaya admin cepat mencari, menyaring, dan membuka detail tanpa scroll panjang.');
+        $response->assertSee('Total Unit APAR');
+        $response->assertSee('Unit Aktif');
+        $response->assertSee('Unit Expired');
+        $response->assertSee('Filter Unit APAR');
+        $response->assertSee('Produk');
+        $response->assertDontSee('Urutkan');
+        $response->assertDontSee('Terbaru');
+        $response->assertDontSee('Terlama');
+        $response->assertDontSee('Expired terdekat');
+        $response->assertSee('Menampilkan');
+        $response->assertSee('Nomor Unit');
+        $response->assertSee('Pelanggan');
+        $response->assertSee('Produk');
+        $response->assertSee('Tanggal Masuk');
         $response->assertDontSee('Registrasi Manual');
+        $response->assertDontSee('Ringkasan Transaksi');
+        $response->assertDontSee('Refill Lama');
+        $response->assertDontSee('Pembelian Produk');
+        $response->assertDontSee('Unit Lama / Manual');
         $response->assertSee('Lihat Detail');
         $response->assertSee('Hapus');
-        $response->assertDontSee('Cetak Laporan');
-        $response->assertDontSee('Kelompok per Pelanggan');
-        $response->assertDontSee('Ingatkan');
         $response->assertDontSee(route('admin.unit-apar.edit', $activeUnit), false);
+        $this->assertSame(3, $response->viewData('filteredUnitCount'));
 
         $summary = $response->viewData('summary');
         $this->assertSame(3, $summary['total']);
         $this->assertSame(1, $summary['aktif']);
         $this->assertSame(1, $summary['hampir']);
         $this->assertSame(1, $summary['expired']);
+    }
+
+    public function test_admin_unit_apar_index_paginates_unit_list(): void
+    {
+        $admin = $this->createAdmin();
+        ['pelanggan' => $pelanggan, 'produk' => $produk] = $this->createFixture(customerName: 'Akhmad Rizaldy');
+
+        for ($i = 1; $i <= 11; $i++) {
+            $tanggal = sprintf('2026-06-%02d', $i);
+            $pesanan = Pesanan::create([
+                'pelanggan_id' => $pelanggan->id,
+                'user_id' => $pelanggan->user_id,
+                'tipe' => 'produk',
+                'status' => Pesanan::STATUS_SELESAI_FINAL,
+                'tanggal' => $tanggal,
+                'total' => 750000,
+                'total_harga' => 750000,
+            ]);
+
+            UnitApar::create([
+                'pelanggan_id' => $pelanggan->id,
+                'pesanan_id' => $pesanan->id,
+                'produk_id' => $produk->id,
+                'no_seri' => 'GROUP-' . str_pad((string) $i, 2, '0', STR_PAD_LEFT),
+                'tgl_beli' => $tanggal,
+                'tgl_produksi' => $tanggal,
+                'ukuran' => '6 Kg',
+                'bahan' => 'Dry Chemical Powder',
+                'kondisi_awal' => 'layak',
+                'tgl_expired' => '2027-06-30',
+            ]);
+        }
+
+        $response = $this->actingAs($admin)->get(route('admin.unit-apar.index', [
+            'per_page' => 10,
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('Nomor Unit');
+        $response->assertSee('GROUP-11');
+
+        $paginator = $response->viewData('units');
+        $this->assertSame(11, $paginator->total());
+        $this->assertSame(10, $paginator->perPage());
+        $this->assertCount(10, $paginator->items());
+    }
+
+    public function test_admin_unit_apar_index_supports_search_product_status_and_date_filters(): void
+    {
+        $admin = $this->createAdmin();
+        ['pelanggan' => $pelanggan, 'produk' => $produk] = $this->createFixture(customerName: 'Akhmad Rizaldy');
+
+        $produkLain = Produk::create([
+            'nama' => 'APAR GuardALL 3 Kg',
+            'merek' => 'GuardALL',
+            'jenis_apar_id' => $produk->jenis_apar_id,
+            'kapasitas' => '3 Kg',
+            'penggunaan' => 'Area kantor',
+            'harga' => 680000,
+            'deskripsi' => 'Produk filter test',
+            'stok' => 5,
+        ]);
+
+        $pesananExpired = Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'user_id' => $pelanggan->user_id,
+            'tipe' => 'produk',
+            'status' => Pesanan::STATUS_SELESAI_FINAL,
+            'tanggal' => '2026-06-11',
+            'total' => 750000,
+            'total_harga' => 750000,
+        ]);
+
+        UnitApar::create([
+            'pelanggan_id' => $pelanggan->id,
+            'pesanan_id' => $pesananExpired->id,
+            'produk_id' => $produk->id,
+            'no_seri' => 'FILTER-EXPIRED-001',
+            'tgl_beli' => '2026-06-11',
+            'tgl_produksi' => '2026-06-11',
+            'ukuran' => '6 Kg',
+            'bahan' => 'Dry Chemical Powder',
+            'kondisi_awal' => 'layak',
+            'tgl_expired' => now()->subDay()->toDateString(),
+        ]);
+
+        $pesananAktif = Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'user_id' => $pelanggan->user_id,
+            'tipe' => 'produk',
+            'status' => Pesanan::STATUS_SELESAI_FINAL,
+            'tanggal' => '2026-06-20',
+            'total' => 680000,
+            'total_harga' => 680000,
+        ]);
+
+        UnitApar::create([
+            'pelanggan_id' => $pelanggan->id,
+            'pesanan_id' => $pesananAktif->id,
+            'produk_id' => $produkLain->id,
+            'no_seri' => 'FILTER-AKTIF-001',
+            'tgl_beli' => '2026-06-20',
+            'tgl_produksi' => '2026-06-20',
+            'ukuran' => '3 Kg',
+            'bahan' => 'Dry Chemical Powder',
+            'kondisi_awal' => 'layak',
+            'tgl_expired' => now()->addYear()->toDateString(),
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.unit-apar.index', [
+            'search' => 'GuardALL',
+            'produk_id' => $produkLain->id,
+            'status' => 'aktif',
+            'tanggal_mode' => 'single',
+            'tanggal' => '2026-06-20',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('FILTER-AKTIF-001');
+        $response->assertDontSee('FILTER-EXPIRED-001');
+        $response->assertSee('Produk:');
+        $response->assertSee('Status:');
+        $response->assertSee('Tanggal:');
+        $this->assertSame(1, $response->viewData('filteredUnitCount'));
+        $this->assertSame(1, $response->viewData('summary')['aktif']);
     }
 
     public function test_admin_cannot_register_unit_apar_manually_from_monitoring_page(): void
@@ -231,6 +372,7 @@ class UnitAparTest extends TestCase
             'tanggal' => '2026-06-18',
             'total' => 1500000,
             'total_harga' => 1500000,
+            'metode_pembayaran' => 'cash',
         ]);
 
         $pesanan->details()->create([
@@ -278,6 +420,7 @@ class UnitAparTest extends TestCase
             'tanggal' => '2026-06-18',
             'total' => 1500000,
             'total_harga' => 1500000,
+            'metode_pembayaran' => 'cash',
         ]);
 
         $pesanan->details()->create([
