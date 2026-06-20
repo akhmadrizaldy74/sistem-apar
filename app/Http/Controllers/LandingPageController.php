@@ -193,15 +193,23 @@ class LandingPageController extends Controller
             ->unique()
             ->values();
 
+        $directLinkedTestimonis = Testimoni::query()
+            ->where('pelanggan_id', $pelanggan->id)
+            ->where('transaksi_type', Pesanan::class)
+            ->whereIn('transaksi_id', $pelanggan->pesanan->pluck('id')->all())
+            ->get()
+            ->keyBy('transaksi_id');
+
         $linkedTestimonis = Testimoni::query()
             ->whereIn('id', $linkedTestimoniIds)
             ->get()
             ->keyBy('id');
 
-        $pelanggan->pesanan->each(function (Pesanan $pesanan) use ($feedbackLinks, $linkedTestimonis, $pelanggan) {
+        $pelanggan->pesanan->each(function (Pesanan $pesanan) use ($directLinkedTestimonis, $feedbackLinks, $linkedTestimonis, $pelanggan) {
             $description = $this->feedbackLinkDescription($pelanggan, $pesanan);
             $feedbackLink = $feedbackLinks->get($description);
-            $linkedTestimoni = $feedbackLink ? $linkedTestimonis->get($feedbackLink->subject_id) : null;
+            $linkedTestimoni = $directLinkedTestimonis->get($pesanan->id)
+                ?: ($feedbackLink ? $linkedTestimonis->get($feedbackLink->subject_id) : null);
 
             $pesanan->setAttribute('linked_testimoni_id', $linkedTestimoni?->id);
             $pesanan->setRelation('linkedTestimoni', $linkedTestimoni);

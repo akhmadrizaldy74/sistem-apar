@@ -19,6 +19,7 @@ class Pesanan extends Model
     public const PRICE_REQUEST_PENDING = 'pending';
     public const PRICE_REQUEST_APPROVED = 'approved';
     public const PRICE_REQUEST_REJECTED = 'rejected';
+    public const STATUS_MENUNGGU_PERSETUJUAN_HARGA = 'menunggu persetujuan';
 
     public const STATUS_PENDING = 'pending';
     public const STATUS_DIPROSES = 'diproses';
@@ -28,6 +29,7 @@ class Pesanan extends Model
     public const STATUS_DIKERJAKAN_TEKNISI = 'dikerjakan teknisi';
     public const STATUS_SELESAI_OLEH_TEKNISI = 'selesai oleh teknisi';
     public const STATUS_DIKONFIRMASI_ADMIN = 'dikonfirmasi admin';
+    public const STATUS_SIAP_DIKIRIM = 'siap dikirim';
     public const STATUS_SELESAI = 'selesai';
     public const STATUS_SELESAI_FINAL = 'selesai final';
     public const STATUS_DITOLAK = 'ditolak';
@@ -92,8 +94,20 @@ class Pesanan extends Model
         'bank',
         'link_pembayaran_terkirim_at',
         'pembayaran_terkonfirmasi_at',
+        'customer_confirmed_at',
+        'customer_confirmed_by',
+        'testimonial_submitted_at',
         'metode_pengiriman',
         'ongkir',
+        'harga_normal',
+        'harga_setelah_diskon',
+        'total_awal',
+        'shipping_courier',
+        'shipping_service',
+        'shipping_etd',
+        'shipping_destination_id',
+        'shipping_destination_label',
+        'shipping_weight',
         'shipping_distance_km',
         'alamat_maps',
         'alamat_detail',
@@ -103,17 +117,24 @@ class Pesanan extends Model
         'status',
         'harga_pengajuan',
         'harga_final',
+        'harga_final_admin',
         'status_pengajuan_harga',
+        'status_persetujuan_harga',
         'catatan_pengajuan_harga',
         'catatan_admin_harga',
         'disetujui_oleh',
         'disetujui_pada',
+        'approved_by',
+        'approved_at',
+        'rejected_by',
+        'rejected_at',
         'harga_khusus_digunakan',
         'harga_usulan',
         'harga_penawaran_pelanggan',
         'kode_nego',
         'kode_nego_terpakai_at',
         'is_nego',
+        'is_pengajuan_harga',
         'keterangan',
         'catatan_admin',
         'tanggal',
@@ -131,6 +152,10 @@ class Pesanan extends Model
         'service_total_kg' => 'float',
         'service_estimasi_biaya' => 'float',
         'ongkir' => 'float',
+        'harga_normal' => 'float',
+        'harga_setelah_diskon' => 'float',
+        'total_awal' => 'float',
+        'shipping_weight' => 'integer',
         'shipping_distance_km' => 'float',
         'alamat_lat' => 'float',
         'alamat_lng' => 'float',
@@ -138,15 +163,22 @@ class Pesanan extends Model
         'kode_nego_terpakai_at' => 'datetime',
         'link_pembayaran_terkirim_at' => 'datetime',
         'pembayaran_terkonfirmasi_at' => 'datetime',
+        'customer_confirmed_at' => 'datetime',
+        'customer_confirmed_by' => 'integer',
+        'testimonial_submitted_at' => 'datetime',
         'teknisi_selesai_at' => 'datetime',
         'stok_dikurangi' => 'boolean',
         'hidden_from_pesanan_at' => 'datetime',
         'harga_pengajuan' => 'float',
         'harga_final' => 'float',
+        'harga_final_admin' => 'float',
         'disetujui_pada' => 'datetime',
+        'approved_at' => 'datetime',
+        'rejected_at' => 'datetime',
         'harga_khusus_digunakan' => 'boolean',
         'harga_usulan' => 'float',
         'harga_penawaran_pelanggan' => 'float',
+        'is_pengajuan_harga' => 'boolean',
     ];
 
     protected static array $tableColumnCache = [];
@@ -158,7 +190,7 @@ class Pesanan extends Model
 
     public static function purchasePriceStatusStorageColumn(): ?string
     {
-        foreach (['status_pengajuan_harga', 'kode_nego'] as $column) {
+        foreach (['status_persetujuan_harga', 'status_pengajuan_harga', 'kode_nego'] as $column) {
             if (static::supportsDatabaseColumn($column)) {
                 return $column;
             }
@@ -176,7 +208,9 @@ class Pesanan extends Model
             $value = static::normalizeNullableFloat($state['requested_price']);
             if ($model->hasDatabaseColumn('harga_pengajuan')) {
                 $payload['harga_pengajuan'] = $value;
-            } elseif ($model->hasDatabaseColumn('harga_penawaran_pelanggan')) {
+            }
+
+            if ($model->hasDatabaseColumn('harga_penawaran_pelanggan')) {
                 $payload['harga_penawaran_pelanggan'] = $value;
             }
         }
@@ -185,7 +219,13 @@ class Pesanan extends Model
             $value = static::normalizeNullableFloat($state['final_price']);
             if ($model->hasDatabaseColumn('harga_final')) {
                 $payload['harga_final'] = $value;
-            } elseif ($model->hasDatabaseColumn('harga_usulan')) {
+            }
+
+            if ($model->hasDatabaseColumn('harga_final_admin')) {
+                $payload['harga_final_admin'] = $value;
+            }
+
+            if ($model->hasDatabaseColumn('harga_usulan')) {
                 $payload['harga_usulan'] = $value;
             }
         }
@@ -195,14 +235,22 @@ class Pesanan extends Model
 
             if ($model->hasDatabaseColumn('status_pengajuan_harga')) {
                 $payload['status_pengajuan_harga'] = $status;
-            } else {
-                if ($model->hasDatabaseColumn('is_nego')) {
-                    $payload['is_nego'] = !is_null($status);
-                }
+            }
 
-                if ($model->hasDatabaseColumn('kode_nego')) {
-                    $payload['kode_nego'] = $status === static::PRICE_REQUEST_REJECTED ? 'rejected' : null;
-                }
+            if ($model->hasDatabaseColumn('status_persetujuan_harga')) {
+                $payload['status_persetujuan_harga'] = $status;
+            }
+
+            if ($model->hasDatabaseColumn('is_nego')) {
+                $payload['is_nego'] = !is_null($status);
+            }
+
+            if ($model->hasDatabaseColumn('is_pengajuan_harga')) {
+                $payload['is_pengajuan_harga'] = !is_null($status);
+            }
+
+            if ($model->hasDatabaseColumn('kode_nego')) {
+                $payload['kode_nego'] = $status === static::PRICE_REQUEST_REJECTED ? 'rejected' : null;
             }
         }
 
@@ -228,6 +276,34 @@ class Pesanan extends Model
 
         if (array_key_exists('approved_at', $state) && $model->hasDatabaseColumn('disetujui_pada')) {
             $payload['disetujui_pada'] = $state['approved_at'];
+        }
+
+        if (array_key_exists('approved_by', $state) && $model->hasDatabaseColumn('approved_by')) {
+            $payload['approved_by'] = $state['approved_by'] ? (int) $state['approved_by'] : null;
+        }
+
+        if (array_key_exists('approved_at', $state) && $model->hasDatabaseColumn('approved_at')) {
+            $payload['approved_at'] = $state['approved_at'];
+        }
+
+        if (array_key_exists('rejected_by', $state) && $model->hasDatabaseColumn('rejected_by')) {
+            $payload['rejected_by'] = $state['rejected_by'] ? (int) $state['rejected_by'] : null;
+        }
+
+        if (array_key_exists('rejected_at', $state) && $model->hasDatabaseColumn('rejected_at')) {
+            $payload['rejected_at'] = $state['rejected_at'];
+        }
+
+        if (array_key_exists('normal_subtotal', $state) && $model->hasDatabaseColumn('harga_normal')) {
+            $payload['harga_normal'] = static::normalizeNullableFloat($state['normal_subtotal']);
+        }
+
+        if (array_key_exists('discounted_total', $state) && $model->hasDatabaseColumn('harga_setelah_diskon')) {
+            $payload['harga_setelah_diskon'] = static::normalizeNullableFloat($state['discounted_total']);
+        }
+
+        if (array_key_exists('initial_total', $state) && $model->hasDatabaseColumn('total_awal')) {
+            $payload['total_awal'] = static::normalizeNullableFloat($state['initial_total']);
         }
 
         if (array_key_exists('used', $state)) {
@@ -579,6 +655,14 @@ class Pesanan extends Model
             return 'Menunggu Persetujuan Harga';
         }
 
+        if ($this->isProductOrder() && $this->hasApprovedPurchasePriceRequest() && empty($this->bukti_pembayaran)) {
+            return 'Harga Disetujui / Siap Dibayar';
+        }
+
+        if ($this->isProductOrder() && $this->hasRejectedPurchasePriceRequest() && empty($this->bukti_pembayaran)) {
+            return 'Pengajuan Ditolak / Harga Normal Aktif';
+        }
+
         return match ($normalizedStatus) {
             self::STATUS_SELESAI_FINAL,
             self::STATUS_SELESAI => 'Selesai Final',
@@ -587,6 +671,7 @@ class Pesanan extends Model
             'dibatalkan',
             'cancelled',
             'canceled' => 'Ditolak',
+            self::STATUS_SIAP_DIKIRIM => 'Siap Dikirim',
             self::STATUS_DIKONFIRMASI_ADMIN => 'Dikonfirmasi Admin',
             self::STATUS_SELESAI_OLEH_TEKNISI => 'Selesai oleh Teknisi',
             self::STATUS_DIKERJAKAN_TEKNISI => 'Dikerjakan Teknisi',
@@ -612,10 +697,12 @@ class Pesanan extends Model
         return match ($this->adminStatusLabel()) {
             'Selesai Final' => 'bg-emerald-50 text-emerald-700 border border-emerald-200',
             'Menunggu', 'Menunggu Persetujuan Harga' => 'bg-amber-50 text-amber-700 border border-amber-200',
+            'Harga Disetujui / Siap Dibayar' => 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+            'Pengajuan Ditolak / Harga Normal Aktif' => 'bg-red-50 text-red-700 border border-red-200',
             'Diproses' => 'bg-blue-50 text-blue-700 border border-blue-200',
             'Ditugaskan ke Teknisi' => 'bg-purple-50 text-purple-700 border border-purple-200',
             'Dikerjakan Teknisi' => 'bg-indigo-50 text-indigo-700 border border-indigo-200',
-            'Selesai oleh Teknisi', 'Dikonfirmasi Admin' => 'bg-cyan-50 text-cyan-700 border border-cyan-200',
+            'Selesai oleh Teknisi', 'Dikonfirmasi Admin', 'Siap Dikirim' => 'bg-cyan-50 text-cyan-700 border border-cyan-200',
             'Ditolak' => 'bg-red-50 text-red-700 border border-red-200',
             default => 'bg-slate-100 text-slate-700 border border-slate-200',
         };
@@ -690,6 +777,21 @@ class Pesanan extends Model
             return true;
         }
 
+        if ($this->metode_pembayaran === 'cash'
+            && in_array((string) $this->status, [
+                self::STATUS_DIPROSES,
+                self::STATUS_DITUGASKAN_KE_TEKNISI,
+                self::STATUS_DIKERJAKAN_TEKNISI,
+                self::STATUS_SELESAI_OLEH_TEKNISI,
+                self::STATUS_DIKONFIRMASI_ADMIN,
+                self::STATUS_SIAP_DIKIRIM,
+                self::STATUS_SELESAI_FINAL,
+                self::STATUS_SELESAI,
+            ], true)
+        ) {
+            return true;
+        }
+
         return !empty($this->bukti_pembayaran) && $this->status !== self::STATUS_PENDING;
     }
 
@@ -717,7 +819,9 @@ class Pesanan extends Model
 
     public function purchasePriceRequestStatus(): ?string
     {
-        $statusMarker = static::normalizePurchasePriceStatus($this->status_pengajuan_harga ?? null);
+        $statusMarker = static::normalizePurchasePriceStatus(
+            $this->status_persetujuan_harga ?? $this->status_pengajuan_harga ?? null
+        );
         if (in_array($statusMarker, [
             static::PRICE_REQUEST_PENDING,
             static::PRICE_REQUEST_APPROVED,
@@ -726,7 +830,7 @@ class Pesanan extends Model
             return $statusMarker;
         }
 
-        if ((float) ($this->harga_final ?? 0) > 0 || (float) ($this->harga_usulan ?? 0) > 0 || (bool) ($this->harga_khusus_digunakan ?? false)) {
+        if ((float) ($this->harga_final_admin ?? 0) > 0 || (float) ($this->harga_final ?? 0) > 0 || (float) ($this->harga_usulan ?? 0) > 0 || (bool) ($this->harga_khusus_digunakan ?? false)) {
             return self::PRICE_REQUEST_APPROVED;
         }
 
@@ -739,11 +843,11 @@ class Pesanan extends Model
             return self::PRICE_REQUEST_PENDING;
         }
 
-        if ((string) $this->status === 'menunggu persetujuan') {
+        if ((string) $this->status === static::STATUS_MENUNGGU_PERSETUJUAN_HARGA) {
             return self::PRICE_REQUEST_PENDING;
         }
 
-        if (!is_null($this->requestedPurchasePrice()) || (bool) ($this->is_nego ?? false)) {
+        if (!is_null($this->requestedPurchasePrice()) || (bool) ($this->is_nego ?? false) || (bool) ($this->is_pengajuan_harga ?? false)) {
             return self::PRICE_REQUEST_PENDING;
         }
 
@@ -769,8 +873,8 @@ class Pesanan extends Model
     {
         return match ($this->purchasePriceRequestStatus()) {
             self::PRICE_REQUEST_PENDING => 'Menunggu Persetujuan Harga',
-            self::PRICE_REQUEST_APPROVED => 'Harga khusus disetujui',
-            self::PRICE_REQUEST_REJECTED => 'Pengajuan harga belum disetujui',
+            self::PRICE_REQUEST_APPROVED => 'Harga Disetujui',
+            self::PRICE_REQUEST_REJECTED => 'Pengajuan Ditolak',
             default => null,
         };
     }
@@ -799,14 +903,65 @@ class Pesanan extends Model
 
     public function approvedPurchaseFinalPrice(): ?float
     {
-        foreach (['harga_final', 'harga_usulan'] as $attribute) {
+        foreach (['harga_final_admin', 'harga_final', 'harga_usulan'] as $attribute) {
             $value = (float) ($this->{$attribute} ?? 0);
             if ($value > 0) {
                 return $value;
             }
         }
 
+        if ($this->hasApprovedPurchasePriceRequest()) {
+            return $this->requestedPurchasePrice();
+        }
+
         return null;
+    }
+
+    public function purchasePriceAdminNote(): ?string
+    {
+        foreach (['catatan_admin_harga', 'catatan_admin'] as $attribute) {
+            $note = trim((string) ($this->{$attribute} ?? ''));
+            if ($note !== '') {
+                return $note;
+            }
+        }
+
+        return null;
+    }
+
+    public function purchasePriceNormalSubtotal(): float
+    {
+        $stored = (float) ($this->harga_normal ?? 0);
+        if ($stored > 0) {
+            return $stored;
+        }
+
+        return (float) ($this->pricingSummary()['subtotalProduk'] ?? 0);
+    }
+
+    public function purchasePriceDiscountedTotal(): float
+    {
+        $stored = (float) ($this->harga_setelah_diskon ?? 0);
+        if ($stored > 0) {
+            return $stored;
+        }
+
+        return (float) ($this->pricingSummary()['totalSetelahPromo'] ?? 0);
+    }
+
+    public function purchasePriceInitialTotal(): float
+    {
+        $stored = (float) ($this->total_awal ?? 0);
+        if ($stored > 0) {
+            return $stored;
+        }
+
+        return (float) ($this->pricingSummary()['normalTotalPembayaran'] ?? 0);
+    }
+
+    public function hasResolvedPurchasePriceDecision(): bool
+    {
+        return $this->hasApprovedPurchasePriceRequest() || $this->hasRejectedPurchasePriceRequest();
     }
 
     public function purchasePriceCustomerNote(): ?string
@@ -830,8 +985,6 @@ class Pesanan extends Model
         return in_array((string) $this->status, [
             self::STATUS_SELESAI,
             self::STATUS_SELESAI_FINAL,
-            self::STATUS_SELESAI_OLEH_TEKNISI,
-            self::STATUS_DIKONFIRMASI_ADMIN,
         ], true);
     }
 
@@ -840,17 +993,100 @@ class Pesanan extends Model
         return $this->isCompleted();
     }
 
+    public function isAdminFinalized(): bool
+    {
+        return (string) $this->status === self::STATUS_SELESAI_FINAL;
+    }
+
+    public function isAwaitingCustomerConfirmation(): bool
+    {
+        return (string) $this->status === self::STATUS_SIAP_DIKIRIM;
+    }
+
     public function isLockedForAdminDeletion(): bool
     {
         return in_array((string) $this->status, [
             self::STATUS_SELESAI,
             self::STATUS_SELESAI_FINAL,
-        ], true) || $this->stok_dikurangi;
+        ], true);
     }
 
     public function canGiveReview(): bool
     {
-        return $this->isCompleted() && !$this->getAttribute('linkedTestimoni');
+        return $this->canSubmitCustomerReview();
+    }
+
+    public function canViewInvoice(): bool
+    {
+        return $this->hasPurchasePriceRequest()
+            || $this->isPaymentConfirmed()
+            || !empty($this->bukti_pembayaran)
+            || (float) ($this->total_harga ?: $this->total ?: $this->service_estimasi_biaya ?: 0) > 0
+            || $this->isCompleted()
+            || $this->isLegacyAdminSource();
+    }
+
+    public function hasCustomerConfirmed(): bool
+    {
+        return !is_null($this->customer_confirmed_at);
+    }
+
+    public function hasSubmittedTestimonial(): bool
+    {
+        return !is_null($this->testimonial_submitted_at);
+    }
+
+    public function hasLinkedTestimoni(): bool
+    {
+        return !is_null($this->getAttribute('linkedTestimoni'))
+            || !empty($this->getAttribute('linked_testimoni_id'));
+    }
+
+    public function canCustomerConfirmReceived(): bool
+    {
+        return ($this->isAwaitingCustomerConfirmation() || $this->isAdminFinalized())
+            && !$this->hasCustomerConfirmed()
+            && !$this->hasSubmittedTestimonial()
+            && !$this->hasLinkedTestimoni();
+    }
+
+    public function canSubmitCustomerReview(): bool
+    {
+        return $this->isAdminFinalized()
+            && $this->hasCustomerConfirmed()
+            && !$this->hasSubmittedTestimonial()
+            && !$this->hasLinkedTestimoni();
+    }
+
+    public function requiresCustomerDeliveryConfirmation(): bool
+    {
+        if ($this->isProductOrder()) {
+            return (string) $this->metode_pengiriman === 'diantar_internal';
+        }
+
+        if ($this->tipe === 'service') {
+            return (string) $this->service_metode_penanganan !== 'antar sendiri';
+        }
+
+        return false;
+    }
+
+    public function canMarkReadyToShip(): bool
+    {
+        return $this->requiresCustomerDeliveryConfirmation()
+            && in_array((string) $this->status, [
+                self::STATUS_SELESAI_OLEH_TEKNISI,
+                self::STATUS_DIKONFIRMASI_ADMIN,
+            ], true);
+    }
+
+    public function canFinalizeDirectlyByAdmin(): bool
+    {
+        return !$this->requiresCustomerDeliveryConfirmation()
+            && in_array((string) $this->status, [
+                self::STATUS_SELESAI_OLEH_TEKNISI,
+                self::STATUS_DIKONFIRMASI_ADMIN,
+            ], true);
     }
 
     public function trackingTypeLabel(): string
@@ -1039,6 +1275,7 @@ class Pesanan extends Model
             self::STATUS_DIKERJAKAN_TEKNISI => 'Dikerjakan Teknisi',
             self::STATUS_SELESAI_OLEH_TEKNISI,
             self::STATUS_DIKONFIRMASI_ADMIN,
+            self::STATUS_SIAP_DIKIRIM,
             self::STATUS_SELESAI,
             self::STATUS_SELESAI_FINAL => 'Selesai',
             default => $this->publicStatusLabel(),
@@ -1094,6 +1331,26 @@ class Pesanan extends Model
             return 'Menunggu Persetujuan Harga';
         }
 
+        if ($this->isProductOrder() && $this->hasApprovedPurchasePriceRequest()) {
+            if (empty($this->bukti_pembayaran) && $this->payableTotal() > 0) {
+                return 'Harga Disetujui - Siap Dibayar';
+            }
+
+            if (!empty($this->bukti_pembayaran) && !$this->isPaymentConfirmed()) {
+                return 'Menunggu Verifikasi Pembayaran';
+            }
+        }
+
+        if ($this->isProductOrder() && $this->hasRejectedPurchasePriceRequest()) {
+            if (empty($this->bukti_pembayaran) && $this->payableTotal() > 0) {
+                return 'Pengajuan Ditolak - Harga Normal Aktif';
+            }
+
+            if (!empty($this->bukti_pembayaran) && !$this->isPaymentConfirmed()) {
+                return 'Menunggu Verifikasi Pembayaran';
+            }
+        }
+
         if ($this->tipe === 'service') {
             if (in_array($status, self::PAYMENT_PENDING_STATUSES, true)) {
                 if (empty($this->bukti_pembayaran) && $this->payableTotal() > 0) {
@@ -1114,6 +1371,7 @@ class Pesanan extends Model
                 self::STATUS_DIKERJAKAN_TEKNISI => 'Sedang Dikerjakan',
                 self::STATUS_SELESAI_OLEH_TEKNISI => 'Selesai oleh Teknisi',
                 self::STATUS_DIKONFIRMASI_ADMIN => 'Dikonfirmasi Admin',
+                self::STATUS_SIAP_DIKIRIM => 'Siap Dikirim',
                 self::STATUS_SELESAI,
                 self::STATUS_SELESAI_FINAL => 'Selesai Final',
                 default => 'Menunggu Diproses',
@@ -1132,9 +1390,10 @@ class Pesanan extends Model
 
         if ($this->metode_pengiriman === 'diantar_internal') {
             return match ($status) {
-                self::STATUS_DIPROSES => 'Sedang Pengiriman',
+                self::STATUS_DIPROSES => 'Diproses',
                 self::STATUS_SELESAI_OLEH_TEKNISI => 'Selesai oleh Teknisi',
                 self::STATUS_DIKONFIRMASI_ADMIN => 'Dikonfirmasi Admin',
+                self::STATUS_SIAP_DIKIRIM => 'Siap Dikirim',
                 self::STATUS_SELESAI,
                 self::STATUS_SELESAI_FINAL => 'Selesai Final',
                 default => ucwords($status),
@@ -1142,9 +1401,10 @@ class Pesanan extends Model
         }
 
         return match ($status) {
-            self::STATUS_DIPROSES => 'Siap Diambil',
+            self::STATUS_DIPROSES => 'Diproses',
             self::STATUS_SELESAI_OLEH_TEKNISI => 'Selesai oleh Teknisi',
             self::STATUS_DIKONFIRMASI_ADMIN => 'Dikonfirmasi Admin',
+            self::STATUS_SIAP_DIKIRIM => 'Siap Dikirim',
             self::STATUS_SELESAI,
             self::STATUS_SELESAI_FINAL => 'Selesai Final',
             default => ucwords($status),
@@ -1157,10 +1417,12 @@ class Pesanan extends Model
 
         return match ($label) {
             'Menunggu Persetujuan Harga' => 'bg-amber-100 text-amber-800 border border-amber-200',
+            'Harga Disetujui - Siap Dibayar' => 'bg-emerald-100 text-emerald-800 border border-emerald-200',
+            'Pengajuan Ditolak - Harga Normal Aktif' => 'bg-red-100 text-red-800 border border-red-200',
             'Menunggu Pembayaran', 'Menunggu Verifikasi Pembayaran' => 'bg-amber-100 text-amber-800 border border-amber-200',
             'Menunggu Diproses', 'Ditugaskan ke Teknisi' => 'bg-blue-100 text-blue-800 border border-blue-200',
             'Sedang Dikerjakan' => 'bg-indigo-100 text-indigo-800 border border-indigo-200',
-            'Selesai oleh Teknisi', 'Dikonfirmasi Admin' => 'bg-cyan-100 text-cyan-800 border border-cyan-200',
+            'Selesai oleh Teknisi', 'Dikonfirmasi Admin', 'Siap Dikirim' => 'bg-cyan-100 text-cyan-800 border border-cyan-200',
             'Selesai Final', 'Selesai' => 'bg-emerald-100 text-emerald-800 border border-emerald-200',
             'Ditolak' => 'bg-red-100 text-red-800 border border-red-200',
             default => 'bg-slate-100 text-slate-700 border border-slate-200',
@@ -1189,17 +1451,28 @@ class Pesanan extends Model
             return 0;
         }
 
+        if ($this->hasPendingPurchasePriceRequest()) {
+            return 1;
+        }
+
         if ($this->canPay()) {
             return 1;
         }
 
-        // All these statuses mean the order is complete/final
-        if (in_array($status, [self::STATUS_SELESAI, self::STATUS_SELESAI_FINAL, self::STATUS_SELESAI_OLEH_TEKNISI, self::STATUS_DIKONFIRMASI_ADMIN])) {
+        if (in_array($status, [self::STATUS_SELESAI, self::STATUS_SELESAI_FINAL], true)) {
             return $this->tipe === 'service' ? 7 : 6;
+        }
+
+        if ($status === self::STATUS_SIAP_DIKIRIM) {
+            return $this->tipe === 'service' ? 6 : 4;
         }
 
         if ($status === self::STATUS_DIKERJAKAN_TEKNISI) {
             return 4;
+        }
+
+        if (in_array($status, [self::STATUS_SELESAI_OLEH_TEKNISI, self::STATUS_DIKONFIRMASI_ADMIN], true)) {
+            return $this->tipe === 'service' ? 5 : 3;
         }
 
         if (in_array($status, [self::STATUS_DITUGASKAN_KE_TEKNISI, self::STATUS_MENUNGGU_PENGAMBILAN, self::STATUS_MENUNGGU_KEDATANGAN_UNIT])) {
@@ -1291,10 +1564,15 @@ class Pesanan extends Model
             && $this->payableTotal() > 0;
     }
 
+    public function canUploadPaymentProof(): bool
+    {
+        return $this->canPay();
+    }
+
     public function needsPickup(): bool
     {
         return $this->tipe === 'service'
-            && $this->service_metode_penanganan !== 'antar sendiri'
+            && $this->service_metode_penanganan === 'antar sendiri'
             && in_array($this->status, [
                 self::STATUS_DIKONFIRMASI_ADMIN,
                 self::STATUS_SELESAI_OLEH_TEKNISI,

@@ -82,6 +82,8 @@ class ProfileController extends Controller
                 'alamat_kota' => trim((string) ($validated['alamat_kota'] ?? '')) ?: null,
                 'alamat_kecamatan' => trim((string) ($validated['alamat_kecamatan'] ?? '')) ?: null,
                 'alamat_kode_pos' => trim((string) ($validated['alamat_kode_pos'] ?? '')) ?: null,
+                'rajaongkir_destination_id' => trim((string) ($validated['rajaongkir_destination_id'] ?? '')) ?: null,
+                'rajaongkir_destination_label' => trim((string) ($validated['rajaongkir_destination_label'] ?? '')) ?: null,
                 'status' => $user->pelanggan?->status ?: 'calon',
                 'sumber_data' => $user->pelanggan?->sumber_data ?: 'manual',
             ]);

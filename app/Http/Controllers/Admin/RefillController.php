@@ -11,6 +11,7 @@ use App\Models\Refill;
 use App\Models\UnitApar;
 use App\Models\User;
 use App\Services\FinalTransactionStockService;
+use App\Services\PaidOrderStockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -297,6 +298,12 @@ class RefillController extends Controller
                         'tgl_refill' => $request->tgl_refill,
                         'biaya' => $biaya,
                     ]);
+
+                    app(PaidOrderStockService::class)->apply($pesanan->fresh([
+                        'service.refill',
+                        'serviceJenisRefill',
+                        'pelanggan',
+                    ]));
                 }
             });
 
@@ -307,10 +314,10 @@ class RefillController extends Controller
             return redirect()
                 ->route('admin.refill.index')
                 ->with(
-                    'success',
-                    "Refill offline untuk {$jumlahTransaksi} unit APAR terdaftar berhasil disimpan. Total Rp "
-                    . number_format($totalBiaya, 0, ',', '.')
-                    . ". Status: Lunas & {$statusLabel}. Stok akan berkurang saat status Selesai Final."
+                'success',
+                "Refill offline untuk {$jumlahTransaksi} unit APAR terdaftar berhasil disimpan. Total Rp "
+                . number_format($totalBiaya, 0, ',', '.')
+                . ". Status: Lunas & {$statusLabel}. Stok refill langsung dikurangi setelah pembayaran valid."
                 );
         }
 
@@ -406,15 +413,18 @@ class RefillController extends Controller
                 'status_konfirmasi' => 'pending',
             ]);
 
-            // Untuk APAR tidak terdaftar, Unit APAR baru belum ada pada tahap input awal.
-            // Log refill akan dibentuk aman saat status transaksi mencapai Selesai Final.
+            app(PaidOrderStockService::class)->apply($pesanan->fresh([
+                'service',
+                'serviceJenisRefill',
+                'pelanggan',
+            ]));
         });
 
         $statusLabel = $teknisi ? 'Ditugaskan ke Teknisi' : 'Diproses';
 
         return redirect()
             ->route('admin.refill.index')
-            ->with('success', "Refill offline berhasil disimpan. Status: Lunas & {$statusLabel}. Unit APAR untuk transaksi tidak terdaftar akan dibuat saat status Selesai Final, dan stok akan berkurang pada tahap tersebut.");
+            ->with('success', "Refill offline berhasil disimpan. Status: Lunas & {$statusLabel}. Stok refill langsung dikurangi setelah pembayaran valid, sedangkan unit APAR baru tetap dibuat saat transaksi benar-benar selesai.");
     }
 
     private function normalizePhone(?string $value): string
@@ -494,7 +504,7 @@ class RefillController extends Controller
         }
 
         $validated = $request->validate([
-            'status' => 'required|in:pending,permintaan masuk,direview admin,menunggu penjadwalan,menunggu persetujuan biaya,disetujui,menunggu pengambilan,menunggu kedatangan unit,ditugaskan ke teknisi,dikerjakan teknisi,selesai oleh teknisi,dikonfirmasi admin,selesai final,ditolak',
+            'status' => 'required|in:pending,permintaan masuk,direview admin,menunggu penjadwalan,menunggu persetujuan biaya,disetujui,menunggu pengambilan,menunggu kedatangan unit,ditugaskan ke teknisi,dikerjakan teknisi,selesai oleh teknisi,dikonfirmasi admin,siap dikirim,selesai final,ditolak',
             'service_estimasi_biaya' => 'nullable|string|max:30',
             'service_admin_catatan' => 'nullable|string|max:1000',
         ]);
@@ -514,11 +524,12 @@ class RefillController extends Controller
         $previousStatus = (string) $pesanan->status;
         $pesanan->update($payload);
 
-        if (
-            $pesanan->status === Pesanan::STATUS_SELESAI_FINAL
-            && ($previousStatus !== Pesanan::STATUS_SELESAI_FINAL || ! $pesanan->stok_dikurangi)
-        ) {
-            app(FinalTransactionStockService::class)->apply($pesanan);
+        if ($pesanan->isPaymentConfirmed() && !$pesanan->stok_dikurangi) {
+            app(PaidOrderStockService::class)->apply($pesanan->fresh());
+        }
+
+        if ($pesanan->status === Pesanan::STATUS_SELESAI_FINAL && $previousStatus !== Pesanan::STATUS_SELESAI_FINAL) {
+            app(FinalTransactionStockService::class)->apply($pesanan->fresh());
         }
 
         return back()->with('success', 'Status refill APAR berhasil diperbarui.');

@@ -40,6 +40,8 @@ class PelangganSyncService
             'alamat_kota',
             'alamat_kecamatan',
             'alamat_kode_pos',
+            'rajaongkir_destination_id',
+            'rajaongkir_destination_label',
             'perusahaan',
             'catatan_internal',
         ] as $field) {

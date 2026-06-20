@@ -13,6 +13,7 @@ use App\Models\Peralatan;
 use App\Models\StockMovement;
 use App\Services\FinalTransactionStockService;
 use App\Services\InventoryService;
+use App\Services\PaidOrderStockService;
 use App\Services\ServiceMasterSyncService;
 use App\Services\ServicePackagePricingService;
 use Illuminate\Http\Request;
@@ -121,7 +122,7 @@ class ServiceController extends Controller
         }
 
         $validated = $request->validate([
-            'status' => 'required|in:pending,permintaan masuk,direview admin,menunggu penjadwalan,menunggu persetujuan biaya,disetujui,menunggu pengambilan,menunggu kedatangan unit,ditugaskan ke teknisi,dikerjakan teknisi,selesai oleh teknisi,dikonfirmasi admin,selesai final,ditolak',
+            'status' => 'required|in:pending,permintaan masuk,direview admin,menunggu penjadwalan,menunggu persetujuan biaya,disetujui,menunggu pengambilan,menunggu kedatangan unit,ditugaskan ke teknisi,dikerjakan teknisi,selesai oleh teknisi,dikonfirmasi admin,siap dikirim,selesai final,ditolak',
             'service_estimasi_biaya' => 'nullable|string|max:30',
             'service_admin_catatan' => 'nullable|string|max:1000',
         ]);
@@ -147,12 +148,12 @@ class ServiceController extends Controller
                 $previousStatus = (string) $pesanan->status;
                 $pesanan->update($payload);
 
-                if (
-                    $pesanan->status === Pesanan::STATUS_SELESAI_FINAL
-                    && ($previousStatus !== Pesanan::STATUS_SELESAI_FINAL || empty($pesanan->service?->stok_kurang_history))
-                ) {
+                if ($pesanan->isPaymentConfirmed() && !$pesanan->stok_dikurangi) {
+                    app(PaidOrderStockService::class)->apply($pesanan->fresh());
+                }
+
+                if ($pesanan->status === Pesanan::STATUS_SELESAI_FINAL && $previousStatus !== Pesanan::STATUS_SELESAI_FINAL) {
                     app(FinalTransactionStockService::class)->apply($pesanan->fresh());
-                    $pesanan->pelanggan?->update(['status' => 'tetap']);
                 }
             });
         } catch (\RuntimeException $exception) {
@@ -359,6 +360,12 @@ class ServiceController extends Controller
                             'actual_peralatan_json' => json_encode($payload['peralatan']),
                             'status_konfirmasi' => 'pending',
                         ]);
+
+                        app(PaidOrderStockService::class)->apply($pesanan->fresh([
+                            'service',
+                            'servicePaket.peralatans',
+                            'pelanggan',
+                        ]));
                     }
                 });
             } catch (\RuntimeException $exception) {
@@ -376,10 +383,10 @@ class ServiceController extends Controller
             return redirect()
                 ->route('admin.service.index')
                 ->with(
-                    'success',
-                    "Service offline untuk {$jumlahTransaksi} unit APAR terdaftar berhasil disimpan. Total Rp "
-                    . number_format($totalBiaya, 0, ',', '.')
-                    . ". Status: Lunas & {$statusLabel}. Stok peralatan akan berkurang saat status Selesai Final."
+                'success',
+                "Service offline untuk {$jumlahTransaksi} unit APAR terdaftar berhasil disimpan. Total Rp "
+                . number_format($totalBiaya, 0, ',', '.')
+                . ". Status: Lunas & {$statusLabel}. Stok peralatan langsung dikurangi setelah pembayaran valid."
                 );
         }
 
@@ -489,6 +496,12 @@ class ServiceController extends Controller
                     'actual_peralatan_json' => json_encode($peralatanPaket),
                     'status_konfirmasi' => 'pending',
                 ]);
+
+                app(PaidOrderStockService::class)->apply($pesanan->fresh([
+                    'service',
+                    'servicePaket.peralatans',
+                    'pelanggan',
+                ]));
             });
         } catch (\RuntimeException $exception) {
             return back()
@@ -502,7 +515,7 @@ class ServiceController extends Controller
 
         return redirect()
             ->route('admin.service.index')
-            ->with('success', "Service offline berhasil disimpan. Status: Lunas & {$statusLabel}. Unit APAR untuk transaksi tidak terdaftar akan dibuat saat status Selesai Final, dan stok peralatan akan berkurang pada tahap tersebut.");
+            ->with('success', "Service offline berhasil disimpan. Status: Lunas & {$statusLabel}. Stok peralatan langsung dikurangi setelah pembayaran valid, sedangkan unit APAR baru tetap dibuat saat transaksi benar-benar selesai.");
     }
 
     private function normalizePhone(?string $value): string

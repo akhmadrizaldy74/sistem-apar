@@ -17,7 +17,10 @@ use Illuminate\Support\Facades\DB;
 
 class FinalTransactionStockService
 {
-    public function __construct(private readonly InventoryService $inventoryService)
+    public function __construct(
+        private readonly InventoryService $inventoryService,
+        private readonly PaidOrderStockService $paidOrderStockService,
+    )
     {
     }
 
@@ -36,9 +39,20 @@ class FinalTransactionStockService
         }
 
         DB::transaction(function () use ($pesanan) {
+            if ($pesanan->isPaymentConfirmed() && !$pesanan->stok_dikurangi) {
+                $this->paidOrderStockService->apply($pesanan);
+                $pesanan->refresh()->loadMissing([
+                    'pelanggan',
+                    'details.produk.jenisApar',
+                    'service.unitApar.produk.jenisApar',
+                    'servicePaket.peralatans',
+                    'serviceJenisRefill',
+                    'unitApars.produk',
+                ]);
+            }
+
             if ($pesanan->isProductOrder()) {
-                $batchAllocations = $pesanan->reduceStock();
-                $this->ensureProductUnitsFromBatchAllocations($pesanan, $batchAllocations);
+                $this->unhideProductUnits($pesanan);
                 return;
             }
 
@@ -59,10 +73,6 @@ class FinalTransactionStockService
 
     private function applyRefillStock(Pesanan $pesanan): void
     {
-        if ($pesanan->stok_dikurangi) {
-            return;
-        }
-
         $units = $this->ensureCompletedServiceUnits($pesanan);
         $requirements = $this->resolveRefillStockRequirements($pesanan);
 
@@ -78,6 +88,10 @@ class FinalTransactionStockService
         }
 
         foreach ($requirements as $requirement) {
+            if ($pesanan->stok_dikurangi) {
+                break;
+            }
+
             /** @var JenisRefill $jenisRefill */
             $jenisRefill = $requirement['jenis_refill'];
             $qty = (float) ($requirement['qty'] ?? 0);
@@ -96,7 +110,9 @@ class FinalTransactionStockService
             );
         }
 
-        $pesanan->forceFill(['stok_dikurangi' => true])->save();
+        if (!$pesanan->stok_dikurangi) {
+            $pesanan->forceFill(['stok_dikurangi' => true])->save();
+        }
     }
 
     private function resolveRefillStockRequirements(Pesanan $pesanan): Collection
@@ -497,5 +513,18 @@ class FinalTransactionStockService
     private function customerName(Pesanan $pesanan): string
     {
         return (string) ($pesanan->pelanggan?->nama ?: 'Pelanggan tidak diketahui');
+    }
+
+    private function unhideProductUnits(Pesanan $pesanan): void
+    {
+        $pesanan->loadMissing(['unitApars']);
+
+        foreach ($pesanan->unitApars as $unitApar) {
+            if ($unitApar->isHiddenFromListings()) {
+                $unitApar->forceFill([
+                    'hidden_at' => null,
+                ])->save();
+            }
+        }
     }
 }

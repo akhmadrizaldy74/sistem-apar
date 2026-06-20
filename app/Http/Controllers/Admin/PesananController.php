@@ -17,11 +17,13 @@ use App\Models\User;
 use App\Services\InventoryService;
 use App\Services\FinalTransactionStockService;
 use App\Services\OrderPricingService;
+use App\Services\PaidOrderStockService;
 use App\Support\AdminPesananData;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class PesananController extends Controller
@@ -286,7 +288,7 @@ class PesananController extends Controller
         }
 
         return $pesanan->metode_pembayaran === 'cash'
-            && in_array((string) $pesanan->status, ['diproses', 'ditugaskan ke teknisi', 'dikerjakan teknisi', 'selesai oleh teknisi', 'dikonfirmasi admin', 'selesai final', 'selesai'], true);
+            && in_array((string) $pesanan->status, ['diproses', 'ditugaskan ke teknisi', 'dikerjakan teknisi', 'selesai oleh teknisi', 'dikonfirmasi admin', 'siap dikirim', 'selesai final', 'selesai'], true);
     }
 
     private function canAssignTeknisi(Pesanan $pesanan): bool
@@ -505,7 +507,7 @@ class PesananController extends Controller
                 $harga = (int) $produk->harga;
                 $subtotal = $harga * $jumlah;
 
-                $detail = $pesanan->details()->create([
+                $pesanan->details()->create([
                     'produk_id' => $produk->id,
                     'merek' => $produk->merek,
                     'kapasitas' => $produk->kapasitas ?? '-',
@@ -514,8 +516,6 @@ class PesananController extends Controller
                     'subtotal' => $subtotal,
                 ]);
 
-                $this->createUnitAparsFromDetail($pesanan, $produk, $detail->jumlah);
-
                 $total += $subtotal;
             }
 
@@ -523,6 +523,8 @@ class PesananController extends Controller
                 'total' => $total,
                 'total_harga' => $total,
             ]);
+
+            app(PaidOrderStockService::class)->apply($pesanan->fresh(['details.produk.jenisApar', 'pelanggan', 'unitApars']));
 
         });
 
@@ -539,9 +541,10 @@ class PesananController extends Controller
 
         $pesanan->load(['pelanggan', 'details.produk.jenisApar', 'unitApars.produk']);
         $showAssignAction = $this->canAssignTeknisi($pesanan);
-        $showFinalizeAction = in_array((string) $pesanan->status, ['selesai oleh teknisi', 'dikonfirmasi admin'], true);
+        $showReadyToShipAction = $pesanan->canMarkReadyToShip();
+        $showFinalizeAction = $pesanan->canFinalizeDirectlyByAdmin();
 
-        return view('admin.pesanan.show', compact('pesanan', 'showAssignAction', 'showFinalizeAction'));
+        return view('admin.pesanan.show', compact('pesanan', 'showAssignAction', 'showReadyToShipAction', 'showFinalizeAction'));
     }
 
     public function approvePurchasePriceRequest(Request $request, Pesanan $pesanan)
@@ -557,6 +560,9 @@ class PesananController extends Controller
         }
 
         $hargaFinal = $this->normalizeMoneyInput($request->input('harga_final'));
+        if (is_null($hargaFinal)) {
+            $hargaFinal = $pesanan->requestedPurchasePrice();
+        }
         $catatanAdmin = trim((string) $request->input('catatan_admin')) ?: null;
         $pricingSummary = app(OrderPricingService::class)->summarizeProductItems($pesanan->details, (float) ($pesanan->ongkir ?? 0));
         $maksimalHargaFinal = (float) ($pricingSummary['totalSetelahPromo'] ?? $pricingSummary['subtotalProduk'] ?? 0);
@@ -587,6 +593,11 @@ class PesananController extends Controller
             'admin_note' => $catatanAdmin,
             'approved_by' => auth()->id(),
             'approved_at' => now(),
+            'rejected_by' => null,
+            'rejected_at' => null,
+            'normal_subtotal' => (float) ($pricingSummary['subtotalProduk'] ?? 0),
+            'discounted_total' => (float) ($pricingSummary['totalSetelahPromo'] ?? 0),
+            'initial_total' => (float) ($pricingSummary['totalPembayaran'] ?? 0),
             'used' => false,
         ])));
 
@@ -620,6 +631,13 @@ class PesananController extends Controller
             'status' => Pesanan::PRICE_REQUEST_REJECTED,
             'final_price' => null,
             'admin_note' => $catatanAdmin,
+            'approved_by' => null,
+            'approved_at' => null,
+            'rejected_by' => auth()->id(),
+            'rejected_at' => now(),
+            'normal_subtotal' => (float) ($pricingSummary['subtotalProduk'] ?? 0),
+            'discounted_total' => (float) ($pricingSummary['totalSetelahPromo'] ?? 0),
+            'initial_total' => (float) ($pricingSummary['totalPembayaran'] ?? 0),
             'used' => false,
         ])));
 
@@ -631,7 +649,7 @@ class PesananController extends Controller
     public function update(Request $request, Pesanan $pesanan)
     {
         $validated = $request->validate([
-            'status'          => 'required|in:menunggu,pending,diproses,selesai,ditolak,menunggu diproses admin,ditugaskan ke teknisi,dikerjakan teknisi,selesai oleh teknisi,dikonfirmasi admin,selesai final,permintaan masuk,direview admin,menunggu penjadwalan,menunggu persetujuan biaya,disetujui',
+            'status'          => 'required|in:menunggu,pending,diproses,selesai,ditolak,menunggu diproses admin,ditugaskan ke teknisi,dikerjakan teknisi,selesai oleh teknisi,dikonfirmasi admin,siap dikirim,selesai final,permintaan masuk,direview admin,menunggu penjadwalan,menunggu persetujuan biaya,disetujui',
         ]);
 
         $pesanan->status = $validated['status'];
@@ -641,6 +659,8 @@ class PesananController extends Controller
 
         if ($becameFinal) {
             app(FinalTransactionStockService::class)->apply($pesanan);
+        } elseif ($pesanan->isPaymentConfirmed() && !$pesanan->stok_dikurangi) {
+            app(PaidOrderStockService::class)->apply($pesanan);
         }
 
         // Broadcast status terbaru ke admin dan teknisi
@@ -758,14 +778,19 @@ class PesananController extends Controller
             return back()->with('error', 'Tandai lunas tersedia setelah bukti pembayaran diinput.');
         }
 
-        $pesanan->update([
-            'status' => 'diproses',
-            'metode_pembayaran' => $pesanan->metode_pembayaran ?: 'transfer',
-            'total_harga' => $pesanan->total_harga ?: $pesanan->total,
-            'pembayaran_terkonfirmasi_at' => now(),
-        ]);
+        try {
+            $pesanan->update([
+                'status' => 'diproses',
+                'metode_pembayaran' => $pesanan->metode_pembayaran ?: 'transfer',
+                'total_harga' => $pesanan->total_harga ?: $pesanan->total,
+                'pembayaran_terkonfirmasi_at' => now(),
+            ]);
 
-        $pesanan->pelanggan?->update(['status' => 'tetap']);
+            app(PaidOrderStockService::class)->apply($pesanan->fresh());
+            $pesanan->pelanggan?->update(['status' => 'tetap']);
+        } catch (\RuntimeException $exception) {
+            return back()->with('error', $exception->getMessage());
+        }
 
         return back()->with('success', 'Pembayaran berhasil dikonfirmasi. Pesanan siap di-assign.');
     }
@@ -803,8 +828,8 @@ class PesananController extends Controller
 
     public function konfirmasiKePelanggan(Pesanan $pesanan)
     {
-        if (!$pesanan->teknisi_selesai_at) {
-            return back()->with('error', 'Tugas belum selesai oleh teknisi.');
+        if (!$pesanan->canMarkReadyToShip()) {
+            return back()->with('error', 'Pesanan belum siap diubah ke status Siap Dikirim.');
         }
 
         $noWa = preg_replace('/\D/', '', (string) ($pesanan->pelanggan?->no_wa ?? ''));
@@ -817,20 +842,24 @@ class PesananController extends Controller
 
         $sapaan = $this->greetingByTime();
         $nama = (string) ($pesanan->pelanggan?->nama ?? 'Pelanggan');
-        $message = "{$sapaan}, Bapak/Ibu {$nama}. Kami dari PD. Anugrah Utama ingin menginformasikan bahwa pesanan atau pekerjaan Anda telah selesai ditangani oleh tim kami. Silakan dicek kembali. Jika ada kendala, silakan balas pesan ini. Terima kasih.";
+        $message = "{$sapaan}, Bapak/Ibu {$nama}. Pesanan atau pekerjaan Anda sudah siap dikirim. Setelah barang atau unit diterima, silakan buka riwayat transaksi Anda dan klik tombol Konfirmasi Pesanan Diterima. Terima kasih.";
 
         $pesanan->update([
-            'status' => 'dikonfirmasi admin',
+            'status' => Pesanan::STATUS_SIAP_DIKIRIM,
         ]);
 
         return back()
-            ->with('success', 'Konfirmasi pelanggan siap dikirim lewat WhatsApp.')
+            ->with('success', 'Status pesanan diubah ke Siap Dikirim dan pesan WhatsApp siap dikirim.')
             ->with('wa_url', \App\Support\WhatsApp::customerLink($noWa, $message));
     }
 
     public function selesaiFinal(Pesanan $pesanan)
     {
-        if (!in_array((string) $pesanan->status, ['selesai oleh teknisi', 'dikonfirmasi admin'], true)) {
+        if ($pesanan->requiresCustomerDeliveryConfirmation()) {
+            return back()->with('error', 'Pesanan yang perlu dikirim ke pelanggan harus melalui status Siap Dikirim dan konfirmasi diterima oleh pelanggan.');
+        }
+
+        if (!$pesanan->canFinalizeDirectlyByAdmin()) {
             return back()->with('error', 'Status pesanan belum siap untuk finalisasi.');
         }
 
@@ -865,35 +894,62 @@ class PesananController extends Controller
         return $fallbackRoute;
     }
 
-    private function handleHide(Request $request, Pesanan $pesanan, ?string $jenis = null)
+    private function deleteStoredOrderFiles(Pesanan $pesanan): void
+    {
+        $files = collect([
+            $pesanan->bukti_pembayaran,
+            $pesanan->service_foto,
+        ])->filter();
+
+        foreach ($files as $file) {
+            Storage::disk('public')->delete(ltrim((string) $file, '/'));
+        }
+    }
+
+    public function hideHistoryOrder(Request $request, string $jenis, Pesanan $pesanan)
     {
         $redirectTarget = $this->resolveAdminPesananRedirect($request);
 
-        if ($jenis !== null && !$pesanan->matchesAdminDestroyType($jenis)) {
+        if (!$pesanan->matchesAdminDestroyType($jenis)) {
             return redirect()->to($redirectTarget);
+        }
+
+        if ($pesanan->isActiveOrder()) {
+            return redirect()->to($redirectTarget)->with('error', 'Transaksi aktif harus dihapus melalui aksi Hapus Pesanan Aktif.');
         }
 
         if (!$pesanan->hideFromAdminPesananMenu()) {
             return redirect()->to($redirectTarget)->with('error', 'Fitur sembunyikan transaksi belum siap digunakan.');
         }
 
-        return redirect()->to($redirectTarget)->with('success', 'Transaksi berhasil disembunyikan dari menu Pesanan.');
+        return redirect()->to($redirectTarget)->with('success', 'Riwayat transaksi berhasil disembunyikan dari menu Pesanan.');
     }
 
-    private function handleDestroy(Request $request, Pesanan $pesanan, ?string $jenis = null)
+    public function deleteActiveOrder(Request $request, string $jenis, Pesanan $pesanan)
     {
         $redirectTarget = $this->resolveAdminPesananRedirect($request);
 
-        if ($jenis !== null && !$pesanan->matchesAdminDestroyType($jenis)) {
+        if (!$pesanan->matchesAdminDestroyType($jenis)) {
             return redirect()->to($redirectTarget);
         }
 
-        if ($pesanan->isLockedForAdminDeletion()) {
-            return redirect()->to($redirectTarget);
+        if (!$pesanan->isActiveOrder()) {
+            return redirect()->to($redirectTarget)->with('error', 'Riwayat transaksi tidak dihapus penuh. Gunakan aksi Sembunyikan Riwayat.');
         }
 
         DB::transaction(function () use ($pesanan) {
-            $pesanan->loadMissing(['service.refill']);
+            $pesanan->loadMissing(['complain', 'details.produk', 'service.refill', 'unitApars.produk']);
+
+            if ($pesanan->stok_dikurangi) {
+                app(PaidOrderStockService::class)->rollback($pesanan);
+                $pesanan->refresh()->loadMissing(['complain', 'details.produk', 'service.refill', 'unitApars.produk']);
+            }
+
+            $this->deleteStoredOrderFiles($pesanan);
+
+            $pesanan->unitApars()->delete();
+            $pesanan->complain?->delete();
+            $pesanan->details()->delete();
 
             if ($pesanan->service) {
                 $pesanan->service->refill()?->delete();
@@ -903,22 +959,26 @@ class PesananController extends Controller
             $pesanan->delete();
         });
 
-        return redirect()->to($redirectTarget)->with('success', 'Pesanan berhasil dihapus.');
+        return redirect()->to($redirectTarget)->with('success', 'Pesanan aktif berhasil dibatalkan dan dihapus.');
     }
 
     public function hide(Request $request, string $jenis, Pesanan $pesanan)
     {
-        return $this->handleHide($request, $pesanan, $jenis);
+        return $this->hideHistoryOrder($request, $jenis, $pesanan);
     }
 
     public function destroyTyped(Request $request, string $jenis, Pesanan $pesanan)
     {
-        return $this->handleHide($request, $pesanan, $jenis);
+        return $this->deleteActiveOrder($request, $jenis, $pesanan);
     }
 
     public function destroy(Request $request, Pesanan $pesanan)
     {
-        return $this->handleDestroy($request, $pesanan);
+        $slug = $pesanan->adminDestroyTypeSlug();
+
+        return $pesanan->isActiveOrder()
+            ? $this->deleteActiveOrder($request, $slug, $pesanan)
+            : $this->hideHistoryOrder($request, $slug, $pesanan);
     }
 
     public function invoicePdf(Pesanan $pesanan)
@@ -951,6 +1011,11 @@ class PesananController extends Controller
         }
 
         $pesanan->loadMissing(['details.produk.jenisApar', 'unitApars']);
+
+        if (UnitApar::supportsDatabaseColumn('hidden_at')) {
+            $pesanan->unitApars()->whereNotNull('hidden_at')->update(['hidden_at' => null]);
+            $pesanan->load('unitApars');
+        }
 
         foreach ($pesanan->details as $detail) {
             $existingCount = $pesanan->unitApars

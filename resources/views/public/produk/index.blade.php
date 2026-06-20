@@ -47,7 +47,7 @@
                 </div>
             </form>
 
-            <div class="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div class="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                 @forelse($produks as $produk)
                     <x-product-card :produk="$produk" />
                 @empty

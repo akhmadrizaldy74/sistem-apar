@@ -1,10 +1,12 @@
 @php
     use App\Models\Pesanan;
 
+    $isHistoryRow = ($listType ?? 'active') === 'history';
     $actionButtonBase = 'inline-flex w-full items-center justify-center rounded-xl border px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.14em] transition shadow-sm pointer-events-auto relative z-10';
     $actionButtonNeutral = $actionButtonBase . ' border-gray-200 bg-white text-gray-600 hover:bg-gray-50';
     $actionButtonPrimary = $actionButtonBase . ' border-red-600 bg-red-600 text-white hover:border-red-700 hover:bg-red-700';
     $actionButtonProof = $actionButtonBase . ' border-blue-600 bg-blue-600 text-white hover:border-blue-700 hover:bg-blue-700';
+    $actionButtonSuccess = $actionButtonBase . ' border-emerald-600 bg-emerald-600 text-white hover:border-emerald-700 hover:bg-emerald-700';
     $actionButtonDanger = $actionButtonBase . ' border-red-200 bg-white text-red-600 hover:bg-red-50';
     $proofUrl = !empty($pesanan->bukti_pembayaran)
         ? '/storage/' . ltrim(str_replace('storage/', '', (string) $pesanan->bukti_pembayaran), '/')
@@ -18,13 +20,16 @@
             Pesanan::STATUS_MENUNGGU_PENGAMBILAN,
             Pesanan::STATUS_MENUNGGU_KEDATANGAN_UNIT,
         ], true);
-    $canFinalize = in_array((string) $pesanan->status, [
-        Pesanan::STATUS_SELESAI_OLEH_TEKNISI,
-        Pesanan::STATUS_DIKONFIRMASI_ADMIN,
-    ], true);
-    $hideConfirmMessage = $pesanan->isLockedForAdminDeletion()
-        ? 'Data ini sudah masuk laporan. Hapus hanya akan menyembunyikan transaksi dari menu Pesanan, bukan menghapus dari laporan. Lanjutkan?'
-        : 'Yakin ingin menyembunyikan transaksi ini dari menu Pesanan? Data transaksi tetap tersimpan di database dan laporan.';
+    $showReadyToShip = !$isHistoryRow && $pesanan->canMarkReadyToShip();
+    $showFinalize = !$isHistoryRow && $pesanan->canFinalizeDirectlyByAdmin();
+    $confirmTitle = $isHistoryRow ? 'Sembunyikan Riwayat' : 'Hapus Pesanan Aktif';
+    $confirmMessage = $isHistoryRow
+        ? 'Yakin ingin menyembunyikan transaksi ini dari menu Pesanan? Data tetap tersimpan di database dan laporan.'
+        : 'Yakin ingin menghapus pesanan ini? Pesanan aktif ini belum masuk riwayat final dan akan dibatalkan.';
+    $confirmButton = $isHistoryRow ? 'Ya, Sembunyikan' : 'Ya, Hapus';
+    $deleteAction = $isHistoryRow
+        ? route('admin.pesanan.hide', ['jenis' => $pesanan->adminDestroyTypeSlug(), 'pesanan' => $pesanan])
+        : route('admin.pesanan.destroy-typed', ['jenis' => $pesanan->adminDestroyTypeSlug(), 'pesanan' => $pesanan]);
     $pricingSummary = $pesanan->pricingSummary();
 @endphp
 
@@ -69,12 +74,17 @@
                 </button>
             @endif
 
-            @if($canFinalize)
+            @if($showReadyToShip)
+                <form action="{{ route('admin.pesanan.konfirmasi-pelanggan', $pesanan) }}" method="POST" class="w-full" data-confirm="Ubah status pesanan ini menjadi Siap Dikirim?" data-confirm-title="Konfirmasi Pengiriman" data-confirm-button="Ya, Siapkan">
+                    @csrf
+                    <button type="submit" class="{{ $actionButtonSuccess }}">Siap Kirim</button>
+                </form>
+            @elseif($showFinalize)
                 <form action="{{ route('admin.pesanan.selesai-final', $pesanan) }}" method="POST" class="w-full" data-confirm="Selesaikan final pesanan ini?" data-confirm-title="Konfirmasi Final" data-confirm-button="Ya, Finalkan">
                     @csrf
-                    <button type="submit" class="{{ $actionButtonPrimary }}">Final</button>
+                    <button type="submit" class="{{ $actionButtonSuccess }}">Final</button>
                 </form>
-            @elseif($canAssign)
+            @elseif(!$isHistoryRow && $canAssign)
                 <form action="{{ route('admin.pesanan.assign-teknisi', $pesanan) }}" method="POST" class="w-full">
                     @csrf
                     <button type="submit" class="{{ $actionButtonPrimary }}">Assign</button>
@@ -89,11 +99,15 @@
                 Invoice
             </a>
 
-            <form action="{{ route('admin.pesanan.hide', ['jenis' => $pesanan->adminDestroyTypeSlug(), 'pesanan' => $pesanan]) }}" method="POST" class="w-full" data-confirm="{{ $hideConfirmMessage }}" data-confirm-title="Konfirmasi Hapus" data-confirm-button="Ya, Sembunyikan">
+            <form action="{{ $deleteAction }}" method="POST" class="w-full" data-confirm="{{ $confirmMessage }}" data-confirm-title="{{ $confirmTitle }}" data-confirm-button="{{ $confirmButton }}">
                 @csrf
-                @method('PATCH')
-                <button type="submit" class="{{ $actionButtonDanger }}" title="Sembunyikan transaksi ini dari menu Pesanan.">
-                    Hapus
+                @if($isHistoryRow)
+                    @method('PATCH')
+                @else
+                    @method('DELETE')
+                @endif
+                <button type="submit" class="{{ $actionButtonDanger }}" title="{{ $isHistoryRow ? 'Sembunyikan riwayat ini dari menu Pesanan.' : 'Batalkan dan hapus pesanan aktif ini.' }}">
+                    {{ $isHistoryRow ? 'Sembunyikan' : 'Hapus' }}
                 </button>
             </form>
         </div>

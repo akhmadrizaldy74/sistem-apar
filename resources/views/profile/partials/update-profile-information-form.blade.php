@@ -8,6 +8,8 @@
         $alamatKotaValue = old('alamat_kota', $pelanggan?->alamat_kota);
         $alamatKecamatanValue = old('alamat_kecamatan', $pelanggan?->alamat_kecamatan);
         $alamatKodePosValue = old('alamat_kode_pos', $pelanggan?->alamat_kode_pos);
+        $rajaOngkirDestinationIdValue = old('rajaongkir_destination_id', $pelanggan?->rajaongkir_destination_id);
+        $rajaOngkirDestinationLabelValue = old('rajaongkir_destination_label', $pelanggan?->rajaongkir_destination_label);
     @endphp
 
     <header>
@@ -45,34 +47,41 @@
         </div>
 
         <div class="rounded-2xl border border-gray-200 p-5 sm:p-6">
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div class="flex flex-col gap-2">
                 <div>
-                    <h3 class="text-base font-semibold text-gray-900">Alamat Pengiriman Default</h3>
-                    <p class="text-sm text-gray-600">Simpan alamat lengkap dengan titik maps supaya pesanan berikutnya tidak perlu input ulang.</p>
+                    <h3 class="text-base font-semibold text-gray-900">Alamat Pengiriman</h3>
+                    <p class="text-sm text-gray-600">Simpan alamat pengiriman agar proses pemesanan lebih cepat.</p>
+                    <p class="mt-1 text-xs font-medium text-gray-500">Alamat ini digunakan saat pemesanan.</p>
                 </div>
-                <span class="inline-flex w-fit rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
-                    Dipakai otomatis saat checkout
-                </span>
             </div>
 
             <div class="mt-6 space-y-6">
                 <div>
-                    <x-input-label for="alamat_maps" :value="__('Cari Alamat di Peta')" />
+                    <x-input-label for="shipping_location_search" :value="__('Cari Lokasi Pengiriman')" />
                     <input
-                        id="alamat_maps"
-                        name="alamat_maps"
+                        id="shipping_location_search"
                         type="text"
-                        value="{{ $alamatMapsValue }}"
+                        value="{{ $rajaOngkirDestinationLabelValue ?: $alamatMapsValue }}"
                         class="mt-1 block w-full rounded-md border-gray-300 pr-10 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                        placeholder="Ketik minimal 3 huruf, lalu pilih saran alamat"
+                        placeholder="Contoh: Bandung, Jawa Barat"
                         autocomplete="off"
                     >
-                    <div id="profile-address-suggestions" class="mt-2 hidden max-h-64 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl"></div>
-                    <p id="profile-address-helper" class="mt-2 text-xs font-medium text-gray-500">
-                        Pilih saran alamat dari maps agar koordinat tersimpan dengan benar.
+                    <div id="shipping-location-suggestions" class="mt-2 hidden max-h-64 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl"></div>
+                    <p id="shipping-location-helper" class="mt-2 text-xs font-medium text-gray-500">
+                        Pilih lokasi pengiriman agar alamat dan biaya pengiriman bisa disiapkan otomatis.
                     </p>
-                    <x-input-error class="mt-2" :messages="$errors->get('alamat_maps')" />
-                    <x-input-error class="mt-2" :messages="collect($errors->get('alamat_lat'))->merge($errors->get('alamat_lng'))->unique()->values()->all()" />
+                    <x-input-error class="mt-2" :messages="collect($errors->get('alamat_maps'))->merge($errors->get('rajaongkir_destination_id'))->merge($errors->get('rajaongkir_destination_label'))->unique()->values()->all()" />
+                </div>
+
+                <div>
+                    <x-input-label for="alamat_selected_display" :value="__('Alamat Terpilih')" />
+                    <textarea
+                        id="alamat_selected_display"
+                        rows="3"
+                        readonly
+                        class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        placeholder="Lokasi pengiriman yang dipilih akan tampil di sini"
+                    >{{ $alamatMapsValue }}</textarea>
                 </div>
 
                 <div>
@@ -85,17 +94,10 @@
                     <div class="overflow-hidden rounded-2xl border border-gray-200 bg-gray-100 shadow-sm">
                         <div id="profile-address-map" class="w-full bg-gray-100" style="height: 320px;"></div>
                     </div>
+                    <x-input-error class="mt-2" :messages="collect($errors->get('alamat_lat'))->merge($errors->get('alamat_lng'))->unique()->values()->all()" />
                 </div>
 
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <div class="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Latitude</p>
-                        <p id="profile-lat-display" class="mt-1 font-mono text-sm font-semibold text-gray-900">{{ $alamatLatValue ?: '-' }}</p>
-                    </div>
-                    <div class="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Longitude</p>
-                        <p id="profile-lng-display" class="mt-1 font-mono text-sm font-semibold text-gray-900">{{ $alamatLngValue ?: '-' }}</p>
-                    </div>
                     <div>
                         <x-input-label for="alamat_provinsi" :value="__('Provinsi')" />
                         <x-text-input id="alamat_provinsi" name="alamat_provinsi" type="text" class="mt-1 block w-full" :value="$alamatProvinsiValue" />
@@ -130,14 +132,16 @@
                     <x-input-error class="mt-2" :messages="$errors->get('alamat_detail')" />
                 </div>
 
+                <input id="alamat_maps" name="alamat_maps" type="hidden" value="{{ $alamatMapsValue }}">
                 <input id="alamat_lat" name="alamat_lat" type="hidden" value="{{ $alamatLatValue }}">
                 <input id="alamat_lng" name="alamat_lng" type="hidden" value="{{ $alamatLngValue }}">
+                <input id="rajaongkir_destination_id" name="rajaongkir_destination_id" type="hidden" value="{{ $rajaOngkirDestinationIdValue }}">
+                <input id="rajaongkir_destination_label" name="rajaongkir_destination_label" type="hidden" value="{{ $rajaOngkirDestinationLabelValue }}">
             </div>
         </div>
 
         <div class="flex items-center gap-4">
             <x-primary-button>{{ __('Save') }}</x-primary-button>
-
         </div>
     </form>
 </section>
@@ -146,24 +150,27 @@
 <script>
     (function () {
         const addressSuggestUrl = '{{ route('order.address.suggest') }}';
+        const destinationSuggestUrl = '{{ route('rajaongkir.destination') }}';
         const defaultLat = -6.2088;
         const defaultLng = 106.8456;
 
         const form = document.getElementById('profile-form');
+        const locationSearchInput = document.getElementById('shipping_location_search');
         const addressInput = document.getElementById('alamat_maps');
+        const selectedAddressDisplay = document.getElementById('alamat_selected_display');
         const detailInput = document.getElementById('alamat_detail');
         const latInput = document.getElementById('alamat_lat');
         const lngInput = document.getElementById('alamat_lng');
-        const latDisplay = document.getElementById('profile-lat-display');
-        const lngDisplay = document.getElementById('profile-lng-display');
-        const helper = document.getElementById('profile-address-helper');
-        const suggestions = document.getElementById('profile-address-suggestions');
+        const helper = document.getElementById('shipping-location-helper');
+        const suggestions = document.getElementById('shipping-location-suggestions');
         const provinsiInput = document.getElementById('alamat_provinsi');
         const kotaInput = document.getElementById('alamat_kota');
         const kecamatanInput = document.getElementById('alamat_kecamatan');
         const kodePosInput = document.getElementById('alamat_kode_pos');
+        const destinationIdInput = document.getElementById('rajaongkir_destination_id');
+        const destinationLabelInput = document.getElementById('rajaongkir_destination_label');
 
-        if (!form || !addressInput || !latInput || !lngInput || !suggestions) {
+        if (!form || !locationSearchInput || !addressInput || !latInput || !lngInput || !suggestions) {
             return;
         }
 
@@ -199,15 +206,51 @@
             helper.className += 'text-gray-500';
         }
 
+        function updateSelectedAddress(value) {
+            if (selectedAddressDisplay) {
+                selectedAddressDisplay.value = value || '';
+            }
+        }
+
         function hideSuggestions() {
             suggestions.classList.add('hidden');
             suggestions.innerHTML = '';
             suggestionItems = [];
         }
 
-        function updateCoordinateDisplay(lat, lng) {
-            latDisplay.textContent = lat ? Number(lat).toFixed(8) : '-';
-            lngDisplay.textContent = lng ? Number(lng).toFixed(8) : '-';
+        function clearStructuredAddress() {
+            provinsiInput.value = '';
+            kotaInput.value = '';
+            kecamatanInput.value = '';
+            kodePosInput.value = '';
+        }
+
+        function clearMarker() {
+            if (!marker) {
+                return;
+            }
+
+            map.removeLayer(marker);
+            marker = null;
+        }
+
+        function clearCoordinates() {
+            latInput.value = '';
+            lngInput.value = '';
+            clearMarker();
+        }
+
+        function clearSelectedLocation(preserveSearch = false) {
+            addressInput.value = '';
+            if (destinationIdInput) destinationIdInput.value = '';
+            if (destinationLabelInput) destinationLabelInput.value = '';
+            clearStructuredAddress();
+            clearCoordinates();
+            updateSelectedAddress('');
+
+            if (!preserveSearch) {
+                locationSearchInput.value = '';
+            }
         }
 
         function setCoordinates(lat, lng) {
@@ -215,15 +258,12 @@
             const safeLng = Number(lng);
 
             if (!Number.isFinite(safeLat) || !Number.isFinite(safeLng)) {
-                latInput.value = '';
-                lngInput.value = '';
-                updateCoordinateDisplay(null, null);
+                clearCoordinates();
                 return;
             }
 
             latInput.value = safeLat.toFixed(8);
             lngInput.value = safeLng.toFixed(8);
-            updateCoordinateDisplay(safeLat, safeLng);
         }
 
         function setMarker(lat, lng) {
@@ -253,95 +293,156 @@
             });
         }
 
-        function clearStructuredAddress() {
-            provinsiInput.value = '';
-            kotaInput.value = '';
-            kecamatanInput.value = '';
-            kodePosInput.value = '';
+        function renderSuggestions(items) {
+            if (!Array.isArray(items) || !items.length) {
+                hideSuggestions();
+                updateHelper('Lokasi pengiriman belum ditemukan. Coba kata kunci yang lebih spesifik.', 'error');
+                return;
+            }
+
+            suggestionItems = items;
+            suggestions.innerHTML = '';
+
+            items.forEach((item, index) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.dataset.index = String(index);
+                button.className = 'block w-full border-b border-gray-100 px-4 py-3 text-left text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 last:border-b-0';
+                button.innerHTML = `
+                    <span class="block font-semibold">${item.label || '-'}</span>
+                    <span class="mt-1 block text-xs font-medium text-gray-400">${[
+                        item.subdistrict_name,
+                        item.district_name,
+                        item.city_name,
+                        item.province_name,
+                        item.zip_code,
+                    ].filter(Boolean).join(' • ')}</span>
+                `;
+                suggestions.appendChild(button);
+            });
+
+            suggestions.classList.remove('hidden');
+            updateHelper('Pilih salah satu lokasi pengiriman untuk melengkapi alamat dan ongkir.', 'info');
         }
 
         async function fetchSuggestions(query) {
             try {
-                const response = await fetch(`${addressSuggestUrl}?q=${encodeURIComponent(query)}`, {
+                const response = await fetch(`${destinationSuggestUrl}?search=${encodeURIComponent(query)}`, {
                     headers: { Accept: 'application/json' },
                     credentials: 'same-origin',
                 });
                 const payload = await response.json();
                 const items = response.ok && payload.success ? (payload.data || []) : [];
 
-                if (!items.length) {
-                    hideSuggestions();
-                    updateHelper('Alamat belum ditemukan. Coba kata kunci yang lebih spesifik.', 'error');
-                    return;
+                if (!response.ok || !payload.success) {
+                    throw new Error(payload.message || 'Gagal mencari lokasi pengiriman.');
                 }
 
-                suggestionItems = items;
-                suggestions.innerHTML = '';
-
-                items.forEach((item, index) => {
-                    const button = document.createElement('button');
-                    button.type = 'button';
-                    button.dataset.index = String(index);
-                    button.className = 'block w-full border-b border-gray-100 px-4 py-3 text-left text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 last:border-b-0';
-                    button.textContent = item.display_name || '';
-                    suggestions.appendChild(button);
-                });
-
-                suggestions.classList.remove('hidden');
-                updateHelper('Pilih salah satu saran alamat untuk mengunci titik lokasi.', 'info');
+                renderSuggestions(items);
             } catch (error) {
                 hideSuggestions();
-                updateHelper('Gagal mengambil saran alamat. Silakan coba lagi.', 'error');
+                updateHelper(error.message || 'Gagal mencari lokasi pengiriman.', 'error');
             }
         }
 
         function scheduleSuggestionFetch() {
-            const query = String(addressInput.value || '').trim();
+            const query = String(locationSearchInput.value || '').trim();
 
             if (debounceTimer) {
                 window.clearTimeout(debounceTimer);
             }
 
-            setCoordinates(null, null);
-            clearStructuredAddress();
-
-            if (marker) {
-                map.removeLayer(marker);
-                marker = null;
-            }
+            clearSelectedLocation(true);
 
             if (query.length < 3) {
                 hideSuggestions();
-                updateHelper('Ketik minimal 3 huruf, lalu pilih saran alamat dari peta.', 'default');
+                updateHelper('Ketik minimal 3 huruf untuk mencari lokasi pengiriman.', 'default');
                 return;
             }
 
             debounceTimer = window.setTimeout(() => fetchSuggestions(query), 350);
         }
 
-        function chooseSuggestion(index) {
+        function buildGeocodingQueries(item) {
+            const primary = String(item?.label || '').trim();
+            const fallback = [
+                item?.subdistrict_name,
+                item?.district_name,
+                item?.city_name,
+                item?.province_name,
+                item?.zip_code,
+            ].filter(Boolean).join(', ');
+
+            return [primary, fallback].filter((value, index, values) => value && values.indexOf(value) === index);
+        }
+
+        async function fetchMapCoordinate(query) {
+            const response = await fetch(`${addressSuggestUrl}?q=${encodeURIComponent(query)}`, {
+                headers: { Accept: 'application/json' },
+                credentials: 'same-origin',
+            });
+            const payload = await response.json();
+
+            if (!response.ok || !payload.success) {
+                return null;
+            }
+
+            const firstResult = Array.isArray(payload.data) ? payload.data[0] : null;
+            if (!firstResult) {
+                return null;
+            }
+
+            const lat = Number(firstResult.lat || 0);
+            const lng = Number(firstResult.lng || firstResult.lon || 0);
+
+            if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat === 0 || lng === 0) {
+                return null;
+            }
+
+            return { lat, lng };
+        }
+
+        async function syncMapToLocation(item) {
+            const queries = buildGeocodingQueries(item);
+
+            for (const query of queries) {
+                const coordinate = await fetchMapCoordinate(query);
+                if (!coordinate) {
+                    continue;
+                }
+
+                setCoordinates(coordinate.lat, coordinate.lng);
+                setMarker(coordinate.lat, coordinate.lng);
+                map.setView([coordinate.lat, coordinate.lng], 17);
+                updateHelper('Lokasi pengiriman dipilih dan titik peta sudah ditampilkan.', 'success');
+                return;
+            }
+
+            clearCoordinates();
+            updateHelper('Lokasi pengiriman tersimpan. Titik peta dapat disesuaikan manual.', 'info');
+        }
+
+        async function chooseSuggestion(index) {
             const item = suggestionItems[index];
             if (!item) {
                 return;
             }
 
-            addressInput.value = item.display_name || '';
-            provinsiInput.value = item.provinsi || '';
-            kotaInput.value = item.kota || '';
-            kecamatanInput.value = item.kecamatan || '';
-            kodePosInput.value = item.kode_pos || '';
+            const selectedLabel = String(item.label || '').trim();
 
-            const lat = Number(item.lat || 0);
-            const lng = Number(item.lng || item.lon || 0);
-
-            if (Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0) {
-                setCoordinates(lat, lng);
-                setMarker(lat, lng);
-                map.setView([lat, lng], 17);
-            }
+            locationSearchInput.value = selectedLabel;
+            addressInput.value = selectedLabel;
+            updateSelectedAddress(selectedLabel);
+            provinsiInput.value = item.province_name || '';
+            kotaInput.value = item.city_name || '';
+            kecamatanInput.value = item.subdistrict_name || item.district_name || '';
+            kodePosInput.value = item.zip_code || '';
+            if (destinationIdInput) destinationIdInput.value = item.id || '';
+            if (destinationLabelInput) destinationLabelInput.value = selectedLabel;
 
             hideSuggestions();
-            updateHelper('Alamat berhasil dipilih. Anda bisa geser pin bila perlu koreksi titik.', 'success');
+            updateHelper('Lokasi pengiriman dipilih. Peta sedang menyesuaikan posisi.', 'info');
+            await syncMapToLocation(item);
         }
 
         const startLat = Number(latInput.value || defaultLat);
@@ -362,13 +463,13 @@
             setMarker(startLat, startLng);
         }
 
-        updateCoordinateDisplay(latInput.value, lngInput.value);
+        updateSelectedAddress(addressInput.value || '');
         window.setTimeout(() => map.invalidateSize(), 250);
         window.setTimeout(() => map.invalidateSize(), 700);
 
         map.on('click', function (event) {
             if (!String(addressInput.value || '').trim()) {
-                updateHelper('Pilih alamat dari saran peta terlebih dahulu, baru koreksi titiknya.', 'error');
+                updateHelper('Pilih lokasi pengiriman terlebih dahulu, lalu sesuaikan titiknya di peta.', 'error');
                 return;
             }
 
@@ -377,22 +478,22 @@
             updateHelper('Titik lokasi diperbarui dari peta.', 'success');
         });
 
-        addressInput.addEventListener('input', scheduleSuggestionFetch);
+        locationSearchInput.addEventListener('input', scheduleSuggestionFetch);
 
-        addressInput.addEventListener('focus', function () {
-            const query = String(addressInput.value || '').trim();
+        locationSearchInput.addEventListener('focus', function () {
+            const query = String(locationSearchInput.value || '').trim();
             if (query.length >= 3) {
                 fetchSuggestions(query);
             }
         });
 
-        addressInput.addEventListener('blur', function () {
+        locationSearchInput.addEventListener('blur', function () {
             window.setTimeout(hideSuggestions, 180);
         });
 
         detailInput?.addEventListener('input', function () {
             if (String(detailInput.value || '').trim() !== '') {
-                updateHelper('Detail alamat akan dipakai otomatis saat checkout.', 'default');
+                updateHelper('Detail alamat akan dipakai otomatis saat pemesanan.', 'default');
             }
         });
 
@@ -402,18 +503,23 @@
                 return;
             }
 
-            chooseSuggestion(Number(button.dataset.index));
+            void chooseSuggestion(Number(button.dataset.index));
         });
 
         form.addEventListener('submit', function (event) {
-            const hasAddress = String(addressInput.value || '').trim() !== '';
-            const hasCoordinates = String(latInput.value || '').trim() !== '' && String(lngInput.value || '').trim() !== '';
+            const typedLocation = String(locationSearchInput.value || '').trim();
+            const selectedLocation = String(addressInput.value || '').trim();
+            const hasDetail = String(detailInput?.value || '').trim() !== '';
 
-            if (hasAddress && !hasCoordinates) {
+            if ((typedLocation !== '' || hasDetail) && selectedLocation === '') {
                 event.preventDefault();
-                updateHelper('Pilih alamat dari saran peta agar koordinat tersimpan.', 'error');
+                updateHelper('Lokasi pengiriman belum lengkap. Silakan pilih lokasi pengiriman terlebih dahulu.', 'error');
             }
         });
+
+        if (String(destinationLabelInput?.value || '').trim() !== '') {
+            updateHelper('Lokasi pengiriman sudah tersimpan dan siap dipakai saat pemesanan.', 'success');
+        }
     })();
 </script>
 @endpush

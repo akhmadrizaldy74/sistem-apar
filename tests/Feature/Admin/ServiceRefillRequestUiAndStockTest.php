@@ -141,6 +141,7 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
             'total' => 950000,
             'total_harga' => 950000,
             'sumber_pesanan' => 'website',
+            'metode_pembayaran' => 'cash',
             'stok_dikurangi' => false,
         ]);
 

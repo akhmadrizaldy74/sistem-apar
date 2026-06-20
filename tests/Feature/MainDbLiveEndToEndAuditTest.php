@@ -1106,7 +1106,7 @@ class MainDbLiveEndToEndAuditTest extends TestCase
                 'Cek blok riwayat pembelian, unit APAR, tombol komplain, dan tombol beri penilaian.',
             ],
             expected: 'Halaman riwayat fokus pada riwayat pembelian dan unit APAR, dengan status akhir konsisten `Selesai Final`.',
-            actual: 'Status halaman ' . $history->getStatusCode() . ', tombol nilai ' . ($this->contains($content, 'Beri Penilaian') ? 'muncul' : 'tidak muncul') . ', tombol komplain ' . ($this->contains($content, 'Butuh Bantuan') || $this->contains($content, 'Komplain') ? 'muncul' : 'tidak muncul') . '.',
+            actual: 'Status halaman ' . $history->getStatusCode() . ', tombol ulasan ' . ($this->contains($content, 'Isi Ulasan') ? 'muncul' : 'tidak muncul') . ', tombol komplain ' . ($this->contains($content, 'Butuh Bantuan') || $this->contains($content, 'Komplain') ? 'muncul' : 'tidak muncul') . '.',
             status: $historyOk ? 'Berhasil' : 'Perlu diperbaiki'
         );
     }

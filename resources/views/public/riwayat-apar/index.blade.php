@@ -20,7 +20,9 @@
 @php
     $pendingPaymentOrder = $pendingPaymentOrder ?? null;
     $canCreateOrder = ! $pendingPaymentOrder;
-    $paymentWarning = 'Selesaikan pembayaran sebelumnya sebelum membuat pesanan baru.';
+    $paymentWarning = $pendingPaymentOrder?->hasPendingPurchasePriceRequest()
+        ? 'Pengajuan harga Anda sedang menunggu persetujuan admin.'
+        : 'Selesaikan pembayaran sebelumnya sebelum membuat pesanan baru.';
 
     $totalUnits = $pelanggan->units->count();
     $expiredUnits = $pelanggan->units->filter(fn ($unit) => $unit->tgl_expired && $unit->tgl_expired->isPast())->count();
@@ -79,7 +81,8 @@
                         <p class="font-black">{{ $paymentWarning }}</p>
                         @if($pendingPaymentOrder)
                             <p class="mt-0.5 text-xs font-semibold text-amber-800">
-                                {{ $pendingPaymentOrder->transactionDisplayName() }} pada {{ $pendingPaymentOrder->displayTransactionDateTime() }} masih menunggu penyelesaian pembayaran.
+                                {{ $pendingPaymentOrder->transactionDisplayName() }} pada {{ $pendingPaymentOrder->displayTransactionDateTime() }}
+                                {{ $pendingPaymentOrder->hasPendingPurchasePriceRequest() ? 'masih menunggu keputusan admin untuk pengajuan harga.' : 'masih menunggu penyelesaian pembayaran.' }}
                             </p>
                         @endif
                     </div>
@@ -545,6 +548,70 @@
             </div>
         </div>
 
+        <!-- Confirm Received Modal -->
+        <div x-show="showConfirmModal" x-cloak class="relative z-50" aria-labelledby="confirm-modal-title" role="dialog" aria-modal="true">
+            <div x-show="showConfirmModal" x-transition.opacity class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" @click="closeModals()"></div>
+            <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
+                <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                    <div x-show="showConfirmModal" x-transition class="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-xl" @keydown.escape.window="closeModals()" @click.stop>
+                        <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                            <div class="flex items-center justify-between mb-4 pb-4 border-b border-slate-100">
+                                <div class="flex items-center gap-3">
+                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50">
+                                        <i class="fa-solid fa-box-open text-blue-600"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-lg font-black text-slate-900" id="confirm-modal-title">Konfirmasi Pesanan Diterima</h3>
+                                        <p class="text-xs text-slate-500">Gunakan tombol ini setelah pesanan benar-benar sudah Anda terima.</p>
+                                    </div>
+                                </div>
+                                <button type="button" @click="closeModals()" class="text-slate-400 hover:text-slate-500 transition">
+                                    <i class="fa-solid fa-xmark text-xl"></i>
+                                </button>
+                            </div>
+
+                            <div class="rounded-xl bg-slate-50 p-4 border border-slate-100">
+                                <h4 class="text-xs font-bold text-slate-700 mb-2 uppercase tracking-wider">Ringkasan Transaksi</h4>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+                                    <div>
+                                        <span class="block text-xs text-slate-500">Produk/Layanan</span>
+                                        <span class="font-semibold text-slate-800" x-text="modalData.title"></span>
+                                    </div>
+                                    <div>
+                                        <span class="block text-xs text-slate-500">Tanggal</span>
+                                        <span class="font-semibold text-slate-800" x-text="modalData.date"></span>
+                                    </div>
+                                    <div>
+                                        <span class="block text-xs text-slate-500">Status</span>
+                                        <span class="font-semibold text-slate-800" x-text="modalData.status"></span>
+                                    </div>
+                                    <div>
+                                        <span class="block text-xs text-slate-500">Total</span>
+                                        <span class="font-semibold text-slate-800" x-text="modalData.total"></span>
+                                    </div>
+                                    <div>
+                                        <span class="block text-xs text-slate-500">Jenis</span>
+                                        <span class="font-semibold text-slate-800" x-text="modalData.tipe"></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-medium leading-6 text-blue-900">
+                                Setelah dikonfirmasi, Anda bisa langsung mengisi ulasan tanpa menunggu tombol lain.
+                            </div>
+                        </div>
+                        <div class="bg-slate-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 gap-3">
+                            <button type="button" @click="submitConfirmReceived()" :disabled="isSubmitting" class="inline-flex w-full justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-700 sm:w-52 disabled:opacity-50">
+                                <span x-show="!isSubmitting">Ya, Sudah Diterima</span>
+                                <span x-show="isSubmitting"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Menyimpan...</span>
+                            </button>
+                            <button type="button" @click="closeModals()" :disabled="isSubmitting" class="mt-3 inline-flex w-full justify-center rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 hover:bg-slate-50 sm:mt-0 sm:w-40">Batal</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Testimoni Modal -->
         <div x-show="showTestimoniModal" x-cloak class="relative z-50" aria-labelledby="testimoni-modal-title" role="dialog" aria-modal="true">
             <div x-show="showTestimoniModal" x-transition.opacity class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" @click="closeModals()"></div>
@@ -558,8 +625,8 @@
                                         <i class="fa-solid fa-star text-amber-500"></i>
                                     </div>
                                     <div>
-                                        <h3 class="text-lg font-black text-slate-900" id="testimoni-modal-title">Beri Penilaian</h3>
-                                        <p class="text-xs text-slate-500">Bagikan pengalaman Anda setelah menggunakan layanan PD. Anugrah Utama.</p>
+                                        <h3 class="text-lg font-black text-slate-900" id="testimoni-modal-title">Isi Ulasan</h3>
+                                        <p class="text-xs text-slate-500">Bagikan pengalaman Anda setelah pesanan selesai dan sudah diterima.</p>
                                     </div>
                                 </div>
                                 <button type="button" @click="closeModals()" class="text-slate-400 hover:text-slate-500 transition">
@@ -651,7 +718,7 @@
                         </div>
                         <div class="bg-slate-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 gap-3">
                             <button type="button" @click="submitTestimoni()" :disabled="isSubmitting" class="inline-flex w-full justify-center rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-amber-600 sm:w-40 disabled:opacity-50">
-                                <span x-show="!isSubmitting">Kirim Penilaian</span>
+                                <span x-show="!isSubmitting">Kirim Ulasan</span>
                                 <span x-show="isSubmitting"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Mengirim...</span>
                             </button>
                             <button type="button" @click="closeModals()" :disabled="isSubmitting" class="mt-3 inline-flex w-full justify-center rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 hover:bg-slate-50 sm:mt-0 sm:w-40">Batal</button>
@@ -683,6 +750,7 @@
 
                 // Modal State
                 showComplainModal: false,
+                showConfirmModal: false,
                 showTestimoniModal: false,
                 isSubmitting: false,
                 modalData: { id: null, title: '', date: '', total: '', status: '', tipe: '' },
@@ -695,6 +763,12 @@
                     this.complainForm = { isi_complain: '', foto: null, fotoPreview: null };
                     if (this.$refs.complainFoto) this.$refs.complainFoto.value = '';
                     this.showComplainModal = true;
+                },
+
+                openConfirmModal(id, title, date, total, status, tipe) {
+                    this.clearErrors();
+                    this.modalData = { id, title, date, total, status, tipe };
+                    this.showConfirmModal = true;
                 },
 
                 openTestimoniModal(id, title, date, total, status, tipe) {
@@ -743,8 +817,50 @@
 
                 closeModals() {
                     this.showComplainModal = false;
+                    this.showConfirmModal = false;
                     this.showTestimoniModal = false;
                     this.clearErrors();
+                },
+
+                async submitConfirmReceived() {
+                    this.clearErrors();
+                    this.isSubmitting = true;
+
+                    const snapshot = { ...this.modalData };
+
+                    try {
+                        const response = await fetch(`{{ url('/riwayat-apar') }}/${snapshot.id}/confirm-received`, {
+                            method: 'POST',
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            }
+                        });
+                        const result = await response.json();
+
+                        if (response.ok && result.success) {
+                            this.closeModals();
+                            window.showAppAlert(result.message || 'Pesanan berhasil dikonfirmasi.', 'success');
+                            this.pollForUpdates();
+
+                            if (result.open_review) {
+                                window.setTimeout(() => {
+                                    this.openTestimoniModal(snapshot.id, snapshot.title, snapshot.date, snapshot.total, snapshot.status, snapshot.tipe);
+                                }, 250);
+                            } else {
+                                setTimeout(() => location.reload(), 1200);
+                            }
+
+                            return;
+                        }
+
+                        window.showAppAlert(result.message || 'Terjadi kesalahan saat mengonfirmasi pesanan.', 'error');
+                    } catch (e) {
+                        window.showAppAlert('Gagal menyimpan konfirmasi pesanan. Periksa koneksi internet Anda.', 'error');
+                    } finally {
+                        this.isSubmitting = false;
+                    }
                 },
 
                 async submitComplain() {

@@ -32,12 +32,14 @@ class ProfileUpdateRequest extends FormRequest
             ],
             'alamat_maps' => ['nullable', 'string', 'max:1000', 'required_with:alamat_detail'],
             'alamat_detail' => ['nullable', 'string', 'max:1000', 'required_with:alamat_maps'],
-            'alamat_lat' => ['nullable', 'numeric', 'between:-90,90', 'required_with:alamat_maps'],
-            'alamat_lng' => ['nullable', 'numeric', 'between:-180,180', 'required_with:alamat_maps'],
+            'alamat_lat' => ['nullable', 'numeric', 'between:-90,90'],
+            'alamat_lng' => ['nullable', 'numeric', 'between:-180,180'],
             'alamat_provinsi' => ['nullable', 'string', 'max:255'],
             'alamat_kota' => ['nullable', 'string', 'max:255'],
             'alamat_kecamatan' => ['nullable', 'string', 'max:255'],
             'alamat_kode_pos' => ['nullable', 'string', 'max:20'],
+            'rajaongkir_destination_id' => ['nullable', 'string', 'max:50'],
+            'rajaongkir_destination_label' => ['nullable', 'string', 'max:255'],
         ];
     }
 
@@ -45,10 +47,8 @@ class ProfileUpdateRequest extends FormRequest
     {
         return [
             'email.unique' => 'Email sudah digunakan akun lain.',
-            'alamat_maps.required_with' => 'Pilih alamat dari saran peta agar lokasi tersimpan.',
+            'alamat_maps.required_with' => 'Lokasi pengiriman belum lengkap. Silakan pilih lokasi pengiriman terlebih dahulu.',
             'alamat_detail.required_with' => 'Detail alamat atau patokan wajib diisi.',
-            'alamat_lat.required_with' => 'Titik koordinat belum tersimpan. Pilih alamat dari saran peta.',
-            'alamat_lng.required_with' => 'Titik koordinat belum tersimpan. Pilih alamat dari saran peta.',
         ];
     }
 }

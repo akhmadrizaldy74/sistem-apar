@@ -13,13 +13,21 @@ class ProfileTest extends TestCase
 
     public function test_profile_page_is_displayed(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create([
+            'role' => 'pelanggan',
+            'no_telpon' => '081555555555',
+        ]);
 
         $response = $this
             ->actingAs($user)
             ->get('/profile');
 
-        $response->assertOk()->assertSee('Profil Saya');
+        $response->assertOk()
+            ->assertSee('Profil Saya')
+            ->assertSee('Alamat Pengiriman')
+            ->assertSee('Cari Lokasi Pengiriman')
+            ->assertSee('Alamat Terpilih')
+            ->assertDontSee('RajaOngkir');
     }
 
     public function test_profile_information_can_be_updated_and_customer_address_is_saved(): void

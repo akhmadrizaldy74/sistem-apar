@@ -203,8 +203,11 @@
                                 $serviceCustomer = $resolveCustomer($service);
                                 $isLegacySource = $service->isLegacyAdminSource();
                                 $canAssign = $service->isPaymentConfirmed() && !$service->teknisi_id;
+                                $canReadyToShip = $service->canMarkReadyToShip();
+                                $canFinalize = $service->canFinalizeDirectlyByAdmin();
                                 $statusBadge = match ((string) $service->status) {
                                     'selesai final', 'selesai' => ['bg-emerald-50 text-emerald-700', 'SELESAI FINAL'],
+                                    'siap dikirim' => ['bg-cyan-50 text-cyan-700', 'SIAP DIKIRIM'],
                                     'dikonfirmasi admin' => ['bg-cyan-50 text-cyan-700', 'DIKONFIRMASI ADMIN'],
                                     'selesai oleh teknisi' => ['bg-cyan-50 text-cyan-700', 'SELESAI OLEH TEKNISI'],
                                     'dikerjakan teknisi' => ['bg-indigo-50 text-indigo-700', 'SEDANG DIKERJAKAN'],
@@ -252,7 +255,12 @@
                                                 Bukti TF
                                             </button>
                                         @endif
-                                        @if(in_array((string) $service->status, ['selesai oleh teknisi', 'dikonfirmasi admin'], true))
+                                        @if($canReadyToShip)
+                                            <form action="{{ route('admin.pesanan.konfirmasi-pelanggan', $service) }}" method="POST" data-confirm="Ubah status service ini menjadi Siap Dikirim?" data-confirm-title="Konfirmasi Pengiriman" data-confirm-button="Ya, Siapkan">
+                                                @csrf
+                                                <button type="submit" class="{{ $actionButtonSuccess }}">Siap Dikirim</button>
+                                            </form>
+                                        @elseif($canFinalize)
                                             <form action="{{ route('admin.pesanan.selesai-final', $service) }}" method="POST" data-confirm="Selesaikan final service ini?" data-confirm-title="Konfirmasi Final" data-confirm-button="Ya, Finalkan">
                                                 @csrf
                                                 <button type="submit" class="{{ $actionButtonSuccess }}">Final</button>

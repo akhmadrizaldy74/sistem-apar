@@ -288,12 +288,14 @@ class PelangganTest extends TestCase
         $response->assertOk();
         $response->assertSee('Edit Alamat Pelanggan');
         $response->assertSee('Perbarui alamat dan titik lokasi pelanggan.');
-        $response->assertSee('Lihat Landing Page');
+        $response->assertSee('Lihat Detail');
         $response->assertSee('Nama Pelanggan');
         $response->assertSee('Email');
         $response->assertSee('WhatsApp / HP');
-        $response->assertSee('Cari Alamat di Peta');
+        $response->assertSee('Cari Lokasi Pengiriman');
+        $response->assertSee('Alamat Terpilih');
         $response->assertSee('Data akun dikelola dari');
+        $response->assertDontSee('RajaOngkir');
         $response->assertSee('id="admin-address-map"', false);
         $response->assertSee('name="alamat_maps"', false);
         $response->assertSee('name="alamat_detail"', false);

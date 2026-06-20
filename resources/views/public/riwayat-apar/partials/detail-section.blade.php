@@ -6,6 +6,11 @@
     $ongkir = (float) ($pesanan->ongkir ?: 0);
     $subtotal = $totalHarga - $ongkir;
     $purchasePriceLabel = $pesanan->purchasePriceStatusLabel();
+    $normalSubtotal = (float) $pesanan->purchasePriceNormalSubtotal();
+    $discountedTotal = (float) $pesanan->purchasePriceDiscountedTotal();
+    $initialTotal = (float) $pesanan->purchasePriceInitialTotal();
+    $approvedAdjustment = max(0, $initialTotal - (float) ($pricingSummary['totalPembayaran'] ?? 0));
+    $adminNote = $pesanan->purchasePriceAdminNote();
 @endphp
 
 <div class="grid md:grid-cols-2 gap-6">
@@ -97,19 +102,41 @@
             </div>
             <div class="mt-3 space-y-2 text-sm">
                 <div class="flex items-center justify-between">
+                    <span class="text-slate-500">Total Normal</span>
+                    <span class="font-semibold text-slate-800">Rp {{ number_format($normalSubtotal, 0, ',', '.') }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-500">Setelah Diskon</span>
+                    <span class="font-semibold text-slate-800">Rp {{ number_format($discountedTotal, 0, ',', '.') }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-500">Ongkir</span>
+                    <span class="font-semibold text-slate-800">Rp {{ number_format($ongkir, 0, ',', '.') }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-500">Total Awal</span>
+                    <span class="font-semibold text-slate-800">Rp {{ number_format($initialTotal, 0, ',', '.') }}</span>
+                </div>
+                <div class="flex items-center justify-between">
                     <span class="text-slate-500">Harga Pengajuan</span>
                     <span class="font-semibold text-slate-800">Rp {{ number_format((float) ($pricingSummary['hargaPengajuan'] ?? 0), 0, ',', '.') }}</span>
                 </div>
-                @if(!empty($pricingSummary['specialPriceActive']))
+                @if($approvedAdjustment > 0)
                     <div class="flex items-center justify-between">
-                        <span class="text-slate-500">Harga Final</span>
-                        <span class="font-semibold text-emerald-700">Rp {{ number_format((float) ($pricingSummary['hargaFinal'] ?? 0), 0, ',', '.') }}</span>
+                        <span class="text-slate-500">Penyesuaian Harga Disetujui</span>
+                        <span class="font-semibold text-emerald-700">-Rp {{ number_format($approvedAdjustment, 0, ',', '.') }}</span>
                     </div>
                 @endif
                 @if($pesanan->purchasePriceCustomerNote())
                     <div class="rounded-lg border border-slate-200 bg-white px-3 py-3">
                         <p class="text-[11px] font-black uppercase tracking-wide text-slate-400">Catatan Pelanggan</p>
                         <p class="mt-1 text-sm font-semibold leading-6 text-slate-700">{{ $pesanan->purchasePriceCustomerNote() }}</p>
+                    </div>
+                @endif
+                @if($adminNote)
+                    <div class="rounded-lg border border-slate-200 bg-white px-3 py-3">
+                        <p class="text-[11px] font-black uppercase tracking-wide text-slate-400">Catatan Admin</p>
+                        <p class="mt-1 text-sm font-semibold leading-6 text-slate-700">{{ $adminNote }}</p>
                     </div>
                 @endif
             </div>
@@ -236,34 +263,35 @@
 
         {{-- Price Summary --}}
         <div class="bg-slate-50 rounded-xl border border-slate-200 p-4">
-            @if($pesanan->tipe !== 'service')
             <div class="flex justify-between items-center py-2">
-                <span class="text-sm text-slate-500">Subtotal</span>
+                <span class="text-sm text-slate-500">Subtotal Produk / Layanan</span>
                 <span class="text-sm font-semibold text-slate-700">
-                    Rp {{ number_format($subtotal, 0, ',', '.') }}
+                    Rp {{ number_format((float) ($pricingSummary['subtotalProduk'] ?? 0), 0, ',', '.') }}
                 </span>
             </div>
-            @if($ongkir > 0)
             <div class="flex justify-between items-center py-2 border-t border-slate-200">
-                <span class="text-sm text-slate-500">Ongkir</span>
+                <span class="text-sm text-slate-500">Diskon</span>
+                <span class="text-sm font-semibold {{ (float) ($pricingSummary['nominalDiskon'] ?? 0) > 0 ? 'text-emerald-700' : 'text-slate-700' }}">
+                    {{ (float) ($pricingSummary['nominalDiskon'] ?? 0) > 0 ? '-' : '' }}Rp {{ number_format((float) ($pricingSummary['nominalDiskon'] ?? 0), 0, ',', '.') }}
+                </span>
+            </div>
+            <div class="flex justify-between items-center py-2 border-t border-slate-200">
+                <span class="text-sm text-slate-500">Biaya Pengiriman</span>
                 <span class="text-sm font-semibold text-slate-700">
                     Rp {{ number_format($ongkir, 0, ',', '.') }}
                 </span>
             </div>
-            @endif
-            @endif
-
-            @if($pesanan->service_estimasi_biaya)
-            <div class="flex justify-between items-center py-2 border-t border-slate-200">
-                <span class="text-sm text-slate-500">Estimasi Biaya Service</span>
-                <span class="text-sm font-semibold text-slate-700">
-                    Rp {{ number_format((float) $pesanan->service_estimasi_biaya, 0, ',', '.') }}
-                </span>
-            </div>
+            @if($approvedAdjustment > 0)
+                <div class="flex justify-between items-center py-2 border-t border-slate-200">
+                    <span class="text-sm text-slate-500">Penyesuaian Harga Disetujui</span>
+                    <span class="text-sm font-semibold text-emerald-700">
+                        -Rp {{ number_format($approvedAdjustment, 0, ',', '.') }}
+                    </span>
+                </div>
             @endif
 
             <div class="flex justify-between items-center py-3 border-t border-slate-200 mt-2">
-                <span class="text-base font-bold text-slate-900">Total</span>
+                <span class="text-base font-bold text-slate-900">Total Pembayaran</span>
                 <span class="text-lg font-black text-red-600">
                     Rp {{ number_format($totalHarga, 0, ',', '.') }}
                 </span>

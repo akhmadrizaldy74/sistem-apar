@@ -97,6 +97,8 @@ class PelangganController extends Controller
             'alamat_kota' => 'nullable|string|max:255',
             'alamat_kecamatan' => 'nullable|string|max:255',
             'alamat_kode_pos' => 'nullable|string|max:20',
+            'rajaongkir_destination_id' => 'nullable|string|max:50',
+            'rajaongkir_destination_label' => 'nullable|string|max:255',
         ], [
             'alamat_maps.required' => 'Alamat pelanggan wajib diisi.',
         ]);
@@ -114,6 +116,8 @@ class PelangganController extends Controller
             'alamat_kota' => trim((string) $request->input('alamat_kota')) ?: null,
             'alamat_kecamatan' => trim((string) $request->input('alamat_kecamatan')) ?: null,
             'alamat_kode_pos' => trim((string) $request->input('alamat_kode_pos')) ?: null,
+            'rajaongkir_destination_id' => trim((string) $request->input('rajaongkir_destination_id')) ?: null,
+            'rajaongkir_destination_label' => trim((string) $request->input('rajaongkir_destination_label')) ?: null,
             'status' => 'tetap',
         ]);
 

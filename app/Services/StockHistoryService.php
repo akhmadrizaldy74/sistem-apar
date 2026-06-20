@@ -59,7 +59,6 @@ class StockHistoryService
         Pesanan::with(['pelanggan', 'details.produk'])
             ->where('tipe', 'produk')
             ->where('stok_dikurangi', true)
-            ->where('status', Pesanan::STATUS_SELESAI_FINAL)
             ->latest('tanggal')
             ->latest()
             ->get()
@@ -86,7 +85,6 @@ class StockHistoryService
             ->where('service_jenis_layanan', 'refill')
             ->whereNotNull('service_jenis_refill_id')
             ->where('service_total_kg', '>', 0)
-            ->where('status', Pesanan::STATUS_SELESAI_FINAL)
             ->where('stok_dikurangi', true)
             ->latest('tanggal')
             ->latest()
@@ -109,7 +107,7 @@ class StockHistoryService
     {
         Service::query()
             ->where('status_konfirmasi', 'confirmed')
-            ->whereHas('pesanan', fn ($query) => $query->where('status', Pesanan::STATUS_SELESAI_FINAL))
+            ->whereHas('pesanan', fn ($query) => $query->where('stok_dikurangi', true))
             ->where(function ($query) {
                 $query->whereNotNull('actual_peralatan_json')
                     ->orWhereNotNull('estimasi_peralatan_json');

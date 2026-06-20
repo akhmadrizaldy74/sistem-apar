@@ -253,40 +253,37 @@ class AdminPesananData
      */
     private static function summaryLines(Pesanan $pesanan, array $pricingSummary): array
     {
-        if ($pesanan->isProductOrder()) {
-            $lines = [[
-                'label' => 'Subtotal Produk',
-                'value' => 'Rp ' . number_format((float) ($pricingSummary['subtotalProduk'] ?? 0), 0, ',', '.'),
-                'tone' => 'default',
-            ]];
+        $approvedAdjustment = max(0, (float) $pesanan->purchasePriceInitialTotal() - (float) ($pricingSummary['totalPembayaran'] ?? 0));
 
-            if ((float) ($pricingSummary['nominalDiskon'] ?? 0) > 0) {
-                $lines[] = [
-                    'label' => 'Diskon ' . (int) ($pricingSummary['diskonPersen'] ?? 0) . '%',
-                    'value' => '-Rp ' . number_format((float) ($pricingSummary['nominalDiskon'] ?? 0), 0, ',', '.'),
-                    'tone' => 'positive',
-                ];
-            }
+        $lines = [[
+            'label' => 'Subtotal Produk / Layanan',
+            'value' => 'Rp ' . number_format((float) ($pricingSummary['subtotalProduk'] ?? 0), 0, ',', '.'),
+            'tone' => 'default',
+        ], [
+            'label' => 'Diskon',
+            'value' => ((float) ($pricingSummary['nominalDiskon'] ?? 0) > 0 ? '-Rp ' : 'Rp ') . number_format((float) ($pricingSummary['nominalDiskon'] ?? 0), 0, ',', '.'),
+            'tone' => (float) ($pricingSummary['nominalDiskon'] ?? 0) > 0 ? 'positive' : 'default',
+        ], [
+            'label' => 'Biaya Pengiriman',
+            'value' => 'Rp ' . number_format((float) ($pricingSummary['ongkir'] ?? 0), 0, ',', '.'),
+            'tone' => 'default',
+        ]];
 
+        if ($approvedAdjustment > 0) {
             $lines[] = [
-                'label' => 'Ongkir',
-                'value' => 'Rp ' . number_format((float) ($pricingSummary['ongkir'] ?? 0), 0, ',', '.'),
-                'tone' => 'default',
+                'label' => 'Penyesuaian Harga Disetujui',
+                'value' => '-Rp ' . number_format($approvedAdjustment, 0, ',', '.'),
+                'tone' => 'positive',
             ];
-            $lines[] = [
-                'label' => 'Total Pembayaran',
-                'value' => 'Rp ' . number_format((float) ($pricingSummary['totalPembayaran'] ?? 0), 0, ',', '.'),
-                'tone' => 'total',
-            ];
-
-            return $lines;
         }
 
-        return [[
+        $lines[] = [
             'label' => 'Total Pembayaran',
             'value' => 'Rp ' . number_format((float) ($pricingSummary['totalPembayaran'] ?? 0), 0, ',', '.'),
             'tone' => 'total',
-        ]];
+        ];
+
+        return $lines;
     }
 
     /**
@@ -306,6 +303,12 @@ class AdminPesananData
             [
                 'label' => 'Metode',
                 'value' => $pesanan->trackingMethodLabel(),
+            ],
+            [
+                'label' => 'Status Pengiriman',
+                'value' => $pesanan->requiresCustomerDeliveryConfirmation()
+                    ? ($pesanan->isAwaitingCustomerConfirmation() ? 'Siap Dikirim' : ($pesanan->hasCustomerConfirmed() ? 'Diterima Pelanggan' : 'Menunggu Pengiriman'))
+                    : 'Tanpa Pengiriman Lanjutan',
             ],
             [
                 'label' => 'Bank Tujuan',

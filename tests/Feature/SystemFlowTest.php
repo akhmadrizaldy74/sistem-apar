@@ -126,7 +126,6 @@ class SystemFlowTest extends TestCase
         $response->assertOk();
         $response->assertSee('Kelola testimoni pelanggan yang masuk dari akun pelanggan.');
         $response->assertDontSee('Tambah Testimoni');
-        $response->assertDontSee(route('admin.testimoni.store'), false);
 
         $storeResponse = $this->actingAs($admin)->post(route('admin.testimoni.store'), [
             'pelanggan_id' => $pelanggan->id,
@@ -151,6 +150,8 @@ class SystemFlowTest extends TestCase
             'tanggal' => now()->toDateString(),
             'total' => 350000,
             'total_harga' => 350000,
+            'customer_confirmed_at' => now(),
+            'customer_confirmed_by' => $pelanggan->user_id,
         ]);
 
         $guestTestimoni = $this->post(route('testimoni.store'), [
@@ -443,7 +444,7 @@ class SystemFlowTest extends TestCase
         $response->assertDontSee('Pesanan Produk');
     }
 
-    public function test_admin_can_hide_active_service_order_from_pesanan_page(): void
+    public function test_admin_can_delete_active_service_order_from_pesanan_page(): void
     {
         $admin = User::factory()->create([
             'role' => 'admin',
@@ -477,16 +478,15 @@ class SystemFlowTest extends TestCase
 
         $response = $this->actingAs($admin)
             ->from(route('admin.pesanan.index'))
-            ->patch(route('admin.pesanan.hide', [
+            ->delete(route('admin.pesanan.destroy-typed', [
                 'jenis' => $pesanan->adminDestroyTypeSlug(),
                 'pesanan' => $pesanan,
             ]));
 
         $response->assertRedirect(route('admin.pesanan.index'));
-        $response->assertSessionHas('success', 'Transaksi berhasil disembunyikan dari menu Pesanan.');
-        $this->assertDatabaseHas('pesanans', ['id' => $pesanan->id]);
-        $this->assertDatabaseHas('services', ['id' => $service->id]);
-        $this->assertNotNull($pesanan->fresh()->hidden_from_pesanan_at);
+        $response->assertSessionHas('success', 'Pesanan aktif berhasil dibatalkan dan dihapus.');
+        $this->assertDatabaseMissing('pesanans', ['id' => $pesanan->id]);
+        $this->assertDatabaseMissing('services', ['id' => $service->id]);
 
         $pageResponse = $this->actingAs($admin)->get(route('admin.pesanan.index'));
         $pageResponse->assertOk();
@@ -549,7 +549,7 @@ class SystemFlowTest extends TestCase
             ]));
 
         $response->assertRedirect(route('admin.pesanan.index'));
-        $response->assertSessionHas('success', 'Transaksi berhasil disembunyikan dari menu Pesanan.');
+        $response->assertSessionHas('success', 'Riwayat transaksi berhasil disembunyikan dari menu Pesanan.');
         $this->assertDatabaseHas('pesanans', ['id' => $pesanan->id]);
         $this->assertNotNull($pesanan->fresh()->hidden_from_pesanan_at);
 
@@ -597,7 +597,7 @@ class SystemFlowTest extends TestCase
             ]));
 
         $response->assertRedirect(route('admin.pesanan.index'));
-        $response->assertSessionHas('success', 'Transaksi berhasil disembunyikan dari menu Pesanan.');
+        $response->assertSessionHas('success', 'Riwayat transaksi berhasil disembunyikan dari menu Pesanan.');
         $this->assertDatabaseHas('pesanans', ['id' => $pesanan->id]);
         $this->assertNotNull($pesanan->fresh()->hidden_from_pesanan_at);
     }
@@ -635,7 +635,7 @@ class SystemFlowTest extends TestCase
             ]));
 
         $response->assertRedirect(route('admin.pesanan.index'));
-        $response->assertSessionHas('success', 'Transaksi berhasil disembunyikan dari menu Pesanan.');
+        $response->assertSessionHas('success', 'Riwayat transaksi berhasil disembunyikan dari menu Pesanan.');
         $this->assertDatabaseHas('pesanans', ['id' => $pesanan->id]);
         $this->assertNotNull($pesanan->fresh()->hidden_from_pesanan_at);
     }
@@ -676,7 +676,7 @@ class SystemFlowTest extends TestCase
             ]),
             false
         );
-        $response->assertSee('Data ini sudah masuk laporan. Hapus hanya akan menyembunyikan transaksi dari menu Pesanan, bukan menghapus dari laporan. Lanjutkan?', false);
+        $response->assertSee('Yakin ingin menyembunyikan transaksi ini dari menu Pesanan? Data tetap tersimpan di database dan laporan.', false);
     }
 
     public function test_admin_manual_product_order_store_remains_blocked_even_with_empty_rows(): void
@@ -925,6 +925,8 @@ class SystemFlowTest extends TestCase
             'tipe' => 'produk',
             'tanggal' => now()->toDateString(),
             'total' => 500000,
+            'total_harga' => 500000,
+            'status' => Pesanan::STATUS_SELESAI_FINAL,
         ]);
 
         $pesananProduk->details()->create([
@@ -1020,22 +1022,39 @@ class SystemFlowTest extends TestCase
             'role' => 'admin',
         ]);
 
-        $pelanggan = Pelanggan::create([
-            'nama' => 'PT Diagram Flow',
-            'no_wa' => '628123450001',
-            'alamat' => 'Jl Diagram',
+        $pelanggan = $this->createLinkedCustomer('PT Diagram Flow', '628123450001', 'Jl Diagram');
+        $jenisApar = JenisApar::create([
+            'nama' => 'Powder',
+            'deskripsi' => 'Powder',
+        ]);
+
+        Produk::create([
+            'nama' => 'APAR Powder 6 KG',
+            'merek' => 'SAFE',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '6 kg',
+            'penggunaan' => 'Gudang',
+            'harga' => 500000,
+            'deskripsi' => 'Produk acuan unit service manual',
+            'stok' => 5,
         ]);
 
         $pesanan = Pesanan::create([
             'pelanggan_id' => $pelanggan->id,
+            'user_id' => $pelanggan->user_id,
             'teknisi_id' => $teknisi->id,
             'tipe' => 'service',
             'status' => Pesanan::STATUS_DIKERJAKAN_TEKNISI,
             'tanggal' => now()->toDateString(),
             'total' => 250000,
             'service_jenis_layanan' => 'service',
+            'service_jenis_apar' => 'Powder',
+            'service_metode_penanganan' => 'dijemput',
+            'service_ukuran_apar' => '6 kg',
+            'service_jumlah_unit' => 1,
             'service_estimasi_biaya' => 250000,
             'total_harga' => 250000,
+            'metode_pembayaran' => 'cash',
         ]);
 
         $teknisiResponse = $this->actingAs($teknisi)->post(route('teknisi.tugas.selesai', $pesanan), [
@@ -1054,7 +1073,21 @@ class SystemFlowTest extends TestCase
         $adminResponse->assertRedirect();
         $this->assertDatabaseHas('pesanans', [
             'id' => $pesanan->id,
-            'status' => Pesanan::STATUS_DIKONFIRMASI_ADMIN,
+            'status' => Pesanan::STATUS_SIAP_DIKIRIM,
+        ]);
+
+        $customerResponse = $this->actingAs($pelanggan->user)->postJson(route('riwayat-apar.confirm-received', $pesanan));
+
+        $customerResponse
+            ->assertOk()
+            ->assertJson([
+                'success' => true,
+                'open_review' => true,
+            ]);
+
+        $this->assertDatabaseHas('pesanans', [
+            'id' => $pesanan->id,
+            'status' => Pesanan::STATUS_SELESAI_FINAL,
         ]);
     }
 
@@ -1249,7 +1282,7 @@ class SystemFlowTest extends TestCase
         $response->assertSee('Selesai Final');
         $response->assertDontSee('Pembayaran Lunas');
         $response->assertDontSee('Terkunci');
-        $response->assertSee('Data ini sudah masuk laporan. Hapus hanya akan menyembunyikan transaksi dari menu Pesanan, bukan menghapus dari laporan. Lanjutkan?', false);
+        $response->assertSee('Yakin ingin menyembunyikan transaksi ini dari menu Pesanan? Data tetap tersimpan di database dan laporan.', false);
         $response->assertDontSee('Yakin ingin menghapus pesanan ini?', false);
     }
 

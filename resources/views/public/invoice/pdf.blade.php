@@ -32,6 +32,14 @@
         $customerCompany = $pesanan->pelanggan?->perusahaan;
         $customerPhone = $pesanan->pelanggan?->no_wa ?: $pesanan->nomor_wa_penerima ?: '-';
         $customerAddress = $pesanan->alamat_pengiriman ?: $pesanan->pelanggan?->alamat ?: '-';
+        $shippingServiceLabel = collect([
+            $pesanan->shipping_courier ? strtoupper((string) $pesanan->shipping_courier) : null,
+            $pesanan->shipping_service,
+        ])->filter()->implode(' - ');
+        $shippingDestination = $pesanan->shipping_destination_label ?: null;
+        $shippingEtd = $pesanan->shipping_etd ?: null;
+        $pricingSummary = $pesanan->pricingSummary();
+        $approvedAdjustment = max(0, (float) $pesanan->purchasePriceInitialTotal() - (float) ($pricingSummary['totalPembayaran'] ?? 0));
     @endphp
     <!-- Top Brand & Invoice Metadata Header -->
     <div class="row" style="border-b: 2px solid #dc2626; padding-bottom: 15px;">
@@ -77,6 +85,15 @@
             <div class="box">
                 <h2>Rincian Transaksi:</h2>
                 <p><strong>Metode Pemesanan:</strong> {{ strtoupper($pesanan->trackingMethodLabel()) }}</p>
+                @if($shippingDestination)
+                    <p><strong>Tujuan Ongkir:</strong> {{ $shippingDestination }}</p>
+                @endif
+                @if($shippingServiceLabel)
+                    <p><strong>Layanan Kirim:</strong> {{ $shippingServiceLabel }}</p>
+                @endif
+                @if($shippingEtd)
+                    <p><strong>Estimasi:</strong> {{ $shippingEtd }}</p>
+                @endif
                 <p><strong>Metode Pembayaran:</strong> {{ strtoupper($pesanan->getPaymentMethodLabel()) }}</p>
                 @unless($hidePaymentBadge)
                     <p><strong>Status Pembayaran:</strong> {{ $isLunas ? 'Lunas / Paid' : 'Belum Lunas' }}</p>
@@ -189,8 +206,26 @@
     <table style="margin-top: 10px;">
         <tbody>
             <tr>
+                <td class="text-right" style="background-color: #f9fafb;">Subtotal Produk / Layanan</td>
+                <td class="text-right" style="width: 180px; background-color: #f9fafb;">Rp {{ number_format((float) ($pricingSummary['subtotalProduk'] ?? 0), 0, ',', '.') }}</td>
+            </tr>
+            <tr>
+                <td class="text-right" style="background-color: #f9fafb;">Diskon</td>
+                <td class="text-right" style="background-color: #f9fafb;">{{ (float) ($pricingSummary['nominalDiskon'] ?? 0) > 0 ? '-' : '' }}Rp {{ number_format((float) ($pricingSummary['nominalDiskon'] ?? 0), 0, ',', '.') }}</td>
+            </tr>
+            <tr>
+                <td class="text-right" style="background-color: #f9fafb;">Biaya Pengiriman</td>
+                <td class="text-right" style="background-color: #f9fafb;">Rp {{ number_format((float) ($pricingSummary['ongkir'] ?? 0), 0, ',', '.') }}</td>
+            </tr>
+            @if($approvedAdjustment > 0)
+                <tr>
+                    <td class="text-right" style="background-color: #f9fafb;">Penyesuaian Harga Disetujui</td>
+                    <td class="text-right" style="background-color: #f9fafb;">-Rp {{ number_format($approvedAdjustment, 0, ',', '.') }}</td>
+                </tr>
+            @endif
+            <tr>
                 <td class="text-right total" style="background-color: #f9fafb;">Total Pembayaran</td>
-                <td class="text-right total" style="width: 180px; background-color: #f9fafb; color: #dc2626;">Rp {{ number_format($pesanan->payableTotal(), 0, ',', '.') }}</td>
+                <td class="text-right total" style="width: 180px; background-color: #f9fafb; color: #dc2626;">Rp {{ number_format((float) ($pricingSummary['totalPembayaran'] ?? 0), 0, ',', '.') }}</td>
             </tr>
         </tbody>
     </table>

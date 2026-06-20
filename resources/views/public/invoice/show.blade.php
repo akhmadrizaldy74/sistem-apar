@@ -11,6 +11,14 @@
             $customerCompany = $pesanan->pelanggan?->perusahaan;
             $customerPhone = $pesanan->pelanggan?->no_wa ?: $pesanan->nomor_wa_penerima ?: '-';
             $customerAddress = $pesanan->alamat_pengiriman ?: $pesanan->pelanggan?->alamat ?: '-';
+            $shippingServiceLabel = collect([
+                $pesanan->shipping_courier ? strtoupper((string) $pesanan->shipping_courier) : null,
+                $pesanan->shipping_service,
+            ])->filter()->implode(' - ');
+            $shippingDestination = $pesanan->shipping_destination_label ?: null;
+            $shippingEtd = $pesanan->shipping_etd ?: null;
+            $pricingSummary = $pesanan->pricingSummary();
+            $approvedAdjustment = max(0, (float) $pesanan->purchasePriceInitialTotal() - (float) ($pricingSummary['totalPembayaran'] ?? 0));
         @endphp
         
         <!-- Action Buttons Top -->
@@ -104,6 +112,24 @@
                                 <dt class="font-bold text-slate-400">Metode Pemesanan:</dt>
                                 <dd class="font-black text-slate-800 uppercase">{{ $pesanan->trackingMethodLabel() }}</dd>
                             </div>
+                            @if($shippingDestination)
+                                <div class="flex md:justify-end gap-4">
+                                    <dt class="font-bold text-slate-400">Tujuan Ongkir:</dt>
+                                    <dd class="font-black text-slate-800">{{ $shippingDestination }}</dd>
+                                </div>
+                            @endif
+                            @if($shippingServiceLabel)
+                                <div class="flex md:justify-end gap-4">
+                                    <dt class="font-bold text-slate-400">Layanan Kirim:</dt>
+                                    <dd class="font-black text-slate-800">{{ $shippingServiceLabel }}</dd>
+                                </div>
+                            @endif
+                            @if($shippingEtd)
+                                <div class="flex md:justify-end gap-4">
+                                    <dt class="font-bold text-slate-400">Estimasi:</dt>
+                                    <dd class="font-black text-slate-800">{{ $shippingEtd }}</dd>
+                                </div>
+                            @endif
                             <div class="flex md:justify-end gap-4">
                                 <dt class="font-bold text-slate-400">Metode Pembayaran:</dt>
                                 <dd class="font-black text-slate-800 uppercase">{{ $pesanan->getPaymentMethodLabel() }}</dd>
@@ -236,7 +262,7 @@
                                             @foreach($serviceLines as $line)
                                                 <div class="rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2">
                                                     <p class="font-semibold text-slate-800">{{ $line['label'] }}</p>
-                                                    <p class="text-xs font-bold text-slate-500 mt-1">{{ (int) ($line['qty'] ?? 1) }} unit • Rp {{ number_format((float) ($line['total'] ?? 0), 0, ',', '.') }}</p>
+                                                    <p class="text-xs font-bold text-slate-500 mt-1">{{ (int) ($line['qty'] ?? 1) }} unit - Rp {{ number_format((float) ($line['total'] ?? 0), 0, ',', '.') }}</p>
                                                 </div>
                                             @endforeach
                                         </div>
@@ -259,38 +285,59 @@
                     </div>
                 @endif
 
-                <!-- Total section card -->
-                <div class="mt-8 flex flex-col md:flex-row justify-between items-start md:items-center p-6 bg-slate-50 rounded-2xl border border-slate-100 gap-4">
-                    <div>
-                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Pembayaran</p>
-                        <p class="text-3xl font-black text-slate-900 mt-1">Rp {{ number_format($pesanan->payableTotal(), 0, ',', '.') }}</p>
+                <div class="mt-8 grid gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-6 md:grid-cols-[minmax(0,1fr)_220px]">
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between text-sm font-semibold text-slate-500">
+                            <span>Subtotal Produk / Layanan</span>
+                            <span class="font-black text-slate-900">Rp {{ number_format((float) ($pricingSummary['subtotalProduk'] ?? 0), 0, ',', '.') }}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm font-semibold {{ (float) ($pricingSummary['nominalDiskon'] ?? 0) > 0 ? 'text-emerald-700' : 'text-slate-500' }}">
+                            <span>Diskon</span>
+                            <span class="font-black">{{ (float) ($pricingSummary['nominalDiskon'] ?? 0) > 0 ? '-' : '' }}Rp {{ number_format((float) ($pricingSummary['nominalDiskon'] ?? 0), 0, ',', '.') }}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm font-semibold text-slate-500">
+                            <span>Biaya Pengiriman</span>
+                            <span class="font-black text-slate-900">Rp {{ number_format((float) ($pricingSummary['ongkir'] ?? 0), 0, ',', '.') }}</span>
+                        </div>
+                        @if($approvedAdjustment > 0)
+                            <div class="flex items-center justify-between text-sm font-semibold text-emerald-700">
+                                <span>Penyesuaian Harga Disetujui</span>
+                                <span class="font-black">-Rp {{ number_format($approvedAdjustment, 0, ',', '.') }}</span>
+                            </div>
+                        @endif
+                        <div class="flex items-center justify-between border-t border-slate-200 pt-3 text-sm font-semibold text-slate-500">
+                            <span>Total Pembayaran</span>
+                            <span class="text-2xl font-black text-red-600">Rp {{ number_format((float) ($pricingSummary['totalPembayaran'] ?? 0), 0, ',', '.') }}</span>
+                        </div>
                     </div>
 
-                    @if($hidePaymentBadge)
-                        <div class="flex items-center gap-2.5 px-5 py-3 bg-emerald-50 border border-emerald-100 rounded-xl">
-                            <i class="fa-solid fa-circle-check text-emerald-600 text-lg"></i>
-                            <div>
-                                <p class="text-xs font-black text-emerald-800 uppercase tracking-wider">Status Transaksi</p>
-                                <p class="text-[11px] font-semibold text-emerald-600">Selesai Final</p>
+                    <div class="flex items-center">
+                        @if($hidePaymentBadge)
+                            <div class="flex w-full items-center gap-2.5 px-5 py-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+                                <i class="fa-solid fa-circle-check text-emerald-600 text-lg"></i>
+                                <div>
+                                    <p class="text-xs font-black text-emerald-800 uppercase tracking-wider">Status Transaksi</p>
+                                    <p class="text-[11px] font-semibold text-emerald-600">Selesai Final</p>
+                                </div>
                             </div>
-                        </div>
-                    @elseif($isLunas)
-                        <div class="flex items-center gap-2.5 px-5 py-3 bg-emerald-50 border border-emerald-100 rounded-xl">
-                            <i class="fa-solid fa-circle-check text-emerald-600 text-lg"></i>
-                            <div>
-                                <p class="text-xs font-black text-emerald-800 uppercase tracking-wider">Status Pembayaran</p>
-                                <p class="text-[11px] font-semibold text-emerald-600">Terbayar Lunas</p>
+                        @elseif($isLunas)
+                            <div class="flex w-full items-center gap-2.5 px-5 py-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+                                <i class="fa-solid fa-circle-check text-emerald-600 text-lg"></i>
+                                <div>
+                                    <p class="text-xs font-black text-emerald-800 uppercase tracking-wider">Status Pembayaran</p>
+                                    <p class="text-[11px] font-semibold text-emerald-600">Terbayar Lunas</p>
+                                </div>
                             </div>
-                        </div>
-                    @else
-                        <div class="flex items-center gap-2.5 px-5 py-3 bg-amber-50 border border-amber-100 rounded-xl">
-                            <i class="fa-solid fa-clock text-amber-600 text-lg animate-pulse"></i>
-                            <div>
-                                <p class="text-xs font-black text-amber-800 uppercase tracking-wider">Status Pembayaran</p>
-                                <p class="text-[11px] font-semibold text-amber-600">Menunggu Pembayaran</p>
+                        @else
+                            <div class="flex w-full items-center gap-2.5 px-5 py-3 bg-amber-50 border border-amber-100 rounded-xl">
+                                <i class="fa-solid fa-clock text-amber-600 text-lg animate-pulse"></i>
+                                <div>
+                                    <p class="text-xs font-black text-amber-800 uppercase tracking-wider">Status Pembayaran</p>
+                                    <p class="text-[11px] font-semibold text-amber-600">Menunggu Pembayaran</p>
+                                </div>
                             </div>
-                        </div>
-                    @endif
+                        @endif
+                    </div>
                 </div>
 
                 <!-- Service Reports if Completed -->

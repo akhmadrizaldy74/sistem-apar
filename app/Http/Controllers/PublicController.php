@@ -14,8 +14,11 @@ use App\Models\Service;
 use App\Models\ServicePaket;
 use App\Models\Testimoni;
 use App\Models\UnitApar;
+use App\Services\FinalTransactionStockService;
 use App\Services\InventoryService;
 use App\Services\OrderPricingService;
+use App\Services\PaidOrderStockService;
+use App\Services\RajaOngkirService;
 use App\Services\ServiceMasterSyncService;
 use App\Services\ServicePackagePricingService;
 use App\Support\RegisteredRefillUnitSupport;
@@ -26,6 +29,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 class PublicController extends Controller
 {
@@ -64,6 +68,8 @@ class PublicController extends Controller
             'alamat_kota' => (string) ($pelanggan?->alamat_kota ?: ''),
             'alamat_kecamatan' => (string) ($pelanggan?->alamat_kecamatan ?: ''),
             'alamat_kode_pos' => (string) ($pelanggan?->alamat_kode_pos ?: ''),
+            'rajaongkir_destination_id' => (string) ($pelanggan?->rajaongkir_destination_id ?: ''),
+            'rajaongkir_destination_label' => (string) ($pelanggan?->rajaongkir_destination_label ?: ''),
             'alamat_lat' => $pelanggan?->alamat_lat,
             'alamat_lng' => $pelanggan?->alamat_lng,
         ];
@@ -72,6 +78,7 @@ class PublicController extends Controller
             && filled($profile['no_wa'])
             && filled($profile['alamat_maps'])
             && filled($profile['alamat_detail']);
+        $profile['has_rajaongkir_destination'] = filled($profile['rajaongkir_destination_id']);
 
         return $profile;
     }
@@ -127,6 +134,8 @@ class PublicController extends Controller
             'alamat_kota' => $profile['alamat_kota'],
             'alamat_kecamatan' => $profile['alamat_kecamatan'],
             'alamat_kode_pos' => $profile['alamat_kode_pos'],
+            'rajaongkir_destination_id' => $profile['rajaongkir_destination_id'],
+            'rajaongkir_destination_label' => $profile['rajaongkir_destination_label'],
             'alamat_lat' => $profile['alamat_lat'],
             'alamat_lng' => $profile['alamat_lng'],
             'perusahaan' => $profile['perusahaan'],
@@ -296,6 +305,17 @@ class PublicController extends Controller
 
     private function resolveLinkedTestimoniForOrder(Pelanggan $pelanggan, Pesanan $pesanan): ?Testimoni
     {
+        $directTestimoni = Testimoni::query()
+            ->where('pelanggan_id', $pelanggan->id)
+            ->where('transaksi_type', Pesanan::class)
+            ->where('transaksi_id', $pesanan->id)
+            ->latest('id')
+            ->first();
+
+        if ($directTestimoni) {
+            return $directTestimoni;
+        }
+
         $link = ActivityLog::query()
             ->where('log_name', 'feedback')
             ->where('event', 'linked_to_order')
@@ -309,14 +329,6 @@ class PublicController extends Controller
         }
 
         return Testimoni::find($link->subject_id);
-    }
-
-    private function officeCoordinates(): array
-    {
-        return [
-            'lat' => (float) env('STORE_LAT', -6.494778),
-            'lng' => (float) env('STORE_LNG', 106.816635),
-        ];
     }
 
     private function sanitizeCoordinate(mixed $value): ?float
@@ -608,73 +620,6 @@ class PublicController extends Controller
         return (string) ($item['display_name'] ?? '');
     }
 
-    private function calculateDistanceKm(float $latFrom, float $lngFrom, float $latTo, float $lngTo): float
-    {
-        $earthRadiusKm = 6371;
-
-        $latFromRad = deg2rad($latFrom);
-        $lngFromRad = deg2rad($lngFrom);
-        $latToRad = deg2rad($latTo);
-        $lngToRad = deg2rad($lngTo);
-
-        $latDelta = $latToRad - $latFromRad;
-        $lngDelta = $lngToRad - $lngFromRad;
-
-        $a = sin($latDelta / 2) ** 2
-            + cos($latFromRad) * cos($latToRad) * sin($lngDelta / 2) ** 2;
-        $c = 2 * asin(min(1, sqrt($a)));
-
-        return round($earthRadiusKm * $c, 2);
-    }
-
-    private function estimateOngkir(float $distanceKm, int $itemCount = 1): float
-    {
-        $distanceKm = max(0, $distanceKm);
-        $itemCount = max(1, $itemCount);
-
-        $tiers = collect(config('app.shipping_pricing_tiers', []))
-            ->map(function ($tier) {
-                return [
-                    'max_distance_km' => (float) ($tier['max_distance_km'] ?? 0),
-                    'cost' => (float) ($tier['cost'] ?? 0),
-                ];
-            })
-            ->filter(fn ($tier) => $tier['max_distance_km'] > 0)
-            ->sortBy('max_distance_km')
-            ->values();
-
-        $baseCost = 0.0;
-        $lastTierDistance = 0.0;
-        $lastTierCost = 0.0;
-
-        foreach ($tiers as $tier) {
-            $lastTierDistance = (float) $tier['max_distance_km'];
-            $lastTierCost = (float) $tier['cost'];
-
-            if ($distanceKm <= $lastTierDistance) {
-                $baseCost = $lastTierCost;
-                break;
-            }
-        }
-
-        if ($baseCost <= 0) {
-            $stepKm = max(1, (float) config('app.shipping_long_distance_step_km', 50));
-            $stepCost = max(0, (float) config('app.shipping_long_distance_step_cost', 10000));
-            $extraDistance = max(0, $distanceKm - $lastTierDistance);
-            $extraSteps = $extraDistance > 0 ? (int) ceil($extraDistance / $stepKm) : 0;
-
-            $baseCost = $lastTierCost + ($extraSteps * $stepCost);
-        }
-
-        $threshold = max(1, (int) config('app.shipping_item_surcharge_threshold', 4));
-        $surchargePerItem = max(0, (float) config('app.shipping_item_surcharge_per_item', 2500));
-        $surchargeCap = max(0, (float) config('app.shipping_item_surcharge_cap', 10000));
-        $extraItems = max(0, $itemCount - $threshold);
-        $itemSurcharge = min($surchargeCap, $extraItems * $surchargePerItem);
-
-        return (float) round($baseCost + $itemSurcharge, 0);
-    }
-
     private function normalizeShippingMethod(string $method): string
     {
         $method = strtolower(trim($method));
@@ -711,6 +656,212 @@ class PublicController extends Controller
         ], fn ($value) => $value !== '');
 
         return implode(' | Detail: ', $parts);
+    }
+
+    private function rajaOngkirService(): RajaOngkirService
+    {
+        return app(RajaOngkirService::class);
+    }
+
+    private function shippingWeightFromSize(?string $size): int
+    {
+        $weightKg = $this->extractAparCapacityKg($size);
+        if (!is_null($weightKg) && $weightKg > 0) {
+            return max(1000, (int) round($weightKg * 1000));
+        }
+
+        return $this->rajaOngkirService()->defaultWeight();
+    }
+
+    private function calculateProductShippingWeight(array $items): int
+    {
+        $productIds = collect($items)
+            ->pluck('produk_id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        $products = Produk::query()
+            ->whereIn('id', $productIds->all())
+            ->get(['id', 'kapasitas'])
+            ->keyBy('id');
+
+        $totalWeight = collect($items)->sum(function (array $item) use ($products) {
+            $qty = max(1, (int) ($item['jumlah'] ?? 0));
+            $produk = $products->get((int) ($item['produk_id'] ?? 0));
+            $perUnitWeight = $this->shippingWeightFromSize($produk?->kapasitas);
+
+            return $perUnitWeight * $qty;
+        });
+
+        return max(1000, (int) $totalWeight);
+    }
+
+    private function calculateServiceShippingWeight(Collection $selectedUnitApars, ?string $manualSize, int $unitCount): int
+    {
+        if ($selectedUnitApars->isNotEmpty()) {
+            $totalWeight = $selectedUnitApars->sum(function (UnitApar $unitApar) {
+                return $this->shippingWeightFromSize(
+                    $unitApar->ukuran ?: $unitApar->produk?->kapasitas
+                );
+            });
+
+            return max(1000, (int) $totalWeight);
+        }
+
+        $perUnitWeight = $this->shippingWeightFromSize($manualSize);
+
+        return max(1000, $perUnitWeight * max(1, $unitCount));
+    }
+
+    private function resolveCheckoutDestinationData(Request $request, ?Pelanggan $pelanggan = null): array
+    {
+        $destinationId = trim((string) $request->input(
+            'rajaongkir_destination_id',
+            (string) ($pelanggan?->rajaongkir_destination_id ?? '')
+        ));
+
+        $destinationLabel = trim((string) $request->input(
+            'rajaongkir_destination_label',
+            (string) ($pelanggan?->rajaongkir_destination_label ?? '')
+        ));
+
+        return [
+            'id' => $destinationId !== '' ? $destinationId : null,
+            'label' => $destinationLabel !== '' ? $destinationLabel : null,
+        ];
+    }
+
+    private function baseShippingMeta(Request $request, string $storageMethod, ?Pelanggan $pelanggan = null): array
+    {
+        $mapsAddress = trim((string) $request->input('alamat_maps', (string) ($pelanggan?->alamat_maps ?? '')));
+        $detailAddress = trim((string) $request->input('alamat_detail', (string) ($pelanggan?->alamat_detail ?? '')));
+        $lat = $this->sanitizeCoordinate($request->input('alamat_lat'));
+        $lng = $this->sanitizeCoordinate($request->input('alamat_lng'));
+
+        if (is_null($lat) && $pelanggan) {
+            $lat = $this->sanitizeCoordinate($pelanggan->alamat_lat);
+        }
+
+        if (is_null($lng) && $pelanggan) {
+            $lng = $this->sanitizeCoordinate($pelanggan->alamat_lng);
+        }
+
+        $destination = $this->resolveCheckoutDestinationData($request, $pelanggan);
+
+        return [
+            'metode_pengiriman' => $storageMethod,
+            'ongkir' => 0.0,
+            'shipping_courier' => null,
+            'shipping_service' => null,
+            'shipping_etd' => null,
+            'shipping_destination_id' => $destination['id'],
+            'shipping_destination_label' => $destination['label'],
+            'shipping_weight' => 0,
+            'distance_km' => null,
+            'alamat_maps' => $mapsAddress ?: null,
+            'alamat_detail' => $detailAddress ?: null,
+            'alamat_lat' => $lat,
+            'alamat_lng' => $lng,
+        ];
+    }
+
+    private function attachRajaOngkirQuote(array $meta, int $weight, ?string $courier = null): array
+    {
+        $destinationId = trim((string) ($meta['shipping_destination_id'] ?? ''));
+        if ($destinationId === '') {
+            throw new RuntimeException('Lokasi pengiriman belum dapat digunakan untuk menghitung ongkir. Silakan perbarui alamat pengiriman Anda.');
+        }
+
+        $quote = $this->rajaOngkirService()->getCheapestCost($destinationId, $weight, $courier);
+
+        $meta['ongkir'] = (float) ($quote['cost'] ?? 0);
+        $meta['shipping_courier'] = (string) ($quote['courier_code'] ?? '');
+        $meta['shipping_service'] = trim(implode(' - ', array_filter([
+            (string) ($quote['service'] ?? ''),
+            (string) ($quote['service_description'] ?? ''),
+        ])));
+        $meta['shipping_etd'] = (string) ($quote['etd'] ?? '');
+        $meta['shipping_weight'] = (int) ($quote['weight'] ?? $weight);
+
+        return $meta;
+    }
+
+    private function buildDeliveryMeta(Request $request, array $items, ?Pelanggan $pelanggan = null): array
+    {
+        $method = $this->normalizeShippingMethod((string) $request->input('metode_pengiriman', 'pickup'));
+        $meta = $this->baseShippingMeta(
+            request: $request,
+            storageMethod: $this->shippingMethodForStorage($method),
+            pelanggan: $pelanggan,
+        );
+
+        if ($method === 'pickup') {
+            return $meta;
+        }
+
+        return $this->attachRajaOngkirQuote(
+            meta: $meta,
+            weight: $this->calculateProductShippingWeight($items),
+            courier: trim((string) $request->input('shipping_courier', '')) ?: null,
+        );
+    }
+
+    private function buildServiceDeliveryMeta(
+        Request $request,
+        Collection $selectedUnitApars,
+        string $serviceUkuranApar,
+        int $unitCount,
+        string $serviceMetode,
+        ?Pelanggan $pelanggan = null
+    ): array {
+        $requestedMethod = trim((string) $request->input('metode_pengiriman', ''));
+        $normalizedRequestedMethod = $requestedMethod !== ''
+            ? $this->normalizeShippingMethod($requestedMethod)
+            : null;
+        $isPickup = $serviceMetode === 'antar sendiri';
+
+        $meta = $this->baseShippingMeta(
+            request: $request,
+            storageMethod: $isPickup ? 'pickup' : 'diantar_internal',
+            pelanggan: $pelanggan,
+        );
+
+        if ($isPickup || $normalizedRequestedMethod !== 'diantar') {
+            return $meta;
+        }
+
+        return $this->attachRajaOngkirQuote(
+            meta: $meta,
+            weight: $this->calculateServiceShippingWeight($selectedUnitApars, $serviceUkuranApar, $unitCount),
+            courier: trim((string) $request->input('shipping_courier', '')) ?: null,
+        );
+    }
+
+    private function resolveRajaOngkirWeightFromRequest(Request $request): int
+    {
+        $orderType = mb_strtolower(trim((string) $request->input('order_type', $request->input('tipe_layanan', ''))));
+
+        if (in_array($orderType, ['beli', 'produk'], true)) {
+            return $this->calculateProductShippingWeight((array) $request->input('items', []));
+        }
+
+        $selectedUnitIds = collect((array) $request->input('service_unit_apar_ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        $selectedUnitApars = UnitApar::query()
+            ->with('produk')
+            ->whereIn('id', $selectedUnitIds->all())
+            ->get();
+
+        $manualSize = trim((string) $request->input('service_ukuran_apar', ''));
+        $unitCount = max(1, (int) $request->input('service_jumlah_unit', 1));
+
+        return $this->calculateServiceShippingWeight($selectedUnitApars, $manualSize, $unitCount);
     }
 
     private function syncServiceLogForPackageOrder(Pesanan $pesanan): void
@@ -767,6 +918,12 @@ class PublicController extends Controller
         if (filled(trim((string) $request->input('alamat_kode_pos', '')))) {
             $update['alamat_kode_pos'] = trim((string) $request->input('alamat_kode_pos'));
         }
+        if (filled(trim((string) $request->input('rajaongkir_destination_id', '')))) {
+            $update['rajaongkir_destination_id'] = trim((string) $request->input('rajaongkir_destination_id'));
+        }
+        if (filled(trim((string) $request->input('rajaongkir_destination_label', '')))) {
+            $update['rajaongkir_destination_label'] = trim((string) $request->input('rajaongkir_destination_label'));
+        }
 
         if (!empty($update)) {
             $update['alamat'] = $alamatGabungan;
@@ -793,101 +950,17 @@ class PublicController extends Controller
         if (!is_null($lng)) {
             $update['alamat_lng'] = $lng;
         }
+        if (filled(trim((string) ($validated['rajaongkir_destination_id'] ?? '')))) {
+            $update['rajaongkir_destination_id'] = trim((string) ($validated['rajaongkir_destination_id']));
+        }
+        if (filled(trim((string) ($validated['rajaongkir_destination_label'] ?? '')))) {
+            $update['rajaongkir_destination_label'] = trim((string) ($validated['rajaongkir_destination_label']));
+        }
 
         if (!empty($update)) {
             $update['alamat'] = $alamatGabungan;
             $pelanggan->update($update);
         }
-    }
-
-    private function buildDeliveryMeta(Request $request, array $items): array
-    {
-        $method = $this->normalizeShippingMethod((string) $request->input('metode_pengiriman', 'pickup'));
-
-        $mapsAddress = trim((string) $request->input('alamat_maps', ''));
-        $detailAddress = trim((string) $request->input('alamat_detail', ''));
-        $lat = $this->sanitizeCoordinate($request->input('alamat_lat'));
-        $lng = $this->sanitizeCoordinate($request->input('alamat_lng'));
-
-        $meta = [
-            'metode_pengiriman' => $this->shippingMethodForStorage($method),
-            'ongkir' => 0.0,
-            'distance_km' => null,
-            'alamat_maps' => $mapsAddress ?: null,
-            'alamat_detail' => $detailAddress ?: null,
-            'alamat_lat' => $lat,
-            'alamat_lng' => $lng,
-        ];
-
-        if ($method === 'pickup') {
-            return $meta;
-        }
-
-        if ($mapsAddress === '' || $detailAddress === '') {
-            throw new \RuntimeException('Alamat pengiriman belum lengkap.');
-        }
-
-        if (is_null($lat) || is_null($lng) || $lat < -90 || $lat > 90 || $lng < -180 || $lng > 180) {
-            throw new \RuntimeException('Koordinat alamat tidak valid. Pilih alamat dari OpenStreetMap.');
-        }
-
-        $office = $this->officeCoordinates();
-        $distanceKm = $this->calculateDistanceKm($office['lat'], $office['lng'], $lat, $lng);
-        $itemCount = array_sum(array_map(fn ($item) => (int) ($item['jumlah'] ?? 0), $items));
-
-        $meta['distance_km'] = $distanceKm;
-        $meta['ongkir'] = $this->estimateOngkir($distanceKm, max(1, $itemCount));
-
-        return $meta;
-    }
-
-    private function buildServiceDeliveryMeta(Request $request, int $unitCount, string $serviceMetode, ?Pelanggan $pelanggan = null): array
-    {
-        $requestedMethod = trim((string) $request->input('metode_pengiriman', ''));
-        $normalizedRequestedMethod = $requestedMethod !== ''
-            ? $this->normalizeShippingMethod($requestedMethod)
-            : null;
-        $isPickup = $serviceMetode === 'antar sendiri';
-        $mapsAddress = trim((string) $request->input('alamat_maps', (string) ($pelanggan?->alamat_maps ?? '')));
-        $detailAddress = trim((string) $request->input('alamat_detail', (string) ($pelanggan?->alamat_detail ?? '')));
-        $lat = $this->sanitizeCoordinate($request->input('alamat_lat'));
-        $lng = $this->sanitizeCoordinate($request->input('alamat_lng'));
-        if (is_null($lat) && $pelanggan) {
-            $lat = $this->sanitizeCoordinate($pelanggan->alamat_lat);
-        }
-        if (is_null($lng) && $pelanggan) {
-            $lng = $this->sanitizeCoordinate($pelanggan->alamat_lng);
-        }
-
-        $meta = [
-            'metode_pengiriman' => $isPickup ? 'pickup' : 'diantar_internal',
-            'ongkir' => 0.0,
-            'distance_km' => null,
-            'alamat_maps' => $mapsAddress ?: null,
-            'alamat_detail' => $detailAddress ?: null,
-            'alamat_lat' => $lat,
-            'alamat_lng' => $lng,
-        ];
-
-        if ($isPickup || $normalizedRequestedMethod !== 'diantar') {
-            return $meta;
-        }
-
-        if ($mapsAddress === '' || $detailAddress === '') {
-            throw new \RuntimeException('Alamat penjemputan belum lengkap.');
-        }
-
-        if (is_null($lat) || is_null($lng) || $lat < -90 || $lat > 90 || $lng < -180 || $lng > 180) {
-            throw new \RuntimeException('Koordinat alamat tidak valid. Pilih alamat dari OpenStreetMap.');
-        }
-
-        $office = $this->officeCoordinates();
-        $distanceKm = $this->calculateDistanceKm($office['lat'], $office['lng'], $lat, $lng);
-
-        $meta['distance_km'] = $distanceKm;
-        $meta['ongkir'] = $this->estimateOngkir($distanceKm, max(1, $unitCount));
-
-        return $meta;
     }
 
     // Removed negotiation helpers
@@ -1524,6 +1597,8 @@ class PublicController extends Controller
             'alamat_kota'        => 'nullable|string|max:255',
             'alamat_kecamatan'   => 'nullable|string|max:255',
             'alamat_kode_pos'    => 'nullable|string|max:50',
+            'rajaongkir_destination_id' => 'nullable|string|max:50',
+            'rajaongkir_destination_label' => 'nullable|string|max:255',
             'alamat_lat'         => 'nullable|numeric|between:-90,90',
             'alamat_lng'         => 'nullable|numeric|between:-180,180',
             'tipe_layanan'       => 'required|in:beli,service',
@@ -1546,6 +1621,10 @@ class PublicController extends Controller
             'service_purchase_group' => 'nullable|string|max:120',
             'service_unit_apar_ids' => 'nullable|array',
             'service_unit_apar_ids.*' => 'integer|exists:unit_apars,id',
+            'shipping_courier' => 'nullable|string|max:80',
+            'shipping_service' => 'nullable|string|max:120',
+            'shipping_etd' => 'nullable|string|max:120',
+            'shipping_weight' => 'nullable|integer|min:1',
         ];
 
         if ($isCartCheckout) {
@@ -1603,7 +1682,28 @@ class PublicController extends Controller
 
             if ($request->tipe_layanan === 'beli') {
                 $isSpecialPriceRequest = $request->input('submit_source') === 'special_price_request';
-                $deliveryMeta = $this->buildDeliveryMeta($request, $productItems);
+                $productPriceMap = Produk::query()
+                    ->whereIn('id', collect($productItems)->pluck('produk_id')->filter()->map(fn ($id) => (int) $id)->unique()->all())
+                    ->get(['id', 'harga'])
+                    ->keyBy('id');
+                $productItems = collect($productItems)
+                    ->map(function (array $item) use ($productPriceMap) {
+                        $produkId = (int) ($item['produk_id'] ?? 0);
+                        $qty = max(0, (int) ($item['jumlah'] ?? 0));
+                        $harga = (float) ($item['harga'] ?? ($productPriceMap->get($produkId)?->harga ?? 0));
+
+                        return [
+                            'produk_id' => $produkId,
+                            'jumlah' => $qty,
+                            'harga' => $harga,
+                            'subtotal' => $harga * $qty,
+                        ];
+                    })
+                    ->filter(fn (array $item) => $item['produk_id'] > 0 && $item['jumlah'] > 0)
+                    ->values()
+                    ->all();
+
+                $deliveryMeta = $this->buildDeliveryMeta($request, $productItems, $pelanggan);
                 $draftPricing = $orderPricingService->summarizeProductItems($productItems, (float) $deliveryMeta['ongkir']);
                 $hargaPengajuan = $this->normalizeMoneyInput($request->input('harga_pengajuan'));
                 $catatanPelanggan = trim((string) $request->input('catatan_pelanggan'));
@@ -1633,6 +1733,12 @@ class PublicController extends Controller
                 $pesanan->metode_pengiriman = (string) $deliveryMeta['metode_pengiriman'];
                 $pesanan->bank = (string) $request->input('bank_tujuan', '');
                 $pesanan->ongkir = (float) $deliveryMeta['ongkir'];
+                $pesanan->shipping_courier = $deliveryMeta['shipping_courier'];
+                $pesanan->shipping_service = $deliveryMeta['shipping_service'];
+                $pesanan->shipping_etd = $deliveryMeta['shipping_etd'];
+                $pesanan->shipping_destination_id = $deliveryMeta['shipping_destination_id'];
+                $pesanan->shipping_destination_label = $deliveryMeta['shipping_destination_label'];
+                $pesanan->shipping_weight = $deliveryMeta['shipping_weight'];
                 $pesanan->shipping_distance_km = $deliveryMeta['distance_km'];
                 $pesanan->alamat_maps = $deliveryMeta['alamat_maps'];
                 $pesanan->alamat_detail = $deliveryMeta['alamat_detail'];
@@ -1641,7 +1747,9 @@ class PublicController extends Controller
                 $bankTujuan = strtoupper((string) $request->input('bank_tujuan', '-'));
 
                 $pesanan->total = 0;
-                $pesanan->status = $isSpecialPriceRequest ? 'menunggu persetujuan' : 'pending';
+                $pesanan->status = $isSpecialPriceRequest
+                    ? Pesanan::STATUS_MENUNGGU_PERSETUJUAN_HARGA
+                    : Pesanan::STATUS_PENDING;
                 $pesanan->tipe_harga = 'normal';
                 $pesanan->fill(Pesanan::purchasePriceAttributes([
                     'status' => $isSpecialPriceRequest ? Pesanan::PRICE_REQUEST_PENDING : null,
@@ -1651,6 +1759,11 @@ class PublicController extends Controller
                     'admin_note' => null,
                     'approved_by' => null,
                     'approved_at' => null,
+                    'rejected_by' => null,
+                    'rejected_at' => null,
+                    'normal_subtotal' => (float) ($draftPricing['subtotalProduk'] ?? 0),
+                    'discounted_total' => (float) ($draftPricing['totalSetelahPromo'] ?? 0),
+                    'initial_total' => (float) ($draftPricing['totalPembayaran'] ?? 0),
                     'used' => false,
                 ]));
                 
@@ -1699,11 +1812,25 @@ class PublicController extends Controller
                     );
                 }
 
-                $pesanan->update([
+                $pesanan->update(array_merge([
                     'total' => (float) $pricingSummary['totalPembayaran'],
                     'total_harga' => (float) $pricingSummary['totalPembayaran'],
                     'keterangan' => $pesanan->keterangan,
-                ]);
+                ], Pesanan::purchasePriceAttributes([
+                    'status' => $isSpecialPriceRequest ? Pesanan::PRICE_REQUEST_PENDING : null,
+                    'requested_price' => $isSpecialPriceRequest ? $hargaPengajuan : null,
+                    'final_price' => null,
+                    'customer_note' => $isSpecialPriceRequest && $catatanPelanggan !== '' ? $catatanPelanggan : null,
+                    'admin_note' => null,
+                    'approved_by' => null,
+                    'approved_at' => null,
+                    'rejected_by' => null,
+                    'rejected_at' => null,
+                    'normal_subtotal' => (float) ($pricingSummary['subtotalProduk'] ?? 0),
+                    'discounted_total' => (float) ($pricingSummary['totalSetelahPromo'] ?? 0),
+                    'initial_total' => (float) ($pricingSummary['totalPembayaran'] ?? 0),
+                    'used' => false,
+                ])));
 
                 if ($isSpecialPriceRequest) {
                     $successMessage = 'Pengajuan Harga Pembelian berhasil dikirim. Silakan tunggu persetujuan admin sebelum melanjutkan pembayaran.';
@@ -1864,7 +1991,14 @@ class PublicController extends Controller
                 $servicePurchaseLabel = $selectedUnitApars->isNotEmpty()
                     ? $this->registeredUnitAparPurchaseLabel($selectedUnitApars->first())
                     : '';
-                $serviceDeliveryMeta = $this->buildServiceDeliveryMeta($request, $serviceJumlahUnit, $serviceMetode, $pelanggan);
+                $serviceDeliveryMeta = $this->buildServiceDeliveryMeta(
+                    request: $request,
+                    selectedUnitApars: $selectedUnitApars,
+                    serviceUkuranApar: $serviceUkuranApar,
+                    unitCount: $serviceJumlahUnit,
+                    serviceMetode: $serviceMetode,
+                    pelanggan: $pelanggan,
+                );
                 $selectedBank = strtolower(trim((string) $request->input('bank_tujuan', (string) $request->input('bank', ''))));
                 if (!in_array($selectedBank, ['bca', 'mandiri', 'bri'], true)) {
                     $selectedBank = '';
@@ -1879,6 +2013,12 @@ class PublicController extends Controller
                 $pesanan->metode_pengiriman = (string) ($serviceDeliveryMeta['metode_pengiriman'] ?? ($serviceMetode === 'antar sendiri' ? 'pickup' : 'diantar_internal'));
                 $pesanan->bank = $selectedBank;
                 $pesanan->ongkir = $serviceOngkir;
+                $pesanan->shipping_courier = $serviceDeliveryMeta['shipping_courier'];
+                $pesanan->shipping_service = $serviceDeliveryMeta['shipping_service'];
+                $pesanan->shipping_etd = $serviceDeliveryMeta['shipping_etd'];
+                $pesanan->shipping_destination_id = $serviceDeliveryMeta['shipping_destination_id'];
+                $pesanan->shipping_destination_label = $serviceDeliveryMeta['shipping_destination_label'];
+                $pesanan->shipping_weight = $serviceDeliveryMeta['shipping_weight'];
                 $pesanan->shipping_distance_km = $serviceDeliveryMeta['distance_km'];
                 $pesanan->alamat_maps = (string) ($serviceDeliveryMeta['alamat_maps'] ?? $request->input('alamat_maps', ''));
                 $pesanan->alamat_detail = (string) ($serviceDeliveryMeta['alamat_detail'] ?? $request->input('alamat_detail', ''));
@@ -2091,43 +2231,119 @@ class PublicController extends Controller
 
     // orderAskWhatsapp removed
 
-    public function orderShippingQuote(Request $request)
+    public function rajaOngkirDestination(Request $request)
     {
         $validated = $request->validate([
-            'metode_pengiriman' => 'required|in:diantar',
-            'alamat_maps' => 'required|string|max:255',
-            'alamat_detail' => 'required|string|max:1000',
-            'alamat_lat' => 'required|numeric|between:-90,90',
-            'alamat_lng' => 'required|numeric|between:-180,180',
+            'search' => 'required|string|min:3|max:255',
+        ]);
+
+        try {
+            return response()->json([
+                'success' => true,
+                'message' => 'Lokasi pengiriman berhasil ditemukan.',
+                'data' => $this->rajaOngkirService()->searchDestination((string) $validated['search']),
+            ]);
+        } catch (RuntimeException $exception) {
+            return response()->json([
+                'success' => false,
+                'message' => $exception->getMessage(),
+                'data' => [],
+            ], 422);
+        } catch (\Throwable) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ongkir belum dapat dihitung. Periksa alamat tujuan atau coba lagi.',
+                'data' => [],
+            ], 500);
+        }
+    }
+
+    public function rajaOngkirCost(Request $request)
+    {
+        $validated = $request->validate([
+            'destination_id' => 'nullable|string|max:50',
+            'destination_label' => 'nullable|string|max:255',
+            'courier' => 'nullable|string|max:50',
+            'weight' => 'nullable|integer|min:1',
+            'order_type' => 'nullable|string|max:50',
+            'handling_method' => 'nullable|string|max:50',
             'items' => 'nullable|array',
+            'items.*.produk_id' => 'nullable|integer|exists:produks,id',
             'items.*.jumlah' => 'nullable|integer|min:1',
+            'service_unit_apar_ids' => 'nullable|array',
+            'service_unit_apar_ids.*' => 'integer|exists:unit_apars,id',
+            'service_ukuran_apar' => 'nullable|string|max:120',
+            'service_jumlah_unit' => 'nullable|integer|min:1|max:1000',
         ]);
 
-        $office = $this->officeCoordinates();
-        $destinationLat = (float) $validated['alamat_lat'];
-        $destinationLng = (float) $validated['alamat_lng'];
-        $distanceKm = $this->calculateDistanceKm($office['lat'], $office['lng'], $destinationLat, $destinationLng);
+        $handlingMethod = trim((string) ($validated['handling_method'] ?? ''));
+        if ($this->normalizeShippingMethod($handlingMethod) === 'pickup'
+            || in_array(mb_strtolower($handlingMethod), ['antar sendiri', 'ambil_sendiri'], true)) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Ongkir Rp 0 untuk metode tanpa pengiriman.',
+                'courier' => null,
+                'courier_name' => null,
+                'service' => null,
+                'service_description' => null,
+                'etd' => null,
+                'cost' => 0,
+                'formatted_cost' => 'Rp 0',
+                'weight' => 0,
+                'destination_id' => $validated['destination_id'] ?? null,
+                'destination_label' => $validated['destination_label'] ?? null,
+                'raw' => config('app.debug') ? ['mode' => 'pickup'] : null,
+            ]);
+        }
 
-        $itemCount = array_sum(array_map(fn ($item) => (int) ($item['jumlah'] ?? 0), (array) ($validated['items'] ?? [])));
-        $ongkir = $this->estimateOngkir($distanceKm, max(1, $itemCount));
+        try {
+            $destinationId = trim((string) ($validated['destination_id'] ?? ''));
+            if ($destinationId === '') {
+                throw new RuntimeException('Lokasi pengiriman belum dapat digunakan untuk menghitung ongkir. Silakan perbarui alamat pengiriman Anda.');
+            }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Estimasi ongkir berhasil dihitung.',
-            'data' => [
-                'provider' => 'Lalamove API (estimasi)',
-                'metode_pengiriman' => 'diantar',
-                'distance_km' => $distanceKm,
-                'ongkir' => $ongkir,
-                'origin' => $office,
-                'destination' => [
-                    'lat' => $destinationLat,
-                    'lng' => $destinationLng,
-                    'alamat_maps' => (string) $validated['alamat_maps'],
-                    'alamat_detail' => (string) $validated['alamat_detail'],
-                ],
-            ],
-        ]);
+            $weight = max(
+                1000,
+                (int) ($validated['weight'] ?? $this->resolveRajaOngkirWeightFromRequest($request))
+            );
+
+            $quote = $this->rajaOngkirService()->getCheapestCost(
+                destinationId: $destinationId,
+                weight: $weight,
+                courier: trim((string) ($validated['courier'] ?? '')) ?: null,
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Ongkir berhasil dihitung.',
+                'courier' => $quote['courier_code'],
+                'courier_name' => $quote['courier_name'],
+                'service' => $quote['service'],
+                'service_description' => $quote['service_description'],
+                'etd' => $quote['etd'],
+                'cost' => $quote['cost'],
+                'formatted_cost' => $quote['formatted_cost'],
+                'weight' => $quote['weight'],
+                'destination_id' => $destinationId,
+                'destination_label' => $validated['destination_label'] ?? null,
+                'raw' => config('app.debug') ? $quote : null,
+            ]);
+        } catch (RuntimeException $exception) {
+            return response()->json([
+                'success' => false,
+                'message' => $exception->getMessage(),
+            ], 422);
+        } catch (\Throwable) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ongkir belum dapat dihitung. Periksa alamat tujuan atau coba lagi.',
+            ], 500);
+        }
+    }
+
+    public function orderShippingQuote(Request $request)
+    {
+        return $this->rajaOngkirCost($request);
     }
 
 public function orderAddressSuggest(Request $request)
@@ -2291,6 +2507,12 @@ private function fetchPhoton(string $query): array
                 ->with('warning', 'Pengajuan Harga Pembelian ini masih menunggu persetujuan admin.');
         }
 
+        if ($pesanan->isProductOrder() && !$pesanan->canPay()) {
+            return redirect()
+                ->route('riwayat-apar')
+                ->with('warning', 'Pembayaran untuk transaksi ini belum tersedia atau sudah diproses.');
+        }
+
         $pesanan->loadMissing(['details.produk', 'serviceJenisRefill', 'servicePaket']);
         $banks = $this->bankAccounts();
 
@@ -2311,6 +2533,12 @@ private function fetchPhoton(string $query): array
             return redirect()
                 ->route('riwayat-apar')
                 ->with('warning', 'Pengajuan Harga Pembelian ini masih menunggu persetujuan admin.');
+        }
+
+        if ($pesanan->isProductOrder() && !$pesanan->canUploadPaymentProof()) {
+            return redirect()
+                ->route('riwayat-apar')
+                ->with('warning', 'Bukti pembayaran belum bisa diunggah untuk transaksi ini.');
         }
 
         $banks = $this->bankAccounts();
@@ -2340,25 +2568,42 @@ private function fetchPhoton(string $query): array
 
         $payableTotal = $pesanan->payableTotal();
 
-        DB::transaction(function () use ($pesanan, $validated, $lockedBank, $isApprovedSpecialPrice, $proofPath, $statusAfterPayment, $payableTotal) {
-            $pesanan->update(array_merge([
-                'metode_pembayaran' => $validated['metode_pembayaran'],
-                'bank' => $lockedBank,
-                'total' => $payableTotal ?: ($pesanan->total ?: $pesanan->total_harga),
-                'total_harga' => $payableTotal ?: ($pesanan->total_harga ?: $pesanan->total),
-                'tipe_harga' => $isApprovedSpecialPrice ? 'deal' : 'normal',
-                'status' => $statusAfterPayment,
-                'bukti_pembayaran' => $proofPath,
-                'pembayaran_terkonfirmasi_at' => now(),
-            ], Pesanan::purchasePriceAttributes([
-                'used' => $isApprovedSpecialPrice,
-                'used_at' => $isApprovedSpecialPrice ? ($pesanan->kode_nego_terpakai_at ?: now()) : null,
-            ])));
+        try {
+            DB::transaction(function () use ($pesanan, $validated, $lockedBank, $isApprovedSpecialPrice, $proofPath, $statusAfterPayment, $payableTotal) {
+                $pesanan->update(array_merge([
+                    'metode_pembayaran' => $validated['metode_pembayaran'],
+                    'bank' => $lockedBank,
+                    'total' => $payableTotal ?: ($pesanan->total ?: $pesanan->total_harga),
+                    'total_harga' => $payableTotal ?: ($pesanan->total_harga ?: $pesanan->total),
+                    'tipe_harga' => $isApprovedSpecialPrice ? 'deal' : 'normal',
+                    'status' => $statusAfterPayment,
+                    'bukti_pembayaran' => $proofPath,
+                    'pembayaran_terkonfirmasi_at' => now(),
+                ], Pesanan::purchasePriceAttributes([
+                    'used' => $isApprovedSpecialPrice,
+                    'used_at' => $isApprovedSpecialPrice ? ($pesanan->kode_nego_terpakai_at ?: now()) : null,
+                ])));
 
-            if ($pesanan->isPackageServiceOrder()) {
-                $this->syncServiceLogForPackageOrder($pesanan);
-            }
-        });
+                if ($pesanan->isPackageServiceOrder()) {
+                    $this->syncServiceLogForPackageOrder($pesanan);
+                }
+
+                app(PaidOrderStockService::class)->apply($pesanan->fresh([
+                    'details.produk.jenisApar',
+                    'pelanggan',
+                    'service',
+                    'serviceJenisRefill',
+                    'servicePaket.peralatans',
+                    'unitApars.produk',
+                ]));
+            });
+        } catch (\RuntimeException $exception) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($proofPath);
+
+            return back()
+                ->withInput()
+                ->with('error', $exception->getMessage());
+        }
 
         $pesanan->refresh()->loadMissing(['details.produk', 'pelanggan', 'serviceJenisRefill', 'servicePaket.peralatans', 'service']);
         $pesanan->pelanggan?->update(['status' => 'tetap']);
@@ -2497,6 +2742,67 @@ private function fetchPhoton(string $query): array
         return redirect()->route($redirectRoute)->with('success', 'Komplain Anda sudah kami terima. Tim admin akan follow up melalui WhatsApp.');
     }
 
+    public function confirmOrderReceived(Request $request, Pesanan $pesanan)
+    {
+        $pelanggan = $this->authenticatedCustomer();
+
+        if (!$pelanggan) {
+            $message = 'Silakan login menggunakan akun pelanggan untuk mengonfirmasi pesanan.';
+
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $message], 403);
+            }
+
+            return redirect()->route('login')->with('error', $message);
+        }
+
+        if ((int) $pesanan->pelanggan_id !== (int) $pelanggan->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pesanan yang dipilih tidak cocok dengan akun pelanggan ini.',
+            ], 403);
+        }
+
+        $existingReview = $this->resolveLinkedTestimoniForOrder($pelanggan, $pesanan);
+        if ($existingReview || $pesanan->hasSubmittedTestimonial()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ulasan untuk transaksi ini sudah pernah dikirim.',
+            ], 422);
+        }
+
+        if (!$pesanan->canCustomerConfirmReceived()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Konfirmasi pesanan hanya tersedia saat status pesanan siap diterima pelanggan.',
+            ], 422);
+        }
+
+        if ($pesanan->hasCustomerConfirmed()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Pesanan ini sudah pernah Anda konfirmasi.',
+                'open_review' => true,
+            ]);
+        }
+
+        DB::transaction(function () use ($pesanan, $request) {
+            $pesanan->forceFill([
+                'status' => Pesanan::STATUS_SELESAI_FINAL,
+                'customer_confirmed_at' => now(),
+                'customer_confirmed_by' => $request->user()?->id,
+            ])->save();
+
+            app(FinalTransactionStockService::class)->apply($pesanan->fresh());
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Pesanan berhasil dikonfirmasi dan transaksi sekarang berstatus Selesai Final.',
+            'open_review' => true,
+        ]);
+    }
+
     public function testimoniCreate()
     {
         $pelanggan = $this->authenticatedCustomer();
@@ -2550,7 +2856,21 @@ private function fetchPhoton(string $query): array
             return back()->with('error', 'Testimoni baru bisa diberikan setelah transaksi selesai.')->withInput();
         }
 
-        if ($selectedOrder && $this->resolveLinkedTestimoniForOrder($pelanggan, $selectedOrder)) {
+        if ($selectedOrder && !$selectedOrder->isAdminFinalized()) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Ulasan hanya bisa diberikan setelah admin menyelesaikan transaksi final.'], 400);
+            }
+            return back()->with('error', 'Ulasan hanya bisa diberikan setelah admin menyelesaikan transaksi final.')->withInput();
+        }
+
+        if ($selectedOrder && !$selectedOrder->hasCustomerConfirmed()) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Konfirmasi Pesanan Diterima terlebih dahulu sebelum mengirim ulasan.'], 400);
+            }
+            return back()->with('error', 'Konfirmasi Pesanan Diterima terlebih dahulu sebelum mengirim ulasan.')->withInput();
+        }
+
+        if ($selectedOrder && ($selectedOrder->hasSubmittedTestimonial() || $this->resolveLinkedTestimoniForOrder($pelanggan, $selectedOrder))) {
             if ($request->expectsJson()) {
                 return response()->json(['success' => false, 'message' => 'Transaksi ini sudah pernah diberi penilaian.'], 400);
             }
@@ -2564,6 +2884,8 @@ private function fetchPhoton(string $query): array
 
         $testimoni = Testimoni::create([
             'pelanggan_id' => $pelanggan->id,
+            'transaksi_type' => $selectedOrder ? Pesanan::class : null,
+            'transaksi_id' => $selectedOrder?->id,
             'rating' => $request->rating,
             'review' => $request->review,
             'foto_path' => $fotoPath,
@@ -2573,6 +2895,10 @@ private function fetchPhoton(string $query): array
         ]);
 
         if ($selectedOrder) {
+            $selectedOrder->forceFill([
+                'testimonial_submitted_at' => now(),
+            ])->save();
+
             ActivityLog::log(
                 description: $this->feedbackLinkDescription($pelanggan, $selectedOrder),
                 logName: 'feedback',

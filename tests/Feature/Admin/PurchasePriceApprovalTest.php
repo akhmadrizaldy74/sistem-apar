@@ -78,6 +78,34 @@ class PurchasePriceApprovalTest extends TestCase
         $this->assertSame('Belum dapat disetujui.', $pesanan->catatan_admin);
     }
 
+    public function test_admin_can_approve_purchase_price_request_without_overriding_customer_offer(): void
+    {
+        config(['broadcasting.default' => 'null']);
+
+        $admin = User::factory()->create([
+            'role' => 'admin',
+        ]);
+
+        $pesanan = $this->createProductOrderWithPurchaseRequest();
+
+        $response = $this->actingAs($admin)->post(
+            route('admin.pesanan.pengajuan-harga.acc', $pesanan),
+            [
+                'catatan_admin' => 'Disetujui sesuai penawaran pelanggan.',
+            ]
+        );
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $pesanan->refresh();
+
+        $this->assertSame(Pesanan::STATUS_DISETUJUI, $pesanan->status);
+        $this->assertSame(Pesanan::PRICE_REQUEST_APPROVED, $pesanan->purchasePriceRequestStatus());
+        $this->assertSame(5500000.0, (float) $pesanan->approvedPurchaseFinalPrice());
+        $this->assertSame(5500000.0, (float) $pesanan->payableTotal());
+    }
+
     public function test_admin_index_includes_purchase_price_payload_for_detail_modal(): void
     {
         config(['broadcasting.default' => 'null']);

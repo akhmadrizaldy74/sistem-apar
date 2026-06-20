@@ -35,6 +35,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/riwayat-apar', [LandingPageController::class, 'riwayatApar'])->name('riwayat-apar');
     Route::get('/riwayat-apar/status', [LandingPageController::class, 'riwayatAparStatus'])->name('riwayat-apar.status');
     Route::post('/riwayat-apar/ajukan-refill', [LandingPageController::class, 'ajukanRefill'])->name('riwayat-apar.ajukan-refill');
+    Route::post('/riwayat-apar/{pesanan}/confirm-received', [PublicController::class, 'confirmOrderReceived'])->name('riwayat-apar.confirm-received');
     
     // Invoice routes
     Route::get('/invoice/{pesanan}', [InvoiceController::class, 'show'])->name('invoice.show');
@@ -46,6 +47,8 @@ Route::get('/produk/{produk}', [LandingPageController::class, 'produkShow'])->na
 
 Route::get('/order', [PublicController::class, 'orderCreate'])->name('order.create');
 Route::post('/order', [PublicController::class, 'orderStore'])->name('order.store');
+Route::get('/api/rajaongkir/destination', [PublicController::class, 'rajaOngkirDestination'])->name('rajaongkir.destination');
+Route::post('/api/rajaongkir/cost', [PublicController::class, 'rajaOngkirCost'])->name('rajaongkir.cost');
 Route::post('/order/shipping/quote', [PublicController::class, 'orderShippingQuote'])->name('order.shipping.quote');
 Route::get('/order/address/suggest', [PublicController::class, 'orderAddressSuggest'])->name('order.address.suggest');
 Route::get('/order/{pesanan}/payment', [PublicController::class, 'orderPayment'])->name('order.payment');

@@ -123,28 +123,4 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Store & Shipping Configuration
-    |--------------------------------------------------------------------------
-    */
-    
-    'store_lat' => env('STORE_LAT', '-6.200000'),
-    'store_lng' => env('STORE_LNG', '106.816666'),
-    'shipping_rate_per_km' => (int) env('SHIPPING_RATE_PER_KM', 5000),
-    'shipping_min_cost' => (int) env('SHIPPING_MIN_COST', 10000),
-    'shipping_pricing_tiers' => [
-        ['max_distance_km' => 10, 'cost' => 10000],
-        ['max_distance_km' => 25, 'cost' => 15000],
-        ['max_distance_km' => 50, 'cost' => 25000],
-        ['max_distance_km' => 100, 'cost' => 35000],
-        ['max_distance_km' => 150, 'cost' => 40000],
-        ['max_distance_km' => 250, 'cost' => 60000],
-    ],
-    'shipping_long_distance_step_km' => 50,
-    'shipping_long_distance_step_cost' => 10000,
-    'shipping_item_surcharge_threshold' => 4,
-    'shipping_item_surcharge_per_item' => 2500,
-    'shipping_item_surcharge_cap' => 10000,
-
 ];

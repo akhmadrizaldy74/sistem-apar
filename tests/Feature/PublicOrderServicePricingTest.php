@@ -10,6 +10,7 @@ use App\Models\ServicePaket;
 use App\Models\UnitApar;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class PublicOrderServicePricingTest extends TestCase
@@ -19,6 +20,32 @@ class PublicOrderServicePricingTest extends TestCase
     public function test_registered_service_order_uses_standard_package_price_for_each_selected_unit(): void
     {
         config(['broadcasting.default' => 'null']);
+        config([
+            'services.rajaongkir.key' => 'test-key',
+            'services.rajaongkir.base_url' => 'https://rajaongkir.komerce.id/api/v1',
+            'services.rajaongkir.origin_id' => '501',
+            'services.rajaongkir.couriers' => 'jne',
+            'services.rajaongkir.default_weight' => 1000,
+        ]);
+
+        Http::fake([
+            'https://rajaongkir.komerce.id/api/v1/calculate/domestic-cost' => Http::response([
+                'meta' => [
+                    'code' => 200,
+                    'message' => 'OK',
+                ],
+                'data' => [
+                    [
+                        'name' => 'JNE',
+                        'code' => 'jne',
+                        'service' => 'REG',
+                        'description' => 'Layanan Reguler',
+                        'cost' => 18000,
+                        'etd' => '1-2 hari',
+                    ],
+                ],
+            ], 200),
+        ]);
 
         $user = User::factory()->create([
             'role' => 'pelanggan',
@@ -34,6 +61,8 @@ class PublicOrderServicePricingTest extends TestCase
             'alamat_detail' => 'Gudang belakang',
             'alamat_lat' => -6.889,
             'alamat_lng' => 107.610,
+            'rajaongkir_destination_id' => '11454',
+            'rajaongkir_destination_label' => 'Kec. Sukajadi, Kota Bandung, Jawa Barat, 40161',
             'status' => 'tetap',
         ]);
 
@@ -105,6 +134,8 @@ class PublicOrderServicePricingTest extends TestCase
             'alamat_kode_pos' => '40161',
             'alamat_lat' => '-6.88900000',
             'alamat_lng' => '107.61000000',
+            'rajaongkir_destination_id' => '11454',
+            'rajaongkir_destination_label' => 'Kec. Sukajadi, Kota Bandung, Jawa Barat, 40161',
             'tipe_layanan' => 'service',
             'metode_pengiriman' => 'diantar',
             'bank_tujuan' => 'bca',
@@ -129,12 +160,17 @@ class PublicOrderServicePricingTest extends TestCase
         $this->assertSame('diantar_internal', $pesanan->metode_pengiriman);
         $this->assertSame('bca', $pesanan->bank);
         $this->assertSame(300000.0, (float) $pesanan->service_estimasi_biaya);
-        $this->assertGreaterThan(0, (float) $pesanan->ongkir);
+        $this->assertSame(18000.0, (float) $pesanan->ongkir);
         $this->assertSame(
             (float) $pesanan->service_estimasi_biaya + (float) $pesanan->ongkir,
             (float) $pesanan->total
         );
-        $this->assertNotNull($pesanan->shipping_distance_km);
+        $this->assertNull($pesanan->shipping_distance_km);
+        $this->assertSame('jne', $pesanan->shipping_courier);
+        $this->assertSame('REG - Layanan Reguler', $pesanan->shipping_service);
+        $this->assertSame('1-2 hari', $pesanan->shipping_etd);
+        $this->assertSame('11454', $pesanan->shipping_destination_id);
+        $this->assertSame(6000, (int) $pesanan->shipping_weight);
         $this->assertStringContainsString('2 kg', (string) $pesanan->service_keluhan);
         $this->assertStringContainsString('4 kg', (string) $pesanan->service_keluhan);
         $this->assertStringContainsString('Rp150.000', (string) $pesanan->service_keluhan);
@@ -269,6 +305,10 @@ class PublicOrderServicePricingTest extends TestCase
         $response = $this->actingAs($user)->get(route('order.create'));
 
         $response->assertOk();
+        $response->assertSee('Lokasi Pengiriman');
+        $response->assertSee('Biaya Pengiriman');
+        $response->assertSee('Hitung Ongkir');
+        $response->assertDontSee('RajaOngkir');
         $response->assertViewHas('registeredUnitApars', function ($units) use ($manualUnit, $finishedOrderUnit, $unfinishedOrderUnit, $inactiveManualUnit, $hiddenManualUnit) {
             $ids = collect($units)->pluck('id')->map(fn ($id) => (int) $id)->all();
 

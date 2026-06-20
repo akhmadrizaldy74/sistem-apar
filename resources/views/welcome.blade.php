@@ -1465,7 +1465,7 @@
                     Solusi <span>Penjualan dan Layanan APAR</span> yang Lebih Meyakinkan untuk Operasional Anda
                 </h1>
                 <p class="hero-sub">
-                    PD. Anugrah Utama melayani pembelian APAR, refill, service, inspeksi, dan konsultasi kebutuhan proteksi kebakaran dengan alur yang rapi, harga jelas, dan respons yang cepat.
+                    PD. Anugrah Utama melayani pembelian APAR, refill, service, dan konsultasi kebutuhan proteksi kebakaran dengan harga jelas, dan respons yang cepat.
                 </p>
                 <div class="hero-cta">
                     <a href="{{ $orderEntryUrl }}" class="btn-primary">
@@ -1495,7 +1495,6 @@
                 ['title' => 'Penjualan APAR', 'desc' => 'Pilihan produk APAR untuk rumah, toko, kantor, gudang, proyek, dan area operasional lainnya.', 'icon' => 'fa-cart-shopping'],
                 ['title' => 'Refill APAR', 'desc' => 'Isi ulang APAR dengan prosedur yang rapi dan harga yang mengikuti data layanan yang sudah tersedia.', 'icon' => 'fa-arrows-rotate'],
                 ['title' => 'Service APAR', 'desc' => 'Perawatan dan pemeriksaan komponen APAR agar kondisi unit tetap siap digunakan.', 'icon' => 'fa-screwdriver-wrench'],
-                ['title' => 'Inspeksi & Testing', 'desc' => 'Pengecekan tekanan, kondisi tabung, segel, dan komponen penting APAR lainnya.', 'icon' => 'fa-clipboard-check'],
                 ['title' => 'Konsultasi APAR', 'desc' => 'Diskusikan kebutuhan APAR berdasarkan lokasi, risiko, dan kapasitas yang paling sesuai.', 'icon' => 'fa-comments'],
             ];
         @endphp
@@ -1848,7 +1847,7 @@
                     </div>
                     <div>
                         <p class="lokasi-label">Alamat</p>
-                        <p class="lokasi-text">Jl. Raya Bogor, Kota Bogor</p>
+                        <p class="lokasi-text">Jl. Pabuaran, Cibinong, Kabupaten Bogor</p>
                         <p class="lokasi-sub">Jawa Barat, Indonesia. Silakan hubungi admin untuk arahan lokasi atau jadwal kunjungan.</p>
                     </div>
                 </article>

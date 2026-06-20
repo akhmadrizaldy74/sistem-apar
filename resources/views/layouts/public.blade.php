@@ -349,7 +349,7 @@
                     <div class="mb-4">
                         <p class="text-sm font-black tracking-tight uppercase text-white">PD. ANUGRAH UTAMA</p>
                     </div>
-                    <p class="text-sm leading-7 text-slate-300">Penyedia layanan APAR untuk penjualan produk, refill, service, inspeksi, dan monitoring riwayat unit APAR pelanggan.</p>
+                    <p class="text-sm leading-7 text-slate-300">Penyedia layanan APAR untuk penjualan unit, refill, service APAR pelanggan.</p>
                 </div>
 
                 {{-- Links --}}
@@ -369,7 +369,6 @@
                         <li>Penjualan APAR</li>
                         <li>Refill APAR</li>
                         <li>Service APAR</li>
-                        <li>Inspeksi & Testing</li>
                         <li>Konsultasi APAR</li>
                     </ul>
                 </div>
@@ -379,13 +378,6 @@
                     <h6 class="mb-5 text-xs font-black uppercase tracking-[0.25em] text-white">Kontak</h6>
                     <ul class="space-y-4 text-sm text-slate-300">
                         <li class="flex items-start gap-3">
-                            <span class="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl bg-red-500/10 text-red-300">
-                                <i class="fa-solid fa-location-dot"></i>
-                            </span>
-                            <div>
-                                <p class="font-bold text-white">Lokasi</p>
-                                <p class="mt-1 leading-6 text-slate-300">Bogor, Jawa Barat</p>
-                            </div>
                         </li>
                         <li class="flex items-start gap-3">
                             <span class="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-300">
@@ -402,7 +394,7 @@
 
             <div class="mt-10 flex flex-col gap-3 border-t border-slate-800 pt-6 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
                 <p>&copy; {{ date('Y') }} PD. Anugrah Utama. Hak cipta dilindungi.</p>
-                <p>Operasional toko, layanan, dan riwayat unit pelanggan.</p>
+                <p>Operasional toko, layanan unit pelanggan.</p>
             </div>
         </div>
     </footer>

@@ -19,6 +19,13 @@
     @php
         $pricingSummary = $pesanan->pricingSummary();
         $purchasePriceLabel = $pesanan->purchasePriceStatusLabel();
+        $normalSubtotal = (float) $pesanan->purchasePriceNormalSubtotal();
+        $discountedTotal = (float) $pesanan->purchasePriceDiscountedTotal();
+        $initialTotal = (float) $pesanan->purchasePriceInitialTotal();
+        $requestedPrice = (float) ($pesanan->requestedPurchasePrice() ?? 0);
+        $finalApprovedPrice = (float) ($pesanan->approvedPurchaseFinalPrice() ?? 0);
+        $approvedAdjustment = max(0, $initialTotal - (float) ($pricingSummary['totalPembayaran'] ?? 0));
+        $adminNote = $pesanan->purchasePriceAdminNote();
         $customerWaUrl = \App\Support\WhatsApp::customerLink(
             $pesanan->pelanggan->no_wa ?? null,
             'Halo Bapak/Ibu, kami ingin mengonfirmasi ' . strtolower($pesanan->transactionDisplayName()) . ' APAR Anda.'
@@ -35,7 +42,9 @@
                         <p class="mt-3 text-sm font-medium text-gray-500">Tanggal Transaksi: {{ $pesanan->displayTransactionDateTime() }}</p>
                         <span class="inline-block mt-3 px-3 py-1 text-xs font-bold uppercase rounded-full
                             @if($pesanan->hasPendingPurchasePriceRequest()) bg-amber-100 text-amber-700
-                            @elseif(in_array($pesanan->status, ['selesai final', 'selesai', 'selesai oleh teknisi', 'dikonfirmasi admin'])) bg-emerald-100 text-emerald-700
+                            @elseif(in_array($pesanan->status, ['selesai final', 'selesai'])) bg-emerald-100 text-emerald-700
+                            @elseif(in_array($pesanan->status, ['selesai oleh teknisi', 'dikonfirmasi admin'])) bg-cyan-100 text-cyan-700
+                            @elseif($pesanan->status === 'siap dikirim') bg-cyan-100 text-cyan-700
                             @elseif($pesanan->status == 'ditolak') bg-red-100 text-red-700
                             @elseif($pesanan->status == 'diproses') bg-sky-100 text-sky-700
                             @elseif(in_array($pesanan->status, ['ditugaskan ke teknisi', 'dikerjakan teknisi'])) bg-purple-100 text-purple-700
@@ -154,27 +163,25 @@
                             @endif
                         </div>
                         
-                        @if((float) $pricingSummary['nominalDiskon'] > 0)
-                        <div class="flex items-center justify-between text-sm font-semibold text-green-700 bg-green-50 p-2 rounded-lg mt-2">
-                            <span>Diskon Promo Pembelian</span>
-                            <span>-Rp {{ number_format((float) $pricingSummary['nominalDiskon'], 0, ',', '.') }}</span>
+                        <div class="flex items-center justify-between rounded-lg p-2 text-sm font-semibold {{ (float) $pricingSummary['nominalDiskon'] > 0 ? 'bg-green-50 text-green-700' : 'text-gray-600' }} mt-2">
+                            <span>Diskon</span>
+                            <span>{{ (float) $pricingSummary['nominalDiskon'] > 0 ? '-' : '' }}Rp {{ number_format((float) ($pricingSummary['nominalDiskon'] ?? 0), 0, ',', '.') }}</span>
                         </div>
-                        @endif
 
                         <div class="flex items-center justify-between text-sm font-semibold text-gray-600">
-                            <span>Ongkir</span>
+                            <span>Biaya Pengiriman</span>
                             <span>Rp {{ number_format((float) $pricingSummary['ongkir'], 0, ',', '.') }}</span>
                         </div>
 
-                        @if(!empty($pricingSummary['specialPriceActive']))
+                        @if($approvedAdjustment > 0)
                         <div class="flex items-center justify-between text-sm font-semibold text-emerald-700 bg-emerald-50 p-2 rounded-lg mt-2">
-                            <span>Harga Final</span>
-                            <span>Rp {{ number_format((float) $pricingSummary['hargaFinal'], 0, ',', '.') }}</span>
+                            <span>Penyesuaian Harga Disetujui</span>
+                            <span>-Rp {{ number_format($approvedAdjustment, 0, ',', '.') }}</span>
                         </div>
                         @endif
 
                         <div class="pt-4 border-t border-gray-200 flex items-center justify-between">
-                            <span class="text-sm font-black text-gray-900 uppercase tracking-widest">Total Akhir</span>
+                            <span class="text-sm font-black text-gray-900 uppercase tracking-widest">Total Pembayaran</span>
                             <span class="text-2xl font-black text-red-700">Rp {{ number_format((float) $pricingSummary['totalPembayaran'], 0, ',', '.') }}</span>
                         </div>
                     </div>
@@ -182,6 +189,24 @@
             </div>
 
             <div class="space-y-6">
+                <div class="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm p-8">
+                    <h3 class="text-lg font-black text-gray-900 tracking-tight">Status Transaksi</h3>
+                    <div class="mt-5 space-y-3 text-sm">
+                        <div class="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+                            <span class="font-semibold text-gray-500">Status Saat Ini</span>
+                            <span class="font-black text-gray-900">{{ $pesanan->publicStatusLabel() }}</span>
+                        </div>
+                        <div class="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+                            <span class="font-semibold text-gray-500">Status Pembayaran</span>
+                            <span class="font-black {{ $pesanan->isPaymentConfirmed() ? 'text-emerald-700' : 'text-amber-700' }}">{{ $pesanan->isPaymentConfirmed() ? 'Sudah Dibayar' : 'Belum Dibayar' }}</span>
+                        </div>
+                        <div class="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+                            <span class="font-semibold text-gray-500">Status Pengiriman</span>
+                            <span class="font-black text-gray-900">{{ $pesanan->requiresCustomerDeliveryConfirmation() ? ($pesanan->isAwaitingCustomerConfirmation() ? 'Siap Dikirim' : ($pesanan->hasCustomerConfirmed() ? 'Diterima Pelanggan' : 'Menunggu Pengiriman')) : 'Tanpa Pengiriman Lanjutan' }}</span>
+                        </div>
+                    </div>
+                </div>
+
                 @if($pesanan->hasPurchasePriceRequest())
                     <div class="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm p-8">
                         <div class="flex items-center justify-between gap-3">
@@ -192,13 +217,36 @@
                         </div>
 
                         <div class="mt-5 space-y-4">
+                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Normal Produk</p>
+                                    <p class="mt-2 text-lg font-black text-slate-900">Rp {{ number_format($normalSubtotal, 0, ',', '.') }}</p>
+                                </div>
+                                <div class="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4">
+                                    <p class="text-[10px] font-black uppercase tracking-widest text-emerald-600">Total Setelah Diskon</p>
+                                    <p class="mt-2 text-lg font-black text-emerald-800">Rp {{ number_format($discountedTotal, 0, ',', '.') }}</p>
+                                </div>
+                                <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Ongkir</p>
+                                    <p class="mt-2 text-lg font-black text-slate-900">Rp {{ number_format((float) ($pesanan->ongkir ?? 0), 0, ',', '.') }}</p>
+                                </div>
+                                <div class="rounded-2xl border border-red-200 bg-red-50/70 p-4">
+                                    <p class="text-[10px] font-black uppercase tracking-widest text-red-600">Total Awal</p>
+                                    <p class="mt-2 text-lg font-black text-red-700">Rp {{ number_format($initialTotal, 0, ',', '.') }}</p>
+                                </div>
+                            </div>
+
                             <div class="rounded-2xl border border-gray-100 bg-gray-50 p-4">
                                 <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Harga Pengajuan Pelanggan</p>
-                                <p class="mt-2 text-xl font-black text-gray-900">Rp {{ number_format((float) ($pricingSummary['hargaPengajuan'] ?? 0), 0, ',', '.') }}</p>
-                                @if($pesanan->purchasePriceCustomerNote())
-                                    <p class="mt-3 text-xs font-semibold leading-relaxed text-gray-600">{{ $pesanan->purchasePriceCustomerNote() }}</p>
-                                @endif
+                                <p class="mt-2 text-2xl font-black text-gray-900">Rp {{ number_format($requestedPrice, 0, ',', '.') }}</p>
                             </div>
+
+                            @if($pesanan->purchasePriceCustomerNote())
+                                <div class="rounded-2xl border border-slate-200 bg-white p-4">
+                                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Catatan Pelanggan</p>
+                                    <p class="mt-2 text-sm font-semibold leading-6 text-slate-700">{{ $pesanan->purchasePriceCustomerNote() }}</p>
+                                </div>
+                            @endif
 
                             @if($pesanan->hasPendingPurchasePriceRequest())
                                 <form method="POST" class="space-y-4">
@@ -210,10 +258,11 @@
                                             id="harga_final"
                                             name="harga_final"
                                             value="{{ old('harga_final') }}"
-                                            placeholder="Rp 0"
+                                            placeholder="Kosongkan untuk ACC sesuai harga pengajuan pelanggan"
                                             inputmode="numeric"
                                             class="w-full rounded-xl border-gray-200 focus:border-red-500 focus:ring-red-500 text-sm font-semibold"
                                         >
+                                        <p class="mt-2 text-xs font-semibold text-slate-500">Jika dibiarkan kosong, sistem akan memakai harga pengajuan pelanggan sebagai harga final admin.</p>
                                         @error('harga_final')
                                             <p class="mt-2 text-sm font-semibold text-red-600">{{ $message }}</p>
                                         @enderror
@@ -234,29 +283,41 @@
                                             formaction="{{ route('admin.pesanan.pengajuan-harga.acc', $pesanan) }}"
                                             class="w-full py-3 bg-emerald-600 text-white font-black text-sm rounded-xl hover:bg-emerald-700 transition shadow-lg shadow-emerald-600/25"
                                         >
-                                            ACC
+                                            ACC Pengajuan
                                         </button>
                                         <button
                                             type="submit"
                                             formaction="{{ route('admin.pesanan.pengajuan-harga.tolak', $pesanan) }}"
                                             class="w-full py-3 bg-red-600 text-white font-black text-sm rounded-xl hover:bg-red-700 transition shadow-lg shadow-red-600/25"
                                         >
-                                            Tolak
+                                            Tolak Pengajuan
                                         </button>
                                     </div>
                                 </form>
                             @else
                                 <div class="rounded-2xl border border-gray-100 bg-gray-50 p-4 space-y-3">
-                                    @if(!empty($pricingSummary['hargaFinal']))
+                                    @if($finalApprovedPrice > 0)
                                         <div class="flex items-center justify-between text-sm font-semibold text-gray-700">
-                                            <span>Harga Final</span>
-                                            <span class="text-emerald-700">Rp {{ number_format((float) $pricingSummary['hargaFinal'], 0, ',', '.') }}</span>
+                                            <span>Harga Final Admin</span>
+                                            <span class="text-emerald-700">Rp {{ number_format($finalApprovedPrice, 0, ',', '.') }}</span>
                                         </div>
                                     @endif
-                                    @if($pesanan->catatan_admin)
+                                    @if($adminNote)
                                         <div>
                                             <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Catatan Admin</p>
-                                            <p class="mt-2 text-sm font-semibold leading-relaxed text-gray-700">{{ $pesanan->catatan_admin }}</p>
+                                            <p class="mt-2 text-sm font-semibold leading-relaxed text-gray-700">{{ $adminNote }}</p>
+                                        </div>
+                                    @endif
+                                    @if($pesanan->approved_at || $pesanan->disetujui_pada)
+                                        <div>
+                                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Waktu Persetujuan</p>
+                                            <p class="mt-2 text-sm font-semibold text-gray-700">{{ ($pesanan->approved_at ?: $pesanan->disetujui_pada)?->timezone(config('app.timezone'))?->format('d M Y, H:i') }}</p>
+                                        </div>
+                                    @endif
+                                    @if($pesanan->rejected_at)
+                                        <div>
+                                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Waktu Penolakan</p>
+                                            <p class="mt-2 text-sm font-semibold text-gray-700">{{ $pesanan->rejected_at?->timezone(config('app.timezone'))?->format('d M Y, H:i') }}</p>
                                         </div>
                                     @endif
                                 </div>
@@ -278,10 +339,23 @@
                     </div>
                 @endif
 
+                @if($showReadyToShipAction)
+                    <div class="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm p-8">
+                        <h3 class="text-lg font-black text-gray-900 tracking-tight">Pengiriman ke Pelanggan</h3>
+                        <p class="mt-2 text-sm font-medium text-gray-500">Pengerjaan internal sudah selesai. Ubah dulu ke status Siap Dikirim agar pelanggan yang menutup transaksi saat barang atau hasil layanan benar-benar diterima.</p>
+                        <form action="{{ route('admin.pesanan.konfirmasi-pelanggan', $pesanan) }}" method="POST" class="mt-5" data-confirm="Ubah status pesanan ini menjadi Siap Dikirim?" data-confirm-title="Konfirmasi Pengiriman" data-confirm-button="Ya, Siapkan">
+                            @csrf
+                            <button type="submit" class="w-full py-3 bg-cyan-600 text-white font-black text-sm rounded-xl hover:bg-cyan-700 transition shadow-lg shadow-cyan-600/25">
+                                Siap Dikirim
+                            </button>
+                        </form>
+                    </div>
+                @endif
+
                 @if($showFinalizeAction)
                     <div class="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm p-8">
                         <h3 class="text-lg font-black text-gray-900 tracking-tight">Penyelesaian Pesanan</h3>
-                        <p class="mt-2 text-sm font-medium text-gray-500">Pengerjaan sudah selesai. Finalkan pesanan untuk menutup transaksi sesuai alur sistem.</p>
+                        <p class="mt-2 text-sm font-medium text-gray-500">Pengerjaan sudah selesai dan transaksi ini tidak memerlukan konfirmasi penerimaan pelanggan. Admin bisa menutup proses langsung ke status final.</p>
                         <form action="{{ route('admin.pesanan.selesai-final', $pesanan) }}" method="POST" class="mt-5" data-confirm="Selesaikan final pesanan ini?" data-confirm-title="Konfirmasi Final" data-confirm-button="Ya, Finalkan">
                             @csrf
                             <button type="submit" class="w-full py-3 bg-emerald-600 text-white font-black text-sm rounded-xl hover:bg-emerald-700 transition shadow-lg shadow-emerald-600/25">
@@ -291,7 +365,7 @@
                     </div>
                 @endif
 
-                @if(!$pesanan->hasPurchasePriceRequest() && !$showAssignAction && !$showFinalizeAction)
+                @if(!$pesanan->hasPurchasePriceRequest() && !$showAssignAction && !$showReadyToShipAction && !$showFinalizeAction)
                     <div class="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm p-8">
                         <h3 class="text-lg font-black text-gray-900 tracking-tight">Status Otomatis</h3>
                         <p class="mt-2 text-sm font-medium leading-relaxed text-gray-500">Status pesanan ini mengikuti alur sistem secara otomatis. Tidak ada pengajuan harga yang perlu ditindaklanjuti pada detail ini.</p>

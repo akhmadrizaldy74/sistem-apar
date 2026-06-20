@@ -134,7 +134,8 @@
 <script>
     const PRODUK_DB = {!! json_encode($produks->load('jenisApar')) !!};
 
-    const SHIPPING_QUOTE_URL = '{{ route('order.shipping.quote') }}';
+    const SHIPPING_DESTINATION_URL = '{{ route('rajaongkir.destination') }}';
+    const SHIPPING_COST_URL = '{{ route('rajaongkir.cost') }}';
     const ADDRESS_SUGGEST_URL = '{{ route('order.address.suggest') }}';
     const WA_NUMBER = '{{ \App\Support\WhatsApp::companyNumber() }}';
     const PRODUCT_PAGE_URL = '{{ route('produk.index') }}';
@@ -153,10 +154,11 @@
         ];
     })->values()) !!};
     const CSRF_TOKEN = '{{ csrf_token() }}';
-    const STORE_LAT = {{ (float) env('STORE_LAT', -6.494778) }};
-    const STORE_LNG = {{ (float) env('STORE_LNG', 106.816635) }};
+    const DEFAULT_MAP_LAT = -6.2088;
+    const DEFAULT_MAP_LNG = 106.8456;
     const IS_AUTHENTICATED = {{ auth()->check() ? 'true' : 'false' }};
     const USE_AUTHENTICATED_CUSTOMER = {{ !empty($useAuthenticatedCustomer) ? 'true' : 'false' }};
+    const PROFILE_HAS_SHIPPING_DESTINATION = {{ !empty($customerProfile['has_rajaongkir_destination']) ? 'true' : 'false' }};
     const CAN_USE_CART_CHECKOUT = {{ !empty($canUseCartCheckout) ? 'true' : 'false' }};
     const CART_HAS_ITEMS = {{ !empty($cartItemCount) ? 'true' : 'false' }};
     const PREFILLED_ORDER_ITEMS = {!! json_encode(($prefilledOrderItems ?? collect())->values()) !!};
@@ -281,6 +283,12 @@
     <input type="hidden" id="service-metode-penanganan-hidden" name="service_metode_penanganan" value="{{ $selectedServiceMethod }}">
     <input type="hidden" id="inp-bank" value="{{ $selectedBank }}">
     <input type="hidden" id="inp-ongkir" name="ongkir" value="{{ old('ongkir', (float) ($orderSummary['ongkir'] ?? 0)) }}">
+    <input type="hidden" id="inp-rajaongkir-destination-id" name="rajaongkir_destination_id" value="{{ old('rajaongkir_destination_id', $customerProfile['rajaongkir_destination_id'] ?? '') }}">
+    <input type="hidden" id="inp-rajaongkir-destination-label" name="rajaongkir_destination_label" value="{{ old('rajaongkir_destination_label', $customerProfile['rajaongkir_destination_label'] ?? '') }}">
+    <input type="hidden" id="inp-shipping-courier" name="shipping_courier" value="{{ old('shipping_courier') }}">
+    <input type="hidden" id="inp-shipping-service" name="shipping_service" value="{{ old('shipping_service') }}">
+    <input type="hidden" id="inp-shipping-etd" name="shipping_etd" value="{{ old('shipping_etd') }}">
+    <input type="hidden" id="inp-shipping-weight" name="shipping_weight" value="{{ old('shipping_weight', 0) }}">
     <input type="hidden" id="inp-shipping-distance" name="shipping_distance_km" value="{{ old('shipping_distance_km', 0) }}">
     <input type="hidden" id="inp-use-cart-checkout" name="use_cart_checkout" value="{{ !empty($canUseCartCheckout) && $cartHasItems ? '1' : '0' }}">
 
@@ -357,6 +365,25 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="mt-5 rounded-2xl border {{ !empty($profile['has_rajaongkir_destination']) ? 'border-emerald-200 bg-emerald-50/70' : 'border-amber-200 bg-amber-50' }} px-4 py-4">
+                    <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                            <p class="text-[11px] font-black uppercase tracking-[0.18em] {{ !empty($profile['has_rajaongkir_destination']) ? 'text-emerald-700' : 'text-amber-700' }}">Lokasi Pengiriman</p>
+                            <p class="mt-2 text-sm font-semibold text-slate-700">
+                                {{ $profile['rajaongkir_destination_label'] ?: 'Lokasi pengiriman belum dipilih.' }}
+                            </p>
+                        </div>
+                        <a href="{{ route('profile.edit') }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-[11px] font-black uppercase tracking-widest text-slate-700 transition hover:bg-slate-50">
+                            Perbarui Profil
+                        </a>
+                    </div>
+                    @if(empty($profile['has_rajaongkir_destination']))
+                        <p class="mt-3 text-sm font-semibold text-amber-800">
+                            Lokasi pengiriman belum dapat digunakan untuk menghitung ongkir. Silakan perbarui alamat pengiriman Anda.
+                        </p>
+                    @endif
+                </div>
             </div>
 
             <input type="hidden" name="nama" id="inp-nama" value="{{ old('nama', $profile['nama']) }}">
@@ -420,17 +447,27 @@
                 </div>
                 {{-- Alamat Maps --}}
                 <div class="relative md:col-span-2">
-                    <label class="order-label">Alamat (Cari di OpenStreetMap) <span>*</span></label>
-                    <input type="text" id="inp-alamat-maps" name="alamat_maps" value="{{ old('alamat_maps') }}" required
-                        placeholder="Ketik alamat, pilih dari saran..."
-                        class="order-input pr-10">
+                    <label class="order-label">Cari Lokasi Pengiriman <span>*</span></label>
+                    <input type="text" id="inp-location-search" value="{{ old('rajaongkir_destination_label', old('alamat_maps')) }}" required
+                        placeholder="Contoh: Bandung, Jawa Barat"
+                        class="order-input pr-10" autocomplete="off">
                     <svg class="w-4 h-4 text-slate-400 absolute right-3 top-[38px] pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                     <div id="address-suggestions" class="hidden mt-2 w-full max-h-56 overflow-auto rounded-xl border-2 border-red-500 bg-white shadow-xl"></div>
+                    <p id="location-selection-helper" class="mt-2 text-xs font-semibold text-slate-500">
+                        Pilih lokasi pengiriman yang sesuai agar biaya pengiriman bisa dihitung.
+                    </p>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="order-label">Alamat Terpilih <span>*</span></label>
+                    <textarea id="inp-alamat-selected-display" rows="3" readonly
+                        class="order-input resize-none bg-slate-50"
+                        placeholder="Lokasi pengiriman yang dipilih akan tampil di sini">{{ old('alamat_maps') }}</textarea>
                 </div>
             </div>
 
             <div class="mt-5" id="order-map-wrapper">
-                    <label class="order-label">Konfirmasi Titik Lokasi (Geser pin atau klik peta untuk koreksi)</label>
+                    <label class="order-label">Konfirmasi Titik Lokasi</label>
                 <div class="map-container">
                     <div id="order-map" style="height: 200px; width: 100%;"></div>
                 </div>
@@ -457,9 +494,12 @@
                     class="order-input resize-none">{{ old('alamat_detail') }}</textarea>
             </div>
 
-            <input type="hidden" name="alamat" id="inp-alamat-combined" value="{{ old('alamat') }}">
-            <input type="hidden" name="alamat_lat" id="inp-alamat-lat" value="{{ old('alamat_lat') }}">
-            <input type="hidden" name="alamat_lng" id="inp-alamat-lng" value="{{ old('alamat_lng') }}">
+            <div class="mt-5">
+                <input type="hidden" name="alamat" id="inp-alamat-combined" value="{{ old('alamat') }}">
+                <input type="hidden" id="inp-alamat-maps" name="alamat_maps" value="{{ old('alamat_maps') }}">
+                <input type="hidden" name="alamat_lat" id="inp-alamat-lat" value="{{ old('alamat_lat') }}">
+                <input type="hidden" name="alamat_lng" id="inp-alamat-lng" value="{{ old('alamat_lng') }}">
+            </div>
         @endif
     </div>
 
@@ -885,7 +925,7 @@
                                     <div class="choice-card-copy">
                                         <span id="method-option-b-kicker" class="choice-card-kicker">Metode Pengiriman</span>
                                         <span id="method-option-b-title" class="choice-card-title">Diantar</span>
-                                        <span id="method-option-b-subtitle" class="choice-card-subtitle">Pesanan dikirim ke alamat Anda dengan ongkir sesuai hasil perhitungan sistem.</span>
+                                        <span id="method-option-b-subtitle" class="choice-card-subtitle">Pesanan dikirim ke alamat Anda dengan biaya pengiriman sesuai hasil cek ekspedisi.</span>
                                     </div>
                                     <span class="choice-card-indicator" aria-hidden="true"></span>
                                 </div>
@@ -1050,7 +1090,7 @@
                                             data-submit-source="special_price_request"
                                             class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:bg-slate-50"
                                         >
-                                            Ajukan Harga Khusus
+                                            Kirim Pengajuan Harga
                                         </button>
                                     </div>
                                 </div>
@@ -1130,8 +1170,16 @@
                             <span class="text-slate-500 font-semibold">Metode Penanganan</span>
                             <span id="service-summary-method" class="font-black text-slate-800">{{ $prefillSummaryMethodLabel }}</span>
                         </div>
+                        <div id="service-summary-courier-row" class="summary-row hidden">
+                            <span class="text-slate-500 font-semibold">Ekspedisi / Layanan</span>
+                            <span id="service-summary-courier" class="font-black text-slate-800 text-right">-</span>
+                        </div>
+                        <div id="service-summary-etd-row" class="summary-row hidden">
+                            <span class="text-slate-500 font-semibold">Estimasi</span>
+                            <span id="service-summary-etd" class="font-black text-slate-800">-</span>
+                        </div>
                         <div class="summary-row">
-                            <span class="text-slate-500 font-semibold">Ongkir</span>
+                            <span class="text-slate-500 font-semibold">Biaya Pengiriman</span>
                             <span id="service-summary-ongkir" class="font-black text-slate-800">Rp 0</span>
                         </div>
                         <div class="summary-row total">
@@ -1168,6 +1216,18 @@
 
                     <div class="summary-card">
                         <div class="summary-row">
+                            <span class="text-slate-500 font-semibold">Kategori</span>
+                            <span id="lbl-category" class="font-bold text-slate-700">Pembelian Unit</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="text-slate-500 font-semibold">Produk</span>
+                            <span id="lbl-product-items" class="font-bold text-slate-700 text-right">Belum dipilih</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="text-slate-500 font-semibold">Total Item</span>
+                            <span id="lbl-item-count" class="font-bold text-slate-700">{{ (int) (($orderSummary['items'] ?? collect()) instanceof \Illuminate\Support\Collection ? ($orderSummary['items'] ?? collect())->count() : count($orderSummary['items'] ?? [])) }}</span>
+                        </div>
+                        <div class="summary-row">
                             <span class="text-slate-500 font-semibold">Subtotal Produk</span>
                             <span id="lbl-subtotal" class="font-bold text-slate-700">Rp {{ number_format((float) ($orderSummary['subtotalProduk'] ?? 0), 0, ',', '.') }}</span>
                         </div>
@@ -1183,8 +1243,20 @@
                             <span class="font-semibold">Nominal Diskon</span>
                             <span id="lbl-discount" class="font-bold">- Rp {{ number_format((float) ($orderSummary['nominalDiskon'] ?? 0), 0, ',', '.') }}</span>
                         </div>
+                        <div class="summary-row">
+                            <span class="text-slate-500 font-semibold">Metode Pengiriman</span>
+                            <span id="lbl-shipping-method" class="font-bold text-slate-700">{{ $selectedShippingMethod === 'diantar' ? 'Diantar' : 'Ambil Sendiri' }}</span>
+                        </div>
+                        <div id="shipping-summary-courier-row" class="summary-row hidden">
+                            <span class="text-slate-500 font-semibold">Ekspedisi / Layanan</span>
+                            <span id="lbl-shipping-courier" class="font-bold text-slate-700 text-right">-</span>
+                        </div>
+                        <div id="shipping-summary-etd-row" class="summary-row hidden">
+                            <span class="text-slate-500 font-semibold">Estimasi</span>
+                            <span id="lbl-shipping-etd" class="font-bold text-slate-700">-</span>
+                        </div>
                         <div class="summary-row" id="ongkir-row">
-                            <span class="text-slate-500 font-semibold">Ongkir/Pengiriman</span>
+                            <span class="text-slate-500 font-semibold">Biaya Pengiriman</span>
                             <span id="lbl-ongkir" class="font-bold text-slate-700">Rp {{ number_format((float) ($orderSummary['ongkir'] ?? 0), 0, ',', '.') }}</span>
                         </div>
                         <div class="summary-row total">
@@ -1268,6 +1340,11 @@
     let shippingCost = shippingMethod === 'diantar' ? Number(INITIAL_PRODUCT_SUMMARY.ongkir || 0) : 0;
     let shippingDistanceKm = 0;
     let shippingQuoteReady = shippingMethod === 'pickup' || shippingCost > 0;
+    let shippingCourierCode = '';
+    let shippingCourierName = '';
+    let shippingServiceName = '';
+    let shippingEtd = '';
+    let shippingWeight = 0;
     let rowIndex = 0;
     let purchasePriceRequestOpen = INITIAL_SPECIAL_PRICE_REQUEST_OPEN;
 
@@ -1308,19 +1385,28 @@
     const inpMetodePengiriman = document.getElementById('inp-metode-pengiriman');
     const serviceMethodHidden = document.getElementById('service-metode-penanganan-hidden');
     const inpOngkir = document.getElementById('inp-ongkir');
+    const inpShippingDestinationId = document.getElementById('inp-rajaongkir-destination-id');
+    const inpShippingDestinationLabel = document.getElementById('inp-rajaongkir-destination-label');
+    const inpShippingCourier = document.getElementById('inp-shipping-courier');
+    const inpShippingService = document.getElementById('inp-shipping-service');
+    const inpShippingEtd = document.getElementById('inp-shipping-etd');
+    const inpShippingWeight = document.getElementById('inp-shipping-weight');
     const inpShippingDistance = document.getElementById('inp-shipping-distance');
     const orderForm = document.getElementById('order-form');
     const inpSubmitSource = document.getElementById('inp-submit-source');
     const inpTipeHarga = document.getElementById('inp-tipe-harga');
     const inpNama = document.getElementById('inp-nama');
     const inpNoWa = document.getElementById('inp-nowa');
+    const locationSearchInput = document.getElementById('inp-location-search');
     const inpAlamatMaps = document.getElementById('inp-alamat-maps');
+    const selectedAddressDisplay = document.getElementById('inp-alamat-selected-display');
     const inpAlamatDetail = document.getElementById('inp-alamat-detail');
     const inpAlamatCombined = document.getElementById('inp-alamat-combined');
     const inpAlamatLat = document.getElementById('inp-alamat-lat');
     const inpAlamatLng = document.getElementById('inp-alamat-lng');
     const inpPerusahaan = document.getElementById('inp-perusahaan');
     const addressHelper = document.getElementById('address-suggestions');
+    const locationSelectionHelper = document.getElementById('location-selection-helper');
     const btnTambahItem = document.getElementById('btn-tambah-item');
     const orderMapLatEl = document.getElementById('order-map-lat');
     const orderMapLngEl = document.getElementById('order-map-lng');
@@ -1362,6 +1448,10 @@
     const serviceSummaryEquipment = document.getElementById('service-summary-equipment');
     const serviceSummaryUsageLabel = document.getElementById('service-summary-usage-label');
     const serviceSummaryMethod = document.getElementById('service-summary-method');
+    const serviceSummaryCourierRow = document.getElementById('service-summary-courier-row');
+    const serviceSummaryCourier = document.getElementById('service-summary-courier');
+    const serviceSummaryEtdRow = document.getElementById('service-summary-etd-row');
+    const serviceSummaryEtd = document.getElementById('service-summary-etd');
     const serviceSummaryOngkir = document.getElementById('service-summary-ongkir');
     const serviceSummaryPriceLabel = document.getElementById('service-summary-price-label');
     const serviceSummaryPrice = document.getElementById('service-summary-price');
@@ -1373,6 +1463,16 @@
     const servicePackageNote = document.getElementById('service-package-note');
     const servicePackageRincian = document.getElementById('service-package-rincian');
     const serviceMethodRadios = [...document.querySelectorAll('input[name="service_metode_penanganan"]')];
+    const shippingDestinationSearchInput = null;
+    const shippingDestinationHelper = null;
+    const shippingDestinationSuggestions = null;
+    const lblProductItems = document.getElementById('lbl-product-items');
+    const lblItemCount = document.getElementById('lbl-item-count');
+    const lblShippingMethod = document.getElementById('lbl-shipping-method');
+    const shippingSummaryCourierRow = document.getElementById('shipping-summary-courier-row');
+    const lblShippingCourier = document.getElementById('lbl-shipping-courier');
+    const shippingSummaryEtdRow = document.getElementById('shipping-summary-etd-row');
+    const lblShippingEtd = document.getElementById('lbl-shipping-etd');
     const methodCardTitle = document.getElementById('method-card-title');
     const methodOptionAKicker = document.getElementById('method-option-a-kicker');
     const methodOptionATitle = document.getElementById('method-option-a-title');
@@ -1383,8 +1483,15 @@
     let lastRenderedPurchaseGroup = null;
     let addressSearchTimer = null;
     let addressSuggestionItems = [];
+    let shippingDestinationSearchTimer = null;
+    let shippingDestinationSuggestionItems = [];
     let orderMap = null;
     let orderMarker = null;
+
+    shippingCourierCode = (inpShippingCourier?.value || '').trim();
+    shippingServiceName = (inpShippingService?.value || '').trim();
+    shippingEtd = (inpShippingEtd?.value || '').trim();
+    shippingWeight = Number(inpShippingWeight?.value || 0);
 
     function fmt(n) {
         return 'Rp ' + Number(n || 0).toLocaleString('id-ID');
@@ -1510,9 +1617,33 @@
         }
         if (methodOptionBSubtitle) {
             methodOptionBSubtitle.textContent = isProductCheckout
-                ? 'Pesanan dikirim ke alamat Anda dengan ongkir sesuai hasil perhitungan sistem.'
-                : 'Tim kami menjemput unit APAR ke alamat Anda dengan estimasi ongkir sesuai perhitungan sistem.';
+                ? 'Pesanan dikirim ke alamat Anda dengan biaya pengiriman sesuai hasil cek ekspedisi.'
+                : 'Tim kami menjemput unit APAR ke alamat Anda dengan biaya penjemputan sesuai hasil cek ekspedisi.';
         }
+    }
+
+    function shippingServiceLabel() {
+        return [shippingCourierName || shippingCourierCode.toUpperCase(), shippingServiceName]
+            .filter(Boolean)
+            .join(' - ');
+    }
+
+    function clearShippingQuoteFields() {
+        shippingCost = 0;
+        shippingDistanceKm = 0;
+        shippingQuoteReady = shippingMethod === 'pickup';
+        shippingCourierCode = '';
+        shippingCourierName = '';
+        shippingServiceName = '';
+        shippingEtd = '';
+        shippingWeight = 0;
+
+        if (inpOngkir) inpOngkir.value = '0';
+        if (inpShippingDistance) inpShippingDistance.value = '0';
+        if (inpShippingCourier) inpShippingCourier.value = '';
+        if (inpShippingService) inpShippingService.value = '';
+        if (inpShippingEtd) inpShippingEtd.value = '';
+        if (inpShippingWeight) inpShippingWeight.value = '0';
     }
 
     function setShippingStatus(message, type) {
@@ -1534,16 +1665,13 @@
         } else if (type === 'success') {
             shippingStatusNote.className = 'shipping-status-note show success';
             shippingStatusNote.innerHTML = `
-                <span class="shipping-status-label">${isProductCheckout ? 'Ongkir Ekspedisi' : 'Ongkir Penjemputan'}</span>
-                <span class="shipping-status-value">${fmt(shippingCost)}</span>
-                <span class="shipping-status-meta">Jarak: ${formatDistance(shippingDistanceKm)} km</span>
+                <span class="shipping-status-label">${isProductCheckout ? 'Biaya Pengiriman' : 'Biaya Penjemputan'}</span>
+                <span class="shipping-status-value">${escapeHtml(shippingServiceLabel() || 'Layanan tersedia')}</span>
+                <span class="shipping-status-meta">Estimasi ${escapeHtml(shippingEtd || '-')} • ${fmt(shippingCost)}</span>
             `;
         } else if (shippingMethod === 'pickup') {
-            shippingStatusNote.className = 'shipping-status-note show compact';
-            shippingStatusNote.innerHTML = `
-                <span class="shipping-status-label">Ongkir</span>
-                <span class="shipping-status-meta">${isProductCheckout ? 'Ongkir Rp 0 karena pesanan diambil sendiri.' : 'Ongkir Rp 0 karena unit APAR diantar sendiri.'}</span>
-            `;
+            shippingStatusNote.className = 'shipping-status-note';
+            shippingStatusNote.innerHTML = '';
         } else {
             shippingStatusNote.className = 'shipping-status-note show compact';
             shippingStatusNote.innerHTML = `
@@ -1582,33 +1710,21 @@
         }
 
         if (currentTab === 'beli' && shippingMethod === 'pickup') {
-            shippingCost = 0;
-            shippingDistanceKm = 0;
+            clearShippingQuoteFields();
             shippingQuoteReady = true;
-            inpOngkir.value = '0';
-            inpShippingDistance.value = '0';
-            setShippingStatus('Ongkir Rp 0 karena pesanan diambil sendiri.', 'info');
+            setShippingStatus('', 'info');
         } else if (currentTab === 'beli') {
-            shippingCost = 0;
-            shippingDistanceKm = 0;
+            clearShippingQuoteFields();
             shippingQuoteReady = false;
-            inpOngkir.value = '0';
-            inpShippingDistance.value = '0';
             setShippingStatus('Klik "Hitung Ongkir" untuk melihat biaya pengiriman ke alamat Anda.', 'info');
         } else if (shippingMethod === 'pickup') {
-            shippingCost = 0;
-            shippingDistanceKm = 0;
+            clearShippingQuoteFields();
             shippingQuoteReady = true;
-            inpOngkir.value = '0';
-            inpShippingDistance.value = '0';
-            setShippingStatus('Ongkir Rp 0 karena unit APAR diantar sendiri.', 'info');
+            setShippingStatus('', 'info');
         } else {
-            shippingCost = 0;
-            shippingDistanceKm = 0;
+            clearShippingQuoteFields();
             shippingQuoteReady = false;
-            inpOngkir.value = '0';
-            inpShippingDistance.value = '0';
-            setShippingStatus('Klik "Hitung Ongkir" untuk melihat estimasi biaya penjemputan APAR.', 'info');
+            setShippingStatus('Klik "Hitung Ongkir" untuk melihat biaya penjemputan ke alamat Anda.', 'info');
         }
 
         applyShippingModeVisual();
@@ -1620,12 +1736,9 @@
 
     function invalidateShippingQuote(message) {
         if (shippingMethod !== 'diantar') return;
+        clearShippingQuoteFields();
         shippingQuoteReady = false;
-        shippingCost = 0;
-        shippingDistanceKm = 0;
-        inpOngkir.value = '0';
-        inpShippingDistance.value = '0';
-        setShippingStatus(message || 'Alamat berubah — silakan hitung ongkir lagi.', 'info');
+        setShippingStatus(message || 'Lokasi pengiriman berubah. Silakan hitung ongkir lagi.', 'info');
         syncDisplayedTotal();
     }
 
@@ -1638,9 +1751,40 @@
         addressSuggestionItems = [];
     }
 
+    function updateLocationSelectionHelper(message, tone = 'default') {
+        if (!locationSelectionHelper) return;
+
+        locationSelectionHelper.textContent = message;
+        locationSelectionHelper.className = 'mt-2 text-xs font-semibold ';
+
+        if (tone === 'error') {
+            locationSelectionHelper.className += 'text-red-600';
+            return;
+        }
+
+        if (tone === 'success') {
+            locationSelectionHelper.className += 'text-emerald-600';
+            return;
+        }
+
+        if (tone === 'info') {
+            locationSelectionHelper.className += 'text-blue-600';
+            return;
+        }
+
+        locationSelectionHelper.className += 'text-slate-500';
+    }
+
+    function updateSelectedAddressPreview(value) {
+        if (selectedAddressDisplay) {
+            selectedAddressDisplay.value = value || '';
+        }
+    }
+
     function renderAddressSuggestions(items) {
         if (!Array.isArray(items) || !items.length) {
             hideAddressSuggestions();
+            updateLocationSelectionHelper('Lokasi pengiriman belum ditemukan. Coba kata kunci yang lebih spesifik.', 'error');
             return;
         }
         addressSuggestionItems = items;
@@ -1657,17 +1801,279 @@
 
             const title = document.createElement('span');
             title.className = 'address-suggestion-title';
-            title.textContent = String(item.display_name || '');
+            title.textContent = String(item.label || '');
 
             const subtitle = document.createElement('span');
             subtitle.className = 'address-suggestion-subtitle';
+            subtitle.dataset.locationMeta = '1';
             subtitle.textContent = `Lat ${Number(item.lat || 0).toFixed(5)} • Lng ${Number(item.lng || item.lon || 0).toFixed(5)}`;
+
+            subtitle.textContent = [item.subdistrict_name, item.district_name, item.city_name, item.province_name, item.zip_code]
+                .filter(Boolean)
+                .join(' • ');
 
             btn.appendChild(title);
             btn.appendChild(subtitle);
             addressHelper.appendChild(btn);
         });
         addressHelper.classList.remove('hidden');
+        updateLocationSelectionHelper('Pilih salah satu lokasi pengiriman untuk melengkapi alamat dan ongkir.', 'info');
+    }
+
+    function updateShippingDestinationHelper(message, tone = 'default') {
+        if (!rajaOngkirHelper) return;
+
+        rajaOngkirHelper.textContent = message;
+        rajaOngkirHelper.className = 'mt-2 text-xs font-semibold ';
+
+        if (tone === 'error') {
+            rajaOngkirHelper.className += 'text-red-600';
+            return;
+        }
+
+        if (tone === 'success') {
+            rajaOngkirHelper.className += 'text-emerald-600';
+            return;
+        }
+
+        if (tone === 'info') {
+            rajaOngkirHelper.className += 'text-blue-600';
+            return;
+        }
+
+        rajaOngkirHelper.className += 'text-slate-500';
+    }
+
+    function hideShippingDestinationSuggestions() {
+        if (!rajaOngkirSuggestions) return;
+
+        rajaOngkirSuggestions.classList.add('hidden');
+        rajaOngkirSuggestions.innerHTML = '';
+        rajaOngkirSuggestionItems = [];
+    }
+
+    function clearShippingDestination(options = {}) {
+        const preserveSearch = Boolean(options.preserveSearch);
+
+        if (inpShippingDestinationId) inpShippingDestinationId.value = '';
+        if (inpShippingDestinationLabel) inpShippingDestinationLabel.value = '';
+        if (!preserveSearch && rajaOngkirSearchInput) rajaOngkirSearchInput.value = '';
+
+        hideShippingDestinationSuggestions();
+        updateShippingDestinationHelper('Pilih lokasi pengiriman agar sistem bisa menghitung ongkir otomatis.', 'default');
+    }
+
+    function renderShippingDestinationSuggestions(items) {
+        if (!rajaOngkirSuggestions) return;
+
+        if (!Array.isArray(items) || !items.length) {
+            hideShippingDestinationSuggestions();
+            updateShippingDestinationHelper('Lokasi pengiriman belum ditemukan. Coba kata kunci yang lebih spesifik.', 'error');
+            return;
+        }
+
+        rajaOngkirSuggestionItems = items;
+        rajaOngkirSuggestions.innerHTML = '';
+
+        items.forEach((item, index) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.dataset.rajaongkirIndex = String(index);
+            button.className = 'block w-full border-b border-slate-100 px-4 py-3 text-left text-sm text-slate-700 hover:bg-red-50 hover:text-red-700 last:border-b-0';
+
+            const title = document.createElement('span');
+            title.className = 'block font-bold';
+            title.textContent = item.label || '-';
+
+            const subtitle = document.createElement('span');
+            subtitle.className = 'mt-1 block text-xs font-semibold text-slate-400';
+            subtitle.textContent = [item.subdistrict_name, item.district_name, item.city_name, item.zip_code]
+                .filter(Boolean)
+                .join(' • ');
+
+            button.appendChild(title);
+            button.appendChild(subtitle);
+            rajaOngkirSuggestions.appendChild(button);
+        });
+
+        rajaOngkirSuggestions.classList.remove('hidden');
+        updateShippingDestinationHelper('Pilih salah satu lokasi pengiriman untuk melengkapi tujuan ongkir.', 'info');
+    }
+
+    async function fetchShippingDestinationSuggestions(query) {
+        try {
+            const response = await fetch(`${SHIPPING_DESTINATION_URL}?search=${encodeURIComponent(query)}`, {
+                method: 'GET',
+                headers: { Accept: 'application/json' },
+                credentials: 'same-origin',
+            });
+            const payload = await response.json();
+            const items = response.ok && payload.success ? (payload.data || []) : [];
+
+            if (!response.ok || !payload.success) {
+                throw new Error(payload.message || 'Gagal mencari lokasi pengiriman.');
+            }
+
+            renderShippingDestinationSuggestions(items);
+        } catch (error) {
+            hideShippingDestinationSuggestions();
+            updateShippingDestinationHelper(error.message || 'Gagal mencari lokasi pengiriman.', 'error');
+        }
+    }
+
+    function scheduleShippingDestinationSearch() {
+        if (!rajaOngkirSearchInput) return;
+
+        const query = (rajaOngkirSearchInput.value || '').trim();
+        if (inpShippingDestinationId) inpShippingDestinationId.value = '';
+        if (inpShippingDestinationLabel) inpShippingDestinationLabel.value = '';
+        invalidateShippingQuote('Lokasi pengiriman berubah. Silakan hitung ongkir lagi.');
+
+        if (rajaOngkirSearchTimer) clearTimeout(rajaOngkirSearchTimer);
+
+        if (query.length < 3) {
+            hideShippingDestinationSuggestions();
+            updateShippingDestinationHelper('Ketik minimal 3 huruf untuk mencari lokasi pengiriman.', 'default');
+            return;
+        }
+
+        rajaOngkirSearchTimer = setTimeout(() => {
+            fetchShippingDestinationSuggestions(query);
+        }, 350);
+    }
+
+    function selectShippingDestination(item) {
+        if (!item) return;
+
+        if (rajaOngkirSearchInput) {
+            rajaOngkirSearchInput.value = item.label || '';
+        }
+        if (inpShippingDestinationId) {
+            inpShippingDestinationId.value = item.id || '';
+        }
+        if (inpShippingDestinationLabel) {
+            inpShippingDestinationLabel.value = item.label || '';
+        }
+
+        hideShippingDestinationSuggestions();
+        updateShippingDestinationHelper('Lokasi pengiriman berhasil dipilih.', 'success');
+        invalidateShippingQuote('Lokasi pengiriman dipilih. Silakan hitung ongkir lagi.');
+    }
+
+    function clearAddressSelection(options = {}) {
+        const preserveSearch = Boolean(options.preserveSearch);
+
+        if (inpAlamatMaps) inpAlamatMaps.value = '';
+        if (inpShippingDestinationId) inpShippingDestinationId.value = '';
+        if (inpShippingDestinationLabel) inpShippingDestinationLabel.value = '';
+
+        const inpProvinsi = document.getElementById('inp-provinsi');
+        const inpKota = document.getElementById('inp-kota');
+        const inpKecamatan = document.getElementById('inp-kecamatan');
+        const inpKodePos = document.getElementById('inp-kodepos');
+
+        if (inpProvinsi) inpProvinsi.value = '';
+        if (inpKota) inpKota.value = '';
+        if (inpKecamatan) inpKecamatan.value = '';
+        if (inpKodePos) inpKodePos.value = '';
+        if (inpAlamatLat) inpAlamatLat.value = '';
+        if (inpAlamatLng) inpAlamatLng.value = '';
+        if (orderMapLatEl) orderMapLatEl.textContent = '-';
+        if (orderMapLngEl) orderMapLngEl.textContent = '-';
+        if (!preserveSearch && locationSearchInput) locationSearchInput.value = '';
+        if (orderMarker) {
+            orderMap?.removeLayer(orderMarker);
+            orderMarker = null;
+        }
+
+        updateSelectedAddressPreview('');
+        updateCombinedAddress();
+        invalidateShippingQuote('Lokasi pengiriman berubah. Silakan hitung ongkir lagi.');
+    }
+
+    function buildGeocodingQueries(item) {
+        const primary = String(item?.label || '').trim();
+        const fallback = [
+            item?.subdistrict_name,
+            item?.district_name,
+            item?.city_name,
+            item?.province_name,
+            item?.zip_code,
+        ].filter(Boolean).join(', ');
+
+        return [primary, fallback].filter((value, index, values) => value && values.indexOf(value) === index);
+    }
+
+    async function fetchMapCoordinate(query) {
+        const response = await fetch(`${ADDRESS_SUGGEST_URL}?q=${encodeURIComponent(query)}`, {
+            method: 'GET',
+            headers: { Accept: 'application/json' },
+            credentials: 'same-origin',
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            return null;
+        }
+
+        const firstResult = Array.isArray(data.data) ? data.data[0] : null;
+        if (!firstResult) {
+            return null;
+        }
+
+        const lat = Number(firstResult.lat || 0);
+        const lng = Number(firstResult.lng || firstResult.lon || 0);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat === 0 || lng === 0) {
+            return null;
+        }
+
+        return { lat, lng };
+    }
+
+    async function syncMapToSelectedLocation(item) {
+        const selectedLabel = String(item?.label || '').trim();
+        const inpProvinsi = document.getElementById('inp-provinsi');
+        const inpKota = document.getElementById('inp-kota');
+        const inpKecamatan = document.getElementById('inp-kecamatan');
+        const inpKodePos = document.getElementById('inp-kodepos');
+
+        if (locationSearchInput) locationSearchInput.value = selectedLabel;
+        if (inpAlamatMaps) inpAlamatMaps.value = selectedLabel;
+        if (inpShippingDestinationId) inpShippingDestinationId.value = item?.id || '';
+        if (inpShippingDestinationLabel) inpShippingDestinationLabel.value = item?.label || selectedLabel;
+        if (inpProvinsi) inpProvinsi.value = item?.province_name || '';
+        if (inpKota) inpKota.value = item?.city_name || '';
+        if (inpKecamatan) inpKecamatan.value = item?.subdistrict_name || item?.district_name || '';
+        if (inpKodePos) inpKodePos.value = item?.zip_code || '';
+
+        updateSelectedAddressPreview(selectedLabel);
+        updateCombinedAddress();
+        hideAddressSuggestions();
+
+        const queries = buildGeocodingQueries(item);
+
+        for (const query of queries) {
+            const coordinate = await fetchMapCoordinate(query);
+            if (!coordinate) {
+                continue;
+            }
+
+            selectAddressSuggestion(item, coordinate.lat, coordinate.lng);
+            updateLocationSelectionHelper('Lokasi pengiriman dipilih dan titik peta sudah ditampilkan.', 'success');
+            return;
+        }
+
+        if (inpAlamatLat) inpAlamatLat.value = '';
+        if (inpAlamatLng) inpAlamatLng.value = '';
+        if (orderMapLatEl) orderMapLatEl.textContent = '-';
+        if (orderMapLngEl) orderMapLngEl.textContent = '-';
+        if (orderMarker) {
+            orderMap?.removeLayer(orderMarker);
+            orderMarker = null;
+        }
+
+        updateLocationSelectionHelper('Lokasi pengiriman tersimpan. Titik peta dapat disesuaikan manual.', 'info');
     }
 
     function updateOrderCoord(lat, lng) {
@@ -1678,7 +2084,7 @@
         updateCombinedAddress();
     }
 
-    function initLeafletMap(lat, lng) {
+    function initLeafletMap(lat, lng, withMarker = true) {
         if (!orderMapEl) return;
         if (orderMap) {
             orderMap.remove();
@@ -1697,68 +2103,100 @@
             className: ''
         });
 
-        orderMarker = L.marker([lat, lng], { icon: redIcon, draggable: true }).addTo(orderMap)
-            .bindPopup('Lokasi Pesanan');
+        function bindMarker(markerInstance) {
+            markerInstance.on('dragend', function(e) {
+                var pos = e.target.getLatLng();
+                updateOrderCoord(pos.lat, pos.lng);
+                invalidateShippingQuote('Lokasi pengiriman berubah. Silakan hitung ongkir lagi.');
+            });
+        }
 
-        orderMarker.on('dragend', function(e) {
-            var pos = e.target.getLatLng();
-            updateOrderCoord(pos.lat, pos.lng);
-            invalidateShippingQuote();
-        });
+        function placeMarker(markerLat, markerLng) {
+            if (orderMarker) {
+                orderMarker.setLatLng([markerLat, markerLng]);
+                return;
+            }
+
+            orderMarker = L.marker([markerLat, markerLng], { icon: redIcon, draggable: true }).addTo(orderMap)
+                .bindPopup('Lokasi Pengiriman');
+            bindMarker(orderMarker);
+        }
+
+        orderMarker = null;
+        if (withMarker) {
+            placeMarker(lat, lng);
+        }
 
         orderMap.on('click', function(e) {
-            orderMarker.setLatLng(e.latlng);
+            if (!String(inpAlamatMaps?.value || '').trim()) {
+                updateLocationSelectionHelper('Pilih lokasi pengiriman terlebih dahulu, lalu sesuaikan titiknya di peta.', 'error');
+                return;
+            }
+
+            placeMarker(e.latlng.lat, e.latlng.lng);
             updateOrderCoord(e.latlng.lat, e.latlng.lng);
-            invalidateShippingQuote();
+            invalidateShippingQuote('Lokasi pengiriman berubah. Silakan hitung ongkir lagi.');
         });
     }
 
     function selectAddressSuggestion(displayName, lat, lng, item = null) {
-        inpAlamatMaps.value = displayName;
+        const locationItem = typeof displayName === 'object' && displayName !== null ? displayName : item;
+        const selectedLabel = typeof displayName === 'string'
+            ? displayName
+            : String(locationItem?.label || locationItem?.display_name || '');
+
+        inpAlamatMaps.value = selectedLabel;
         inpAlamatLat.value = String(lat);
         inpAlamatLng.value = String(lng);
-        if (item) {
+        if (locationSearchInput) locationSearchInput.value = selectedLabel;
+        updateSelectedAddressPreview(selectedLabel);
+        if (locationItem) {
             const inpProvinsi = document.getElementById('inp-provinsi');
             const inpKota = document.getElementById('inp-kota');
             const inpKecamatan = document.getElementById('inp-kecamatan');
             const inpKodePos = document.getElementById('inp-kodepos');
-            if (inpProvinsi) inpProvinsi.value = item.provinsi || '';
-            if (inpKota) inpKota.value = item.kota || '';
-            if (inpKecamatan) inpKecamatan.value = item.kecamatan || '';
-            if (inpKodePos) inpKodePos.value = item.kode_pos || '';
+
+            if (inpShippingDestinationId) inpShippingDestinationId.value = locationItem.id || '';
+            if (inpShippingDestinationLabel) inpShippingDestinationLabel.value = locationItem.label || selectedLabel;
+            if (inpProvinsi) inpProvinsi.value = locationItem.province_name || locationItem.provinsi || '';
+            if (inpKota) inpKota.value = locationItem.city_name || locationItem.kota || '';
+            if (inpKecamatan) inpKecamatan.value = locationItem.subdistrict_name || locationItem.district_name || locationItem.kecamatan || '';
+            if (inpKodePos) inpKodePos.value = locationItem.zip_code || locationItem.kode_pos || '';
         }
         updateCombinedAddress();
-        invalidateShippingQuote();
+        invalidateShippingQuote('Lokasi pengiriman dipilih. Silakan hitung ongkir lagi.');
         hideAddressSuggestions();
-        if (lat && lng) initLeafletMap(Number(lat), Number(lng));
+        if (lat && lng) initLeafletMap(Number(lat), Number(lng), true);
     }
 
     async function fetchAddressSuggestions(query) {
         try {
-            const response = await fetch(`${ADDRESS_SUGGEST_URL}?q=${encodeURIComponent(query)}`, {
+            const response = await fetch(`${SHIPPING_DESTINATION_URL}?search=${encodeURIComponent(query)}`, {
                 method: 'GET',
                 headers: { Accept: 'application/json' },
                 credentials: 'same-origin',
             });
             const data = await response.json();
-            if (!response.ok || !data.success) throw new Error(data.message || 'Gagal mengambil saran alamat.');
+            if (!response.ok || !data.success) throw new Error(data.message || 'Gagal mencari lokasi pengiriman.');
             renderAddressSuggestions(data.data || []);
         } catch (error) {
             hideAddressSuggestions();
+            updateLocationSelectionHelper(error.message || 'Gagal mencari lokasi pengiriman.', 'error');
         }
     }
 
     function scheduleAddressSuggestSearch() {
-        const query = (inpAlamatMaps.value || '').trim();
-        inpAlamatLat.value = '';
-        inpAlamatLng.value = '';
-        updateCombinedAddress();
-        invalidateShippingQuote();
+        if (!locationSearchInput) return;
+
+        const query = (locationSearchInput.value || '').trim();
 
         if (addressSearchTimer) clearTimeout(addressSearchTimer);
 
+        clearAddressSelection({ preserveSearch: true });
+
         if (query.length < 3) {
             hideAddressSuggestions();
+            updateLocationSelectionHelper('Ketik minimal 3 huruf untuk mencari lokasi pengiriman.', 'default');
             return;
         }
 
@@ -1772,24 +2210,31 @@
 
         const mapsAddress = (inpAlamatMaps.value || '').trim();
         const detailAddress = (inpAlamatDetail.value || '').trim();
-        const lat = Number(inpAlamatLat.value || 0);
-        const lng = Number(inpAlamatLng.value || 0);
+        const destinationId = (inpShippingDestinationId?.value || '').trim();
+        const destinationLabel = (inpShippingDestinationLabel?.value || '').trim();
         const items = currentTab === 'beli'
-            ? getSelectedItems().map((item) => ({ jumlah: item.jumlah }))
-            : [{ jumlah: Math.max(1, Number(buildServiceState().qty || 1)) }];
+            ? getSelectedItems().map((item) => ({ produk_id: item.produk_id, jumlah: item.jumlah }))
+            : [];
+        const serviceState = currentTab === 'beli' ? null : buildServiceState();
 
         if (!mapsAddress || !detailAddress) {
-            setShippingStatus('Alamat OpenStreetMap dan detail alamat wajib diisi sebelum cek ongkir.', 'error');
+            setShippingStatus('Lokasi pengiriman belum lengkap. Silakan pilih lokasi pengiriman terlebih dahulu.', 'error');
             return;
         }
-        if (!lat || !lng) {
-            setShippingStatus('Pilih alamat dari saran OpenStreetMap agar koordinat terbaca.', 'error');
+        if (!destinationId) {
+            setShippingStatus(USE_AUTHENTICATED_CUSTOMER
+                ? 'Lokasi pengiriman belum dapat digunakan untuk menghitung ongkir. Silakan perbarui alamat pengiriman Anda.'
+                : 'Lokasi pengiriman belum dapat digunakan untuk menghitung ongkir. Silakan pilih lokasi pengiriman terlebih dahulu.', 'error');
             return;
         }
-        if (!items.length) {
+        if (currentTab === 'beli' && !items.length) {
             setShippingStatus(currentTab === 'beli'
                 ? 'Pilih minimal satu produk sebelum cek ongkir.'
                 : 'Lengkapi detail layanan terlebih dahulu sebelum menghitung ongkir penjemputan.', 'error');
+            return;
+        }
+        if (currentTab !== 'beli' && (!serviceState || !serviceState.qty || !serviceState.totalPrice)) {
+            setShippingStatus('Lengkapi detail layanan terlebih dahulu sebelum menghitung ongkir penjemputan.', 'error');
             return;
         }
 
@@ -1798,7 +2243,25 @@
         setShippingStatus('', 'info');
 
         try {
-            const response = await fetch(SHIPPING_QUOTE_URL, {
+            const payload = currentTab === 'beli'
+                ? {
+                    destination_id: destinationId,
+                    destination_label: destinationLabel,
+                    order_type: 'produk',
+                    handling_method: 'diantar',
+                    items,
+                }
+                : {
+                    destination_id: destinationId,
+                    destination_label: destinationLabel,
+                    order_type: serviceState.kategori,
+                    handling_method: serviceState.metode,
+                    service_unit_apar_ids: serviceState.registeredUnits.map((unit) => unit.id),
+                    service_ukuran_apar: serviceState.ukuran,
+                    service_jumlah_unit: serviceState.qty,
+                };
+
+            const response = await fetch(SHIPPING_COST_URL, {
                 method: 'POST',
                 headers: {
                     Accept: 'application/json',
@@ -1806,20 +2269,34 @@
                     'X-CSRF-TOKEN': CSRF_TOKEN,
                 },
                 credentials: 'same-origin',
-                body: JSON.stringify({ metode_pengiriman: 'diantar', alamat_maps: mapsAddress, alamat_detail: detailAddress, alamat_lat: lat, alamat_lng: lng, items }),
+                body: JSON.stringify(payload),
             });
 
             const data = await response.json();
             if (!response.ok || !data.success) throw new Error(data.message || 'Gagal menghitung ongkir.');
 
-            shippingCost = Number(data.data?.ongkir || 0);
-            shippingDistanceKm = Number(data.data?.distance_km || 0);
+            shippingCost = Number(data.cost || 0);
+            shippingDistanceKm = 0;
             shippingQuoteReady = shippingCost >= 0;
+            shippingCourierCode = String(data.courier || '');
+            shippingCourierName = String(data.courier_name || '');
+            shippingServiceName = [String(data.service || ''), String(data.service_description || '')]
+                .filter(Boolean)
+                .join(' - ');
+            shippingEtd = String(data.etd || '');
+            shippingWeight = Number(data.weight || 0);
             inpOngkir.value = String(shippingCost);
-            inpShippingDistance.value = String(shippingDistanceKm);
+            inpShippingDistance.value = '0';
+            if (inpShippingCourier) inpShippingCourier.value = shippingCourierCode;
+            if (inpShippingService) inpShippingService.value = shippingServiceName;
+            if (inpShippingEtd) inpShippingEtd.value = shippingEtd;
+            if (inpShippingWeight) inpShippingWeight.value = String(shippingWeight);
 
             setShippingStatus('Ongkir berhasil dihitung.', 'success');
             syncDisplayedTotal();
+            if (currentTab !== 'beli') {
+                updateServiceSummary();
+            }
         } catch (error) {
             invalidateShippingQuote(error.message || 'Gagal menghitung ongkir.');
         } finally {
@@ -1903,8 +2380,13 @@
             return;
         }
 
-        const totalQty = getSelectedItemQuantityTotal();
+        const selectedItems = getSelectedItems();
+        const totalQty = selectedItems.reduce((total, item) => total + Number(item.jumlah || 0), 0);
         const totalOngkir = shippingMethod === 'diantar' ? shippingCost : 0;
+        const productLabel = selectedItems.length
+            ? selectedItems.map((item) => `${item.nama || 'Produk'} x${Number(item.jumlah || 0)}`).join(', ')
+            : 'Belum dipilih';
+        const methodLabel = shippingMethod === 'diantar' ? 'Diantar' : 'Ambil Sendiri';
         
         // Cek promo diskon untuk tipe beli
         promoDiscountPercent = 0;
@@ -1953,6 +2435,9 @@
         const finalTotal = normalTotal - promoDiscountNominal + totalOngkir;
 
         lblSubtotal.textContent = fmt(normalTotal);
+        if (lblProductItems) lblProductItems.textContent = productLabel;
+        if (lblItemCount) lblItemCount.textContent = String(selectedItems.length);
+        if (lblShippingMethod) lblShippingMethod.textContent = methodLabel;
         
         const lblTotalUnit = document.getElementById('lbl-total-unit');
         if (lblTotalUnit) lblTotalUnit.textContent = totalQty;
@@ -1962,6 +2447,18 @@
 
         if (lblDiscount) lblDiscount.textContent = '- ' + fmt(promoDiscountNominal);
         if (lblOngkir) lblOngkir.textContent = fmt(totalOngkir);
+        if (shippingSummaryCourierRow) {
+            shippingSummaryCourierRow.classList.toggle('hidden', shippingMethod !== 'diantar' || !shippingServiceLabel());
+        }
+        if (lblShippingCourier) {
+            lblShippingCourier.textContent = shippingServiceLabel() || '-';
+        }
+        if (shippingSummaryEtdRow) {
+            shippingSummaryEtdRow.classList.toggle('hidden', shippingMethod !== 'diantar' || !shippingEtd);
+        }
+        if (lblShippingEtd) {
+            lblShippingEtd.textContent = shippingEtd || '-';
+        }
         
         if (ongkirRow) {
             ongkirRow.style.display = 'flex';
@@ -2634,7 +3131,7 @@
                 state.currentStockLabel = state.peralatanItems.length
                     ? state.peralatanItems.map((item) => `${item.nama}: ${item.stok} pcs`).join(' • ')
                     : 'Paket service akan memakai peralatan sesuai standar pekerjaan.';
-                state.afterStockLabel = 'Stok peralatan baru akan berkurang saat admin mengubah status ke Selesai Final.';
+                state.afterStockLabel = 'Stok peralatan akan berkurang setelah pembayaran valid dikonfirmasi admin.';
                 state.lowStock = lowStockItems.length > 0;
                 state.insufficientStock = false;
             }
@@ -2716,6 +3213,18 @@
                 : '-';
         }
         if (serviceSummaryMethod) serviceSummaryMethod.textContent = metodeLabel;
+        if (serviceSummaryCourierRow) {
+            serviceSummaryCourierRow.classList.toggle('hidden', state.metode !== 'dijemput' || !shippingServiceLabel());
+        }
+        if (serviceSummaryCourier) {
+            serviceSummaryCourier.textContent = shippingServiceLabel() || '-';
+        }
+        if (serviceSummaryEtdRow) {
+            serviceSummaryEtdRow.classList.toggle('hidden', state.metode !== 'dijemput' || !shippingEtd);
+        }
+        if (serviceSummaryEtd) {
+            serviceSummaryEtd.textContent = shippingEtd || '-';
+        }
         if (serviceSummaryOngkir) serviceSummaryOngkir.textContent = fmt(state.ongkir || 0);
         if (serviceSummaryPriceLabel) {
             serviceSummaryPriceLabel.textContent = (state.ongkir || 0) > 0 ? 'Total Pembayaran' : 'Estimasi Harga / Total';
@@ -3079,7 +3588,7 @@
         updateCombinedAddress();
 
         if (!inpAlamatMaps.value.trim() || !inpAlamatDetail.value.trim()) {
-            showAppAlert('Alamat Maps dan detail alamat wajib diisi.', 'warning', 'Peringatan');
+            showAppAlert('Lokasi pengiriman belum lengkap. Silakan pilih lokasi pengiriman terlebih dahulu.', 'warning', 'Peringatan');
             event.preventDefault();
             return;
         }
@@ -3149,16 +3658,24 @@
 
             if (shippingMethod === 'diantar') {
                 if (!shippingQuoteReady) {
-                    showAppAlert('Silakan hitung ongkir penjemputan terlebih dahulu.', 'warning', 'Peringatan');
+                    showAppAlert('Silakan hitung biaya penjemputan terlebih dahulu.', 'warning', 'Peringatan');
                     event.preventDefault();
                     return;
                 }
 
                 inpOngkir.value = String(shippingCost);
                 inpShippingDistance.value = String(shippingDistanceKm);
+                if (inpShippingCourier) inpShippingCourier.value = shippingCourierCode;
+                if (inpShippingService) inpShippingService.value = shippingServiceName;
+                if (inpShippingEtd) inpShippingEtd.value = shippingEtd;
+                if (inpShippingWeight) inpShippingWeight.value = String(shippingWeight || 0);
             } else {
                 inpOngkir.value = '0';
                 inpShippingDistance.value = '0';
+                if (inpShippingCourier) inpShippingCourier.value = '';
+                if (inpShippingService) inpShippingService.value = '';
+                if (inpShippingEtd) inpShippingEtd.value = '';
+                if (inpShippingWeight) inpShippingWeight.value = '0';
             }
 
             if (!inpBank.value) {
@@ -3178,15 +3695,23 @@
 
         if (shippingMethod === 'diantar') {
             if (!shippingQuoteReady) {
-                showAppAlert('Silakan hitung ongkir Ekspedisi terlebih dahulu.', 'warning', 'Peringatan');
+                showAppAlert('Silakan hitung ongkir terlebih dahulu.', 'warning', 'Peringatan');
                 event.preventDefault();
                 return;
             }
             inpOngkir.value = String(shippingCost);
             inpShippingDistance.value = String(shippingDistanceKm);
+            if (inpShippingCourier) inpShippingCourier.value = shippingCourierCode;
+            if (inpShippingService) inpShippingService.value = shippingServiceName;
+            if (inpShippingEtd) inpShippingEtd.value = shippingEtd;
+            if (inpShippingWeight) inpShippingWeight.value = String(shippingWeight || 0);
         } else {
             inpOngkir.value = '0';
             inpShippingDistance.value = '0';
+            if (inpShippingCourier) inpShippingCourier.value = '';
+            if (inpShippingService) inpShippingService.value = '';
+            if (inpShippingEtd) inpShippingEtd.value = '';
+            if (inpShippingWeight) inpShippingWeight.value = '0';
         }
 
         document.getElementById('inp-use-cart-checkout').value = CAN_USE_CART_CHECKOUT && CART_HAS_ITEMS ? '1' : '0';
@@ -3239,15 +3764,17 @@
         formatMoneyInput(inpHargaPengajuan);
     }
 
-    inpAlamatMaps.addEventListener('input', scheduleAddressSuggestSearch);
-    inpAlamatMaps.addEventListener('focus', function() {
-        if ((this.value || '').trim().length >= 3 && addressSuggestionItems.length) {
-            addressHelper.classList.remove('hidden');
-        }
-    });
-    inpAlamatMaps.addEventListener('blur', function() {
-        setTimeout(hideAddressSuggestions, 300);
-    });
+    if (locationSearchInput) {
+        locationSearchInput.addEventListener('input', scheduleAddressSuggestSearch);
+        locationSearchInput.addEventListener('focus', function() {
+            if ((this.value || '').trim().length >= 3 && addressSuggestionItems.length) {
+                addressHelper.classList.remove('hidden');
+            }
+        });
+        locationSearchInput.addEventListener('blur', function() {
+            setTimeout(hideAddressSuggestions, 300);
+        });
+    }
 
     addressHelper.addEventListener('mousedown', function(event) {
         event.preventDefault();
@@ -3256,7 +3783,8 @@
         const idx = Number(target.dataset.addressIndex || -1);
         if (idx < 0 || idx >= addressSuggestionItems.length) return;
         const selected = addressSuggestionItems[idx];
-        selectAddressSuggestion(String(selected.display_name || ''), Number(selected.lat || 0), Number(selected.lng || selected.lon || 0), selected);
+        updateLocationSelectionHelper('Lokasi pengiriman dipilih. Peta sedang menyesuaikan posisi.', 'info');
+        void syncMapToSelectedLocation(selected);
     });
 
     inpAlamatDetail.addEventListener('input', function() {
@@ -3322,10 +3850,16 @@
 
 
     // Init map
-    const initialLat = Number(inpAlamatLat.value || STORE_LAT || -6.2088);
-    const initialLng = Number(inpAlamatLng.value || STORE_LNG || 106.8456);
-    initLeafletMap(initialLat, initialLng);
-    updateOrderCoord(initialLat, initialLng);
+    const initialLat = Number(inpAlamatLat.value || DEFAULT_MAP_LAT || -6.2088);
+    const initialLng = Number(inpAlamatLng.value || DEFAULT_MAP_LNG || 106.8456);
+    const hasInitialCoordinates = String(inpAlamatLat.value || '').trim() !== '' && String(inpAlamatLng.value || '').trim() !== '';
+    initLeafletMap(initialLat, initialLng, hasInitialCoordinates);
+    if (hasInitialCoordinates) {
+        updateOrderCoord(initialLat, initialLng);
+    } else {
+        if (orderMapLatEl) orderMapLatEl.textContent = '-';
+        if (orderMapLngEl) orderMapLngEl.textContent = '-';
+    }
 
     // Init items
     if (btnTambahItem && itemsContainer && tmplRow) {
@@ -3337,10 +3871,11 @@
         });
     }
 
-    if (inpAlamatMaps.value.trim().length >= 3 && !inpAlamatLat.value && !inpAlamatLng.value) {
-        fetchAddressSuggestions(inpAlamatMaps.value.trim());
+    if (locationSearchInput && locationSearchInput.value.trim().length >= 3 && !inpShippingDestinationId.value) {
+        fetchAddressSuggestions(locationSearchInput.value.trim());
     }
 
+    updateSelectedAddressPreview(inpAlamatMaps.value || '');
     updateCombinedAddress();
     setShippingMethod(inpMetodePengiriman.value || 'pickup');
     setSelectedBank(inpBank.value || '');

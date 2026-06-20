@@ -3,8 +3,18 @@
     $totalHarga = $pesanan->payableTotal();
     $unitInfo = $pesanan->getUnitInfo();
     $linkedTestimoni = $pesanan->linkedTestimoni ?? null;
-    $canReview = $pesanan->canGiveReview() || ($pesanan->isCompleted() && !$linkedTestimoni);
+    $canViewInvoice = $pesanan->canViewInvoice();
+    $canConfirmReceived = $pesanan->canCustomerConfirmReceived();
+    $hasConfirmed = $pesanan->hasCustomerConfirmed();
+    $hasReviewed = $pesanan->hasSubmittedTestimonial() || (bool) $linkedTestimoni;
+    $canReview = $pesanan->canSubmitCustomerReview();
     $purchasePriceLabel = $pesanan->purchasePriceStatusLabel();
+    $paymentStateLabel = $pesanan->hasPendingPurchasePriceRequest()
+        ? 'Menunggu Persetujuan Harga'
+        : ($pesanan->isPaymentConfirmed() ? 'Lunas' : ($pesanan->canPay() ? 'Siap Dibayar' : 'Belum selesai'));
+    $paymentStateClass = $pesanan->hasPendingPurchasePriceRequest()
+        ? 'text-amber-700'
+        : ($pesanan->isPaymentConfirmed() ? 'text-emerald-700' : 'text-amber-700');
     $pickupWaUrl = \App\Support\WhatsApp::companyLink(
         'Halo PD Anugrah Utama, saya siap menjemput ' . strtolower($pesanan->transactionDisplayName()) . ' pada ' . $pesanan->displayTransactionDateTime() . '.'
     );
@@ -79,8 +89,8 @@
             </div>
             <div class="rounded-lg border border-slate-100 bg-white px-3 py-2">
                 <dt class="font-bold uppercase tracking-wide text-slate-400">Status Bayar</dt>
-                <dd class="mt-1 font-black {{ $pesanan->isPaymentConfirmed() ? 'text-emerald-700' : 'text-amber-700' }}">
-                    {{ $pesanan->isPaymentConfirmed() ? 'Lunas' : 'Belum selesai' }}
+                <dd class="mt-1 font-black {{ $paymentStateClass }}">
+                    {{ $paymentStateLabel }}
                 </dd>
             </div>
             <div class="rounded-lg border border-slate-100 bg-white px-3 py-2">
@@ -197,7 +207,13 @@
         @endif
 
         <div class="mt-4 flex flex-wrap gap-2">
-            @if($pesanan->isPaymentConfirmed() || $pesanan->isCompleted() || in_array((string) $pesanan->sumber_pesanan, ['datang_langsung', 'offline', 'input_admin', 'telepon'], true))
+            @if($pesanan->hasPendingPurchasePriceRequest())
+                <div class="w-full rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-xs font-semibold leading-5 text-amber-800">
+                    Pengajuan harga masih menunggu keputusan admin. Invoice detail tetap bisa dilihat sebagai dokumen transaksi, tetapi tombol bayar dan upload bukti pembayaran baru aktif setelah admin menyetujui atau menolak pengajuan ini.
+                </div>
+            @endif
+
+            @if($canViewInvoice)
                 <a href="{{ route('invoice.show', $pesanan) }}" class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-xs font-black text-white transition hover:bg-red-700">
                     <i class="fa-solid fa-file-invoice text-[10px]"></i>
                     Lihat Invoice
@@ -220,15 +236,27 @@
                 </a>
             @endif
 
+            @if($canConfirmReceived)
+                <button type="button" @click.prevent="openConfirmModal({{ $pesanan->id }}, '{{ addslashes($pesanan->trackingItemLabel()) }}', '{{ addslashes($pesanan->displayTransactionDateTime()) }}', 'Rp{{ number_format($pesanan->payableTotal(), 0, ',', '.') }}', '{{ addslashes($pesanan->publicStatusLabel()) }}', '{{ addslashes($pesanan->trackingTypeLabel()) }}')" class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-700 transition hover:bg-blue-100">
+                    <i class="fa-solid fa-box-open text-[10px]"></i>
+                    Konfirmasi Pesanan Diterima
+                </button>
+            @elseif($hasConfirmed)
+                <span class="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">
+                    <i class="fa-solid fa-circle-check text-[10px]"></i>
+                    Pesanan Sudah Dikonfirmasi
+                </span>
+            @endif
+
             @if($canReview)
                 <button type="button" @click.prevent="openTestimoniModal({{ $pesanan->id }}, '{{ addslashes($pesanan->trackingItemLabel()) }}', '{{ addslashes($pesanan->displayTransactionDateTime()) }}', 'Rp{{ number_format($pesanan->payableTotal(), 0, ',', '.') }}', '{{ addslashes($pesanan->publicStatusLabel()) }}', '{{ addslashes($pesanan->trackingTypeLabel()) }}')" class="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-700 transition hover:bg-amber-100">
                     <i class="fa-solid fa-star text-[10px]"></i>
-                    Beri Penilaian
+                    Isi Ulasan
                 </button>
-            @elseif($pesanan->isCompleted() && !$canReview)
+            @elseif($hasReviewed)
                 <span class="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">
                     <i class="fa-solid fa-circle-check text-[10px]"></i>
-                    Sudah Dinilai
+                    Ulasan Terkirim
                 </span>
             @endif
 

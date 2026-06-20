@@ -27,6 +27,8 @@
         $alamatKotaValue = old('alamat_kota', $pelanggan->alamat_kota);
         $alamatKecamatanValue = old('alamat_kecamatan', $pelanggan->alamat_kecamatan);
         $alamatKodePosValue = old('alamat_kode_pos', $pelanggan->alamat_kode_pos);
+        $rajaOngkirDestinationIdValue = old('rajaongkir_destination_id', $pelanggan->rajaongkir_destination_id);
+        $rajaOngkirDestinationLabelValue = old('rajaongkir_destination_label', $pelanggan->rajaongkir_destination_label);
         $linkedUser = $pelanggan->user;
         $displayEmail = $linkedUser?->email ?: '-';
         $displayPhone = $linkedUser?->no_telpon ?: ($pelanggan->no_wa ?: '-');
@@ -61,19 +63,31 @@
             <section class="rounded-[2rem] border border-gray-100 bg-white p-6 shadow-xl shadow-gray-200/40 sm:p-8">
                 <div class="space-y-6">
                     <div>
-                        <label for="admin-address-search" class="block text-sm font-bold text-gray-700">Cari Alamat di Peta</label>
+                        <label for="admin-location-search" class="block text-sm font-bold text-gray-700">Cari Lokasi Pengiriman</label>
                         <input
-                            id="admin-address-search"
+                            id="admin-location-search"
                             type="text"
-                            value="{{ $alamatMapsValue }}"
+                            value="{{ $rajaOngkirDestinationLabelValue ?: $alamatMapsValue }}"
                             class="mt-1 block w-full rounded-2xl border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
-                            placeholder="Ketik minimal 3 huruf, lalu pilih saran alamat"
+                            placeholder="Contoh: Bandung, Jawa Barat"
                             autocomplete="off"
                         >
-                        <div id="admin-address-suggestions" class="mt-2 hidden max-h-64 overflow-y-auto rounded-2xl border border-gray-200 bg-white shadow-xl"></div>
-                        <p id="admin-address-helper" class="mt-2 text-xs font-medium text-gray-500">
-                            Pilih saran alamat untuk mengisi titik lokasi secara otomatis, atau isi alamat secara manual.
+                        <div id="admin-location-suggestions" class="mt-2 hidden max-h-64 overflow-y-auto rounded-2xl border border-gray-200 bg-white shadow-xl"></div>
+                        <p id="admin-location-helper" class="mt-2 text-xs font-medium text-gray-500">
+                            Pilih lokasi pengiriman untuk mengisi tujuan pengiriman dan titik peta secara otomatis.
                         </p>
+                        <x-input-error class="mt-2" :messages="collect($errors->get('alamat_maps'))->merge($errors->get('rajaongkir_destination_id'))->merge($errors->get('rajaongkir_destination_label'))->unique()->values()->all()" />
+                    </div>
+
+                    <div>
+                        <label for="alamat_selected_display" class="block text-sm font-bold text-gray-700">Alamat Terpilih</label>
+                        <textarea
+                            id="alamat_selected_display"
+                            rows="4"
+                            readonly
+                            class="mt-1 block w-full rounded-2xl border-gray-300 bg-slate-50 shadow-sm focus:border-red-500 focus:ring-red-500"
+                            placeholder="Lokasi pengiriman yang dipilih akan tampil di sini"
+                        >{{ $alamatMapsValue }}</textarea>
                     </div>
 
                     <div class="overflow-hidden rounded-2xl border border-gray-200 bg-gray-100 shadow-sm">
@@ -110,20 +124,7 @@
                     </div>
 
                     <div>
-                        <label for="alamat_maps" class="block text-sm font-bold text-gray-700">Alamat Lengkap</label>
-                        <textarea
-                            id="alamat_maps"
-                            name="alamat_maps"
-                            rows="4"
-                            class="mt-1 block w-full rounded-2xl border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
-                            placeholder="Masukkan alamat lengkap pelanggan"
-                            required
-                        >{{ $alamatMapsValue }}</textarea>
-                        <x-input-error class="mt-2" :messages="$errors->get('alamat_maps')" />
-                    </div>
-
-                    <div>
-                        <label for="alamat_detail" class="block text-sm font-bold text-gray-700">Detail / Patokan</label>
+                        <label for="alamat_detail" class="block text-sm font-bold text-gray-700">Detail Alamat / Patokan</label>
                         <textarea
                             id="alamat_detail"
                             name="alamat_detail"
@@ -156,6 +157,10 @@
                             <x-input-error class="mt-2" :messages="$errors->get('alamat_kode_pos')" />
                         </div>
                     </div>
+
+                    <input type="hidden" id="alamat_maps" name="alamat_maps" value="{{ $alamatMapsValue }}">
+                    <input type="hidden" id="rajaongkir_destination_id" name="rajaongkir_destination_id" value="{{ $rajaOngkirDestinationIdValue }}">
+                    <input type="hidden" id="rajaongkir_destination_label" name="rajaongkir_destination_label" value="{{ $rajaOngkirDestinationLabelValue }}">
                 </div>
             </section>
 
@@ -174,21 +179,26 @@
         <script>
             (function () {
                 const addressSuggestUrl = @js(route('order.address.suggest'));
+                const destinationSuggestUrl = @js(route('rajaongkir.destination'));
                 const defaultLat = -6.2088;
                 const defaultLng = 106.8456;
 
-                const searchInput = document.getElementById('admin-address-search');
+                const form = document.getElementById('admin-pelanggan-edit-form');
+                const locationSearchInput = document.getElementById('admin-location-search');
                 const addressInput = document.getElementById('alamat_maps');
+                const selectedAddressDisplay = document.getElementById('alamat_selected_display');
                 const latInput = document.getElementById('alamat_lat');
                 const lngInput = document.getElementById('alamat_lng');
-                const helper = document.getElementById('admin-address-helper');
-                const suggestions = document.getElementById('admin-address-suggestions');
+                const helper = document.getElementById('admin-location-helper');
+                const suggestions = document.getElementById('admin-location-suggestions');
                 const provinsiInput = document.getElementById('alamat_provinsi');
                 const kotaInput = document.getElementById('alamat_kota');
                 const kecamatanInput = document.getElementById('alamat_kecamatan');
                 const kodePosInput = document.getElementById('alamat_kode_pos');
+                const destinationIdInput = document.getElementById('rajaongkir_destination_id');
+                const destinationLabelInput = document.getElementById('rajaongkir_destination_label');
 
-                if (!searchInput || !addressInput || !latInput || !lngInput || !suggestions) {
+                if (!form || !locationSearchInput || !addressInput || !latInput || !lngInput || !suggestions) {
                     return;
                 }
 
@@ -225,10 +235,51 @@
                     helper.className += 'text-gray-500';
                 }
 
+                function updateSelectedAddress(value) {
+                    if (selectedAddressDisplay) {
+                        selectedAddressDisplay.value = value || '';
+                    }
+                }
+
                 function hideSuggestions() {
                     suggestions.classList.add('hidden');
                     suggestions.innerHTML = '';
                     suggestionItems = [];
+                }
+
+                function clearStructuredAddress() {
+                    provinsiInput.value = '';
+                    kotaInput.value = '';
+                    kecamatanInput.value = '';
+                    kodePosInput.value = '';
+                }
+
+                function clearMarker() {
+                    if (!marker) {
+                        return;
+                    }
+
+                    map.removeLayer(marker);
+                    marker = null;
+                }
+
+                function clearCoordinates() {
+                    latInput.value = '';
+                    lngInput.value = '';
+                    clearMarker();
+                }
+
+                function clearSelectedLocation(preserveSearch = false) {
+                    addressInput.value = '';
+                    if (destinationIdInput) destinationIdInput.value = '';
+                    if (destinationLabelInput) destinationLabelInput.value = '';
+                    clearStructuredAddress();
+                    clearCoordinates();
+                    updateSelectedAddress('');
+
+                    if (!preserveSearch) {
+                        locationSearchInput.value = '';
+                    }
                 }
 
                 function setCoordinates(lat, lng) {
@@ -236,8 +287,7 @@
                     const safeLng = Number(lng);
 
                     if (!Number.isFinite(safeLat) || !Number.isFinite(safeLng)) {
-                        latInput.value = '';
-                        lngInput.value = '';
+                        clearCoordinates();
                         return;
                     }
 
@@ -272,81 +322,159 @@
                     });
                 }
 
+                function renderSuggestions(items) {
+                    if (!Array.isArray(items) || !items.length) {
+                        hideSuggestions();
+                        updateHelper('Lokasi pengiriman belum ditemukan. Coba kata kunci yang lebih spesifik.', 'error');
+                        return;
+                    }
+
+                    suggestionItems = items;
+                    suggestions.innerHTML = '';
+
+                    items.forEach((item, index) => {
+                        const button = document.createElement('button');
+                        button.type = 'button';
+                        button.dataset.index = String(index);
+                        button.className = 'block w-full border-b border-gray-100 px-4 py-3 text-left text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 last:border-b-0';
+
+                        const title = document.createElement('span');
+                        title.className = 'block font-semibold';
+                        title.textContent = item.label || '-';
+
+                        const subtitle = document.createElement('span');
+                        subtitle.className = 'mt-1 block text-xs font-medium text-gray-400';
+                        subtitle.textContent = [item.subdistrict_name, item.district_name, item.city_name, item.province_name, item.zip_code]
+                            .filter(Boolean)
+                            .join(' • ');
+
+                        button.appendChild(title);
+                        button.appendChild(subtitle);
+                        suggestions.appendChild(button);
+                    });
+
+                    suggestions.classList.remove('hidden');
+                    updateHelper('Pilih salah satu lokasi pengiriman untuk melengkapi alamat pelanggan.', 'info');
+                }
+
                 async function fetchSuggestions(query) {
                     try {
-                        const response = await fetch(`${addressSuggestUrl}?q=${encodeURIComponent(query)}`, {
+                        const response = await fetch(`${destinationSuggestUrl}?search=${encodeURIComponent(query)}`, {
                             headers: { Accept: 'application/json' },
                             credentials: 'same-origin',
                         });
                         const payload = await response.json();
                         const items = response.ok && payload.success ? (payload.data || []) : [];
 
-                        if (!items.length) {
-                            hideSuggestions();
-                            updateHelper('Alamat belum ditemukan. Anda tetap bisa mengisi alamat secara manual.', 'info');
-                            return;
+                        if (!response.ok || !payload.success) {
+                            throw new Error(payload.message || 'Gagal mencari lokasi pengiriman.');
                         }
 
-                        suggestionItems = items;
-                        suggestions.innerHTML = '';
-
-                        items.forEach((item, index) => {
-                            const button = document.createElement('button');
-                            button.type = 'button';
-                            button.dataset.index = String(index);
-                            button.className = 'block w-full border-b border-gray-100 px-4 py-3 text-left text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 last:border-b-0';
-                            button.textContent = item.display_name || '';
-                            suggestions.appendChild(button);
-                        });
-
-                        suggestions.classList.remove('hidden');
-                        updateHelper('Pilih saran alamat untuk mengisi alamat dan koordinat.', 'info');
+                        renderSuggestions(items);
                     } catch (error) {
                         hideSuggestions();
-                        updateHelper('Gagal mengambil saran alamat. Silakan isi alamat secara manual.', 'error');
+                        updateHelper(error.message || 'Gagal mencari lokasi pengiriman.', 'error');
                     }
                 }
 
                 function scheduleSuggestionFetch() {
-                    const query = String(searchInput.value || '').trim();
+                    const query = String(locationSearchInput.value || '').trim();
 
                     if (debounceTimer) {
                         window.clearTimeout(debounceTimer);
                     }
 
+                    clearSelectedLocation(true);
+
                     if (query.length < 3) {
                         hideSuggestions();
-                        updateHelper('Ketik minimal 3 huruf untuk mencari alamat.', 'default');
+                        updateHelper('Ketik minimal 3 huruf untuk mencari lokasi pengiriman.', 'default');
                         return;
                     }
 
                     debounceTimer = window.setTimeout(() => fetchSuggestions(query), 350);
                 }
 
-                function chooseSuggestion(index) {
+                function buildGeocodingQueries(item) {
+                    const primary = String(item?.label || '').trim();
+                    const fallback = [
+                        item?.subdistrict_name,
+                        item?.district_name,
+                        item?.city_name,
+                        item?.province_name,
+                        item?.zip_code,
+                    ].filter(Boolean).join(', ');
+
+                    return [primary, fallback].filter((value, index, values) => value && values.indexOf(value) === index);
+                }
+
+                async function fetchMapCoordinate(query) {
+                    const response = await fetch(`${addressSuggestUrl}?q=${encodeURIComponent(query)}`, {
+                        headers: { Accept: 'application/json' },
+                        credentials: 'same-origin',
+                    });
+                    const payload = await response.json();
+
+                    if (!response.ok || !payload.success) {
+                        return null;
+                    }
+
+                    const firstResult = Array.isArray(payload.data) ? payload.data[0] : null;
+                    if (!firstResult) {
+                        return null;
+                    }
+
+                    const lat = Number(firstResult.lat || 0);
+                    const lng = Number(firstResult.lng || firstResult.lon || 0);
+
+                    if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat === 0 || lng === 0) {
+                        return null;
+                    }
+
+                    return { lat, lng };
+                }
+
+                async function syncMapToLocation(item) {
+                    const queries = buildGeocodingQueries(item);
+
+                    for (const query of queries) {
+                        const coordinate = await fetchMapCoordinate(query);
+                        if (!coordinate) {
+                            continue;
+                        }
+
+                        setCoordinates(coordinate.lat, coordinate.lng);
+                        setMarker(coordinate.lat, coordinate.lng);
+                        map.setView([coordinate.lat, coordinate.lng], 17);
+                        updateHelper('Lokasi pengiriman dipilih dan titik peta sudah ditampilkan.', 'success');
+                        return;
+                    }
+
+                    clearCoordinates();
+                    updateHelper('Lokasi pengiriman tersimpan. Titik peta dapat disesuaikan manual.', 'info');
+                }
+
+                async function chooseSuggestion(index) {
                     const item = suggestionItems[index];
                     if (!item) {
                         return;
                     }
 
-                    searchInput.value = item.display_name || '';
-                    addressInput.value = item.display_name || '';
-                    provinsiInput.value = item.provinsi || '';
-                    kotaInput.value = item.kota || '';
-                    kecamatanInput.value = item.kecamatan || '';
-                    kodePosInput.value = item.kode_pos || '';
+                    const selectedLabel = String(item.label || '').trim();
 
-                    const lat = Number(item.lat || 0);
-                    const lng = Number(item.lng || item.lon || 0);
-
-                    if (Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0) {
-                        setCoordinates(lat, lng);
-                        setMarker(lat, lng);
-                        map.setView([lat, lng], 17);
-                    }
+                    locationSearchInput.value = selectedLabel;
+                    addressInput.value = selectedLabel;
+                    updateSelectedAddress(selectedLabel);
+                    provinsiInput.value = item.province_name || '';
+                    kotaInput.value = item.city_name || '';
+                    kecamatanInput.value = item.subdistrict_name || item.district_name || '';
+                    kodePosInput.value = item.zip_code || '';
+                    if (destinationIdInput) destinationIdInput.value = item.id || '';
+                    if (destinationLabelInput) destinationLabelInput.value = selectedLabel;
 
                     hideSuggestions();
-                    updateHelper('Alamat dan titik lokasi berhasil dipilih dari peta.', 'success');
+                    updateHelper('Lokasi pengiriman dipilih. Peta sedang menyesuaikan posisi.', 'info');
+                    await syncMapToLocation(item);
                 }
 
                 function syncMarkerFromInputs() {
@@ -356,10 +484,7 @@
                     const hasLng = String(lngInput.value || '').trim() !== '';
 
                     if (!hasLat && !hasLng) {
-                        if (marker) {
-                            map.removeLayer(marker);
-                            marker = null;
-                        }
+                        clearMarker();
                         return;
                     }
 
@@ -389,12 +514,13 @@
                     setMarker(startLat, startLng);
                 }
 
+                updateSelectedAddress(addressInput.value || '');
                 window.setTimeout(() => map.invalidateSize(), 250);
                 window.setTimeout(() => map.invalidateSize(), 700);
 
                 map.on('click', function (event) {
                     if (!String(addressInput.value || '').trim()) {
-                        updateHelper('Isi alamat lengkap terlebih dahulu sebelum menentukan titik lokasi.', 'error');
+                        updateHelper('Pilih lokasi pengiriman terlebih dahulu, lalu sesuaikan titiknya di peta.', 'error');
                         return;
                     }
 
@@ -403,16 +529,16 @@
                     updateHelper('Titik lokasi diperbarui dari peta.', 'success');
                 });
 
-                searchInput.addEventListener('input', scheduleSuggestionFetch);
+                locationSearchInput.addEventListener('input', scheduleSuggestionFetch);
 
-                searchInput.addEventListener('focus', function () {
-                    const query = String(searchInput.value || '').trim();
+                locationSearchInput.addEventListener('focus', function () {
+                    const query = String(locationSearchInput.value || '').trim();
                     if (query.length >= 3) {
                         fetchSuggestions(query);
                     }
                 });
 
-                searchInput.addEventListener('blur', function () {
+                locationSearchInput.addEventListener('blur', function () {
                     window.setTimeout(hideSuggestions, 180);
                 });
 
@@ -425,8 +551,19 @@
                         return;
                     }
 
-                    chooseSuggestion(Number(button.dataset.index));
+                    void chooseSuggestion(Number(button.dataset.index));
                 });
+
+                form.addEventListener('submit', function (event) {
+                    if (String(addressInput.value || '').trim() === '') {
+                        event.preventDefault();
+                        updateHelper('Lokasi pengiriman belum lengkap. Silakan pilih lokasi pengiriman terlebih dahulu.', 'error');
+                    }
+                });
+
+                if (String(destinationLabelInput?.value || '').trim() !== '') {
+                    updateHelper('Lokasi pengiriman sudah tersimpan untuk pelanggan ini.', 'success');
+                }
             })();
         </script>
     @endpush

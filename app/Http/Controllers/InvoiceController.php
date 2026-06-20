@@ -15,6 +15,7 @@ class InvoiceController extends Controller
     public function show(Pesanan $pesanan)
     {
         $this->authorizeAccess($pesanan);
+        $this->ensureInvoiceAvailable($pesanan);
 
         $pesanan->load(['pelanggan', 'details.produk', 'servicePaket', 'serviceJenisRefill', 'teknisi', 'service.unitApar']);
 
@@ -29,6 +30,7 @@ class InvoiceController extends Controller
     public function pdf(Pesanan $pesanan)
     {
         $this->authorizeAccess($pesanan);
+        $this->ensureInvoiceAvailable($pesanan);
 
         $pesanan->load(['pelanggan', 'details.produk', 'servicePaket', 'serviceJenisRefill', 'teknisi', 'service.unitApar']);
 
@@ -62,6 +64,13 @@ class InvoiceController extends Controller
         abort(403, 'Anda tidak memiliki akses untuk melihat invoice ini.');
     }
 
+    protected function ensureInvoiceAvailable(Pesanan $pesanan): void
+    {
+        if (!$pesanan->canViewInvoice()) {
+            abort(403, 'Invoice final untuk transaksi ini belum tersedia.');
+        }
+    }
+
     /**
      * Menentukan apakah transaksi dianggap Lunas / Paid.
      */
@@ -77,7 +86,12 @@ class InvoiceController extends Controller
             return true;
         }
 
-        // 3. Status selesai/selesai final biasanya lunas
+        // 3. Bukti bayar sudah diunggah pelanggan
+        if (!empty($pesanan->bukti_pembayaran)) {
+            return true;
+        }
+
+        // 4. Status selesai/selesai final biasanya lunas
         if ($pesanan->isCompleted()) {
             return true;
         }

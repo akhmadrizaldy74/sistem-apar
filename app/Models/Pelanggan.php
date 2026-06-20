@@ -23,6 +23,8 @@ class Pelanggan extends Model
         'alamat_kota',
         'alamat_kecamatan',
         'alamat_kode_pos',
+        'rajaongkir_destination_id',
+        'rajaongkir_destination_label',
         'status',
         'sumber_data',
         'kategori_pelanggan',

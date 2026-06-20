@@ -208,8 +208,11 @@
                                 $refillCustomer = $resolveCustomer($refill);
                                 $isLegacySource = $refill->isLegacyAdminSource();
                                 $canAssign = $refill->isPaymentConfirmed() && !$refill->teknisi_id;
+                                $canReadyToShip = $refill->canMarkReadyToShip();
+                                $canFinalize = $refill->canFinalizeDirectlyByAdmin();
                                 $statusBadge = match ((string) $refill->status) {
                                     'selesai final', 'selesai' => ['bg-emerald-50 text-emerald-700', 'SELESAI FINAL'],
+                                    'siap dikirim' => ['bg-cyan-50 text-cyan-700', 'SIAP DIKIRIM'],
                                     'dikonfirmasi admin' => ['bg-cyan-50 text-cyan-700', 'DIKONFIRMASI ADMIN'],
                                     'selesai oleh teknisi' => ['bg-cyan-50 text-cyan-700', 'SELESAI OLEH TEKNISI'],
                                     'dikerjakan teknisi' => ['bg-indigo-50 text-indigo-700', 'SEDANG DIKERJAKAN'],
@@ -257,7 +260,12 @@
                                                 Bukti TF
                                             </button>
                                         @endif
-                                        @if(in_array((string) $refill->status, ['selesai oleh teknisi', 'dikonfirmasi admin'], true))
+                                        @if($canReadyToShip)
+                                            <form action="{{ route('admin.pesanan.konfirmasi-pelanggan', $refill) }}" method="POST" data-confirm="Ubah status refill ini menjadi Siap Dikirim?" data-confirm-title="Konfirmasi Pengiriman" data-confirm-button="Ya, Siapkan">
+                                                @csrf
+                                                <button type="submit" class="{{ $actionButtonSuccess }}">Siap Dikirim</button>
+                                            </form>
+                                        @elseif($canFinalize)
                                             <form action="{{ route('admin.pesanan.selesai-final', $refill) }}" method="POST" data-confirm="Selesaikan final refill ini?" data-confirm-title="Konfirmasi Final" data-confirm-button="Ya, Finalkan">
                                                 @csrf
                                                 <button type="submit" class="{{ $actionButtonSuccess }}">Final</button>
@@ -613,7 +621,7 @@
                                         <textarea name="catatan_admin" id="catatan_admin" rows="4" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 placeholder:text-gray-300 transition text-sm resize-none" placeholder="Catatan tambahan untuk teknisi atau administrasi...">{{ old('catatan_admin') }}</textarea>
                                     </div>
                                     <div class="px-4 py-3 bg-emerald-50 rounded-xl border border-emerald-200">
-                                        <p class="text-xs font-bold text-emerald-800">Transaksi offline langsung dianggap <span class="font-black">lunas</span>, tanpa metode penanganan, dan stok refill baru berkurang saat status <span class="font-black">Selesai Final</span>.</p>
+                                        <p class="text-xs font-bold text-emerald-800">Transaksi offline langsung dianggap <span class="font-black">lunas</span>, tanpa metode penanganan, dan stok refill langsung dikurangi setelah pembayaran valid tercatat.</p>
                                     </div>
                                 </div>
                             </div>

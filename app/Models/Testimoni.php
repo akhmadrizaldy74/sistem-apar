@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Testimoni extends Model
 {
@@ -11,6 +12,8 @@ class Testimoni extends Model
 
     protected $fillable = [
         'pelanggan_id',
+        'transaksi_type',
+        'transaksi_id',
         'rating',
         'review',
         'foto_path',
@@ -23,11 +26,17 @@ class Testimoni extends Model
     protected $casts = [
         'tanggal' => 'date',
         'is_anonymous' => 'boolean',
+        'transaksi_id' => 'integer',
     ];
 
     public function pelanggan()
     {
         return $this->belongsTo(Pelanggan::class);
+    }
+
+    public function transaksi(): MorphTo
+    {
+        return $this->morphTo(__FUNCTION__, 'transaksi_type', 'transaksi_id');
     }
 
     public function scopeApproved($query)
