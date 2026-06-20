@@ -6,6 +6,7 @@ use App\Models\JenisApar;
 use App\Models\Pelanggan;
 use App\Models\Pesanan;
 use App\Models\Produk;
+use App\Models\Service;
 use App\Models\StokBatch;
 use App\Models\UnitApar;
 use App\Models\User;
@@ -394,8 +395,160 @@ class UnitAparTest extends TestCase
         $this->assertCount(2, $units);
         $this->assertSame('AKHMAD-18062026-01', $units[0]->no_seri);
         $this->assertSame('AKHMAD-18062026-02', $units[1]->no_seri);
-        $this->assertSame('2027-06-10', $units[0]->tgl_expired->toDateString());
-        $this->assertSame('2027-06-10', $units[1]->tgl_expired->toDateString());
+        $this->assertSame('2027-06-18', $units[0]->tgl_expired->toDateString());
+        $this->assertSame('2027-06-18', $units[1]->tgl_expired->toDateString());
+    }
+
+    public function test_final_product_order_uses_purchase_date_expiry_rules_for_1kg_2kg_and_3kg_units(): void
+    {
+        ['pelanggan' => $pelanggan] = $this->createFixture(customerName: 'Akhmad Rizaldy');
+        $jenisApar = JenisApar::create([
+            'nama' => 'Powder',
+        ]);
+
+        $scenarios = [
+            [
+                'name' => 'APAR TONATA Powder 1 kg',
+                'brand' => 'TONATA',
+                'capacity' => '1 kg',
+                'expected_expiry' => '2026-12-19',
+            ],
+            [
+                'name' => 'APAR GuardALL Powder 2 kg',
+                'brand' => 'GuardALL',
+                'capacity' => '2 kg',
+                'expected_expiry' => '2027-06-19',
+            ],
+            [
+                'name' => 'APAR Firefix Powder 3 kg',
+                'brand' => 'FIREFIX',
+                'capacity' => '3 kg',
+                'expected_expiry' => '2027-06-19',
+            ],
+        ];
+
+        foreach ($scenarios as $index => $scenario) {
+            $produk = Produk::create([
+                'nama' => $scenario['name'],
+                'merek' => $scenario['brand'],
+                'jenis_apar_id' => $jenisApar->id,
+                'kapasitas' => $scenario['capacity'],
+                'penggunaan' => 'Testing',
+                'harga' => 500000 + ($index * 100000),
+                'deskripsi' => 'Skenario expiry unit baru',
+                'stok' => 5,
+            ]);
+
+            StokBatch::create([
+                'produk_id' => $produk->id,
+                'jumlah_masuk' => 5,
+                'sisa_qty' => 5,
+                'tgl_produksi' => '2026-03-11',
+                'tgl_expired' => UnitApar::calculateExpiry('2026-03-11', $scenario['capacity'], 'Powder')->toDateString(),
+                'keterangan' => 'Batch skenario expiry',
+            ]);
+
+            $pesanan = Pesanan::create([
+                'pelanggan_id' => $pelanggan->id,
+                'user_id' => $pelanggan->user_id,
+                'tipe' => 'produk',
+                'status' => Pesanan::STATUS_SELESAI_FINAL,
+                'tanggal' => '2026-06-19',
+                'total' => 500000 + ($index * 100000),
+                'total_harga' => 500000 + ($index * 100000),
+                'metode_pembayaran' => 'cash',
+            ]);
+
+            $pesanan->details()->create([
+                'produk_id' => $produk->id,
+                'merek' => $produk->merek,
+                'kapasitas' => $produk->kapasitas,
+                'jumlah' => 1,
+                'harga' => 500000 + ($index * 100000),
+                'subtotal' => 500000 + ($index * 100000),
+            ]);
+
+            app(FinalTransactionStockService::class)->apply($pesanan->fresh());
+
+            $unit = UnitApar::query()
+                ->where('pesanan_id', $pesanan->id)
+                ->first();
+
+            $this->assertNotNull($unit);
+            $this->assertSame('2026-06-19', $unit->tgl_beli->toDateString());
+            $this->assertSame('2026-03-11', $unit->tgl_produksi->toDateString());
+            $this->assertSame($scenario['capacity'], $unit->ukuran);
+            $this->assertSame($scenario['expected_expiry'], $unit->tgl_expired->toDateString());
+        }
+    }
+
+    public function test_sync_unit_expiry_command_corrects_legacy_units_using_purchase_or_latest_service_date(): void
+    {
+        ['pelanggan' => $pelanggan] = $this->createFixture(customerName: 'Akhmad Rizaldy');
+        $jenisApar = JenisApar::create([
+            'nama' => 'Powder',
+        ]);
+
+        $produkSatuKg = Produk::create([
+            'nama' => 'APAR TONATA Powder 1 kg',
+            'merek' => 'TONATA',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '1 kg',
+            'penggunaan' => 'Testing',
+            'harga' => 350000,
+            'deskripsi' => 'Legacy 1 kg',
+            'stok' => 0,
+        ]);
+
+        $produkTigaKg = Produk::create([
+            'nama' => 'APAR GuardALL Powder 3 kg',
+            'merek' => 'GuardALL',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '3 kg',
+            'penggunaan' => 'Testing',
+            'harga' => 650000,
+            'deskripsi' => 'Legacy 3 kg',
+            'stok' => 0,
+        ]);
+
+        $unitSatuKg = UnitApar::create([
+            'pelanggan_id' => $pelanggan->id,
+            'produk_id' => $produkSatuKg->id,
+            'no_seri' => 'LEGACY-1KG-01',
+            'tgl_beli' => '2026-06-19',
+            'tgl_produksi' => '2026-03-11',
+            'ukuran' => '1 kg',
+            'bahan' => 'Powder',
+            'kondisi_awal' => 'layak',
+            'tgl_expired' => '2026-09-11',
+        ]);
+
+        $unitTigaKg = UnitApar::create([
+            'pelanggan_id' => $pelanggan->id,
+            'produk_id' => $produkTigaKg->id,
+            'no_seri' => 'LEGACY-3KG-01',
+            'tgl_beli' => '2026-01-10',
+            'tgl_produksi' => '2026-01-10',
+            'ukuran' => '3 kg',
+            'bahan' => 'Powder',
+            'kondisi_awal' => 'layak',
+            'tgl_expired' => '2026-01-16',
+        ]);
+
+        Service::create([
+            'unit_apar_id' => $unitTigaKg->id,
+            'jenis_service' => 'Refill APAR',
+            'tgl_service' => '2026-06-20',
+            'biaya' => 150000,
+            'status_konfirmasi' => 'confirmed',
+        ]);
+
+        $this->artisan('apar:sync-unit-expiry')
+            ->expectsOutputToContain('diperbarui: 2')
+            ->assertSuccessful();
+
+        $this->assertSame('2026-12-19', $unitSatuKg->fresh()->tgl_expired->toDateString());
+        $this->assertSame('2027-06-20', $unitTigaKg->fresh()->tgl_expired->toDateString());
     }
 
     public function test_hidden_units_are_not_recreated_when_admin_opens_pesanan_page(): void

@@ -103,7 +103,7 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
         $response->assertSeeText('Hydrotest Ringan');
     }
 
-    public function test_product_final_creates_unit_using_stock_batch_production_date(): void
+    public function test_product_final_uses_batch_production_date_but_order_date_for_unit_expiry(): void
     {
         $admin = User::factory()->create([
             'role' => 'admin',
@@ -167,7 +167,7 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
         $this->assertSame('2026-06-15', $unit->tgl_beli->toDateString());
         $this->assertSame('2026-05-01', $unit->tgl_produksi->toDateString());
         $this->assertSame(
-            UnitApar::calculateExpiry('2026-05-01', '6 kg', 'Foam')->toDateString(),
+            UnitApar::calculateExpiry('2026-06-15', '6 kg', 'Foam')->toDateString(),
             $unit->tgl_expired->toDateString()
         );
         $this->assertSame(1, (int) $stokBatch->fresh()->sisa_qty);
@@ -233,7 +233,7 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
         $this->assertSame(12.0, (float) $jenisRefill->fresh()->stok);
     }
 
-    public function test_refill_final_uses_technician_completion_date_for_registered_unit_expiry(): void
+    public function test_refill_final_uses_technician_completion_date_for_registered_one_kg_unit_expiry(): void
     {
         $admin = User::factory()->create([
             'role' => 'admin',
@@ -310,7 +310,7 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
         $refillLog = Refill::query()->where('unit_apar_id', $unit->id)->latest('id')->first();
         $serviceLog = Service::query()->where('pesanan_id', $pesanan->id)->first();
 
-        $this->assertSame('2026-06-20', $unit->tgl_produksi->toDateString());
+        $this->assertSame('2026-01-10', $unit->tgl_produksi->toDateString());
         $this->assertSame(
             UnitApar::calculateExpiry('2026-06-20', '1 kg', 'Powder')->toDateString(),
             $unit->tgl_expired->toDateString()
@@ -318,6 +318,290 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
         $this->assertNotNull($refillLog);
         $this->assertSame('2026-06-20', $refillLog->tgl_refill->toDateString());
         $this->assertSame('2026-06-20', $serviceLog->tgl_service->toDateString());
+    }
+
+    public function test_refill_final_uses_one_year_expiry_for_registered_three_kg_unit(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+        ]);
+
+        $pelanggan = $this->createLinkedCustomer('PT Refill 3 KG', '628111110026', 'Jl Refill 3 KG');
+        $jenisApar = JenisApar::create([
+            'nama' => 'Foam',
+        ]);
+        $produk = Produk::create([
+            'nama' => 'APAR Foam 3 KG',
+            'merek' => 'GuardALL',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '3 kg',
+            'penggunaan' => 'Gudang',
+            'harga' => 450000,
+            'deskripsi' => 'Produk test refill 3 kg',
+            'stok' => 0,
+        ]);
+        $unit = UnitApar::create([
+            'pelanggan_id' => $pelanggan->id,
+            'produk_id' => $produk->id,
+            'no_seri' => 'REFILL-REG-03',
+            'tgl_beli' => '2026-02-10',
+            'tgl_produksi' => '2026-02-10',
+            'ukuran' => '3 kg',
+            'bahan' => 'Foam',
+            'kondisi_awal' => 'layak',
+            'tgl_expired' => '2026-02-18',
+        ]);
+        $jenisRefill = JenisRefill::create([
+            'nama' => 'Foam',
+            'stok' => 20,
+            'satuan' => 'kg',
+            'harga' => 120000,
+        ]);
+
+        $pesanan = Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'user_id' => $pelanggan->user_id,
+            'tipe' => 'service',
+            'service_jenis_layanan' => 'refill',
+            'service_jenis_refill_id' => $jenisRefill->id,
+            'service_jenis_apar' => 'Foam',
+            'service_ukuran_apar' => '3 kg',
+            'service_jumlah_unit' => 1,
+            'service_total_kg' => 3,
+            'status' => Pesanan::STATUS_DIKONFIRMASI_ADMIN,
+            'tanggal' => '2026-06-18',
+            'teknisi_selesai_at' => '2026-06-22 11:00:00',
+            'total' => 120000,
+            'total_harga' => 120000,
+            'service_estimasi_biaya' => 120000,
+            'sumber_pesanan' => 'website',
+            'stok_dikurangi' => false,
+        ]);
+
+        Service::create([
+            'pesanan_id' => $pesanan->id,
+            'unit_apar_id' => $unit->id,
+            'jenis_service' => 'Refill APAR',
+            'tgl_service' => '2026-06-18',
+            'biaya' => 120000,
+            'status_konfirmasi' => 'pending',
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('admin.refill.update-status', $pesanan), [
+            'status' => Pesanan::STATUS_SELESAI_FINAL,
+        ]);
+
+        $response->assertRedirect();
+
+        $unit->refresh();
+        $refillLog = Refill::query()->where('unit_apar_id', $unit->id)->latest('id')->first();
+        $serviceLog = Service::query()->where('pesanan_id', $pesanan->id)->first();
+
+        $this->assertSame('2026-02-10', $unit->tgl_produksi->toDateString());
+        $this->assertSame(
+            UnitApar::calculateExpiry('2026-06-22', '3 kg', 'Foam')->toDateString(),
+            $unit->tgl_expired->toDateString()
+        );
+        $this->assertNotNull($refillLog);
+        $this->assertSame('2026-06-22', $refillLog->tgl_refill->toDateString());
+        $this->assertSame('2026-06-22', $serviceLog->tgl_service->toDateString());
+        $this->assertSame(17.0, (float) $jenisRefill->fresh()->stok);
+    }
+
+    public function test_service_final_uses_six_month_expiry_for_registered_one_kg_unit(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+        ]);
+
+        $pelanggan = $this->createLinkedCustomer('PT Service 1 KG', '628111110027', 'Jl Service 1 KG');
+        $jenisApar = JenisApar::create([
+            'nama' => 'Powder',
+        ]);
+        $produk = Produk::create([
+            'nama' => 'APAR Powder 1 KG',
+            'merek' => 'TONATA',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '1 kg',
+            'penggunaan' => 'Panel',
+            'harga' => 350000,
+            'deskripsi' => 'Produk test service 1 kg',
+            'stok' => 0,
+        ]);
+        $unit = UnitApar::create([
+            'pelanggan_id' => $pelanggan->id,
+            'produk_id' => $produk->id,
+            'no_seri' => 'SERVICE-REG-01',
+            'tgl_beli' => '2026-01-05',
+            'tgl_produksi' => '2026-01-05',
+            'ukuran' => '1 kg',
+            'bahan' => 'Powder',
+            'kondisi_awal' => 'layak',
+            'tgl_expired' => '2026-04-05',
+        ]);
+        $peralatan = Peralatan::create([
+            'nama' => 'Segel 1 KG',
+            'stok' => 10,
+            'stok_minimum' => 1,
+            'harga_standar' => 10000,
+        ]);
+        $paket = ServicePaket::create([
+            'nama' => 'Hydrotest 1 KG',
+            'label' => 'hydrotest_1kg',
+            'harga' => 175000,
+        ]);
+        $paket->peralatans()->attach($peralatan->id, ['jumlah_estimasi' => 1]);
+
+        $pesanan = Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'user_id' => $pelanggan->user_id,
+            'tipe' => 'service',
+            'service_jenis_layanan' => 'service',
+            'service_paket_id' => $paket->id,
+            'service_jenis_apar' => 'Powder',
+            'service_ukuran_apar' => '1 kg',
+            'service_jumlah_unit' => 1,
+            'status' => Pesanan::STATUS_DIKONFIRMASI_ADMIN,
+            'tanggal' => '2026-06-18',
+            'teknisi_selesai_at' => '2026-06-21 08:00:00',
+            'total' => 175000,
+            'total_harga' => 175000,
+            'service_estimasi_biaya' => 175000,
+            'sumber_pesanan' => 'website',
+            'metode_pembayaran' => 'cash',
+            'stok_dikurangi' => false,
+        ]);
+
+        Service::create([
+            'pesanan_id' => $pesanan->id,
+            'unit_apar_id' => $unit->id,
+            'service_paket_id' => $paket->id,
+            'jenis_service' => $paket->nama,
+            'tgl_service' => '2026-06-18',
+            'biaya' => 175000,
+            'actual_peralatan_json' => json_encode([[
+                'peralatan_id' => $peralatan->id,
+                'nama' => $peralatan->nama,
+                'jumlah' => 1,
+            ]]),
+            'status_konfirmasi' => 'pending',
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('admin.service.request.status', $pesanan), [
+            'status' => Pesanan::STATUS_SELESAI_FINAL,
+        ]);
+
+        $response->assertRedirect();
+
+        $unit->refresh();
+        $serviceLog = Service::query()->where('pesanan_id', $pesanan->id)->first();
+
+        $this->assertSame('2026-01-05', $unit->tgl_produksi->toDateString());
+        $this->assertSame(
+            UnitApar::calculateExpiry('2026-06-21', '1 kg', 'Powder')->toDateString(),
+            $unit->tgl_expired->toDateString()
+        );
+        $this->assertSame('2026-06-21', $serviceLog->tgl_service->toDateString());
+        $this->assertSame('confirmed', $serviceLog->status_konfirmasi);
+        $this->assertSame(9, $peralatan->fresh()->stok);
+    }
+
+    public function test_service_final_uses_one_year_expiry_for_registered_three_kg_unit(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+        ]);
+
+        $pelanggan = $this->createLinkedCustomer('PT Service 3 KG', '628111110028', 'Jl Service 3 KG');
+        $jenisApar = JenisApar::create([
+            'nama' => 'Foam',
+        ]);
+        $produk = Produk::create([
+            'nama' => 'APAR Foam 3 KG',
+            'merek' => 'FIREFIX',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '3 kg',
+            'penggunaan' => 'Gudang',
+            'harga' => 550000,
+            'deskripsi' => 'Produk test service 3 kg',
+            'stok' => 0,
+        ]);
+        $unit = UnitApar::create([
+            'pelanggan_id' => $pelanggan->id,
+            'produk_id' => $produk->id,
+            'no_seri' => 'SERVICE-REG-03',
+            'tgl_beli' => '2026-02-12',
+            'tgl_produksi' => '2026-02-12',
+            'ukuran' => '3 kg',
+            'bahan' => 'Foam',
+            'kondisi_awal' => 'layak',
+            'tgl_expired' => '2026-03-01',
+        ]);
+        $peralatan = Peralatan::create([
+            'nama' => 'Segel 3 KG',
+            'stok' => 12,
+            'stok_minimum' => 1,
+            'harga_standar' => 12000,
+        ]);
+        $paket = ServicePaket::create([
+            'nama' => 'Hydrotest 3 KG',
+            'label' => 'hydrotest_3kg',
+            'harga' => 210000,
+        ]);
+        $paket->peralatans()->attach($peralatan->id, ['jumlah_estimasi' => 2]);
+
+        $pesanan = Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'user_id' => $pelanggan->user_id,
+            'tipe' => 'service',
+            'service_jenis_layanan' => 'service',
+            'service_paket_id' => $paket->id,
+            'service_jenis_apar' => 'Foam',
+            'service_ukuran_apar' => '3 kg',
+            'service_jumlah_unit' => 1,
+            'status' => Pesanan::STATUS_DIKONFIRMASI_ADMIN,
+            'tanggal' => '2026-06-19',
+            'teknisi_selesai_at' => '2026-06-23 15:30:00',
+            'total' => 210000,
+            'total_harga' => 210000,
+            'service_estimasi_biaya' => 210000,
+            'sumber_pesanan' => 'website',
+            'metode_pembayaran' => 'cash',
+            'stok_dikurangi' => false,
+        ]);
+
+        Service::create([
+            'pesanan_id' => $pesanan->id,
+            'unit_apar_id' => $unit->id,
+            'service_paket_id' => $paket->id,
+            'jenis_service' => $paket->nama,
+            'tgl_service' => '2026-06-19',
+            'biaya' => 210000,
+            'actual_peralatan_json' => json_encode([[
+                'peralatan_id' => $peralatan->id,
+                'nama' => $peralatan->nama,
+                'jumlah' => 2,
+            ]]),
+            'status_konfirmasi' => 'pending',
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('admin.service.request.status', $pesanan), [
+            'status' => Pesanan::STATUS_SELESAI_FINAL,
+        ]);
+
+        $response->assertRedirect();
+
+        $unit->refresh();
+        $serviceLog = Service::query()->where('pesanan_id', $pesanan->id)->first();
+
+        $this->assertSame('2026-02-12', $unit->tgl_produksi->toDateString());
+        $this->assertSame(
+            UnitApar::calculateExpiry('2026-06-23', '3 kg', 'Foam')->toDateString(),
+            $unit->tgl_expired->toDateString()
+        );
+        $this->assertSame('2026-06-23', $serviceLog->tgl_service->toDateString());
+        $this->assertSame('confirmed', $serviceLog->status_konfirmasi);
+        $this->assertSame(10, $peralatan->fresh()->stok);
     }
 
     public function test_admin_refill_store_is_blocked_for_manual_multi_unit_requests(): void

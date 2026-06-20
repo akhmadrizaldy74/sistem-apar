@@ -109,15 +109,22 @@ class UnitApar extends Model
         return (float) str_replace(',', '.', $matches[1]);
     }
 
+    public static function usesSixMonthExpiry($ukuran): bool
+    {
+        $sizeKg = self::extractSizeKg($ukuran);
+
+        return ! is_null($sizeKg) && abs($sizeKg - 1.0) < 0.0001;
+    }
+
     public static function calculateExpiry($productionDate, $ukuran = null, $bahan = null)
     {
         $date = Carbon::parse($productionDate)->startOfDay();
 
-        if (self::extractSizeKg($ukuran) === 1.0) {
-            return $date->addMonths(6);
+        if (self::usesSixMonthExpiry($ukuran)) {
+            return $date->copy()->addMonthsNoOverflow(6);
         }
 
-        return $date->addYear();
+        return $date->copy()->addYearNoOverflow();
     }
 
     public static function generateSerialNumber(?Pelanggan $pelanggan, $tanggal): string

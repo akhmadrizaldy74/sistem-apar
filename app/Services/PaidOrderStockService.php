@@ -16,7 +16,10 @@ use Illuminate\Support\Facades\DB;
 
 class PaidOrderStockService
 {
-    public function __construct(private readonly InventoryService $inventoryService)
+    public function __construct(
+        private readonly InventoryService $inventoryService,
+        private readonly UnitExpiryService $unitExpiryService,
+    )
     {
     }
 
@@ -182,6 +185,10 @@ class PaidOrderStockService
         }
 
         $shouldHide = (string) $pesanan->status !== Pesanan::STATUS_SELESAI_FINAL && UnitApar::supportsDatabaseColumn('hidden_at');
+        $purchaseDate = optional($pesanan->tanggal)->toDateString() ?: now()->toDateString();
+        $unitExpiryDate = $this->unitExpiryService
+            ->calculateExpiry($purchaseDate, $produk->kapasitas ?? '-', $produk->jenisApar?->nama ?? '-')
+            ->toDateString();
 
         foreach ($allocations as $allocation) {
             $qty = max(0, (int) ($allocation['qty'] ?? 0));
@@ -195,7 +202,7 @@ class PaidOrderStockService
                     'tgl_produksi' => $allocation['tgl_produksi'],
                     'ukuran' => $produk->kapasitas ?? '-',
                     'bahan' => $produk->jenisApar?->nama ?? '-',
-                    'tgl_expired' => $allocation['tgl_expired'],
+                    'tgl_expired' => $unitExpiryDate,
                     'hidden_at' => $shouldHide ? now() : null,
                 ]);
 
@@ -220,7 +227,7 @@ class PaidOrderStockService
                 return implode('|', [
                     (int) $unitApar->produk_id,
                     optional($unitApar->tgl_produksi)->toDateString() ?: '',
-                    optional($unitApar->tgl_expired)->toDateString() ?: '',
+                    $this->resolvedBatchExpiryDate($unitApar),
                 ]);
             });
 
@@ -235,7 +242,7 @@ class PaidOrderStockService
             $batch = StokBatch::query()
                 ->where('produk_id', $firstUnit->produk_id)
                 ->whereDate('tgl_produksi', optional($firstUnit->tgl_produksi)->toDateString() ?: now()->toDateString())
-                ->whereDate('tgl_expired', optional($firstUnit->tgl_expired)->toDateString() ?: now()->addYear()->toDateString())
+                ->whereDate('tgl_expired', $this->resolvedBatchExpiryDate($firstUnit))
                 ->first();
 
             if ($batch) {
@@ -246,12 +253,7 @@ class PaidOrderStockService
                     'jumlah_masuk' => $qty,
                     'sisa_qty' => $qty,
                     'tgl_produksi' => optional($firstUnit->tgl_produksi)->toDateString() ?: now()->toDateString(),
-                    'tgl_expired' => optional($firstUnit->tgl_expired)->toDateString()
-                        ?: UnitApar::calculateExpiry(
-                            optional($firstUnit->tgl_produksi)->toDateString() ?: now()->toDateString(),
-                            $firstUnit->ukuran ?: '-',
-                            $firstUnit->bahan ?: '-',
-                        )->toDateString(),
+                    'tgl_expired' => $this->resolvedBatchExpiryDate($firstUnit),
                     'keterangan' => 'Pemulihan stok dari pembatalan pesanan aktif #' . $pesanan->id,
                 ]);
             }
@@ -483,5 +485,14 @@ class PaidOrderStockService
     private function customerName(Pesanan $pesanan): string
     {
         return (string) ($pesanan->pelanggan?->nama ?: 'Pelanggan tidak diketahui');
+    }
+
+    private function resolvedBatchExpiryDate(UnitApar $unitApar): string
+    {
+        $productionDate = optional($unitApar->tgl_produksi)->toDateString() ?: now()->toDateString();
+
+        return $this->unitExpiryService
+            ->calculateExpiry($productionDate, $unitApar->ukuran ?: '-', $unitApar->bahan ?: '-')
+            ->toDateString();
     }
 }

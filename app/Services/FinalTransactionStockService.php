@@ -20,6 +20,7 @@ class FinalTransactionStockService
     public function __construct(
         private readonly InventoryService $inventoryService,
         private readonly PaidOrderStockService $paidOrderStockService,
+        private readonly UnitExpiryService $unitExpiryService,
     )
     {
     }
@@ -234,11 +235,10 @@ class FinalTransactionStockService
     {
         foreach ($unitsToRefresh as $unitApar) {
             $unitApar->update([
-                'tgl_produksi' => $effectiveWorkDate,
-                'tgl_expired' => UnitApar::calculateExpiry(
+                'tgl_expired' => $this->unitExpiryService->calculateExpiry(
                     $effectiveWorkDate,
-                    $unitApar->ukuran ?: $pesanan->service_ukuran_apar,
-                    $this->manualUnitMedia($pesanan),
+                    $unitApar->ukuran ?: $pesanan->service_ukuran_apar ?: $unitApar->produk?->kapasitas,
+                    $unitApar->bahan ?: $unitApar->produk?->jenisApar?->nama ?: $this->manualUnitMedia($pesanan),
                 ),
             ]);
         }
@@ -269,6 +269,7 @@ class FinalTransactionStockService
                 'status_konfirmasi' => 'confirmed',
                 'tgl_selesai_admin' => $service->tgl_selesai_admin ?: now(),
             ]);
+            $this->refreshResolvedUnitsExpiry($generatedUnits, $pesanan, $effectiveWorkDate);
             return;
         }
 
@@ -316,6 +317,8 @@ class FinalTransactionStockService
             'tgl_selesai_admin' => now(),
             'stok_kurang_history_json' => json_encode($history),
         ]);
+
+        $this->refreshResolvedUnitsExpiry($generatedUnits, $pesanan, $effectiveWorkDate);
     }
 
     private function ensureCompletedServiceUnits(Pesanan $pesanan): Collection
@@ -405,10 +408,9 @@ class FinalTransactionStockService
     {
         $serialDate = optional($pesanan->tanggal)->toDateString() ?: now()->toDateString();
         $productionDate = (string) ($allocation['tgl_produksi'] ?? $serialDate);
-        $expiredDate = (string) (
-            $allocation['tgl_expired']
-            ?? UnitApar::calculateExpiry($productionDate, $produk->kapasitas ?? '-', $produk->jenisApar?->nama ?? '-')->toDateString()
-        );
+        $expiredDate = $this->unitExpiryService
+            ->calculateExpiry($serialDate, $produk->kapasitas ?? '-', $produk->jenisApar?->nama ?? '-')
+            ->toDateString();
 
         return UnitApar::create([
             'pelanggan_id' => $pesanan->pelanggan_id,
