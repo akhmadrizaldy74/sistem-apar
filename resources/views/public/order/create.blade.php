@@ -25,8 +25,13 @@
     .layanan-icon.service{background:#dbeafe;color:#2563eb}
     .layanan-icon.service.active{background:#2563eb;color:#fff}
     .summary-card{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:1.25rem;padding:1.25rem}
-    .summary-row{display:flex;justify-content:space-between;align-items:center;padding:.4rem 0;font-size:.875rem}
-    .summary-row.total{border-top:1.5px dashed #cbd5e1;padding-top:.75rem;margin-top:.25rem}
+    .summary-row{display:flex;justify-content:space-between;align-items:flex-start;gap:.875rem;padding:.45rem 0;font-size:.875rem}
+    .summary-row > span:first-child{flex:1 1 auto;min-width:0;line-height:1.4}
+    .summary-row > span:last-child{display:block;flex:0 1 58%;min-width:0;max-width:58%;text-align:right;line-height:1.35;white-space:normal;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+    .summary-row.total{align-items:flex-start;border-top:1.5px dashed #cbd5e1;padding-top:.85rem;margin-top:.35rem}
+    .summary-row.total > span:last-child{flex-basis:62%;max-width:62%;line-height:1.15}
+    .summary-value-total{display:block}
+    .request-summary-card{padding:1rem 1.05rem}
     .choice-grid{display:grid;gap:.75rem}
     .choice-grid.shipping{grid-template-columns:repeat(1,minmax(0,1fr))}
     .choice-grid.bank{grid-template-columns:repeat(1,minmax(0,1fr))}
@@ -1040,18 +1045,18 @@
                                 </div>
 
                                 <div id="purchase-price-request-form" class="mt-4 {{ $specialPriceRequestOpen ? '' : 'hidden' }}">
-                                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                                        <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
-                                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Subtotal Harga Dasar</p>
-                                            <p id="request-base-subtotal" class="mt-2 text-sm font-black text-slate-900">Rp {{ number_format((float) ($orderSummary['subtotalProduk'] ?? 0), 0, ',', '.') }}</p>
+                                    <div class="summary-card request-summary-card">
+                                        <div class="summary-row">
+                                            <span class="text-slate-500 font-semibold">Subtotal Harga Dasar</span>
+                                            <span id="request-base-subtotal" class="font-black text-slate-800">Rp {{ number_format((float) ($orderSummary['subtotalProduk'] ?? 0), 0, ',', '.') }}</span>
                                         </div>
-                                        <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
-                                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Diskon Promo Otomatis</p>
-                                            <p id="request-promo-discount" class="mt-2 text-sm font-black text-emerald-700">- Rp {{ number_format((float) ($orderSummary['nominalDiskon'] ?? 0), 0, ',', '.') }}</p>
+                                        <div class="summary-row text-emerald-700">
+                                            <span class="font-semibold">Diskon Promo Otomatis</span>
+                                            <span id="request-promo-discount" class="font-black">- Rp {{ number_format((float) ($orderSummary['nominalDiskon'] ?? 0), 0, ',', '.') }}</span>
                                         </div>
-                                        <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
-                                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Setelah Promo</p>
-                                            <p id="request-after-promo" class="mt-2 text-sm font-black text-red-600">Rp {{ number_format((float) ($orderSummary['totalSetelahPromo'] ?? ($orderSummary['totalPembayaran'] ?? 0)), 0, ',', '.') }}</p>
+                                        <div class="summary-row total">
+                                            <span class="text-slate-500 font-semibold">Total Setelah Promo</span>
+                                            <span id="request-after-promo" class="summary-value-total text-xl font-black text-red-600">Rp {{ number_format((float) ($orderSummary['totalSetelahPromo'] ?? ($orderSummary['totalPembayaran'] ?? 0)), 0, ',', '.') }}</span>
                                         </div>
                                     </div>
 
@@ -1185,7 +1190,7 @@
                         </div>
                         <div class="summary-row total">
                             <span id="service-summary-price-label" class="text-slate-500 font-semibold">Estimasi Harga / Total</span>
-                            <span id="service-summary-price" class="text-xl font-black text-blue-600">{{ $prefillSummaryPriceLabel }}</span>
+                            <span id="service-summary-price" class="summary-value-total text-xl font-black text-blue-600">{{ $prefillSummaryPriceLabel }}</span>
                         </div>
                     </div>
 
@@ -1262,7 +1267,7 @@
                         </div>
                         <div class="summary-row total">
                             <span class="text-xs font-black text-slate-800 uppercase tracking-wider">Total Pembayaran</span>
-                            <span id="lbl-total" class="text-xl font-black text-red-600">Rp {{ number_format((float) ($orderSummary['totalPembayaran'] ?? 0), 0, ',', '.') }}</span>
+                            <span id="lbl-total" class="summary-value-total text-xl font-black text-red-600">Rp {{ number_format((float) ($orderSummary['totalPembayaran'] ?? 0), 0, ',', '.') }}</span>
                         </div>
                     </div>
 

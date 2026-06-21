@@ -48,8 +48,10 @@ class ActivityLog extends Model
         ?string $ip = null,
         ?string $userAgent = null
     ): self {
+        $authenticatedUserId = auth()->user()?->getAuthIdentifier();
+
         return static::create([
-            'user_id' => auth()->id(),
+            'user_id' => is_numeric($authenticatedUserId) ? (int) $authenticatedUserId : null,
             'log_name' => $logName,
             'description' => $description,
             'subject_type' => $subjectType,

@@ -43,4 +43,39 @@ class RegistrationTest extends TestCase
         $this->assertSame('pelanggan', $user->role);
         $this->assertSame('081234567890', $pelanggan->no_wa);
     }
+
+    public function test_registration_still_works_when_session_contains_deleted_customer_id(): void
+    {
+        $deletedUser = User::factory()->create([
+            'role' => 'pelanggan',
+            'no_telpon' => '081200000001',
+        ]);
+
+        $deletedUserId = $deletedUser->id;
+        $deletedUser->delete();
+
+        $response = $this
+            ->withSession([
+                app('auth')->guard()->getName() => $deletedUserId,
+            ])
+            ->post('/register', [
+                'name' => 'Pelanggan Baru',
+                'no_telpon' => '081234567891',
+                'password' => 'password',
+                'password_confirmation' => 'password',
+            ]);
+
+        $this->assertAuthenticated();
+        $response->assertRedirect(route('home', absolute: false));
+
+        $user = User::where('no_telpon', '081234567891')->first();
+        $pelanggan = Pelanggan::where('user_id', $user?->id)->first();
+
+        $this->assertNotNull($user);
+        $this->assertNotNull($pelanggan);
+        $this->assertDatabaseHas('activity_logs', [
+            'description' => 'Membuat Pelanggan #' . $pelanggan->id,
+            'user_id' => null,
+        ]);
+    }
 }
