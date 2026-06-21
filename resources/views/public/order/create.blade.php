@@ -664,238 +664,7 @@
             <p id="empty-items-msg" class="hidden empty-items"></p>
         </div>
 
-        <div id="section-service-inline" class="order-section-card p-5 md:p-6 hidden">
-            @php
-                $serviceKategoriOld = old('service_jenis_layanan', $prefillServiceOrder ? 'refill' : 'refill');
-                $metodeOld = old('service_metode_penanganan', 'dijemput');
-                $isPrefilledRegisteredRefill = ! empty($prefillServiceOrder);
-            @endphp
-            <input type="hidden" name="service_jenis_apar" id="service-jenis-apar-hidden" value="{{ old('service_jenis_apar') }}">
-
-            <div class="flex items-center gap-3 mb-6 pb-5 border-b border-slate-100">
-                <div class="section-icon-wrap bg-blue-50 text-blue-600">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                </div>
-                <div class="flex-1">
-                    <h2 class="font-black text-slate-900 text-lg leading-none">Layanan APAR</h2>
-                    <p class="mt-1 text-sm font-semibold text-slate-500">Alurnya dibuat seperti checkout produk: pilih layanan, isi kebutuhan utama, lalu cek ringkasan otomatis.</p>
-                </div>
-            </div>
-
-            @if($prefillServiceOrder)
-                <div class="mb-6 rounded-3xl border border-emerald-200 bg-emerald-50/70 p-5">
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                            <p class="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Refill Otomatis</p>
-                            <h3 class="mt-1 text-lg font-black text-slate-900">Refill APAR Terpilih</h3>
-                            <p class="mt-1 text-sm font-semibold text-slate-600">
-                                Unit dari halaman Riwayat & Status APAR sudah dipilih otomatis dan hanya ditampilkan satu kali pada ringkasan checkout ini.
-                            </p>
-                        </div>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <span class="rounded-full bg-white px-4 py-2 text-xs font-black text-emerald-700 shadow-sm">
-                                {{ $prefillServiceOrder['total_unit'] ?? count($prefillServiceOrder['selected_units'] ?? []) }} Unit
-                            </span>
-                            <a href="{{ route('riwayat-apar', ['tab' => 'unit']) }}" class="inline-flex items-center justify-center rounded-full border border-emerald-200 bg-white px-4 py-2 text-xs font-black text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100">
-                                Ubah Pilihan Unit
-                            </a>
-                        </div>
-                    </div>
-
-                    <div class="mt-4 space-y-3">
-                        @foreach($prefillServiceOrder['selected_units'] ?? [] as $selectedUnit)
-                            <div class="rounded-2xl border border-emerald-200 bg-white px-4 py-4 shadow-sm">
-                                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                    <div class="min-w-0">
-                                        <p class="text-base font-black text-slate-900">{{ $selectedUnit['nama_apar'] ?? 'APAR' }}</p>
-                                        <div class="mt-2 grid gap-1 text-sm font-semibold text-slate-600">
-                                            <p>Nomor Unit: {{ $selectedUnit['nomor_unit'] ?? '-' }}</p>
-                                            <p>Jenis APAR: {{ $selectedUnit['jenis_apar'] ?? '-' }}</p>
-                                            <p>Ukuran: {{ $selectedUnit['ukuran'] ?? '-' }}</p>
-                                            <p>Jenis Refill: {{ $selectedUnit['jenis_refill'] ?? '-' }}</p>
-                                        </div>
-                                    </div>
-                                    <div class="shrink-0 text-left sm:text-right">
-                                        <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Harga</p>
-                                        <p class="mt-1 text-sm font-bold text-slate-600">Per Unit Rp {{ number_format((float) ($selectedUnit['harga_per_unit'] ?? 0), 0, ',', '.') }}</p>
-                                        <p class="mt-1 text-base font-black text-emerald-700">Subtotal Rp {{ number_format((float) ($selectedUnit['subtotal'] ?? 0), 0, ',', '.') }}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-
-                    <div class="mt-4 grid gap-3 sm:grid-cols-3">
-                        <div class="rounded-2xl border border-white/80 bg-white px-4 py-3">
-                            <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Total Unit</p>
-                            <p class="mt-1 text-lg font-black text-slate-900">{{ $prefillServiceOrder['total_unit'] ?? 0 }} unit</p>
-                        </div>
-                        <div class="rounded-2xl border border-white/80 bg-white px-4 py-3">
-                            <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Kebutuhan Refill</p>
-                            <p class="mt-1 text-lg font-black text-slate-900">{{ number_format((float) ($prefillServiceOrder['total_kg'] ?? 0), floor((float) ($prefillServiceOrder['total_kg'] ?? 0)) == (float) ($prefillServiceOrder['total_kg'] ?? 0) ? 0 : 2, ',', '.') }} Kg</p>
-                        </div>
-                        <div class="rounded-2xl border border-white/80 bg-white px-4 py-3">
-                            <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Total Harga</p>
-                            <p class="mt-1 text-lg font-black text-emerald-700">Rp {{ number_format((float) ($prefillServiceOrder['total_price'] ?? 0), 0, ',', '.') }}</p>
-                        </div>
-                    </div>
-                </div>
-            @endif
-
-            @if($isPrefilledRegisteredRefill)
-                <input type="hidden" name="service_jenis_layanan" id="service-jenis-layanan" value="refill">
-                <input type="hidden" name="service_unit_status" value="terdaftar">
-                <input type="hidden" name="service_purchase_group" id="service-purchase-group" value="{{ $prefillServiceOrder['group_key'] ?? '__prefilled__' }}">
-                @foreach(($prefillServiceOrder['selected_unit_ids'] ?? []) as $selectedUnitId)
-                    <input type="hidden" name="service_unit_apar_ids[]" value="{{ (int) $selectedUnitId }}" class="service-unit-hidden-input">
-                @endforeach
-            @endif
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                @unless($isPrefilledRegisteredRefill)
-                    <div>
-                        <label class="order-label">Kategori Layanan <span>*</span></label>
-                        <select name="service_jenis_layanan" id="service-jenis-layanan" class="order-input">
-                            <option value="refill" {{ $serviceKategoriOld === 'refill' ? 'selected' : '' }}>Refill APAR</option>
-                            <option value="service" {{ $serviceKategoriOld === 'service' ? 'selected' : '' }}>Service APAR</option>
-                        </select>
-                    </div>
-                @endunless
-                @php
-                    $unitStatusOld = old('service_unit_status', (old('service_unit_apar_id') || old('service_unit_apar_ids') || $prefillServiceOrder) ? 'terdaftar' : 'belum_terdaftar');
-                    $unitStatusOld = in_array($unitStatusOld, ['terdaftar', 'belum_terdaftar'], true) ? $unitStatusOld : 'belum_terdaftar';
-                    $registeredUnitApars = $registeredUnitApars ?? collect();
-                @endphp
-                @unless($isPrefilledRegisteredRefill)
-                    <div id="service-unit-status-fields" class="md:col-span-2">
-                        <label class="order-label mb-3">Status Unit APAR <span>*</span></label>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <label class="flex items-start gap-3 px-4 py-3 rounded-xl border-2 border-slate-200 bg-slate-50 cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
-                                <input type="radio" name="service_unit_status" value="terdaftar" {{ $unitStatusOld === 'terdaftar' ? 'checked' : '' }} class="mt-1 w-4 h-4 text-blue-600">
-                                <span>
-                                    <span class="block text-sm font-black text-slate-800">APAR Terdaftar</span>
-                                    <span class="block mt-0.5 text-xs font-semibold leading-relaxed text-slate-500">Pilih riwayat pembelian, lalu centang Unit APAR yang ingin diproses.</span>
-                                </span>
-                            </label>
-                            <label class="flex items-start gap-3 px-4 py-3 rounded-xl border-2 border-slate-200 bg-slate-50 cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
-                                <input type="radio" name="service_unit_status" value="belum_terdaftar" {{ $unitStatusOld === 'belum_terdaftar' ? 'checked' : '' }} class="mt-1 w-4 h-4 text-blue-600">
-                                <span>
-                                    <span class="block text-sm font-black text-slate-800">APAR Belum Terdaftar</span>
-                                    <span class="block mt-0.5 text-xs font-semibold leading-relaxed text-slate-500">Gunakan form manual seperti biasa untuk APAR yang belum masuk data unit.</span>
-                                </span>
-                            </label>
-                        </div>
-                    </div>
-                @endunless
-
-                @unless($isPrefilledRegisteredRefill)
-                    <div id="service-registered-unit-fields" class="hidden md:col-span-2">
-                        <label class="order-label">Pilih Tanggal Pembelian APAR <span>*</span></label>
-                        <select name="service_purchase_group" id="service-purchase-group" class="order-input">
-                            <option value="">-- Pilih Tanggal Pembelian APAR --</option>
-                            @if($prefillServiceOrder)
-                                <option value="{{ $prefillServiceOrder['group_key'] ?? '__prefilled__' }}" {{ old('service_purchase_group', $prefillServiceOrder['group_key'] ?? '__prefilled__') === ($prefillServiceOrder['group_key'] ?? '__prefilled__') ? 'selected' : '' }}>
-                                    {{ $prefillServiceOrder['group_label'] ?? 'Pilihan dari Riwayat APAR' }}
-                                </option>
-                            @endif
-                            @foreach($registeredUnitApars->groupBy(fn ($unitApar) => $unitApar->tgl_beli ? $unitApar->tgl_beli->toDateString() : 'tanpa-tanggal') as $purchaseKey => $units)
-                                @php
-                                    $firstUnit = $units->first();
-                                    $purchaseDate = $firstUnit?->tgl_beli ? $firstUnit->tgl_beli->translatedFormat('d F Y') : 'Tanpa tanggal pembelian';
-                                @endphp
-                                <option value="{{ $purchaseKey }}" {{ old('service_purchase_group', $prefillServiceOrder['group_key'] ?? '') === $purchaseKey ? 'selected' : '' }}>
-                                    {{ $purchaseDate }} - {{ $units->count() }} Unit APAR
-                                </option>
-                            @endforeach
-                        </select>
-                        @if($registeredUnitApars->isEmpty())
-                            <p class="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold leading-relaxed text-amber-800">
-                                Belum ada Unit APAR terdaftar. Silakan gunakan opsi APAR Belum Terdaftar atau hubungi admin.
-                            </p>
-                        @endif
-                        <p class="mt-2 text-xs font-semibold leading-relaxed text-slate-500">
-                            Setelah tanggal pembelian dipilih, centang Unit APAR yang ingin diproses. Unit yang tidak diproses cukup hapus centangnya.
-                        </p>
-                        <div id="service-registered-empty-note" class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-500">
-                            Pilih tanggal pembelian terlebih dahulu untuk melihat daftar Unit APAR.
-                        </div>
-                        <div id="service-registered-unit-list" class="mt-4 space-y-3"></div>
-                        <p id="service-registered-count-note" class="hidden mt-3 text-xs font-black uppercase tracking-[0.18em] text-blue-600"></p>
-                    </div>
-                @else
-                    <div id="service-registered-unit-fields" class="hidden md:col-span-2"></div>
-                    <div id="service-registered-unit-list" class="hidden"></div>
-                    <div id="service-registered-empty-note" class="hidden"></div>
-                    <p id="service-registered-count-note" class="hidden"></p>
-                @endunless
-
-                <div id="service-manual-type-field" class="hidden">
-                    <label class="order-label">Jenis Media APAR <span>*</span></label>
-                    <select id="service-jenis-apar-manual" class="order-input">
-                        <option value="">-- Pilih Jenis Media APAR --</option>
-                        @foreach(($serviceMediaOptions ?? []) as $mediaOption)
-                            <option value="{{ $mediaOption['label'] }}" {{ old('service_jenis_apar') === $mediaOption['label'] ? 'selected' : '' }}>
-                                {{ $mediaOption['label'] }}
-                            </option>
-                        @endforeach
-                    </select>
-                    <p class="mt-2 text-xs font-semibold leading-relaxed text-slate-500">Ukuran APAR akan menyesuaikan jenis media yang tersedia di sistem.</p>
-                </div>
-
-                <div id="service-manual-size-field">
-                    <label class="order-label">Ukuran APAR <span>*</span></label>
-                    <select name="service_ukuran_apar" id="service-ukuran-apar" class="order-input">
-                        <option value="">-- Pilih Ukuran APAR --</option>
-                        @foreach($serviceUkuranOptions as $ukuran)
-                            <option value="{{ $ukuran }}" {{ old('service_ukuran_apar') === $ukuran ? 'selected' : '' }}>{{ $ukuran }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div id="service-quantity-field">
-                    <label class="order-label">Jumlah Unit <span>*</span></label>
-                    <input type="number" name="service_jumlah_unit" id="service-jumlah-unit" min="1" value="{{ old('service_jumlah_unit', 1) }}" class="order-input">
-                </div>
-
-                <div id="service-refill-fields" class="contents">
-                    <div id="service-refill-select-field">
-                        <label class="order-label">Jenis Refil <span>*</span></label>
-                        <select name="service_jenis_refill_id" id="service-jenis-refill-id" class="order-input">
-                            <option value="">-- Pilih Jenis Refil --</option>
-                            @foreach($jenisRefills as $jenisRefill)
-                                <option value="{{ $jenisRefill->id }}" {{ (string) old('service_jenis_refill_id') === (string) $jenisRefill->id ? 'selected' : '' }}>{{ $jenisRefill->nama_label }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="rounded-2xl border border-blue-200 bg-blue-50 p-4">
-                        <p class="text-xs font-black uppercase tracking-[0.18em] text-blue-600">Harga Standar Refil</p>
-                        <p id="service-refill-price-note" class="mt-2 text-sm font-semibold leading-relaxed text-slate-700">Harga standar refil akan muncul otomatis saat jenis refil dan ukuran APAR dipilih.</p>
-                    </div>
-                </div>
-
-                <div id="service-service-fields" class="contents hidden">
-                    <div class="md:col-span-2">
-                        <label class="order-label">Paket Service <span>*</span></label>
-                        <select name="service_paket_id" id="service-paket-id" class="order-input">
-                            <option value="">-- Pilih Paket Service --</option>
-                            @foreach($servicePakets as $servicePaket)
-                                <option value="{{ $servicePaket->id }}" {{ (string) old('service_paket_id') === (string) $servicePaket->id ? 'selected' : '' }}>{{ $servicePaket->label ?: 'Service' }} - {{ $servicePaket->nama }} - Harga standar per unit APAR</option>
-                            @endforeach
-                        </select>
-                    </div>
-                </div>
-
-                <div class="md:col-span-2">
-                    <label class="order-label">Upload Foto APAR <span class="text-slate-300 font-normal normal-case tracking-normal">(Opsional)</span></label>
-                    <input type="file" name="service_foto" id="service-foto" accept=".jpg,.jpeg,.png,.webp" class="order-input text-slate-500 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-red-50 file:text-red-600">
-                    <p class="text-[11px] font-semibold text-slate-400 mt-1">Foto membantu admin melakukan pemeriksaan awal.</p>
-                </div>
-                <div class="md:col-span-2">
-                    <label class="order-label">Catatan / Keluhan</label>
-                    <textarea name="service_keluhan" id="service-keluhan" rows="3" placeholder="Contoh: tabung perlu refill, minta pengecekan valve, atau ingin dijemput hari kerja." class="order-input resize-none">{{ old('service_keluhan', old('keterangan_service')) }}</textarea>
-                </div>
-            </div>
-        </div>
+        @include('public.order.partials.service-form-manual')
 
             </div>
 
@@ -1105,112 +874,7 @@
                     </div>
                 </div>
 
-                @php
-                    $prefillSummaryItems = collect($prefillServiceOrder['selected_units'] ?? []);
-                    $prefillSummaryUnitLabel = $isPrefilledRegisteredRefill
-                        ? $prefillSummaryItems->pluck('nomor_unit')->filter()->implode(', ')
-                        : '-';
-                    $prefillSummaryItemLabel = $isPrefilledRegisteredRefill
-                        ? ($prefillSummaryItems->pluck('jenis_refill')->filter()->unique()->implode(', ') ?: 'Refill APAR')
-                        : 'Belum dipilih';
-                    $prefillSummarySizeLabel = $isPrefilledRegisteredRefill
-                        ? ($prefillSummaryItems->pluck('ukuran')->filter()->unique()->implode(', ') ?: '-')
-                        : '-';
-                    $prefillSummaryQtyLabel = $isPrefilledRegisteredRefill
-                        ? (($prefillServiceOrder['total_unit'] ?? 0) . ' unit')
-                        : '1 unit';
-                    $prefillSummaryKgLabel = $isPrefilledRegisteredRefill
-                        ? (number_format((float) ($prefillServiceOrder['total_kg'] ?? 0), floor((float) ($prefillServiceOrder['total_kg'] ?? 0)) == (float) ($prefillServiceOrder['total_kg'] ?? 0) ? 0 : 2, ',', '.') . ' Kg')
-                        : '-';
-                    $prefillSummaryPriceLabel = $isPrefilledRegisteredRefill
-                        ? ('Rp ' . number_format((float) ($prefillServiceOrder['total_price'] ?? 0), 0, ',', '.'))
-                        : 'Rp 0';
-                    $prefillSummaryMethodLabel = $metodeOld === 'antar sendiri' ? 'Antar Sendiri' : 'Dijemput';
-                @endphp
-
-                <div id="service-summary-card" class="order-section-card hidden p-6">
-                    <div class="flex items-center gap-2 mb-4">
-                        <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                        </div>
-                        <div>
-                            <p class="text-sm font-black text-slate-800">Ringkasan Pesanan</p>
-                            <p class="text-[11px] font-semibold text-slate-500">Selalu ikut berubah saat form layanan diisi.</p>
-                        </div>
-                    </div>
-
-                    <div class="summary-card space-y-3">
-                        <div class="summary-row">
-                            <span class="text-slate-500 font-semibold">Kategori</span>
-                            <span id="service-summary-category" class="font-black text-slate-800">Refill APAR</span>
-                        </div>
-                        <div id="service-summary-status-row" class="summary-row">
-                            <span class="text-slate-500 font-semibold">Status Unit</span>
-                            <span id="service-summary-status" class="font-black text-slate-800">{{ $isPrefilledRegisteredRefill ? 'APAR Terdaftar' : 'APAR Belum Terdaftar' }}</span>
-                        </div>
-                        <div id="service-summary-unit-row" class="summary-row {{ $isPrefilledRegisteredRefill ? '' : 'hidden' }}">
-                            <span class="text-slate-500 font-semibold">Unit APAR</span>
-                            <span id="service-summary-unit" class="font-black text-slate-800 text-right">{{ $prefillSummaryUnitLabel }}</span>
-                        </div>
-                        <div class="summary-row">
-                            <span id="service-summary-item-label" class="text-slate-500 font-semibold">Jenis Refill</span>
-                            <span id="service-summary-item" class="font-black text-slate-800 text-right">{{ $prefillSummaryItemLabel }}</span>
-                        </div>
-                        <div class="summary-row">
-                            <span class="text-slate-500 font-semibold">Ukuran APAR</span>
-                            <span id="service-summary-size" class="font-black text-slate-800 text-right">{{ $prefillSummarySizeLabel }}</span>
-                        </div>
-                        <div class="summary-row">
-                            <span class="text-slate-500 font-semibold">Jumlah Unit</span>
-                            <span id="service-summary-qty" class="font-black text-slate-800">{{ $prefillSummaryQtyLabel }}</span>
-                        </div>
-                        <div class="summary-row">
-                            <span id="service-summary-usage-label" class="text-slate-500 font-semibold">Kebutuhan Refill</span>
-                            <span id="service-summary-kg" class="font-black text-slate-800 text-right">{{ $prefillSummaryKgLabel }}</span>
-                        </div>
-                        <div id="service-summary-equipment-row" class="summary-row hidden">
-                            <span class="text-slate-500 font-semibold">Peralatan Digunakan</span>
-                            <span id="service-summary-equipment" class="font-black text-slate-800 text-right">-</span>
-                        </div>
-                        <div class="summary-row">
-                            <span class="text-slate-500 font-semibold">Metode Penanganan</span>
-                            <span id="service-summary-method" class="font-black text-slate-800">{{ $prefillSummaryMethodLabel }}</span>
-                        </div>
-                        <div id="service-summary-courier-row" class="summary-row hidden">
-                            <span class="text-slate-500 font-semibold">Ekspedisi / Layanan</span>
-                            <span id="service-summary-courier" class="font-black text-slate-800 text-right">-</span>
-                        </div>
-                        <div id="service-summary-etd-row" class="summary-row hidden">
-                            <span class="text-slate-500 font-semibold">Estimasi</span>
-                            <span id="service-summary-etd" class="font-black text-slate-800">-</span>
-                        </div>
-                        <div class="summary-row">
-                            <span class="text-slate-500 font-semibold">Biaya Penjemputan</span>
-                            <span id="service-summary-ongkir" class="font-black text-slate-800">Rp 0</span>
-                        </div>
-                        <div class="summary-row total">
-                            <span id="service-summary-price-label" class="text-slate-500 font-semibold">Estimasi Harga / Total</span>
-                            <span id="service-summary-price" class="summary-value-total text-xl font-black text-blue-600">{{ $prefillSummaryPriceLabel }}</span>
-                        </div>
-                    </div>
-
-                    <div class="mt-4 space-y-4">
-                        <div id="service-stock-warning" class="hidden rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700"></div>
-                        <div id="service-low-stock-warning" class="hidden rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800"></div>
-
-                        <div id="service-package-note" class="hidden rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                            <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Rincian Paket & Peralatan</p>
-                            <div id="service-package-rincian" class="mt-3 space-y-2 text-sm font-semibold text-slate-700"></div>
-                        </div>
-
-                        <button type="submit" id="btn-service-submit" class="btn-primary-action submit service w-full justify-center">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                            <span id="btn-service-submit-label">Lanjut ke Pembayaran</span>
-                        </button>
-
-                        <p class="text-[10px] text-slate-400 font-semibold text-center">Pastikan metode penanganan, bank tujuan, dan detail layanan sudah sesuai sebelum melanjutkan.</p>
-                    </div>
-                </div>
+                @include('public.order.partials.service-summary-manual')
 
                 <div id="product-summary-card" class="order-section-card p-6">
                     <div class="flex items-center gap-2 mb-4">
@@ -1442,19 +1106,17 @@
     const serviceRefillFields = document.getElementById('service-refill-fields');
     const serviceRefillSelectField = document.getElementById('service-refill-select-field');
     const serviceServiceFields = document.getElementById('service-service-fields');
+    const serviceRefillItemsContainer = document.getElementById('service-refill-items');
+    const serviceServiceItemsContainer = document.getElementById('service-service-items');
+    const serviceRefillItemTemplate = document.getElementById('service-refill-item-template');
+    const serviceServiceItemTemplate = document.getElementById('service-service-item-template');
+    const btnAddRefillItem = document.getElementById('btn-add-refill-item');
+    const btnAddServiceItem = document.getElementById('btn-add-service-item');
     const serviceRefillPriceNote = document.getElementById('service-refill-price-note');
     const serviceSummaryCategory = document.getElementById('service-summary-category');
-    const serviceSummaryStatusRow = document.getElementById('service-summary-status-row');
-    const serviceSummaryStatus = document.getElementById('service-summary-status');
-    const serviceSummaryUnitRow = document.getElementById('service-summary-unit-row');
-    const serviceSummaryUnit = document.getElementById('service-summary-unit');
-    const serviceSummaryItemLabel = document.getElementById('service-summary-item-label');
-    const serviceSummaryItem = document.getElementById('service-summary-item');
     const serviceSummarySize = document.getElementById('service-summary-size');
     const serviceSummaryQty = document.getElementById('service-summary-qty');
     const serviceSummaryKg = document.getElementById('service-summary-kg');
-    const serviceSummaryEquipmentRow = document.getElementById('service-summary-equipment-row');
-    const serviceSummaryEquipment = document.getElementById('service-summary-equipment');
     const serviceSummaryUsageLabel = document.getElementById('service-summary-usage-label');
     const serviceSummaryMethod = document.getElementById('service-summary-method');
     const serviceSummaryCourierRow = document.getElementById('service-summary-courier-row');
@@ -1464,6 +1126,11 @@
     const serviceSummaryOngkir = document.getElementById('service-summary-ongkir');
     const serviceSummaryPriceLabel = document.getElementById('service-summary-price-label');
     const serviceSummaryPrice = document.getElementById('service-summary-price');
+    const serviceSummaryItemCount = document.getElementById('service-summary-item-count');
+    const serviceSummaryItems = document.getElementById('service-summary-items');
+    const serviceSummaryEquipmentBox = document.getElementById('service-summary-equipment-box');
+    const serviceSummaryEquipmentList = document.getElementById('service-summary-equipment-list');
+    const serviceSummaryEquipmentCount = document.getElementById('service-summary-equipment-count');
     const serviceStockTitle = document.getElementById('service-stock-title');
     const serviceStockCurrent = document.getElementById('service-stock-current');
     const serviceStockAfter = document.getElementById('service-stock-after');
@@ -1489,6 +1156,8 @@
     const methodOptionBKicker = document.getElementById('method-option-b-kicker');
     const methodOptionBTitle = document.getElementById('method-option-b-title');
     const methodOptionBSubtitle = document.getElementById('method-option-b-subtitle');
+    let serviceRefillRowIndex = serviceRefillItemsContainer ? serviceRefillItemsContainer.querySelectorAll('.service-refill-item-row').length : 0;
+    let serviceServiceRowIndex = serviceServiceItemsContainer ? serviceServiceItemsContainer.querySelectorAll('.service-service-item-row').length : 0;
     let lastRenderedPurchaseGroup = null;
     let addressSearchTimer = null;
     let addressSuggestionItems = [];
@@ -2824,6 +2493,282 @@
         });
     }
 
+    function renderServiceTemplate(template, index) {
+        if (!template) {
+            return null;
+        }
+
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = template.innerHTML.replaceAll('__INDEX__', String(index)).trim();
+
+        return wrapper.firstElementChild;
+    }
+
+    function refreshDynamicRemoveButtons(container, selector) {
+        if (!container) {
+            return;
+        }
+
+        const buttons = [...container.querySelectorAll(selector)];
+        const hasMultipleRows = container.children.length > 1;
+        buttons.forEach((button) => {
+            button.disabled = !hasMultipleRows;
+            button.classList.toggle('opacity-60', !hasMultipleRows);
+            button.classList.toggle('cursor-not-allowed', !hasMultipleRows);
+        });
+    }
+
+    function summarizeRefillRow(row, item) {
+        const note = row?.querySelector('.service-item-subtotal');
+        if (!note) {
+            return;
+        }
+
+        if (!item.refill || !item.ukuran) {
+            note.textContent = 'Pilih jenis refill dan ukuran APAR untuk melihat subtotal item refill.';
+            return;
+        }
+
+        const kgLabel = item.totalKg > 0 ? ` • Kebutuhan ${formatKg(item.totalKg)} ${item.refill?.satuan_label || 'Kg'}` : '';
+        note.textContent = `Harga ${fmt(item.unitPrice)} / unit • Subtotal ${fmt(item.total)}${kgLabel}`;
+    }
+
+    function summarizeServiceRow(row, item) {
+        const priceLabel = row?.querySelector('.service-item-price-label span');
+        const subtotalLabel = row?.querySelector('.service-item-subtotal-label span');
+        
+        if (!priceLabel || !subtotalLabel) {
+            return;
+        }
+
+        if (!item.jenisApar || !item.paket || !item.ukuran) {
+            priceLabel.textContent = '-';
+            subtotalLabel.textContent = 'Rp 0';
+            return;
+        }
+
+        priceLabel.textContent = `${fmt(item.unitPrice)} / unit`;
+        subtotalLabel.textContent = fmt(item.total);
+    }
+
+    function readManualRefillItems() {
+        if (!serviceRefillItemsContainer) {
+            return [];
+        }
+
+        return [...serviceRefillItemsContainer.querySelectorAll('.service-refill-item-row')]
+            .map((row, index) => {
+                const refillId = Number(row.querySelector('.service-refill-item-select')?.value || 0);
+                const ukuran = String(row.querySelector('.service-refill-item-size')?.value || '').trim();
+                const qty = Math.max(1, Number(row.querySelector('.service-refill-item-qty')?.value || 1));
+                const refill = findServiceRefillById(refillId);
+                const unitPrice = resolveRefillPriceForSize(refill, ukuran);
+                const totalKg = parseServiceSizeKg(ukuran) * qty;
+                const item = {
+                    index,
+                    row,
+                    refillId,
+                    refill,
+                    ukuran,
+                    qty,
+                    unitPrice,
+                    total: unitPrice * qty,
+                    totalKg,
+                    displayLabel: refill?.nama_label || 'Jenis refill',
+                };
+
+                summarizeRefillRow(row, item);
+
+                return item;
+            })
+            .filter((item) => item.refillId > 0 || item.ukuran !== '');
+    }
+
+    function readManualServiceItems() {
+        if (!serviceServiceItemsContainer) {
+            return [];
+        }
+
+        return [...serviceServiceItemsContainer.querySelectorAll('.service-service-item-row')]
+            .map((row, index) => {
+                const jenisApar = String(row.querySelector('.service-service-item-jenis')?.value || '').trim();
+                const paketId = Number(row.querySelector('.service-service-item-select')?.value || 0);
+                const ukuran = String(row.querySelector('.service-service-item-size')?.value || '').trim();
+                const qty = Math.max(1, Number(row.querySelector('.service-service-item-qty')?.value || 1));
+                const paket = findServicePaketById(paketId);
+                const unitPrice = paket ? resolveServicePackagePrice(paket, jenisApar || 'APAR', ukuran) : 0;
+                const peralatanItems = paket ? resolveServicePeralatan(paket, qty) : [];
+                const item = {
+                    index,
+                    row,
+                    jenisApar,
+                    paketId,
+                    paket,
+                    ukuran,
+                    qty,
+                    unitPrice,
+                    total: unitPrice * qty,
+                    peralatanItems,
+                    displayLabel: (jenisApar ? `${jenisApar} - ` : '') + (paket?.nama || 'Paket service'),
+                };
+
+                summarizeServiceRow(row, item);
+
+                return item;
+            })
+            .filter((item) => item.paketId > 0 || item.ukuran !== '' || item.jenisApar !== '');
+    }
+
+    function aggregatePeralatanItems(lineItems) {
+        const groups = new Map();
+
+        lineItems.forEach((lineItem) => {
+            (lineItem.peralatanItems || []).forEach((item) => {
+                const peralatanId = Number(item.peralatan_id || 0);
+                const key = peralatanId > 0
+                    ? `id:${peralatanId}`
+                    : `name:${String(item.nama || '').trim().toLowerCase()}`;
+
+                if (!groups.has(key)) {
+                    groups.set(key, {
+                        peralatan_id: peralatanId,
+                        nama: String(item.nama || '-').trim() || '-',
+                        jumlah: 0,
+                        stok: Number(item.stok || 0),
+                        stok_minimum: Number(item.stok_minimum || 0),
+                    });
+                }
+
+                const current = groups.get(key);
+                current.jumlah += Number(item.jumlah || 0);
+                current.stok = Number(item.stok || current.stok || 0);
+                current.stok_minimum = Number(item.stok_minimum || current.stok_minimum || 0);
+            });
+        });
+
+        return [...groups.values()];
+    }
+
+    function attachRefillRowEvents(row) {
+        if (!row) {
+            return;
+        }
+
+        row.querySelectorAll('.service-refill-item-select, .service-refill-item-size, .service-refill-item-qty').forEach((field) => {
+            field.addEventListener('change', updateServiceSummary);
+            field.addEventListener('input', updateServiceSummary);
+        });
+
+        const removeButton = row.querySelector('.btn-remove-refill-item');
+        if (removeButton) {
+            removeButton.addEventListener('click', function() {
+                if (!serviceRefillItemsContainer || serviceRefillItemsContainer.children.length <= 1) {
+                    return;
+                }
+
+                row.remove();
+                refreshDynamicRemoveButtons(serviceRefillItemsContainer, '.btn-remove-refill-item');
+                updateServiceSummary();
+            });
+        }
+    }
+
+    function attachServiceRowEvents(row) {
+        if (!row) {
+            return;
+        }
+
+        const jenisSelect = row.querySelector('.service-service-item-jenis');
+        const paketSelect = row.querySelector('.service-service-item-select');
+
+        if (jenisSelect && paketSelect) {
+            // Function to filter paket options based on selected Jenis APAR
+            const filterPaket = () => {
+                const jenis = jenisSelect.value.toLowerCase();
+                const currentVal = paketSelect.value;
+                let valStillValid = false;
+
+                [...paketSelect.options].forEach((opt) => {
+                    if (opt.value === '') return;
+                    
+                    const namaPaket = (opt.getAttribute('data-nama') || opt.text || '').toLowerCase();
+                    let show = true;
+                    
+                    if (jenis === 'powder' && namaPaket.includes('co2')) show = false;
+                    if (jenis === 'foam' && namaPaket.includes('co2')) show = false;
+                    if (jenis === 'co2' && (namaPaket.includes('powder') || namaPaket.includes('foam'))) show = false;
+
+                    opt.style.display = show ? '' : 'none';
+                    if (show && opt.value === currentVal) {
+                        valStillValid = true;
+                    }
+                });
+
+                if (currentVal !== '' && !valStillValid) {
+                    paketSelect.value = '';
+                }
+            };
+
+            jenisSelect.addEventListener('change', () => {
+                filterPaket();
+                updateServiceSummary();
+            });
+            
+            // Run initially
+            filterPaket();
+        }
+
+        row.querySelectorAll('.service-service-item-select, .service-service-item-size, .service-service-item-qty').forEach((field) => {
+            field.addEventListener('change', updateServiceSummary);
+            field.addEventListener('input', updateServiceSummary);
+        });
+
+        const removeButton = row.querySelector('.btn-remove-service-item');
+        if (removeButton) {
+            removeButton.addEventListener('click', function() {
+                if (!serviceServiceItemsContainer || serviceServiceItemsContainer.children.length <= 1) {
+                    return;
+                }
+
+                row.remove();
+                refreshDynamicRemoveButtons(serviceServiceItemsContainer, '.btn-remove-service-item');
+                updateServiceSummary();
+            });
+        }
+    }
+
+    function appendManualRefillRow() {
+        if (!serviceRefillItemsContainer || !serviceRefillItemTemplate) {
+            return;
+        }
+
+        const row = renderServiceTemplate(serviceRefillItemTemplate, serviceRefillRowIndex++);
+        if (!row) {
+            return;
+        }
+
+        serviceRefillItemsContainer.appendChild(row);
+        attachRefillRowEvents(row);
+        refreshDynamicRemoveButtons(serviceRefillItemsContainer, '.btn-remove-refill-item');
+        updateServiceSummary();
+    }
+
+    function appendManualServiceRow() {
+        if (!serviceServiceItemsContainer || !serviceServiceItemTemplate) {
+            return;
+        }
+
+        const row = renderServiceTemplate(serviceServiceItemTemplate, serviceServiceRowIndex++);
+        if (!row) {
+            return;
+        }
+
+        serviceServiceItemsContainer.appendChild(row);
+        attachServiceRowEvents(row);
+        refreshDynamicRemoveButtons(serviceServiceItemsContainer, '.btn-remove-service-item');
+        updateServiceSummary();
+    }
+
     function getRegisteredUnitSubtotal(unit) {
         const kategori = serviceJenisLayanan && serviceJenisLayanan.value === 'service' ? 'service' : 'refill';
 
@@ -3416,6 +3361,482 @@
         updateServiceSummary();
     }
 
+    function renderServicePackageDetails(state) {
+        if (!servicePackageNote || !servicePackageRincian) {
+            return;
+        }
+
+        servicePackageRincian.innerHTML = '';
+
+        if (!state || state.kategori !== 'service' || currentTab === 'beli' || !(state.lineItems || []).length) {
+            servicePackageNote.classList.add('hidden');
+            return;
+        }
+
+        state.lineItems.forEach((item, index) => {
+            const block = document.createElement('div');
+            block.className = 'rounded-2xl border border-white/70 bg-white px-3 py-3';
+
+            const title = document.createElement('p');
+            title.className = 'text-sm font-black text-slate-900';
+            title.textContent = `${index + 1}. ${item.displayLabel || item.label || 'Paket service'} (${Number(item.qty || 0)} unit)`;
+            block.appendChild(title);
+
+            const subtotal = document.createElement('p');
+            subtotal.className = 'mt-1 text-xs font-semibold text-slate-500';
+            subtotal.textContent = `Harga ${fmt(item.unitPrice || 0)} / unit | Subtotal ${fmt(item.total || 0)}`;
+            block.appendChild(subtotal);
+
+            const rincian = Array.isArray(item.paket?.rincian) ? item.paket.rincian : [];
+            if (rincian.length) {
+                const workTitle = document.createElement('p');
+                workTitle.className = 'pt-3 text-xs font-black uppercase tracking-[0.18em] text-slate-400';
+                workTitle.textContent = 'Pekerjaan Dalam Paket';
+                block.appendChild(workTitle);
+
+                rincian.forEach((detail) => {
+                    const row = document.createElement('p');
+                    row.className = 'text-sm font-semibold text-slate-700';
+                    row.textContent = '- ' + detail;
+                    block.appendChild(row);
+                });
+            }
+
+            servicePackageRincian.appendChild(block);
+        });
+
+        if ((state.peralatanItems || []).length) {
+            const equipmentTitle = document.createElement('p');
+            equipmentTitle.className = 'pt-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400';
+            equipmentTitle.textContent = `Peralatan Paket (${state.qty} unit)`;
+            servicePackageRincian.appendChild(equipmentTitle);
+
+            state.peralatanItems.forEach((item) => {
+                const row = document.createElement('p');
+                row.className = 'text-sm font-semibold text-slate-700';
+                row.textContent = `${item.nama} (${Number(item.jumlah || 0)} pcs total)`;
+                servicePackageRincian.appendChild(row);
+            });
+        }
+
+        servicePackageNote.classList.remove('hidden');
+    }
+
+    function buildServiceState() {
+        const kategori = serviceJenisLayanan && serviceJenisLayanan.value === 'service' ? 'service' : 'refill';
+        const metode = getSelectedServiceMethod();
+        const ongkir = metode === 'dijemput' && shippingMethod === 'diantar' ? Number(shippingCost || 0) : 0;
+
+        const state = {
+            kategori,
+            unitStatus: getServiceUnitStatus(),
+            registeredUnits: getSelectedRegisteredUnits(),
+            metode,
+            ongkir,
+            grandTotal: 0,
+            itemLabel: 'Belum ada item layanan',
+            qty: 0,
+            ukuran: '',
+            ukuranKg: 0,
+            totalKg: 0,
+            unitPrice: 0,
+            totalPrice: 0,
+            stockUnit: 'Kg',
+            insufficientStock: false,
+            lowStock: false,
+            currentStockLabel: kategori === 'service'
+                ? 'Peralatan paket akan dihitung otomatis dari item service yang Anda pilih.'
+                : 'Stok refill akan dihitung otomatis dari item refill yang Anda isi.',
+            afterStockLabel: kategori === 'service'
+                ? 'Stok peralatan akan berkurang setelah pembayaran valid dikonfirmasi admin.'
+                : 'Sisa stok refill setelah transaksi akan tampil di sini.',
+            lineItems: [],
+            refillGroups: [],
+            peralatanItems: [],
+            rawRefillItems: [],
+            rawServiceItems: [],
+            refill: null,
+            paket: null,
+            hasMissingRegisteredRefill: false,
+        };
+
+        if (kategori === 'refill') {
+            state.rawRefillItems = readManualRefillItems();
+            state.lineItems = state.rawRefillItems.map((item) => {
+                return {
+                    ...item,
+                    label: item.refill?.nama_label || 'Jenis refill',
+                    displayLabel: `${item.refill?.nama_label || 'Jenis refill'} | ${item.ukuran || 'Ukuran APAR'}`,
+                    totalKg: Number(item.totalKg || 0),
+                    unitPrice: Number(item.unitPrice || 0),
+                    total: Number(item.total || 0),
+                };
+            });
+
+            state.qty = state.lineItems.reduce((total, item) => total + Math.max(1, Number(item.qty || 1)), 0);
+            state.ukuran = [...new Set(state.lineItems.map((item) => String(item.ukuran || '').trim()).filter(Boolean))].join(', ');
+            state.totalKg = state.lineItems.reduce((total, item) => total + Number(item.totalKg || 0), 0);
+            state.ukuranKg = state.totalKg;
+            state.totalPrice = state.lineItems.reduce((total, item) => total + Number(item.total || 0), 0);
+            state.unitPrice = Number(state.lineItems[0]?.unitPrice || 0);
+            state.refill = state.lineItems.length === 1 ? (state.lineItems[0]?.refill || null) : null;
+            state.itemLabel = state.lineItems.length
+                ? state.lineItems.map((item) => `${item.label} (${Number(item.qty || 1)} unit)`).join(', ')
+                : 'Belum ada item refill';
+
+            const refillGroups = new Map();
+            state.lineItems.forEach((item) => {
+                if (!item.refill) {
+                    return;
+                }
+
+                const refillId = Number(item.refill.id || 0);
+                if (!refillGroups.has(refillId)) {
+                    refillGroups.set(refillId, {
+                        refill: item.refill,
+                        qty: 0,
+                        totalKg: 0,
+                        totalPrice: 0,
+                    });
+                }
+
+                const group = refillGroups.get(refillId);
+                group.qty += Number(item.qty || 0);
+                group.totalKg += Number(item.totalKg || 0);
+                group.totalPrice += Number(item.total || 0);
+            });
+
+            state.refillGroups = [...refillGroups.values()].map((group) => {
+                const stok = Number(group.refill?.stok || 0);
+                const stokMinimum = Number(group.refill?.stok_minimum || 0);
+                const remaining = stok - Number(group.totalKg || 0);
+
+                return {
+                    ...group,
+                    stok,
+                    stokMinimum,
+                    remaining,
+                };
+            });
+
+            state.hasMissingRegisteredRefill = state.lineItems.some((item) => !item.refill || !item.ukuran);
+            state.stockUnit = state.refillGroups[0]?.refill?.satuan_label || 'Kg';
+
+            if (state.lineItems.length > 0 && state.hasMissingRegisteredRefill) {
+                state.currentStockLabel = 'Lengkapi jenis refill dan ukuran APAR untuk setiap item.';
+                state.afterStockLabel = 'Subtotal dan kebutuhan refill baru dihitung setelah semua item refill lengkap.';
+                state.insufficientStock = true;
+            } else if (state.refillGroups.length > 0) {
+                state.currentStockLabel = state.refillGroups
+                    .map((group) => `${group.refill?.nama_label || 'Refill'}: ${formatKg(group.stok)} ${group.refill?.satuan_label || 'Kg'}`)
+                    .join(' | ');
+                state.afterStockLabel = state.refillGroups
+                    .map((group) => `${group.refill?.nama_label || 'Refill'} sisa ${formatKg(group.remaining)} ${group.refill?.satuan_label || 'Kg'}`)
+                    .join(' | ');
+                state.insufficientStock = state.refillGroups.some((group) => group.remaining < 0);
+                state.lowStock = !state.insufficientStock && state.refillGroups.some((group) => group.remaining <= group.stokMinimum);
+            }
+        } else {
+            state.rawServiceItems = readManualServiceItems();
+            state.lineItems = state.rawServiceItems.map((item) => {
+                return {
+                    ...item,
+                    label: item.paket?.nama || 'Paket service',
+                    displayLabel: `${item.paket?.nama || 'Paket service'} | ${item.ukuran || 'Ukuran APAR'}`,
+                    unitPrice: Number(item.unitPrice || 0),
+                    total: Number(item.total || 0),
+                };
+            });
+
+            state.qty = state.lineItems.reduce((total, item) => total + Math.max(1, Number(item.qty || 1)), 0);
+            state.ukuran = [...new Set(state.lineItems.map((item) => String(item.ukuran || '').trim()).filter(Boolean))].join(', ');
+            state.totalPrice = state.lineItems.reduce((total, item) => total + Number(item.total || 0), 0);
+            state.unitPrice = Number(state.lineItems[0]?.unitPrice || 0);
+            state.paket = state.lineItems.length === 1 ? (state.lineItems[0]?.paket || null) : null;
+            state.itemLabel = state.lineItems.length
+                ? state.lineItems.map((item) => `${item.label} (${Number(item.qty || 1)} unit)`).join(', ')
+                : 'Belum ada item service';
+            state.peralatanItems = aggregatePeralatanItems(state.rawServiceItems);
+
+            if (state.lineItems.length > 0 && state.lineItems.some((item) => !item.jenisApar || !item.paket || !item.ukuran)) {
+                state.currentStockLabel = 'Lengkapi jenis, ukuran APAR, dan paket service untuk setiap item.';
+                state.afterStockLabel = 'Subtotal service baru dihitung setelah semua item service lengkap.';
+                state.insufficientStock = true;
+            } else if (state.peralatanItems.length > 0) {
+                state.currentStockLabel = state.peralatanItems
+                    .map((item) => `${item.nama}: ${Number(item.stok || 0)} pcs`)
+                    .join(' | ');
+                state.afterStockLabel = state.peralatanItems
+                    .map((item) => `${item.nama} sisa ${Number(item.stok || 0) - Number(item.jumlah || 0)} pcs`)
+                    .join(' | ');
+                state.insufficientStock = state.peralatanItems.some((item) => Number(item.stok || 0) < Number(item.jumlah || 0));
+                state.lowStock = !state.insufficientStock && state.peralatanItems.some((item) => {
+                    const remaining = Number(item.stok || 0) - Number(item.jumlah || 0);
+                    return Number(item.jumlah || 0) > 0 && remaining <= Number(item.stok_minimum || 0);
+                });
+            }
+        }
+
+        state.grandTotal = state.totalPrice + state.ongkir;
+
+        return state;
+    }
+
+    function updateServiceSummary() {
+        const state = buildServiceState();
+        const metodeLabel = state.metode === 'antar sendiri' ? 'Antar Sendiri' : 'Dijemput';
+
+        if (serviceJenisAparHidden) {
+            serviceJenisAparHidden.value = state.lineItems.length
+                ? [...new Set(state.lineItems.map((item) => item.label || '').filter(Boolean))].join(', ').slice(0, 120)
+                : '';
+        }
+
+        if (serviceRefillPriceNote) {
+            serviceRefillPriceNote.textContent = state.kategori === 'service'
+                ? (
+                    state.lineItems.length
+                        ? 'Harga service dihitung per item berdasarkan jenis, paket, ukuran APAR, dan jumlah unit lalu dijumlahkan otomatis.'
+                        : 'Tambahkan item service untuk melihat subtotal tiap paket dan total pembayaran.'
+                )
+                : (
+                    state.lineItems.length
+                        ? 'Harga refill dihitung per item berdasarkan jenis refill, ukuran APAR, dan jumlah unit lalu dijumlahkan otomatis.'
+                        : 'Tambahkan item refill untuk melihat subtotal tiap item dan total pembayaran.'
+                );
+        }
+
+        renderServicePackageDetails(state);
+
+        if (serviceSummaryCategory) {
+            serviceSummaryCategory.textContent = state.kategori === 'service' ? 'Service APAR' : 'Refill APAR';
+        }
+        if (serviceSummarySize) {
+            serviceSummarySize.textContent = state.ukuran || '-';
+        }
+        if (serviceSummaryQty) {
+            serviceSummaryQty.textContent = `${state.qty} unit`;
+        }
+        if (serviceSummaryUsageLabel) {
+            serviceSummaryUsageLabel.textContent = state.kategori === 'service' ? 'Peralatan Paket' : 'Kebutuhan Refill';
+        }
+        if (serviceSummaryKg) {
+            serviceSummaryKg.textContent = state.kategori === 'service'
+                ? `${(state.peralatanItems || []).length} item`
+                : (state.totalKg > 0 ? `${formatKg(state.totalKg)} ${state.stockUnit}` : '-');
+        }
+        if (serviceSummaryMethod) {
+            serviceSummaryMethod.textContent = metodeLabel;
+        }
+        if (serviceSummaryCourierRow) {
+            serviceSummaryCourierRow.classList.toggle('hidden', state.metode !== 'dijemput' || !shippingServiceLabel());
+        }
+        if (serviceSummaryCourier) {
+            serviceSummaryCourier.textContent = shippingServiceLabel() || '-';
+        }
+        if (serviceSummaryEtdRow) {
+            serviceSummaryEtdRow.classList.toggle('hidden', state.metode !== 'dijemput' || !shippingEtd);
+        }
+        if (serviceSummaryEtd) {
+            serviceSummaryEtd.textContent = shippingEtd || '-';
+        }
+        if (serviceSummaryOngkir) {
+            serviceSummaryOngkir.textContent = fmt(state.ongkir || 0);
+        }
+        if (serviceSummaryPriceLabel) {
+            serviceSummaryPriceLabel.textContent = 'Total Pembayaran';
+        }
+        if (serviceSummaryPrice) {
+            serviceSummaryPrice.textContent = fmt(state.grandTotal || 0);
+        }
+        if (serviceSummaryItemCount) {
+            serviceSummaryItemCount.textContent = `${state.lineItems.length} item`;
+        }
+        if (serviceSummaryItems) {
+            serviceSummaryItems.innerHTML = '';
+
+            if (!state.lineItems.length) {
+                const empty = document.createElement('p');
+                empty.className = 'text-sm font-semibold text-slate-500';
+                empty.textContent = 'Belum ada item layanan yang diisi.';
+                serviceSummaryItems.appendChild(empty);
+            } else {
+                state.lineItems.forEach((item, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'rounded-2xl border border-slate-200 bg-slate-50/70 px-3 py-3';
+
+                    const title = document.createElement('p');
+                    title.className = 'text-sm font-black text-slate-900';
+                    title.textContent = `${index + 1}. ${item.displayLabel || item.label || 'Item layanan'}`;
+                    card.appendChild(title);
+
+                    const meta = document.createElement('p');
+                    meta.className = 'mt-1 text-xs font-semibold text-slate-500';
+                    meta.textContent = state.kategori === 'service'
+                        ? `${Number(item.qty || 1)} unit | Harga ${fmt(item.unitPrice || 0)} / unit`
+                        : `${Number(item.qty || 1)} unit | Harga ${fmt(item.unitPrice || 0)} / unit | ${formatKg(item.totalKg || 0)} ${item.refill?.satuan_label || 'Kg'}`;
+                    card.appendChild(meta);
+
+                    const subtotal = document.createElement('p');
+                    subtotal.className = 'mt-2 text-sm font-black text-slate-900';
+                    subtotal.textContent = `Subtotal ${fmt(item.total || 0)}`;
+                    card.appendChild(subtotal);
+
+                    serviceSummaryItems.appendChild(card);
+                });
+            }
+        }
+        if (serviceSummaryEquipmentBox) {
+            serviceSummaryEquipmentBox.classList.toggle('hidden', state.kategori !== 'service' || (state.peralatanItems || []).length < 1);
+        }
+        if (serviceSummaryEquipmentCount) {
+            serviceSummaryEquipmentCount.textContent = `${(state.peralatanItems || []).length} item`;
+        }
+        if (serviceSummaryEquipmentList) {
+            serviceSummaryEquipmentList.innerHTML = '';
+
+            (state.peralatanItems || []).forEach((item) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2';
+
+                const name = document.createElement('p');
+                name.className = 'text-sm font-semibold text-slate-700';
+                name.textContent = item.nama || '-';
+                row.appendChild(name);
+
+                const qty = document.createElement('span');
+                qty.className = 'text-xs font-black text-slate-500';
+                qty.textContent = `x${Number(item.jumlah || 0)}`;
+                row.appendChild(qty);
+
+                serviceSummaryEquipmentList.appendChild(row);
+            });
+        }
+
+        if (serviceStockTitle) {
+            serviceStockTitle.textContent = state.kategori === 'service' ? 'Stok Peralatan Paket' : 'Stok Saat Ini';
+        }
+        if (serviceStockCurrent) {
+            serviceStockCurrent.textContent = state.currentStockLabel;
+        }
+        if (serviceStockAfter) {
+            serviceStockAfter.textContent = state.afterStockLabel;
+        }
+        if (serviceRegisteredCountNote) {
+            serviceRegisteredCountNote.classList.add('hidden');
+        }
+
+        if (currentTab === 'beli') {
+            setServiceAlert(serviceStockWarning, '');
+            setServiceAlert(serviceLowStockWarning, '');
+            return;
+        }
+
+        if (state.insufficientStock) {
+            if (state.kategori === 'service') {
+                setServiceAlert(serviceStockWarning, 'Lengkapi item service terlebih dahulu atau pastikan stok peralatan paket masih mencukupi.');
+            } else {
+                const refillTargets = state.refillGroups
+                    .filter((group) => Number(group.remaining || 0) < 0)
+                    .map((group) => group.refill?.nama_label || 'refill')
+                    .filter(Boolean);
+                const refillLabel = refillTargets.length ? refillTargets.join(', ') : 'item refill';
+                setServiceAlert(serviceStockWarning, state.hasMissingRegisteredRefill
+                    ? 'Lengkapi jenis refill dan ukuran APAR untuk semua item refill terlebih dahulu.'
+                    : `Stok ${refillLabel} tidak mencukupi untuk item yang dipilih.`);
+            }
+        } else {
+            setServiceAlert(serviceStockWarning, '');
+        }
+
+        if (state.lowStock) {
+            setServiceAlert(
+                serviceLowStockWarning,
+                state.kategori === 'service'
+                    ? 'Stok peralatan paket service sudah mendekati batas minimum.'
+                    : 'Stok refill untuk item yang dipilih sudah mendekati batas minimum.'
+            );
+        } else {
+            setServiceAlert(serviceLowStockWarning, '');
+        }
+    }
+
+    function updateServiceFormState() {
+        const isBeli = currentTab === 'beli';
+        const isRefill = !serviceJenisLayanan || serviceJenisLayanan.value !== 'service';
+        const showRefillFields = !isBeli && isRefill;
+        const showServiceFields = !isBeli && !isRefill;
+
+        if (serviceRefillFields) {
+            serviceRefillFields.classList.toggle('hidden', !showRefillFields);
+        }
+        if (serviceServiceFields) {
+            serviceServiceFields.classList.toggle('hidden', !showServiceFields);
+        }
+
+        [
+            serviceRefillSelectField,
+            serviceUnitStatusFields,
+            serviceRegisteredUnitFields,
+            serviceManualTypeField,
+            serviceManualSizeField,
+            serviceQuantityField,
+            serviceRegisteredEmptyNote,
+        ].forEach((element) => {
+            if (element) {
+                element.classList.add('hidden');
+            }
+        });
+
+        if (serviceRegisteredUnitList) {
+            serviceRegisteredUnitList.innerHTML = '';
+            lastRenderedPurchaseGroup = null;
+        }
+        if (serviceRegisteredCountNote) {
+            serviceRegisteredCountNote.classList.add('hidden');
+        }
+
+        if (serviceJenisLayanan) {
+            serviceJenisLayanan.required = !isBeli;
+        }
+        if (serviceJenisRefill) {
+            serviceJenisRefill.required = false;
+            serviceJenisRefill.disabled = true;
+        }
+        if (servicePaketId) {
+            servicePaketId.required = false;
+            servicePaketId.disabled = true;
+        }
+        if (serviceUkuranApar) {
+            serviceUkuranApar.required = false;
+            serviceUkuranApar.disabled = true;
+        }
+        if (serviceJumlahUnit) {
+            serviceJumlahUnit.required = false;
+            serviceJumlahUnit.readOnly = false;
+            serviceJumlahUnit.disabled = true;
+        }
+        if (serviceJenisAparManual) {
+            serviceJenisAparManual.required = false;
+            serviceJenisAparManual.disabled = true;
+        }
+        if (servicePurchaseGroup) {
+            servicePurchaseGroup.required = false;
+            servicePurchaseGroup.disabled = true;
+        }
+        serviceUnitStatusRadios.forEach((radio) => {
+            radio.required = false;
+            radio.disabled = true;
+        });
+        serviceMethodRadios.forEach((radio) => {
+            radio.required = !isBeli;
+        });
+
+        refreshDynamicRemoveButtons(serviceRefillItemsContainer, '.btn-remove-refill-item');
+        refreshDynamicRemoveButtons(serviceServiceItemsContainer, '.btn-remove-service-item');
+        updateServiceSummary();
+    }
+
     window.switchTab = function(tab) {
         currentTab = tab;
         const tipeInput = document.getElementById('inp-tipe');
@@ -3656,58 +4077,44 @@
             inpTipeHarga.value = 'normal';
             document.getElementById('inp-use-cart-checkout').value = '0';
 
-            if (serviceState.unitStatus === 'terdaftar' && !servicePurchaseGroup?.value) {
-                showAppAlert('Pilih Tanggal Pembelian APAR terlebih dahulu.', 'warning', 'Peringatan');
+            if (!serviceState.lineItems.length) {
+                showAppAlert(
+                    serviceState.kategori === 'service'
+                        ? 'Tambahkan minimal satu item service terlebih dahulu.'
+                        : 'Tambahkan minimal satu item refill terlebih dahulu.',
+                    'warning',
+                    'Peringatan'
+                );
                 event.preventDefault();
                 return;
             }
 
-            if (serviceState.unitStatus === 'terdaftar' && serviceState.registeredUnits.length < 1) {
-                showAppAlert('Minimal satu Unit APAR wajib dicentang.', 'warning', 'Peringatan');
+            if (serviceState.kategori === 'refill' && serviceState.lineItems.some((item) => !item.refill || !item.ukuran)) {
+                showAppAlert('Lengkapi jenis refill dan ukuran APAR untuk semua item refill.', 'warning', 'Peringatan');
                 event.preventDefault();
                 return;
             }
 
-            if (serviceState.kategori === 'service' && serviceState.unitStatus !== 'terdaftar' && !getManualServiceMedia()) {
-                showAppAlert('Pilih jenis media APAR terlebih dahulu.', 'warning', 'Peringatan');
+            if (serviceState.kategori === 'service' && serviceState.lineItems.some((item) => !item.paket || !item.ukuran)) {
+                showAppAlert('Lengkapi paket service dan ukuran APAR untuk semua item service.', 'warning', 'Peringatan');
                 event.preventDefault();
                 return;
             }
 
-            if (!serviceState.ukuran) {
-                showAppAlert(serviceState.unitStatus === 'terdaftar'
-                    ? 'Unit APAR terdaftar belum memiliki data ukuran. Hubungi admin atau gunakan opsi APAR Belum Terdaftar.'
-                    : 'Pilih ukuran APAR terlebih dahulu.', 'warning', 'Peringatan');
+            if (!serviceState.ukuran || !serviceState.qty) {
+                showAppAlert('Lengkapi ukuran APAR dan jumlah unit untuk semua item layanan.', 'warning', 'Peringatan');
                 event.preventDefault();
                 return;
             }
 
-            if (serviceState.kategori === 'refill' && !serviceState.refill) {
-                showAppAlert(serviceState.unitStatus === 'terdaftar'
-                    ? 'Jenis refil otomatis belum ditemukan dari Unit APAR terdaftar. Pastikan master data Jenis Refil sudah sesuai dengan jenis APAR.'
-                    : 'Pilih jenis refil terlebih dahulu.', 'warning', 'Peringatan');
-                event.preventDefault();
-                return;
-            }
-
-            if (serviceState.kategori === 'refill' && serviceState.hasMissingRegisteredRefill) {
-                showAppAlert('Jenis refil otomatis belum ditemukan untuk salah satu Unit APAR terdaftar. Pastikan master data Jenis Refil sudah sesuai dengan jenis APAR.', 'warning', 'Peringatan');
-                event.preventDefault();
-                return;
-            }
-
-            if (serviceState.kategori === 'service' && !servicePaketId?.value) {
-                showAppAlert(serviceState.unitStatus === 'terdaftar'
-                    ? 'Paket service standar belum tersedia. Isi atau aktifkan master jenis service terlebih dahulu di data admin.'
-                    : 'Pilih paket service terlebih dahulu.', 'warning', 'Peringatan');
+            if (serviceState.kategori === 'refill' && serviceState.totalKg <= 0) {
+                showAppAlert('Kebutuhan refill belum bisa dihitung. Pastikan ukuran APAR pada setiap item sudah benar.', 'warning', 'Peringatan');
                 event.preventDefault();
                 return;
             }
 
             if (!serviceState.totalPrice || serviceState.totalPrice <= 0) {
-                showAppAlert(serviceState.unitStatus === 'terdaftar'
-                    ? 'Harga otomatis untuk Unit APAR terdaftar belum tersedia. Pastikan harga standar refil atau service sudah terisi.'
-                    : 'Harga layanan untuk pilihan ini belum tersedia.', 'warning', 'Peringatan');
+                showAppAlert('Harga layanan untuk item yang dipilih belum tersedia.', 'warning', 'Peringatan');
                 event.preventDefault();
                 return;
             }
@@ -3741,9 +4148,11 @@
             }
 
             if (serviceJenisAparHidden) {
-                serviceJenisAparHidden.value = serviceState.kategori === 'service' && serviceState.unitStatus !== 'terdaftar'
-                    ? getManualServiceMedia()
-                    : [...new Set(serviceState.registeredUnits.map((unit) => displayServiceMediaLabel(unit.jenis_apar || 'APAR')))].join(', ');
+                serviceJenisAparHidden.value = [...new Set(serviceState.lineItems
+                    .map((item) => item.label || '')
+                    .filter(Boolean))]
+                    .join(', ')
+                    .slice(0, 120);
             }
 
             return;
@@ -3884,6 +4293,20 @@
     if (serviceJumlahUnit) {
         serviceJumlahUnit.addEventListener('input', updateServiceSummary);
         serviceJumlahUnit.addEventListener('change', updateServiceSummary);
+    }
+    if (serviceRefillItemsContainer) {
+        serviceRefillItemsContainer.querySelectorAll('.service-refill-item-row').forEach(attachRefillRowEvents);
+        refreshDynamicRemoveButtons(serviceRefillItemsContainer, '.btn-remove-refill-item');
+    }
+    if (serviceServiceItemsContainer) {
+        serviceServiceItemsContainer.querySelectorAll('.service-service-item-row').forEach(attachServiceRowEvents);
+        refreshDynamicRemoveButtons(serviceServiceItemsContainer, '.btn-remove-service-item');
+    }
+    if (btnAddRefillItem) {
+        btnAddRefillItem.addEventListener('click', appendManualRefillRow);
+    }
+    if (btnAddServiceItem) {
+        btnAddServiceItem.addEventListener('click', appendManualServiceRow);
     }
     serviceMethodRadios.forEach((radio) => {
         radio.addEventListener('change', updateServiceSummary);

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\JenisApar;
+use App\Models\JenisRefill;
 use App\Models\Pelanggan;
 use App\Models\Pesanan;
 use App\Models\Produk;
@@ -15,6 +16,220 @@ use Tests\TestCase;
 class PublicOrderServicePricingTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_manual_multi_item_refill_order_uses_item_totals_without_creating_units(): void
+    {
+        config(['broadcasting.default' => 'null']);
+
+        $user = User::factory()->create([
+            'role' => 'pelanggan',
+            'no_telpon' => '081200000001',
+        ]);
+
+        $pelanggan = Pelanggan::create([
+            'user_id' => $user->id,
+            'nama' => 'Pelanggan Refill Manual',
+            'no_wa' => '081200000001',
+            'alamat' => 'Jl. Manual Refill',
+            'alamat_maps' => 'Jl. Manual Refill',
+            'alamat_detail' => 'Ruko 1',
+            'alamat_lat' => -6.2,
+            'alamat_lng' => 106.8,
+            'status' => 'tetap',
+        ]);
+
+        $jenisApar = JenisApar::create([
+            'nama' => 'Dry Chemical Powder',
+            'deskripsi' => 'Powder',
+        ]);
+
+        Produk::create([
+            'nama' => 'APAR Powder 2 kg',
+            'merek' => 'GuardALL',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '2 kg',
+            'penggunaan' => 'Gudang',
+            'harga' => 300000,
+            'deskripsi' => 'Demo',
+            'stok' => 10,
+        ]);
+
+        Produk::create([
+            'nama' => 'APAR Powder 4 kg',
+            'merek' => 'GuardALL',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '4 kg',
+            'penggunaan' => 'Gudang',
+            'harga' => 500000,
+            'deskripsi' => 'Demo',
+            'stok' => 10,
+        ]);
+
+        $powder = JenisRefill::create([
+            'nama' => 'Powder',
+            'nama_label' => 'Powder',
+            'harga' => 10000,
+            'stok' => 100,
+            'stok_minimum' => 5,
+        ]);
+
+        $foam = JenisRefill::create([
+            'nama' => 'Foam',
+            'nama_label' => 'Foam',
+            'harga' => 15000,
+            'stok' => 100,
+            'stok_minimum' => 5,
+        ]);
+
+        $response = $this->actingAs($user)->post(route('order.store'), [
+            'nama' => $pelanggan->nama,
+            'no_wa' => $pelanggan->no_wa,
+            'alamat_maps' => $pelanggan->alamat_maps,
+            'alamat_detail' => $pelanggan->alamat_detail,
+            'alamat_lat' => $pelanggan->alamat_lat,
+            'alamat_lng' => $pelanggan->alamat_lng,
+            'tipe_layanan' => 'service',
+            'metode_pengiriman' => 'pickup',
+            'bank_tujuan' => 'bca',
+            'service_jenis_layanan' => 'refill',
+            'service_metode_penanganan' => 'antar sendiri',
+            'service_keluhan' => 'Tolong refill campuran.',
+            'service_refill_items' => [
+                [
+                    'jenis_refill_id' => $powder->id,
+                    'ukuran_apar' => '2 kg',
+                    'jumlah_unit' => 2,
+                ],
+                [
+                    'jenis_refill_id' => $foam->id,
+                    'ukuran_apar' => '4 kg',
+                    'jumlah_unit' => 1,
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionDoesntHaveErrors();
+
+        $pesanan = Pesanan::query()->latest('id')->firstOrFail();
+
+        $this->assertSame('service', $pesanan->tipe);
+        $this->assertSame('refill', $pesanan->service_jenis_layanan);
+        $this->assertSame(3, (int) $pesanan->service_jumlah_unit);
+        $this->assertSame(8.0, (float) $pesanan->service_total_kg);
+        $this->assertSame(100000.0, (float) $pesanan->service_estimasi_biaya);
+        $this->assertSame(100000.0, (float) $pesanan->total);
+        $this->assertNull($pesanan->service_jenis_refill_id);
+        $this->assertStringContainsString('1. Powder | 2 kg | 2 unit - Rp40.000', (string) $pesanan->service_keluhan);
+        $this->assertStringContainsString('2. Foam | 4 kg | 1 unit - Rp60.000', (string) $pesanan->service_keluhan);
+        $this->assertStringNotContainsString('Status Unit:', (string) $pesanan->keterangan);
+        $this->assertSame(0, UnitApar::query()->count());
+    }
+
+    public function test_manual_multi_item_service_order_uses_package_totals(): void
+    {
+        config(['broadcasting.default' => 'null']);
+
+        $user = User::factory()->create([
+            'role' => 'pelanggan',
+            'no_telpon' => '081200000002',
+        ]);
+
+        $pelanggan = Pelanggan::create([
+            'user_id' => $user->id,
+            'nama' => 'Pelanggan Service Manual',
+            'no_wa' => '081200000002',
+            'alamat' => 'Jl. Manual Service',
+            'alamat_maps' => 'Jl. Manual Service',
+            'alamat_detail' => 'Ruko 2',
+            'alamat_lat' => -6.21,
+            'alamat_lng' => 106.81,
+            'status' => 'tetap',
+        ]);
+
+        $jenisApar = JenisApar::create([
+            'nama' => 'Dry Chemical Powder',
+            'deskripsi' => 'Powder',
+        ]);
+
+        Produk::create([
+            'nama' => 'APAR Powder 3 kg',
+            'merek' => 'GuardALL',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '3 kg',
+            'penggunaan' => 'Gudang',
+            'harga' => 400000,
+            'deskripsi' => 'Demo',
+            'stok' => 10,
+        ]);
+
+        Produk::create([
+            'nama' => 'APAR CO2 6 kg',
+            'merek' => 'GuardALL',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '6 kg',
+            'penggunaan' => 'Gudang',
+            'harga' => 700000,
+            'deskripsi' => 'Demo',
+            'stok' => 10,
+        ]);
+
+        $paketRingan = ServicePaket::create([
+            'nama' => 'Service Ringan',
+            'label' => 'Paket A',
+            'harga' => 35000,
+        ]);
+
+        $paketValve = ServicePaket::create([
+            'nama' => 'Ganti Valve APAR',
+            'label' => 'Valve',
+            'harga' => 100000,
+        ]);
+
+        $response = $this->actingAs($user)->post(route('order.store'), [
+            'nama' => $pelanggan->nama,
+            'no_wa' => $pelanggan->no_wa,
+            'alamat_maps' => $pelanggan->alamat_maps,
+            'alamat_detail' => $pelanggan->alamat_detail,
+            'alamat_lat' => $pelanggan->alamat_lat,
+            'alamat_lng' => $pelanggan->alamat_lng,
+            'tipe_layanan' => 'service',
+            'metode_pengiriman' => 'pickup',
+            'bank_tujuan' => 'bca',
+            'service_jenis_layanan' => 'service',
+            'service_metode_penanganan' => 'antar sendiri',
+            'service_keluhan' => 'Mohon service dua item.',
+            'service_service_items' => [
+                [
+                    'jenis_apar' => 'Powder',
+                    'service_paket_id' => $paketRingan->id,
+                    'ukuran_apar' => '3 kg',
+                    'jumlah_unit' => 2,
+                ],
+                [
+                    'jenis_apar' => 'CO2',
+                    'service_paket_id' => $paketValve->id,
+                    'ukuran_apar' => '6 kg',
+                    'jumlah_unit' => 1,
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionDoesntHaveErrors();
+
+        $pesanan = Pesanan::query()->latest('id')->firstOrFail();
+
+        $this->assertSame('service', $pesanan->tipe);
+        $this->assertSame('service', $pesanan->service_jenis_layanan);
+        $this->assertSame(3, (int) $pesanan->service_jumlah_unit);
+        $this->assertSame(170000.0, (float) $pesanan->service_estimasi_biaya);
+        $this->assertSame(170000.0, (float) $pesanan->total);
+        $this->assertNull($pesanan->service_paket_id);
+        $this->assertStringContainsString('1. Service Ringan | 3 kg | 2 unit - Rp70.000', (string) $pesanan->service_keluhan);
+        $this->assertStringContainsString('2. Ganti Valve APAR | 6 kg | 1 unit - Rp100.000', (string) $pesanan->service_keluhan);
+        $this->assertStringNotContainsString('Status Unit:', (string) $pesanan->keterangan);
+    }
 
     public function test_registered_service_order_uses_distance_based_pickup_cost_for_each_selected_unit(): void
     {

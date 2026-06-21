@@ -43,7 +43,7 @@ class PaidOrderStockService
                 $this->applyProductStock($pesanan);
             } elseif ($pesanan->isRefillOrder()) {
                 $this->applyRefillStock($pesanan);
-            } elseif ($pesanan->isPackageServiceOrder()) {
+            } elseif ($pesanan->isServiceOrder()) {
                 $this->applyServicePeralatanStock($pesanan);
             }
 
@@ -72,7 +72,7 @@ class PaidOrderStockService
                 $this->rollbackProductStock($pesanan);
             } elseif ($pesanan->isRefillOrder()) {
                 $this->rollbackRefillStock($pesanan);
-            } elseif ($pesanan->isPackageServiceOrder()) {
+            } elseif ($pesanan->isServiceOrder()) {
                 $this->rollbackServicePeralatanStock($pesanan);
             }
 
@@ -392,8 +392,12 @@ class PaidOrderStockService
 
     private function applyServicePeralatanStock(Pesanan $pesanan): void
     {
-        $service = $pesanan->service;
+        $service = $this->ensureServiceLog($pesanan);
         if (!$service) {
+            return;
+        }
+
+        if (! empty($service->stok_kurang_history)) {
             return;
         }
 
@@ -448,9 +452,9 @@ class PaidOrderStockService
     private function rollbackServicePeralatanStock(Pesanan $pesanan): void
     {
         /** @var Service|null $service */
-        $service = $pesanan->service;
+        $service = $this->ensureServiceLog($pesanan);
         if (!$service) {
-            throw new \RuntimeException('Data service paket belum siap diproses untuk pengurangan stok.');
+            throw new \RuntimeException('Data service belum siap diproses untuk pengurangan stok.');
         }
 
         $history = collect($service->stok_kurang_history)
@@ -480,6 +484,32 @@ class PaidOrderStockService
                 tanggal: now(),
             );
         }
+
+        $service->forceFill([
+            'stok_kurang_history_json' => null,
+        ])->save();
+    }
+
+    private function ensureServiceLog(Pesanan $pesanan): ?Service
+    {
+        if (! $pesanan->isServiceOrder()) {
+            return null;
+        }
+
+        $pesanan->loadMissing(['servicePaket.peralatans', 'service']);
+        $existingService = $pesanan->service;
+
+        return Service::updateOrCreate(
+            ['pesanan_id' => $pesanan->id],
+            $pesanan->serviceLogPayload([
+                'status_konfirmasi' => $existingService?->status_konfirmasi ?: 'pending',
+                'actual_peralatan_json' => $existingService?->actual_peralatan_json,
+                'catatan_teknisi' => $existingService?->catatan_teknisi,
+                'laporan_foto' => $existingService?->laporan_foto,
+                'tgl_selesai_admin' => $existingService?->tgl_selesai_admin,
+                'stok_kurang_history_json' => $existingService?->stok_kurang_history_json,
+            ]),
+        );
     }
 
     private function customerName(Pesanan $pesanan): string

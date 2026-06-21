@@ -94,16 +94,15 @@ class CustomerRefillFromHistoryTest extends TestCase
         $response->assertOk();
         $response->assertSeeText('Aman');
         $response->assertSeeText('Perlu Refill');
-        $response->assertSeeText('Ajukan Refill');
-        $response->assertSeeText('Pilih untuk Refill');
+        $response->assertSeeText('Unit APAR di halaman ini dipakai untuk pemantauan saja.');
         $response->assertSeeText('Unit ini sedang dalam proses refill.');
-        $response->assertDontSeeText('Service / Refill');
-        $this->assertSame(1, substr_count($response->getContent(), 'Pilih untuk Refill'));
+        $response->assertDontSeeText('Ajukan Refill');
+        $response->assertDontSeeText('Pilih untuk Refill');
         $this->assertStringContainsString('REFILL-001', $response->getContent());
         $this->assertStringContainsString('LOCK-001', $response->getContent());
     }
 
-    public function test_customer_can_prefill_refill_checkout_from_history_units(): void
+    public function test_history_refill_route_still_redirects_with_prefill_session(): void
     {
         config(['broadcasting.default' => 'null']);
 
@@ -135,30 +134,16 @@ class CustomerRefillFromHistoryTest extends TestCase
             'kondisi_awal' => 'layak',
         ]);
 
-        $response = $this->actingAs($user)
-            ->followingRedirects()
-            ->post(route('riwayat-apar.ajukan-refill'), [
-                'unit_ids' => [$unitA->id, $unitB->id],
-            ]);
+        $response = $this->actingAs($user)->post(route('riwayat-apar.ajukan-refill'), [
+            'unit_ids' => [$unitA->id, $unitB->id],
+        ]);
 
-        $response->assertOk();
-        $response->assertSeeText('Refill APAR Terpilih');
-        $response->assertSeeText('PREFILL-001');
-        $response->assertSeeText('PREFILL-002');
-        $response->assertSeeText('Pilihan dari Riwayat APAR - 2 Unit');
-        $response->assertSeeText('Ubah Pilihan Unit');
-        $response->assertSee('id="inp-tipe" value="service"', false);
-        $response->assertSee('value="' . RegisteredRefillUnitSupport::PREFILL_GROUP_KEY . '"', false);
-
-        $dom = new \DOMDocument();
-        libxml_use_internal_errors(true);
-        $dom->loadHTML($response->getContent());
-        libxml_clear_errors();
-
-        $xpath = new \DOMXPath($dom);
-        $this->assertSame(0, $xpath->query('//label[contains(normalize-space(.), "Pilih Tanggal Pembelian APAR")]')->length);
-        $this->assertSame(0, $xpath->query('//div[@id="service-registered-unit-list"]//input[contains(concat(" ", normalize-space(@class), " "), " service-unit-checkbox ")]')->length);
-        $this->assertSame(2, $xpath->query('//input[contains(concat(" ", normalize-space(@class), " "), " service-unit-hidden-input ")]')->length);
+        $response->assertRedirect(route('order.create'));
+        $response->assertSessionHas('prefill_registered_refill');
+        $this->assertSame(
+            [$unitA->id, $unitB->id],
+            session('prefill_registered_refill.selected_unit_ids')
+        );
     }
 
     public function test_history_refill_route_rejects_unit_that_is_still_in_active_refill_process(): void

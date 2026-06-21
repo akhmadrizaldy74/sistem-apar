@@ -365,6 +365,110 @@ class Pesanan extends Model
         return $query->whereNull('hidden_from_pesanan_at');
     }
 
+    public static function normalizeStatusMarker(?string $status): string
+    {
+        return trim(strtolower(str_replace('_', ' ', (string) $status)));
+    }
+
+    /**
+     * @param  array<int, string>  $statuses
+     * @return array<int, string>
+     */
+    public static function normalizedStatusMarkers(array $statuses): array
+    {
+        return array_values(array_unique(array_map(
+            fn (string $status) => static::normalizeStatusMarker($status),
+            $statuses
+        )));
+    }
+
+    public static function normalizedStatusExpression(string $column = 'status'): string
+    {
+        return "TRIM(LOWER(REPLACE(COALESCE({$column}, ''), '_', ' ')))";
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function rejectedStatusMarkers(): array
+    {
+        return static::normalizedStatusMarkers([
+            self::STATUS_DITOLAK,
+            'batal',
+            'dibatalkan',
+            'cancelled',
+            'canceled',
+        ]);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function cashPaymentRecognizedStatusMarkers(): array
+    {
+        return static::normalizedStatusMarkers([
+            self::STATUS_DIPROSES,
+            self::STATUS_DITUGASKAN_KE_TEKNISI,
+            self::STATUS_DIKERJAKAN_TEKNISI,
+            self::STATUS_SELESAI_OLEH_TEKNISI,
+            self::STATUS_DIKONFIRMASI_ADMIN,
+            self::STATUS_SIAP_DIKIRIM,
+            self::STATUS_SELESAI_FINAL,
+            self::STATUS_SELESAI,
+        ]);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function finalizedRevenueFallbackStatusMarkers(): array
+    {
+        return static::normalizedStatusMarkers([
+            self::STATUS_SELESAI,
+            self::STATUS_SELESAI_FINAL,
+        ]);
+    }
+
+    public static function revenueRecognitionDateExpression(): string
+    {
+        return 'COALESCE(pembayaran_terkonfirmasi_at, tanggal, DATE(created_at))';
+    }
+
+    public function scopeRevenueRecognized(Builder $query): Builder
+    {
+        $statusExpression = static::normalizedStatusExpression();
+        $rejectedStatuses = static::rejectedStatusMarkers();
+        $cashStatuses = static::cashPaymentRecognizedStatusMarkers();
+        $finalizedFallbackStatuses = static::finalizedRevenueFallbackStatusMarkers();
+
+        $rejectedPlaceholders = implode(', ', array_fill(0, count($rejectedStatuses), '?'));
+        $cashPlaceholders = implode(', ', array_fill(0, count($cashStatuses), '?'));
+        $finalizedPlaceholders = implode(', ', array_fill(0, count($finalizedFallbackStatuses), '?'));
+
+        return $query
+            ->whereRaw("{$statusExpression} NOT IN ({$rejectedPlaceholders})", $rejectedStatuses)
+            ->where(function (Builder $builder) use (
+                $statusExpression,
+                $cashPlaceholders,
+                $cashStatuses,
+                $finalizedPlaceholders,
+                $finalizedFallbackStatuses
+            ) {
+                $builder->whereNotNull('pembayaran_terkonfirmasi_at')
+                    ->orWhere(function (Builder $cashQuery) use ($statusExpression, $cashPlaceholders, $cashStatuses) {
+                        $cashQuery->where('metode_pembayaran', 'cash')
+                            ->whereRaw("{$statusExpression} IN ({$cashPlaceholders})", $cashStatuses);
+                    })
+                    ->orWhere(function (Builder $proofQuery) use ($statusExpression) {
+                        $proofQuery->whereNotNull('bukti_pembayaran')
+                            ->whereRaw("{$statusExpression} <> ?", [static::normalizeStatusMarker(self::STATUS_PENDING)]);
+                    })
+                    ->orWhere(function (Builder $legacyFinalQuery) use ($statusExpression, $finalizedPlaceholders, $finalizedFallbackStatuses) {
+                        $legacyFinalQuery->whereRaw("{$statusExpression} IN ({$finalizedPlaceholders})", $finalizedFallbackStatuses);
+                    });
+            });
+    }
+
     public function isHiddenFromAdminPesananMenu(): bool
     {
         if (!$this->hasDatabaseColumn('hidden_from_pesanan_at')) {
@@ -621,17 +725,50 @@ class Pesanan extends Model
             return $title;
         }
 
-        if ($this->isRefillOrder()) {
-            return $this->serviceJenisRefill?->nama_label ?: 'Refill APAR';
+        if ($this->tipe === 'service') {
+            $serviceLines = collect($this->servicePricingBreakdown());
+            if ($serviceLines->isNotEmpty()) {
+                $title = (string) ($serviceLines->first()['display_label'] ?? $serviceLines->first()['label'] ?? 'Layanan APAR');
+                $remainingLines = max(0, $serviceLines->count() - 1);
+
+                if ($remainingLines > 0) {
+                    $title .= ' + ' . $remainingLines . ' item';
+                }
+
+                return $title;
+            }
+
+            if ($this->isRefillOrder()) {
+                return $this->serviceJenisRefill?->nama_label ?: 'Refill APAR';
+            }
+
+            return $this->servicePaket?->nama ?: 'Service APAR';
         }
 
-        return $this->servicePaket?->nama ?: 'Service APAR';
+        return 'Layanan APAR';
     }
 
     public function adminOrderDetailMeta(): string
     {
         if ($this->isProductOrder()) {
             return $this->details->count() . ' item • ' . $this->adminOrderUnitCount() . ' unit';
+        }
+
+        if ($this->tipe === 'service') {
+            $serviceLines = collect($this->servicePricingBreakdown());
+            $parts = [];
+
+            if ($serviceLines->isNotEmpty()) {
+                $parts[] = $serviceLines->count() . ' item';
+            }
+
+            $parts[] = $this->adminOrderUnitCount() . ' unit';
+
+            if ($this->isRefillOrder() && (float) ($this->service_total_kg ?? 0) > 0) {
+                $parts[] = $this->formatCompactAdminNumber((float) $this->service_total_kg) . ' kg';
+            }
+
+            return implode(' â€¢ ', $parts);
         }
 
         if ($this->isRefillOrder()) {
@@ -778,21 +915,30 @@ class Pesanan extends Model
         }
 
         if ($this->metode_pembayaran === 'cash'
-            && in_array((string) $this->status, [
-                self::STATUS_DIPROSES,
-                self::STATUS_DITUGASKAN_KE_TEKNISI,
-                self::STATUS_DIKERJAKAN_TEKNISI,
-                self::STATUS_SELESAI_OLEH_TEKNISI,
-                self::STATUS_DIKONFIRMASI_ADMIN,
-                self::STATUS_SIAP_DIKIRIM,
-                self::STATUS_SELESAI_FINAL,
-                self::STATUS_SELESAI,
-            ], true)
+            && in_array(static::normalizeStatusMarker($this->status), static::cashPaymentRecognizedStatusMarkers(), true)
         ) {
             return true;
         }
 
         return !empty($this->bukti_pembayaran) && $this->status !== self::STATUS_PENDING;
+    }
+
+    public function hasRecognizedRevenue(): bool
+    {
+        if (in_array(static::normalizeStatusMarker($this->status), static::rejectedStatusMarkers(), true)) {
+            return false;
+        }
+
+        return $this->isPaymentConfirmed() || $this->isCompleted();
+    }
+
+    public function recognizedRevenueAt(): ?\Illuminate\Support\Carbon
+    {
+        if ($this->pembayaran_terkonfirmasi_at) {
+            return $this->pembayaran_terkonfirmasi_at->copy()->timezone(config('app.timezone'));
+        }
+
+        return $this->displayTransactionAt();
     }
 
     public function payableTotal(): float
@@ -1101,6 +1247,14 @@ class Pesanan extends Model
     public function trackingItemLabel(): string
     {
         if ($this->tipe === 'service') {
+            $serviceLines = collect($this->servicePricingBreakdown());
+            if ($serviceLines->isNotEmpty()) {
+                $label = (string) ($serviceLines->first()['display_label'] ?? $serviceLines->first()['label'] ?? 'Layanan APAR');
+                $remaining = max(0, $serviceLines->count() - 1);
+
+                return $remaining > 0 ? $label . ' + ' . $remaining . ' item' : $label;
+            }
+
             if ($this->service_jenis_layanan === 'refill') {
                 return $this->serviceJenisRefill?->nama_label ?: 'Refill APAR';
             }
@@ -1183,8 +1337,51 @@ class Pesanan extends Model
 
     public function estimatedServicePeralatan(): array
     {
-        if (!$this->isPackageServiceOrder()) {
+        if ($this->tipe !== 'service' || $this->service_jenis_layanan !== 'service') {
             return [];
+        }
+
+        if (!$this->isPackageServiceOrder()) {
+            $lines = preg_split('/\r\n|\r|\n/', (string) $this->service_keluhan) ?: [];
+            $collecting = false;
+            $items = [];
+            $matchedPeralatanByName = Peralatan::query()
+                ->get()
+                ->keyBy(fn (Peralatan $peralatan) => mb_strtolower(trim((string) $peralatan->nama)));
+
+            foreach ($lines as $line) {
+                $line = trim((string) $line);
+                if ($line === '') {
+                    continue;
+                }
+
+                if (mb_strtolower($line) === 'peralatan paket:') {
+                    $collecting = true;
+                    continue;
+                }
+
+                if (! $collecting) {
+                    continue;
+                }
+
+                if (! preg_match('/^-\s*(.+?)\s*x\s*(\d+)/u', $line, $matches)) {
+                    $collecting = false;
+                    continue;
+                }
+
+                $name = trim((string) ($matches[1] ?? '-'));
+                $matchedPeralatan = $matchedPeralatanByName->get(mb_strtolower($name));
+
+                $items[] = [
+                    'peralatan_id' => (int) ($matchedPeralatan?->id ?? 0),
+                    'nama' => $name,
+                    'jumlah' => (int) ($matches[2] ?? 0),
+                    'stok' => (float) ($matchedPeralatan?->stok ?? 0),
+                    'stok_minimum' => (float) ($matchedPeralatan?->stok_minimum ?? 0),
+                ];
+            }
+
+            return $items;
         }
 
         $this->loadMissing('servicePaket.peralatans');
@@ -1197,7 +1394,7 @@ class Pesanan extends Model
 
     public function servicePricingBreakdown(): array
     {
-        if (!$this->isServiceOrder()) {
+        if ($this->tipe !== 'service') {
             return [];
         }
 
@@ -1205,21 +1402,41 @@ class Pesanan extends Model
             ->map(fn ($line) => trim((string) $line))
             ->filter()
             ->map(function (string $line) {
+                if (preg_match('/^\d+\.\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(\d+)\s*unit\s*-\s*Rp\s*([\d\.]+)/u', $line, $matches)) {
+                    $label = trim((string) ($matches[1] ?? ''));
+                    $ukuran = trim((string) ($matches[2] ?? ''));
+                    $qty = max(1, (int) ($matches[3] ?? 1));
+                    $total = (float) str_replace('.', '', (string) ($matches[4] ?? '0'));
+
+                    return [
+                        'label' => $label,
+                        'display_label' => trim($label . ' | ' . $ukuran),
+                        'ukuran' => $ukuran,
+                        'qty' => $qty,
+                        'unit_price' => $qty > 0 ? round($total / $qty, 0) : $total,
+                        'total' => $total,
+                    ];
+                }
+
                 if (!preg_match('/^\d+\.\s*(.+?)\s+-\s+Rp\s*([\d\.]+)/u', $line, $matches)) {
                     return null;
                 }
 
                 $label = trim((string) $matches[1]);
+                $displayLabel = $label;
                 $total = (float) str_replace('.', '', (string) $matches[2]);
                 $qty = 1;
 
                 if (preg_match('/\sx\s*(\d+)\s*unit$/ui', $label, $qtyMatch)) {
                     $qty = max(1, (int) ($qtyMatch[1] ?? 1));
                     $label = trim((string) preg_replace('/\sx\s*\d+\s*unit$/ui', '', $label));
+                    $displayLabel = $label;
                 }
 
                 return [
                     'label' => $label,
+                    'display_label' => $displayLabel,
+                    'ukuran' => null,
                     'qty' => $qty,
                     'unit_price' => $qty > 0 ? round($total / $qty, 0) : $total,
                     'total' => $total,
@@ -1239,9 +1456,12 @@ class Pesanan extends Model
             $this->service_jenis_apar ? 'APAR ' . $this->service_jenis_apar : 'APAR',
             $this->service_ukuran_apar ?: null,
         ]);
+        $label = implode(' ', $labelParts);
 
         return [[
-            'label' => implode(' ', $labelParts),
+            'label' => $label,
+            'display_label' => $label,
+            'ukuran' => $this->service_ukuran_apar ?: null,
             'qty' => $qty,
             'unit_price' => $qty > 0 ? round($total / $qty, 0) : $total,
             'total' => $total,

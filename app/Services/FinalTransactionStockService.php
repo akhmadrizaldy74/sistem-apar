@@ -66,7 +66,7 @@ class FinalTransactionStockService
                 return;
             }
 
-            if ($pesanan->isPackageServiceOrder()) {
+            if ($pesanan->isServiceOrder()) {
                 $this->applyServicePeralatanStock($pesanan);
             }
         });

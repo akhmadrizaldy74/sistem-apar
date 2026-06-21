@@ -1304,6 +1304,349 @@ class PublicController extends Controller
         return implode("\n", $lines);
     }
 
+    private function normalizeManualRefillItems(array $items): array
+    {
+        return collect($items)
+            ->map(function ($item) {
+                return [
+                    'jenis_refill_id' => (int) ($item['jenis_refill_id'] ?? 0),
+                    'ukuran_apar' => trim((string) ($item['ukuran_apar'] ?? '')),
+                    'jumlah_unit' => max(1, (int) ($item['jumlah_unit'] ?? 1)),
+                ];
+            })
+            ->filter(fn (array $item) => $item['jenis_refill_id'] > 0 || $item['ukuran_apar'] !== '')
+            ->values()
+            ->all();
+    }
+
+    private function normalizeManualServiceItems(array $items): array
+    {
+        return collect($items)
+            ->map(function ($item) {
+                return [
+                    'jenis_apar' => trim((string) ($item['jenis_apar'] ?? '')),
+                    'service_paket_id' => (int) ($item['service_paket_id'] ?? 0),
+                    'ukuran_apar' => trim((string) ($item['ukuran_apar'] ?? '')),
+                    'jumlah_unit' => max(1, (int) ($item['jumlah_unit'] ?? 1)),
+                ];
+            })
+            ->filter(fn (array $item) => $item['service_paket_id'] > 0 || $item['ukuran_apar'] !== '' || $item['jenis_apar'] !== '')
+            ->values()
+            ->all();
+    }
+
+    private function buildManualRefillOrderSummary(array $items, array $serviceUkuranOptions): array
+    {
+        if (empty($items)) {
+            throw ValidationException::withMessages([
+                'service_refill_items' => 'Tambahkan minimal satu item refill terlebih dahulu.',
+            ]);
+        }
+
+        $sizeMap = collect($serviceUkuranOptions)
+            ->mapWithKeys(function ($size) {
+                $label = trim((string) $size);
+
+                return [mb_strtolower($label) => $label];
+            })
+            ->all();
+        $jenisRefills = JenisRefill::query()
+            ->whereIn('id', collect($items)->pluck('jenis_refill_id')->filter()->unique()->all())
+            ->get()
+            ->keyBy('id');
+
+        $lineItems = [];
+        $stockRequirements = [];
+        $totalUnits = 0;
+        $totalKg = 0.0;
+        $totalPrice = 0.0;
+
+        foreach (array_values($items) as $index => $item) {
+            $jenisRefillId = (int) ($item['jenis_refill_id'] ?? 0);
+            $ukuranKey = mb_strtolower(trim((string) ($item['ukuran_apar'] ?? '')));
+            $jumlahUnit = max(1, (int) ($item['jumlah_unit'] ?? 1));
+
+            $jenisRefill = $jenisRefills->get($jenisRefillId);
+            if (! $jenisRefill) {
+                throw ValidationException::withMessages([
+                    'service_refill_items' => 'Jenis refill pada salah satu item belum valid.',
+                ]);
+            }
+
+            if ($ukuranKey === '' || ! isset($sizeMap[$ukuranKey])) {
+                throw ValidationException::withMessages([
+                    'service_refill_items' => 'Ukuran APAR pada salah satu item refill belum valid.',
+                ]);
+            }
+
+            $ukuran = $sizeMap[$ukuranKey];
+            $ukuranKg = (float) ($this->extractAparCapacityKg($ukuran) ?? 0);
+            if ($ukuranKg <= 0) {
+                throw ValidationException::withMessages([
+                    'service_refill_items' => 'Ukuran APAR pada salah satu item refill belum bisa dihitung ke satuan Kg.',
+                ]);
+            }
+
+            $unitPrice = $this->resolveRefillPriceForUkuran($jenisRefill, $ukuran);
+            if (is_null($unitPrice) || $unitPrice <= 0) {
+                throw ValidationException::withMessages([
+                    'service_refill_items' => 'Harga standar refill untuk salah satu item belum tersedia.',
+                ]);
+            }
+
+            $itemTotalKg = round($ukuranKg * $jumlahUnit, 2);
+            $itemTotalPrice = (float) round($unitPrice * $jumlahUnit, 0);
+
+            $lineItems[] = [
+                'index' => $index + 1,
+                'refill' => $jenisRefill,
+                'refill_id' => (int) $jenisRefill->id,
+                'label' => (string) $jenisRefill->nama_label,
+                'display_label' => $jenisRefill->nama_label . ' | ' . $ukuran,
+                'ukuran' => $ukuran,
+                'qty' => $jumlahUnit,
+                'unit_price' => (float) $unitPrice,
+                'total' => $itemTotalPrice,
+                'total_kg' => $itemTotalKg,
+            ];
+
+            if (! isset($stockRequirements[(int) $jenisRefill->id])) {
+                $stockRequirements[(int) $jenisRefill->id] = [
+                    'jenis_refill' => $jenisRefill,
+                    'qty' => 0.0,
+                ];
+            }
+
+            $stockRequirements[(int) $jenisRefill->id]['qty'] += $itemTotalKg;
+            $totalUnits += $jumlahUnit;
+            $totalKg += $itemTotalKg;
+            $totalPrice += $itemTotalPrice;
+        }
+
+        $stockRequirements = collect($stockRequirements)
+            ->map(function (array $requirement) {
+                $requirement['qty'] = (float) round((float) ($requirement['qty'] ?? 0), 2);
+
+                return $requirement;
+            })
+            ->values();
+
+        $singleRefill = $stockRequirements->count() === 1
+            ? $stockRequirements->first()['jenis_refill']
+            : null;
+
+        return [
+            'line_items' => $lineItems,
+            'stock_requirements' => $stockRequirements->all(),
+            'single_refill_id' => $singleRefill?->id,
+            'headline' => collect($lineItems)->pluck('label')->unique()->implode(', '),
+            'display_summary' => collect($lineItems)->pluck('label')->unique()->implode(', '),
+            'ukuran_summary' => collect($lineItems)->pluck('ukuran')->unique()->implode(', '),
+            'total_units' => $totalUnits,
+            'total_kg' => (float) round($totalKg, 2),
+            'estimasi_biaya' => (float) round($totalPrice, 0),
+            'stock_unit' => $singleRefill?->satuan_label ?: 'Kg',
+        ];
+    }
+
+    private function aggregatePeralatanSummary(array $peralatanItems): array
+    {
+        return collect($peralatanItems)
+            ->reduce(function (array $carry, array $item) {
+                $peralatanId = (int) ($item['peralatan_id'] ?? 0);
+                $nameKey = mb_strtolower(trim((string) ($item['nama'] ?? '-')));
+                $key = $peralatanId > 0 ? 'id:' . $peralatanId : 'name:' . $nameKey;
+
+                if (! isset($carry[$key])) {
+                    $carry[$key] = [
+                        'peralatan_id' => $peralatanId,
+                        'nama' => trim((string) ($item['nama'] ?? '-')) ?: '-',
+                        'jumlah' => 0,
+                        'stok' => (float) ($item['stok'] ?? 0),
+                        'stok_minimum' => (float) ($item['stok_minimum'] ?? 0),
+                    ];
+                }
+
+                $carry[$key]['jumlah'] += (int) ($item['jumlah'] ?? 0);
+                $carry[$key]['stok'] = (float) ($item['stok'] ?? $carry[$key]['stok']);
+                $carry[$key]['stok_minimum'] = (float) ($item['stok_minimum'] ?? $carry[$key]['stok_minimum']);
+
+                return $carry;
+            }, []);
+    }
+
+    private function buildManualServiceOrderSummary(
+        array $items,
+        ServicePackagePricingService $servicePackagePricingService,
+        array $serviceUkuranOptions
+    ): array {
+        if (empty($items)) {
+            throw ValidationException::withMessages([
+                'service_service_items' => 'Tambahkan minimal satu item service terlebih dahulu.',
+            ]);
+        }
+
+        $sizeMap = collect($serviceUkuranOptions)
+            ->mapWithKeys(function ($size) {
+                $label = trim((string) $size);
+
+                return [mb_strtolower($label) => $label];
+            })
+            ->all();
+        $requestedPaketIds = collect($items)->pluck('service_paket_id')->filter()->unique()->values();
+        $paketMap = app(ServiceMasterSyncService::class)
+            ->visibleServicePakets(['peralatans', 'jenisRefill'])
+            ->whereIn('id', $requestedPaketIds->all())
+            ->keyBy('id');
+
+        $missingPaketIds = $requestedPaketIds->filter(fn ($id) => ! $paketMap->has($id));
+        if ($missingPaketIds->isNotEmpty()) {
+            $fallbackPakets = ServicePaket::query()
+                ->with(['peralatans', 'jenisRefill'])
+                ->whereIn('id', $missingPaketIds->all())
+                ->get()
+                ->keyBy('id');
+
+            $paketMap = $paketMap->merge($fallbackPakets);
+        }
+
+        $lineItems = [];
+        $peralatanItems = [];
+        $totalUnits = 0;
+        $totalPrice = 0.0;
+
+        foreach (array_values($items) as $index => $item) {
+            $paketId = (int) ($item['service_paket_id'] ?? 0);
+            $ukuranKey = mb_strtolower(trim((string) ($item['ukuran_apar'] ?? '')));
+            $jumlahUnit = max(1, (int) ($item['jumlah_unit'] ?? 1));
+
+            $jenisApar = trim((string) ($item['jenis_apar'] ?? ''));
+            $paket = $paketMap->get($paketId);
+            if (! $paket) {
+                throw ValidationException::withMessages([
+                    'service_service_items' => 'Paket service pada salah satu item belum valid.',
+                ]);
+            }
+
+            if ($ukuranKey === '' || ! isset($sizeMap[$ukuranKey])) {
+                throw ValidationException::withMessages([
+                    'service_service_items' => 'Ukuran APAR pada salah satu item service belum valid.',
+                ]);
+            }
+
+            if ($jenisApar === '') {
+                throw ValidationException::withMessages([
+                    'service_service_items' => 'Jenis APAR pada salah satu item service belum valid.',
+                ]);
+            }
+
+            $ukuran = $sizeMap[$ukuranKey];
+            $packageSummary = $servicePackagePricingService->summarizePackageOrder($paket, [[
+                'label' => 'APAR ' . $jenisApar . ' ' . $ukuran,
+                'media' => $jenisApar,
+                'ukuran' => $ukuran,
+                'qty' => $jumlahUnit,
+            ]]);
+            $lineItem = $packageSummary['line_items'][0] ?? null;
+            $itemTotalPrice = (float) ($lineItem['total'] ?? $packageSummary['total_price'] ?? 0);
+            $unitPrice = (float) ($lineItem['unit_price'] ?? 0);
+
+            if ($itemTotalPrice <= 0 || $unitPrice <= 0) {
+                throw ValidationException::withMessages([
+                    'service_service_items' => 'Harga standar service untuk salah satu item belum tersedia.',
+                ]);
+            }
+
+            $lineItems[] = [
+                'index' => $index + 1,
+                'paket' => $paket,
+                'paket_id' => (int) $paket->id,
+                'label' => (string) $paket->nama,
+                'display_label' => $paket->nama . ' | ' . $ukuran,
+                'ukuran' => $ukuran,
+                'qty' => $jumlahUnit,
+                'unit_price' => $unitPrice,
+                'total' => (float) round($itemTotalPrice, 0),
+                'peralatan_items' => $packageSummary['peralatan_items'] ?? [],
+            ];
+
+            $peralatanItems = array_merge($peralatanItems, $packageSummary['peralatan_items'] ?? []);
+            $totalUnits += $jumlahUnit;
+            $totalPrice += $itemTotalPrice;
+        }
+
+        $aggregatedPeralatan = collect($this->aggregatePeralatanSummary($peralatanItems))
+            ->values();
+        $uniquePaketIds = collect($lineItems)->pluck('paket_id')->unique()->values();
+
+        return [
+            'line_items' => $lineItems,
+            'peralatan_items' => $aggregatedPeralatan->all(),
+            'single_paket_id' => $uniquePaketIds->count() === 1 ? (int) $uniquePaketIds->first() : null,
+            'headline' => collect($lineItems)->pluck('label')->unique()->implode(', '),
+            'display_summary' => collect($lineItems)->pluck('label')->unique()->implode(', '),
+            'ukuran_summary' => collect($lineItems)->pluck('ukuran')->unique()->implode(', '),
+            'total_units' => $totalUnits,
+            'estimasi_biaya' => (float) round($totalPrice, 0),
+        ];
+    }
+
+    private function buildManualRefillOrderNote(array $summary, string $metode, string $customerNote): string
+    {
+        $lines = ['Rincian Refill Manual'];
+
+        foreach (array_values($summary['line_items'] ?? []) as $index => $item) {
+            $lines[] = ($index + 1) . '. '
+                . trim((string) ($item['label'] ?? 'Refill'))
+                . ' | '
+                . trim((string) ($item['ukuran'] ?? '-'))
+                . ' | '
+                . max(1, (int) ($item['qty'] ?? 1))
+                . ' unit - Rp'
+                . number_format((float) ($item['total'] ?? 0), 0, ',', '.');
+        }
+
+        $lines[] = 'Total Refill: Rp' . number_format((float) ($summary['estimasi_biaya'] ?? 0), 0, ',', '.');
+        $lines[] = 'Total Kebutuhan Refill: ' . $this->formatKgNumber((float) ($summary['total_kg'] ?? 0)) . ' ' . ($summary['stock_unit'] ?? 'Kg');
+        $lines[] = 'Metode Penanganan: ' . ($metode === 'antar sendiri' ? 'Antar Sendiri' : 'Dijemput');
+        $lines[] = 'Catatan Pelanggan: ' . (trim($customerNote) !== '' ? trim($customerNote) : '-');
+
+        return implode("\n", $lines);
+    }
+
+    private function buildManualServiceOrderNote(array $summary, string $metode, string $customerNote): string
+    {
+        $lines = ['Rincian Service Manual'];
+
+        foreach (array_values($summary['line_items'] ?? []) as $index => $item) {
+            $lines[] = ($index + 1) . '. '
+                . trim((string) ($item['label'] ?? 'Service'))
+                . ' | '
+                . trim((string) ($item['ukuran'] ?? '-'))
+                . ' | '
+                . max(1, (int) ($item['qty'] ?? 1))
+                . ' unit - Rp'
+                . number_format((float) ($item['total'] ?? 0), 0, ',', '.');
+        }
+
+        $peralatanItems = $summary['peralatan_items'] ?? [];
+        if (! empty($peralatanItems)) {
+            $lines[] = 'Peralatan Paket:';
+            foreach ($peralatanItems as $peralatanItem) {
+                $lines[] = '- '
+                    . trim((string) ($peralatanItem['nama'] ?? '-'))
+                    . ' x'
+                    . (int) ($peralatanItem['jumlah'] ?? 0);
+            }
+        }
+
+        $lines[] = 'Total Service: Rp' . number_format((float) ($summary['estimasi_biaya'] ?? 0), 0, ',', '.');
+        $lines[] = 'Metode Penanganan: ' . ($metode === 'antar sendiri' ? 'Antar Sendiri' : 'Dijemput');
+        $lines[] = 'Catatan Pelanggan: ' . (trim($customerNote) !== '' ? trim($customerNote) : '-');
+
+        return implode("\n", $lines);
+    }
+
     private function selectedRegisteredUnitsNote(
         Collection $unitApars,
         string $purchaseLabel,
@@ -1651,6 +1994,15 @@ class PublicController extends Controller
             'service_jenis_refill_id' => 'nullable|exists:jenis_refills,id',
             'service_paket_id' => 'nullable|exists:service_pakets,id',
             'service_ukuran_apar' => 'nullable|string|max:120',
+            'service_refill_items' => 'nullable|array',
+            'service_refill_items.*.jenis_refill_id' => 'nullable|integer|exists:jenis_refills,id',
+            'service_refill_items.*.ukuran_apar' => 'nullable|string|max:120',
+            'service_refill_items.*.jumlah_unit' => 'nullable|integer|min:1|max:1000',
+            'service_service_items' => 'nullable|array',
+            'service_service_items.*.jenis_apar' => 'nullable|string|max:120',
+            'service_service_items.*.service_paket_id' => 'nullable|integer|exists:service_pakets,id',
+            'service_service_items.*.ukuran_apar' => 'nullable|string|max:120',
+            'service_service_items.*.jumlah_unit' => 'nullable|integer|min:1|max:1000',
             'service_unit_status' => 'nullable|in:terdaftar,belum_terdaftar',
             'service_unit_apar_id' => 'nullable|integer|exists:unit_apars,id',
             'service_purchase_group' => 'nullable|string|max:120',
@@ -1904,8 +2256,12 @@ class PublicController extends Controller
                 $serviceFotoPath = $request->hasFile('service_foto')
                     ? $request->file('service_foto')->store('service-request', 'public')
                     : null;
+                $manualRefillItems = $this->normalizeManualRefillItems((array) $request->input('service_refill_items', []));
+                $manualServiceItems = $this->normalizeManualServiceItems((array) $request->input('service_service_items', []));
+                $usesManualMultiItemFlow = ($serviceJenisLayanan === 'refill' && ! empty($manualRefillItems))
+                    || ($serviceJenisLayanan === 'service' && ! empty($manualServiceItems));
 
-                if ($serviceUnitStatus === 'terdaftar') {
+                if ($serviceUnitStatus === 'terdaftar' && ! $usesManualMultiItemFlow) {
                     $authenticatedCustomer = $this->authenticatedCustomer();
                     if (!$authenticatedCustomer || (int) $authenticatedCustomer->id !== (int) $pelanggan->id) {
                         throw ValidationException::withMessages([
@@ -1985,7 +2341,7 @@ class PublicController extends Controller
                         ->filter()
                         ->unique(fn ($ukuran) => mb_strtolower($ukuran))
                         ->implode(', ');
-                } else {
+                } elseif (! $usesManualMultiItemFlow) {
                     if ($rawServiceJumlahUnit < 1) {
                         throw ValidationException::withMessages([
                             'service_jumlah_unit' => 'Jumlah unit wajib diisi minimal 1.',
@@ -2013,9 +2369,7 @@ class PublicController extends Controller
                     }
                 }
 
-                $serviceUkuranKg = $selectedUnitApars->isNotEmpty()
-                    ? $selectedUnitApars->sum(fn (UnitApar $unitApar) => (float) ($this->extractAparCapacityKg($unitApar->ukuran ?: $unitApar->produk?->kapasitas) ?? 0))
-                    : $this->extractAparCapacityKg($serviceUkuranApar);
+                $serviceUkuranKg = null;
                 $serviceJenisAparLabel = $selectedUnitApars->isNotEmpty()
                     ? $selectedUnitApars
                         ->map(fn (UnitApar $unitApar) => $this->registeredUnitAparTypeLabel($unitApar))
@@ -2026,6 +2380,11 @@ class PublicController extends Controller
                 $servicePurchaseLabel = $selectedUnitApars->isNotEmpty()
                     ? $this->registeredUnitAparPurchaseLabel($selectedUnitApars->first())
                     : '';
+                if (! $usesManualMultiItemFlow) {
+                    $serviceUkuranKg = $selectedUnitApars->isNotEmpty()
+                        ? $selectedUnitApars->sum(fn (UnitApar $unitApar) => (float) ($this->extractAparCapacityKg($unitApar->ukuran ?: $unitApar->produk?->kapasitas) ?? 0))
+                        : $this->extractAparCapacityKg($serviceUkuranApar);
+                }
                 $serviceDeliveryMeta = $this->buildServiceDeliveryMeta(
                     request: $request,
                     selectedUnitApars: $selectedUnitApars,
@@ -2070,6 +2429,60 @@ class PublicController extends Controller
                 $pesanan->status = Pesanan::STATUS_PENDING;
 
                 if ($serviceJenisLayanan === 'refill') {
+                    if ($usesManualMultiItemFlow) {
+                        $manualRefillSummary = $this->buildManualRefillOrderSummary($manualRefillItems, $serviceUkuranOptions);
+                        $stockRequirements = collect($manualRefillSummary['stock_requirements'] ?? []);
+                        $insufficientRequirement = $stockRequirements->first(function (array $requirement) {
+                            /** @var JenisRefill|null $jenisRefill */
+                            $jenisRefill = $requirement['jenis_refill'] ?? null;
+
+                            return $jenisRefill && (float) $jenisRefill->stok < (float) ($requirement['qty'] ?? 0);
+                        });
+
+                        if ($insufficientRequirement) {
+                            /** @var JenisRefill $insufficientJenisRefill */
+                            $insufficientJenisRefill = $insufficientRequirement['jenis_refill'];
+                            throw ValidationException::withMessages([
+                                'service_refill_items' => 'Stok refill ' . $insufficientJenisRefill->nama_label . ' tidak mencukupi.',
+                            ]);
+                        }
+
+                        $serviceJumlahUnit = (int) ($manualRefillSummary['total_units'] ?? 0);
+                        $serviceUkuranApar = (string) ($manualRefillSummary['ukuran_summary'] ?? '');
+                        $serviceJenisAparLabel = (string) ($manualRefillSummary['display_summary'] ?? '');
+                        $totalKebutuhanKg = (float) ($manualRefillSummary['total_kg'] ?? 0);
+                        $estimasiBiaya = (float) ($manualRefillSummary['estimasi_biaya'] ?? 0);
+                        $refillUnitLabel = (string) ($manualRefillSummary['stock_unit'] ?? 'Kg');
+                        $pesanan->service_jenis_apar = $serviceJenisAparLabel;
+                        $pesanan->service_ukuran_apar = $serviceUkuranApar;
+                        $pesanan->service_jumlah_unit = $serviceJumlahUnit;
+                        $pesanan->service_keluhan = $this->buildManualRefillOrderNote(
+                            $manualRefillSummary,
+                            $serviceMetode,
+                            $originalServiceKeluhan,
+                        );
+
+                        $serviceKeluhanForText = str_replace(["\r\n", "\r", "\n"], ' | ', $pesanan->service_keluhan ?: '-');
+                        $totalPembayaranService = $estimasiBiaya + $serviceOngkir;
+                        $pesanan->service_jenis_refill_id = $manualRefillSummary['single_refill_id'] ?? null;
+                        $pesanan->service_paket_id = null;
+                        $pesanan->service_total_kg = $totalKebutuhanKg;
+                        $pesanan->service_estimasi_biaya = $estimasiBiaya;
+                        $pesanan->total = $totalPembayaranService;
+                        $pesanan->total_harga = $totalPembayaranService;
+
+                        $refillSummaryLabel = trim((string) ($manualRefillSummary['headline'] ?? ''));
+                        $pesanan->keterangan = 'Permintaan REFILL ' . ($refillSummaryLabel !== '' ? $refillSummaryLabel : 'APAR')
+                            . " | Item: {$serviceJenisAparLabel}"
+                            . " | Jumlah: {$serviceJumlahUnit} unit"
+                            . " | Kebutuhan: {$totalKebutuhanKg} {$refillUnitLabel}"
+                            . " | Metode: {$serviceMetode}"
+                            . ($serviceOngkir > 0 ? ' | Ongkir: Rp' . number_format($serviceOngkir, 0, ',', '.') : '')
+                            . ' | Catatan: ' . $serviceKeluhanForText;
+                        $pesanan->save();
+                        $successMessage = 'Pesanan refill berhasil dibuat dengan total estimasi ' . number_format($totalPembayaranService, 0, ',', '.')
+                            . '. Silakan lanjutkan pembayaran untuk mengaktifkan proses pengerjaan.';
+                    } else {
                     if (!$serviceUkuranKg || $serviceUkuranKg <= 0) {
                         throw ValidationException::withMessages([
                             'service_ukuran_apar' => 'Ukuran APAR belum bisa dihitung ke satuan Kg.',
@@ -2176,70 +2589,111 @@ class PublicController extends Controller
                     $pesanan->save();
                     $successMessage = 'Pesanan refill berhasil dibuat dengan total estimasi ' . number_format($totalPembayaranService, 0, ',', '.')
                         . '. Silakan lanjutkan pembayaran untuk mengaktifkan proses pengerjaan.';
+                    }
                 } else {
-                    $requestedServicePaketId = (int) $request->input('service_paket_id');
-                    $paket = app(ServiceMasterSyncService::class)
-                        ->visibleServicePakets(['peralatans', 'jenisRefill'])
-                        ->firstWhere('id', $requestedServicePaketId);
-
-                    // Tetap izinkan paket lama yang masih ada di database agar alur service sebelumnya tidak ikut rusak.
-                    if (! $paket && $requestedServicePaketId > 0) {
-                        $paket = ServicePaket::query()
-                            ->with(['peralatans', 'jenisRefill'])
-                            ->find($requestedServicePaketId);
-                    }
-
-                    if (!$paket) {
-                        throw ValidationException::withMessages([
-                            'service_paket_id' => 'Paket service wajib dipilih.',
-                        ]);
-                    }
-
-                    $serviceLineSpecs = $selectedUnitApars->isNotEmpty()
-                        ? $this->buildRegisteredServicePackageLineSpecs($selectedUnitApars)
-                        : $this->buildManualServicePackageLineSpec(
-                            media: $serviceJenisAparLabel,
-                            ukuran: $serviceUkuranApar,
-                            jumlahUnit: $serviceJumlahUnit,
+                    if ($usesManualMultiItemFlow) {
+                        $manualServiceSummary = $this->buildManualServiceOrderSummary(
+                            $manualServiceItems,
+                            $servicePackagePricingService,
+                            $serviceUkuranOptions,
                         );
-                    $packageSummary = $servicePackagePricingService->summarizePackageOrder($paket, $serviceLineSpecs);
-                    $estimasiBiaya = (float) ($packageSummary['total_price'] ?? 0);
-                    $estimasiPeralatan = $packageSummary['peralatan_items'] ?? [];
-                    if ($estimasiBiaya <= 0) {
-                        throw ValidationException::withMessages([
-                            'service_paket_id' => 'Harga standar service untuk jenis service yang dipilih belum tersedia.',
-                        ]);
+                        $serviceJumlahUnit = (int) ($manualServiceSummary['total_units'] ?? 0);
+                        $serviceUkuranApar = (string) ($manualServiceSummary['ukuran_summary'] ?? '');
+                        $serviceJenisAparLabel = (string) ($manualServiceSummary['display_summary'] ?? '');
+                        $estimasiBiaya = (float) ($manualServiceSummary['estimasi_biaya'] ?? 0);
+                        $pesanan->service_jenis_apar = $serviceJenisAparLabel;
+                        $pesanan->service_ukuran_apar = $serviceUkuranApar;
+                        $pesanan->service_jumlah_unit = $serviceJumlahUnit;
+                        $pesanan->service_keluhan = $this->buildManualServiceOrderNote(
+                            $manualServiceSummary,
+                            $serviceMetode,
+                            $originalServiceKeluhan,
+                        );
+
+                        $pesanan->service_paket_id = $manualServiceSummary['single_paket_id'] ?? null;
+                        $pesanan->service_jenis_refill_id = null;
+                        $pesanan->service_total_kg = null;
+                        $pesanan->service_estimasi_biaya = $estimasiBiaya;
+                        $totalPembayaranService = $estimasiBiaya + $serviceOngkir;
+                        $pesanan->total = $totalPembayaranService;
+                        $pesanan->total_harga = $totalPembayaranService;
+                        $serviceKeluhanForText = str_replace(["\r\n", "\r", "\n"], ' | ', $pesanan->service_keluhan ?: '-');
+                        $serviceSummaryLabel = trim((string) ($manualServiceSummary['headline'] ?? ''));
+                        $pesanan->keterangan = 'Permintaan SERVICE ' . ($serviceSummaryLabel !== '' ? $serviceSummaryLabel : 'APAR')
+                            . " | Item: {$serviceJenisAparLabel}"
+                            . " | Jumlah: {$serviceJumlahUnit} unit"
+                            . " | Metode: {$serviceMetode}"
+                            . ($serviceOngkir > 0 ? ' | Ongkir: Rp' . number_format($serviceOngkir, 0, ',', '.') : '')
+                            . ' | Catatan: ' . $serviceKeluhanForText;
+                        $pesanan->save();
+
+                        $successMessage = 'Pesanan service berhasil dibuat dengan total estimasi ' . number_format($totalPembayaranService, 0, ',', '.')
+                            . '. Silakan lanjutkan pembayaran untuk mengaktifkan proses pengerjaan.';
+                    } else {
+                        $requestedServicePaketId = (int) $request->input('service_paket_id');
+                        $paket = app(ServiceMasterSyncService::class)
+                            ->visibleServicePakets(['peralatans', 'jenisRefill'])
+                            ->firstWhere('id', $requestedServicePaketId);
+
+                        // Tetap izinkan paket lama yang masih ada di database agar alur service sebelumnya tidak ikut rusak.
+                        if (! $paket && $requestedServicePaketId > 0) {
+                            $paket = ServicePaket::query()
+                                ->with(['peralatans', 'jenisRefill'])
+                                ->find($requestedServicePaketId);
+                        }
+
+                        if (!$paket) {
+                            throw ValidationException::withMessages([
+                                'service_paket_id' => 'Paket service wajib dipilih.',
+                            ]);
+                        }
+
+                        $serviceLineSpecs = $selectedUnitApars->isNotEmpty()
+                            ? $this->buildRegisteredServicePackageLineSpecs($selectedUnitApars)
+                            : $this->buildManualServicePackageLineSpec(
+                                media: $serviceJenisAparLabel,
+                                ukuran: $serviceUkuranApar,
+                                jumlahUnit: $serviceJumlahUnit,
+                            );
+                        $packageSummary = $servicePackagePricingService->summarizePackageOrder($paket, $serviceLineSpecs);
+                        $estimasiBiaya = (float) ($packageSummary['total_price'] ?? 0);
+                        $estimasiPeralatan = $packageSummary['peralatan_items'] ?? [];
+                        if ($estimasiBiaya <= 0) {
+                            throw ValidationException::withMessages([
+                                'service_paket_id' => 'Harga standar service untuk jenis service yang dipilih belum tersedia.',
+                            ]);
+                        }
+
+                        $pesanan->service_keluhan = $this->buildServicePackageOrderNote(
+                            paket: $paket,
+                            lineItems: $packageSummary['line_items'] ?? [],
+                            peralatanItems: $estimasiPeralatan,
+                            total: $estimasiBiaya,
+                            metode: $serviceMetode,
+                            customerNote: $originalServiceKeluhan,
+                            purchaseLabel: $selectedUnitApars->isNotEmpty() ? $servicePurchaseLabel : null,
+                        );
+
+                        $pesanan->service_paket_id = $paket->id;
+                        $pesanan->service_jenis_refill_id = null;
+                        $pesanan->service_total_kg = null;
+                        $pesanan->service_estimasi_biaya = $estimasiBiaya;
+                        $totalPembayaranService = $estimasiBiaya + $serviceOngkir;
+                        $pesanan->total = $totalPembayaranService;
+                        $pesanan->total_harga = $totalPembayaranService;
+                        $pesanan->keterangan = "Permintaan SERVICE {$paket->nama}"
+                            . " | Status Unit: " . ($serviceUnitStatus === 'terdaftar' ? 'APAR Terdaftar' : 'APAR Belum Terdaftar')
+                            . ($selectedUnitApars->isNotEmpty() ? " | Riwayat: {$servicePurchaseLabel}" : '')
+                            . " | Ukuran: {$serviceUkuranApar}"
+                            . " | Jumlah: {$serviceJumlahUnit} unit"
+                            . " | Metode: {$serviceMetode}"
+                            . ($serviceOngkir > 0 ? " | Ongkir: Rp" . number_format($serviceOngkir, 0, ',', '.') : '')
+                            . " | Catatan: " . str_replace(["\r\n", "\r", "\n"], ' | ', $pesanan->service_keluhan ?: '-');
+                        $pesanan->save();
+
+                        $successMessage = 'Pesanan service berhasil dibuat dengan total estimasi ' . number_format($totalPembayaranService, 0, ',', '.')
+                            . '. Silakan lanjutkan pembayaran untuk mengaktifkan proses pengerjaan.';
                     }
-
-                    $pesanan->service_keluhan = $this->buildServicePackageOrderNote(
-                        paket: $paket,
-                        lineItems: $packageSummary['line_items'] ?? [],
-                        peralatanItems: $estimasiPeralatan,
-                        total: $estimasiBiaya,
-                        metode: $serviceMetode,
-                        customerNote: $originalServiceKeluhan,
-                        purchaseLabel: $selectedUnitApars->isNotEmpty() ? $servicePurchaseLabel : null,
-                    );
-
-                    $pesanan->service_paket_id = $paket->id;
-                    $pesanan->service_jenis_refill_id = null;
-                    $pesanan->service_total_kg = null;
-                    $pesanan->service_estimasi_biaya = $estimasiBiaya;
-                    $totalPembayaranService = $estimasiBiaya + $serviceOngkir;
-                    $pesanan->total = $totalPembayaranService;
-                    $pesanan->total_harga = $totalPembayaranService;
-                    $pesanan->keterangan = "Permintaan SERVICE {$paket->nama}"
-                        . " | Status Unit: " . ($serviceUnitStatus === 'terdaftar' ? 'APAR Terdaftar' : 'APAR Belum Terdaftar')
-                        . ($selectedUnitApars->isNotEmpty() ? " | Riwayat: {$servicePurchaseLabel}" : '')
-                        . " | Ukuran: {$serviceUkuranApar}"
-                        . " | Jumlah: {$serviceJumlahUnit} unit"
-                        . " | Metode: {$serviceMetode}"
-                        . ($serviceOngkir > 0 ? " | Ongkir: Rp" . number_format($serviceOngkir, 0, ',', '.') : '')
-                        . " | Catatan: " . str_replace(["\r\n", "\r", "\n"], ' | ', $pesanan->service_keluhan ?: '-');
-                    $pesanan->save();
-
-                    $successMessage = 'Pesanan service berhasil dibuat dengan total estimasi ' . number_format($totalPembayaranService, 0, ',', '.')
-                        . '. Silakan lanjutkan pembayaran untuk mengaktifkan proses pengerjaan.';
                 }
 
                 $redirectToPayment = true;
@@ -2981,7 +3435,7 @@ private function fetchPhoton(string $query): array
             'foto_path' => $fotoPath,
             'is_anonymous' => $request->boolean('is_anonymous'),
             'tanggal' => now(),
-            'status' => 'pending',
+            'status' => 'approved',
         ]);
 
         if ($selectedOrder) {
@@ -3008,10 +3462,10 @@ private function fetchPhoton(string $query): array
         if ($request->expectsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Terima kasih. Testimoni Anda sudah dikirim dan admin bisa membalasnya setelah direview.',
+                'message' => 'Terima kasih. Testimoni Anda berhasil dikirim dan ditayangkan.',
             ]);
         }
 
-        return redirect()->route($redirectRoute)->with('success', 'Terima kasih. Testimoni Anda sudah dikirim dan admin bisa membalasnya setelah direview.');
+        return redirect()->route($redirectRoute)->with('success', 'Terima kasih. Testimoni Anda berhasil dikirim dan ditayangkan.');
     }
 }

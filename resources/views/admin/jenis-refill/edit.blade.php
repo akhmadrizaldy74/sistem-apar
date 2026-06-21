@@ -51,7 +51,7 @@
                         <svg class="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         <div>
                             <p class="text-sm font-bold text-amber-800">Informasi Data Layanan</p>
-                            <p class="text-xs text-amber-700 mt-1">Halaman ini tidak mengubah stok. Harga standar yang diperbarui di sini akan dipakai untuk transaksi pembelian refill berikutnya.</p>
+                            <p class="text-xs text-amber-700 mt-1">Halaman ini tidak mengubah stok. Harga acuan di sini juga akan ikut diperbarui otomatis dari pembelian refill terakhir yang disimpan lewat menu Pengeluaran.</p>
                         </div>
                     </div>
                 </div>

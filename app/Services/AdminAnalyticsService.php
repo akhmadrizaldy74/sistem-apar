@@ -95,7 +95,7 @@ class AdminAnalyticsService
         ?string $from = null,
         ?string $to = null,
         ?int $pelangganId = null,
-        string $scopeLabel = 'Semua transaksi selesai final'
+        string $scopeLabel = 'Semua transaksi dengan pembayaran valid'
     ): array {
         $breakdown = $this->finalRevenue->breakdown($from, $to, $pelangganId);
 

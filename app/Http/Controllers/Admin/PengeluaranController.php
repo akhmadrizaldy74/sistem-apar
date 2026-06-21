@@ -9,13 +9,17 @@ use App\Models\Peralatan;
 use App\Models\Produk;
 use App\Services\InventoryService;
 use App\Services\ServiceMasterSyncService;
+use App\Services\StockPurchaseReferenceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class PengeluaranController extends Controller
 {
-    public function index(ServiceMasterSyncService $serviceMasterSyncService)
+    public function index(
+        ServiceMasterSyncService $serviceMasterSyncService,
+        StockPurchaseReferenceService $purchaseReferences
+    )
     {
         $pengeluarans = Pengeluaran::with(['produk.jenisApar', 'jenisRefill', 'peralatan'])
             ->latest('tanggal')
@@ -24,8 +28,15 @@ class PengeluaranController extends Controller
         $produks = Produk::with('jenisApar')->orderBy('nama')->get();
         $jenisRefills = JenisRefill::orderBy('nama')->get();
         $peralatans = $serviceMasterSyncService->visiblePeralatans();
+        $productPurchaseReferencePrices = $purchaseReferences->latestProductPurchasePrices($produks->pluck('id'));
 
-        return view('admin.pengeluaran.index', compact('pengeluarans', 'produks', 'jenisRefills', 'peralatans'));
+        return view('admin.pengeluaran.index', compact(
+            'pengeluarans',
+            'produks',
+            'jenisRefills',
+            'peralatans',
+            'productPurchaseReferencePrices'
+        ));
     }
 
     public function create()
@@ -33,7 +44,11 @@ class PengeluaranController extends Controller
         return redirect()->route('admin.pengeluaran.index');
     }
 
-    public function store(Request $request, InventoryService $inventoryService)
+    public function store(
+        Request $request,
+        InventoryService $inventoryService,
+        StockPurchaseReferenceService $purchaseReferences
+    )
     {
         $jenisPengeluaran = $request->input('jenis_pengeluaran');
         $qty = $request->input('qty') ?: match ($jenisPengeluaran) {
@@ -86,7 +101,7 @@ class PengeluaranController extends Controller
             ]),
         };
 
-        DB::transaction(function () use ($inventoryService, $pengeluaranData) {
+        DB::transaction(function () use ($inventoryService, $pengeluaranData, $purchaseReferences) {
             $pengeluaran = Pengeluaran::create([
                 'kategori' => $pengeluaranData['kategori'],
                 'jenis_pengeluaran' => $pengeluaranData['jenis_pengeluaran'],
@@ -107,6 +122,8 @@ class PengeluaranController extends Controller
                 $pengeluaran,
                 $pengeluaranData['tgl_produksi_apar'] ?? null,
             );
+
+            $purchaseReferences->syncAfterExpense($pengeluaran->fresh(['jenisRefill', 'peralatan']));
         });
 
         $message = match ($pengeluaranData['jenis_pengeluaran']) {
@@ -198,14 +215,14 @@ class PengeluaranController extends Controller
     {
         $jenisRefill = JenisRefill::findOrFail($validated['jenis_refill_id']);
         $hargaStandar = (float) ($jenisRefill->harga ?? 0);
+        $qty = round((float) $validated['qty'], 2);
+        $hargaBeliAktual = round((float) ($validated['harga_beli'] ?? $hargaStandar), 2);
 
-        if ($hargaStandar <= 0) {
+        if ($hargaBeliAktual <= 0) {
             throw ValidationException::withMessages([
-                'jenis_refill_id' => 'Harga standar untuk jenis refill "' . $jenisRefill->nama . '" belum tersedia. Isi harga standar terlebih dahulu di Data Layanan > Jenis Refill.',
+                'harga_beli' => 'Harga beli aktual refill wajib diisi dan harus lebih dari 0.',
             ]);
         }
-
-        $qty = round((float) $validated['qty'], 2);
 
         return [
             'kategori' => 'refill',
@@ -216,8 +233,8 @@ class PengeluaranController extends Controller
             'nama_item' => $jenisRefill->nama,
             'qty' => $qty,
             'satuan' => $jenisRefill->satuan_label,
-            'harga_beli' => $hargaStandar,
-            'total' => round($qty * $hargaStandar, 2),
+            'harga_beli' => $hargaBeliAktual,
+            'total' => round($qty * $hargaBeliAktual, 2),
             'keterangan' => $validated['keterangan'] ?? null,
             'tanggal' => $validated['tanggal'],
         ];
@@ -235,6 +252,13 @@ class PengeluaranController extends Controller
         }
 
         $qty = (int) $validated['qty'];
+        $hargaBeliAktual = round((float) ($validated['harga_beli'] ?? $hargaStandar), 2);
+
+        if ($hargaBeliAktual <= 0) {
+            throw ValidationException::withMessages([
+                'harga_beli' => 'Harga beli aktual peralatan wajib diisi dan harus lebih dari 0.',
+            ]);
+        }
 
         return [
             'kategori' => 'peralatan',
@@ -245,8 +269,8 @@ class PengeluaranController extends Controller
             'nama_item' => $peralatan->nama,
             'qty' => $qty,
             'satuan' => 'Unit',
-            'harga_beli' => $hargaStandar,
-            'total' => round($qty * $hargaStandar, 2),
+            'harga_beli' => $hargaBeliAktual,
+            'total' => round($qty * $hargaBeliAktual, 2),
             'keterangan' => $validated['keterangan'] ?? null,
             'tanggal' => $validated['tanggal'],
         ];

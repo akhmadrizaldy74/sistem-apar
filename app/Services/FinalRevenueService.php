@@ -3,8 +3,6 @@
 namespace App\Services;
 
 use App\Models\Pesanan;
-use App\Models\Refill;
-use App\Models\Service;
 use Illuminate\Database\Eloquent\Builder;
 
 class FinalRevenueService
@@ -14,65 +12,57 @@ class FinalRevenueService
         $query = Pesanan::query()
             ->where('tipe', 'produk');
 
-        $this->applyFinalOrderStatusConstraint($query);
-        $this->applyDateRange($query, 'tanggal', $from, $to);
+        $this->applyRevenueRecognitionConstraint($query);
+        $this->applyDateRange($query, $from, $to);
 
         return $query->when($pelangganId, fn (Builder $builder, int $id) => $builder->where('pelanggan_id', $id));
     }
 
     public function serviceTransactionsQuery(?string $from = null, ?string $to = null, ?int $pelangganId = null): Builder
     {
-        $query = Service::query()
+        $query = Pesanan::query()
+            ->where('tipe', 'service')
             ->where(function (Builder $builder) {
-                $builder->whereNull('jenis_service')
-                    ->orWhereRaw("LOWER(COALESCE(jenis_service, '')) NOT LIKE ?", ['%refill%']);
+                $builder->where('service_jenis_layanan', 'service')
+                    ->orWhereNull('service_jenis_layanan')
+                    ->orWhere('service_jenis_layanan', '');
             })
-            ->whereHas('pesanan', function (Builder $builder) {
-                $this->applyFinalOrderStatusConstraint($builder);
-            });
+            ->with(['pelanggan', 'teknisi', 'servicePaket', 'service', 'unitApars.produk']);
 
-        $this->applyDateRange($query, 'tgl_service', $from, $to);
+        $this->applyRevenueRecognitionConstraint($query);
+        $this->applyDateRange($query, $from, $to);
 
-        return $query->when($pelangganId, function (Builder $builder, int $id) {
-            $builder->where(function (Builder $customerQuery) use ($id) {
-                $customerQuery->whereHas('unitApar', fn (Builder $unitQuery) => $unitQuery->where('pelanggan_id', $id))
-                    ->orWhereHas('pesanan', fn (Builder $orderQuery) => $orderQuery->where('pelanggan_id', $id));
-            });
-        });
+        return $query->when($pelangganId, fn (Builder $builder, int $id) => $builder->where('pelanggan_id', $id));
     }
 
     public function refillTransactionsQuery(?string $from = null, ?string $to = null, ?int $pelangganId = null): Builder
     {
-        $query = Refill::query()
-            ->whereHas('service.pesanan', function (Builder $builder) {
-                $this->applyFinalOrderStatusConstraint($builder);
-            });
+        $query = Pesanan::query()
+            ->where('tipe', 'service')
+            ->where('service_jenis_layanan', 'refill')
+            ->with(['pelanggan', 'serviceJenisRefill', 'service', 'unitApars.produk']);
 
-        $this->applyDateRange($query, 'tgl_refill', $from, $to);
+        $this->applyRevenueRecognitionConstraint($query);
+        $this->applyDateRange($query, $from, $to);
 
-        return $query->when($pelangganId, function (Builder $builder, int $id) {
-            $builder->where(function (Builder $customerQuery) use ($id) {
-                $customerQuery->whereHas('unitApar', fn (Builder $unitQuery) => $unitQuery->where('pelanggan_id', $id))
-                    ->orWhereHas('service.pesanan', fn (Builder $orderQuery) => $orderQuery->where('pelanggan_id', $id));
-            });
-        });
+        return $query->when($pelangganId, fn (Builder $builder, int $id) => $builder->where('pelanggan_id', $id));
     }
 
     public function breakdown(?string $from = null, ?string $to = null, ?int $pelangganId = null): array
     {
         $product = $this->sumColumn(
             $this->productOrdersQuery($from, $to, $pelangganId),
-            'total'
+            'total_harga'
         );
 
         $service = $this->sumColumn(
             $this->serviceTransactionsQuery($from, $to, $pelangganId),
-            'biaya'
+            'total_harga'
         );
 
         $refill = $this->sumColumn(
             $this->refillTransactionsQuery($from, $to, $pelangganId),
-            'biaya'
+            'total_harga'
         );
 
         return [
@@ -83,27 +73,26 @@ class FinalRevenueService
         ];
     }
 
-    private function applyDateRange(Builder $query, string $column, ?string $from, ?string $to): void
+    private function applyDateRange(Builder $query, ?string $from, ?string $to): void
     {
+        $dateExpression = Pesanan::revenueRecognitionDateExpression();
+
         if ($from) {
-            $query->whereDate($column, '>=', $from);
+            $query->whereRaw("DATE({$dateExpression}) >= ?", [$from]);
         }
 
         if ($to) {
-            $query->whereDate($column, '<=', $to);
+            $query->whereRaw("DATE({$dateExpression}) <= ?", [$to]);
         }
     }
 
-    private function applyFinalOrderStatusConstraint(Builder $query): void
+    private function applyRevenueRecognitionConstraint(Builder $query): void
     {
-        $query->whereRaw(
-            "TRIM(LOWER(REPLACE(COALESCE(status, ''), '_', ' '))) = ?",
-            [trim(strtolower(str_replace('_', ' ', Pesanan::STATUS_SELESAI_FINAL)))]
-        );
+        $query->revenueRecognized();
     }
 
     private function sumColumn(Builder $query, string $column): float
     {
-        return (float) ((clone $query)->sum($column) ?? 0);
+        return (float) ((clone $query)->selectRaw("COALESCE(SUM(COALESCE({$column}, total, 0)), 0) as aggregate")->value('aggregate') ?? 0);
     }
 }

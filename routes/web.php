@@ -159,9 +159,6 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/testimoni', [TestimoniController::class, 'index'])->name('testimoni.index');
     Route::post('/testimoni', [TestimoniController::class, 'store'])->name('testimoni.store');
     Route::put('/testimoni/{testimoni}', [TestimoniController::class, 'update'])->name('testimoni.update');
-    Route::post('/testimoni/{testimoni}/approve', [TestimoniController::class, 'approve'])->name('testimoni.approve');
-    Route::post('/testimoni/{testimoni}/reject', [TestimoniController::class, 'reject'])->name('testimoni.reject');
-    Route::post('/testimoni/{testimoni}/pending', [TestimoniController::class, 'pending'])->name('testimoni.pending');
     Route::delete('/testimoni/{testimoni}', [TestimoniController::class, 'destroy'])->name('testimoni.destroy');
 
 });

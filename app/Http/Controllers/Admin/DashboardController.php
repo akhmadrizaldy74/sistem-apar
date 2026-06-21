@@ -15,6 +15,7 @@ use App\Models\WebsiteVisit;
 use App\Services\AdminAnalyticsService;
 use App\Services\FinalRevenueService;
 use App\Services\ProductAnalyticsService;
+use App\Services\StockAlertService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -23,7 +24,8 @@ class DashboardController extends Controller
     public function __invoke(
         ProductAnalyticsService $productAnalytics,
         FinalRevenueService $finalRevenue,
-        AdminAnalyticsService $analytics
+        AdminAnalyticsService $analytics,
+        StockAlertService $stockAlerts
     )
     {
         /** @var User|null $user */
@@ -227,6 +229,7 @@ class DashboardController extends Controller
             ],
             'topViewedProducts' => $productAnalytics->mostViewedProducts(limit: 5),
             'topSoldProducts' => $productAnalytics->mostSoldProducts(limit: 5),
+            'stockAlerts' => $stockAlerts->adminDashboard(),
         ]);
     }
 

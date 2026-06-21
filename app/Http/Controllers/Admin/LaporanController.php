@@ -10,14 +10,11 @@ use App\Models\Pengeluaran;
 use App\Models\Peralatan;
 use App\Models\Pesanan;
 use App\Models\Produk;
-use App\Models\Refill;
-use App\Models\Service;
 use App\Models\UnitApar;
 use App\Models\WebsiteVisit;
 use App\Services\AdminAnalyticsService;
 use App\Services\FinalRevenueService;
 use App\Services\ProductAnalyticsService;
-use App\Support\ServiceUnitDisplay;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -90,7 +87,7 @@ class LaporanController extends Controller
             $filters['tanggal_dari'],
             $filters['tanggal_sampai'],
             $filters['pelanggan_id'],
-            'Semua transaksi selesai final pada periode laporan.'
+            'Semua transaksi dengan pembayaran valid pada periode laporan.'
         );
 
         $pendingCount = Pesanan::where('tipe', 'produk')->whereIn('status', ['pending', 'menunggu', 'menunggu persetujuan'])->count();
@@ -107,15 +104,15 @@ class LaporanController extends Controller
 
         $combinedData = collect();
 
-        (clone $pesananQuery)
-            ->with(['pelanggan', 'details.produk'])
-            ->latest('tanggal')
+        $this->applyRevenueSort(
+            (clone $pesananQuery)->with(['pelanggan', 'details.produk'])
+        )
             ->take(20)
             ->get()
             ->each(fn (Pesanan $pesanan) => $combinedData->push([
-                'tanggal' => $pesanan->tanggal,
+                'tanggal' => $this->reportTransactionDateValue($pesanan),
                 'jenis' => 'Pesanan',
-                'pelanggan' => $pesanan->pelanggan?->nama ?? '-',
+                'pelanggan' => $this->customerName($pesanan),
                 'keterangan' => $this->productItemSummary($pesanan),
                 'status' => $pesanan->publicStatusLabel(),
                 'source' => $this->sourceLabel($pesanan->sumber_pesanan),
@@ -123,35 +120,35 @@ class LaporanController extends Controller
                 'pengeluaran' => 0,
             ]));
 
-        (clone $serviceQuery)
-            ->with(['unitApar.pelanggan', 'pesanan.pelanggan', 'pesanan.servicePaket'])
-            ->latest('tgl_service')
+        $this->applyRevenueSort(
+            (clone $serviceQuery)->with(['pelanggan', 'teknisi', 'servicePaket', 'service', 'unitApars.produk'])
+        )
             ->take(20)
             ->get()
-            ->each(fn (Service $service) => $combinedData->push([
-                'tanggal' => $service->tgl_service,
+            ->each(fn (Pesanan $pesanan) => $combinedData->push([
+                'tanggal' => $this->reportTransactionDateValue($pesanan),
                 'jenis' => 'Service',
-                'pelanggan' => $this->serviceCustomerName($service),
-                'keterangan' => $this->serviceLabel($service).' - '.$this->serviceUnitSummary($service),
-                'status' => $service->pesanan?->publicStatusLabel() ?? $service->status_konfirmasi ?? '-',
-                'source' => $this->sourceLabel($service->pesanan?->sumber_pesanan),
-                'pemasukan' => (float) ($service->pesanan?->payableTotal() ?: $service->biaya),
+                'pelanggan' => $this->customerName($pesanan),
+                'keterangan' => $this->serviceLabel($pesanan).' - '.$this->serviceUnitSummary($pesanan),
+                'status' => $pesanan->publicStatusLabel(),
+                'source' => $this->sourceLabel($pesanan->sumber_pesanan),
+                'pemasukan' => (float) $pesanan->payableTotal(),
                 'pengeluaran' => 0,
             ]));
 
-        (clone $refillQuery)
-            ->with(['unitApar.pelanggan', 'service.pesanan.pelanggan', 'jenisRefill'])
-            ->latest('tgl_refill')
+        $this->applyRevenueSort(
+            (clone $refillQuery)->with(['pelanggan', 'serviceJenisRefill', 'service', 'unitApars.produk'])
+        )
             ->take(20)
             ->get()
-            ->each(fn (Refill $refill) => $combinedData->push([
-                'tanggal' => $refill->tgl_refill,
+            ->each(fn (Pesanan $pesanan) => $combinedData->push([
+                'tanggal' => $this->reportTransactionDateValue($pesanan),
                 'jenis' => 'Refill',
-                'pelanggan' => $this->refillCustomerName($refill),
-                'keterangan' => ($refill->jenisRefill?->nama_label ?? 'Refill APAR').' - '.$this->refillQuantityLabel($refill),
-                'status' => $refill->service?->pesanan?->publicStatusLabel() ?? '-',
-                'source' => $this->sourceLabel($refill->service?->pesanan?->sumber_pesanan),
-                'pemasukan' => (float) ($refill->service?->pesanan?->payableTotal() ?: $refill->biaya),
+                'pelanggan' => $this->customerName($pesanan),
+                'keterangan' => $this->refillLabel($pesanan).' - '.$this->refillQuantityLabel($pesanan),
+                'status' => $pesanan->publicStatusLabel(),
+                'source' => $this->sourceLabel($pesanan->sumber_pesanan),
+                'pemasukan' => (float) $pesanan->payableTotal(),
                 'pengeluaran' => 0,
             ]));
 
@@ -266,7 +263,8 @@ class LaporanController extends Controller
             $filters['pelanggan_id']
         )
             ->with(['pelanggan', 'details.produk'])
-            ->latest('tanggal')
+            ->orderByRaw(Pesanan::revenueRecognitionDateExpression().' DESC')
+            ->orderByDesc('id')
             ->get();
 
         $refills = $finalRevenue->refillTransactionsQuery(
@@ -274,8 +272,9 @@ class LaporanController extends Controller
             $filters['tanggal_sampai'],
             $filters['pelanggan_id']
         )
-            ->with(['unitApar.pelanggan', 'service.pesanan.pelanggan', 'service.pesanan', 'jenisRefill'])
-            ->latest('tgl_refill')
+            ->with(['pelanggan', 'serviceJenisRefill', 'service', 'unitApars.produk'])
+            ->orderByRaw(Pesanan::revenueRecognitionDateExpression().' DESC')
+            ->orderByDesc('id')
             ->get();
 
         $transactions = $this->buildPenjualanTransactions($pesanans, $refills);
@@ -314,13 +313,14 @@ class LaporanController extends Controller
             $filters['pelanggan_id']
         )
             ->with([
-                'unitApar.pelanggan',
-                'unitApar.produk',
-                'pesanan.pelanggan',
-                'pesanan.teknisi',
-                'pesanan.servicePaket',
+                'pelanggan',
+                'teknisi',
+                'servicePaket',
+                'service',
+                'unitApars.produk',
             ])
-            ->latest('tgl_service')
+            ->orderByRaw(Pesanan::revenueRecognitionDateExpression().' DESC')
+            ->orderByDesc('id')
             ->get();
 
         $serviceRows = $this->buildServiceRows($services);
@@ -348,7 +348,7 @@ class LaporanController extends Controller
             $filters['tanggal_sampai'],
             $filters['pelanggan_id']
         )
-            ->with(['unitApar.pelanggan', 'unitApar.produk', 'pesanan.pelanggan', 'pesanan.teknisi', 'pesanan.servicePaket'])
+            ->with(['pelanggan', 'teknisi', 'servicePaket', 'service', 'unitApars.produk'])
             ->get();
 
         $pesanans = $finalRevenue->productOrdersQuery(
@@ -364,14 +364,14 @@ class LaporanController extends Controller
             $filters['tanggal_sampai'],
             $filters['pelanggan_id']
         )
-            ->with(['unitApar.pelanggan', 'service.pesanan.pelanggan', 'service.pesanan', 'jenisRefill'])
+            ->with(['pelanggan', 'serviceJenisRefill', 'service', 'unitApars.produk'])
             ->get();
 
         $pengeluarans = $this->pengeluaranQuery($filters)->get();
 
-        $pemasukanService = (float) $services->sum(fn (Service $service) => $service->pesanan?->payableTotal() ?: $service->biaya);
+        $pemasukanService = (float) $services->sum(fn (Pesanan $pesanan) => $pesanan->payableTotal());
         $pemasukanProduk = (float) $pesanans->sum(fn (Pesanan $pesanan) => $pesanan->payableTotal());
-        $pemasukanRefill = (float) $refills->sum(fn (Refill $refill) => $refill->service?->pesanan?->payableTotal() ?: $refill->biaya);
+        $pemasukanRefill = (float) $refills->sum(fn (Pesanan $pesanan) => $pesanan->payableTotal());
         $totalPengeluaran = (float) $pengeluarans->sum('effective_amount');
 
         $totals = [
@@ -398,7 +398,7 @@ class LaporanController extends Controller
                 $filters['tanggal_dari'],
                 $filters['tanggal_sampai'],
                 $filters['pelanggan_id'],
-                'Semua transaksi selesai final pada periode laporan keuangan.'
+                'Semua transaksi dengan pembayaran valid pada periode laporan keuangan.'
             ),
             'expenseBreakdown' => $analytics->expenseBreakdown($pengeluarans),
             'cashflowTrend' => $analytics->cashflowTrend($filters['pelanggan_id'], now()),
@@ -474,7 +474,8 @@ class LaporanController extends Controller
             $filters['pelanggan_id']
         )
             ->with(['pelanggan', 'details.produk'])
-            ->latest('tanggal')
+            ->orderByRaw(Pesanan::revenueRecognitionDateExpression().' DESC')
+            ->orderByDesc('id')
             ->get();
 
         $refills = $finalRevenue->refillTransactionsQuery(
@@ -482,8 +483,9 @@ class LaporanController extends Controller
             $filters['tanggal_sampai'],
             $filters['pelanggan_id']
         )
-            ->with(['unitApar.pelanggan', 'service.pesanan.pelanggan', 'service.pesanan', 'jenisRefill'])
-            ->latest('tgl_refill')
+            ->with(['pelanggan', 'serviceJenisRefill', 'service', 'unitApars.produk'])
+            ->orderByRaw(Pesanan::revenueRecognitionDateExpression().' DESC')
+            ->orderByDesc('id')
             ->get();
 
         $transactions = $this->buildPenjualanTransactions($pesanans, $refills);
@@ -516,13 +518,14 @@ class LaporanController extends Controller
             $filters['pelanggan_id']
         )
             ->with([
-                'unitApar.pelanggan',
-                'unitApar.produk',
-                'pesanan.pelanggan',
-                'pesanan.teknisi',
-                'pesanan.servicePaket',
+                'pelanggan',
+                'teknisi',
+                'servicePaket',
+                'service',
+                'unitApars.produk',
             ])
-            ->latest('tgl_service')
+            ->orderByRaw(Pesanan::revenueRecognitionDateExpression().' DESC')
+            ->orderByDesc('id')
             ->get();
 
         $serviceRows = $this->buildServiceRows($services);
@@ -544,7 +547,7 @@ class LaporanController extends Controller
             $filters['tanggal_sampai'],
             $filters['pelanggan_id']
         )
-            ->with(['unitApar.pelanggan', 'unitApar.produk', 'pesanan.pelanggan', 'pesanan.teknisi', 'pesanan.servicePaket'])
+            ->with(['pelanggan', 'teknisi', 'servicePaket', 'service', 'unitApars.produk'])
             ->get();
 
         $pesanans = $finalRevenue->productOrdersQuery(
@@ -560,14 +563,14 @@ class LaporanController extends Controller
             $filters['tanggal_sampai'],
             $filters['pelanggan_id']
         )
-            ->with(['unitApar.pelanggan', 'service.pesanan.pelanggan', 'service.pesanan', 'jenisRefill'])
+            ->with(['pelanggan', 'serviceJenisRefill', 'service', 'unitApars.produk'])
             ->get();
 
         $pengeluarans = $this->pengeluaranQuery($filters)->get();
 
-        $pemasukanService = (float) $services->sum(fn (Service $service) => $service->pesanan?->payableTotal() ?: $service->biaya);
+        $pemasukanService = (float) $services->sum(fn (Pesanan $pesanan) => $pesanan->payableTotal());
         $pemasukanProduk = (float) $pesanans->sum(fn (Pesanan $pesanan) => $pesanan->payableTotal());
-        $pemasukanRefill = (float) $refills->sum(fn (Refill $refill) => $refill->service?->pesanan?->payableTotal() ?: $refill->biaya);
+        $pemasukanRefill = (float) $refills->sum(fn (Pesanan $pesanan) => $pesanan->payableTotal());
         $totalPengeluaran = (float) $pengeluarans->sum('effective_amount');
 
         $totals = [
@@ -665,49 +668,49 @@ class LaporanController extends Controller
 
         $combinedData = collect();
 
-        (clone $pesananQuery)
-            ->with(['pelanggan', 'details.produk'])
-            ->latest('tanggal')
+        $this->applyRevenueSort(
+            (clone $pesananQuery)->with(['pelanggan', 'details.produk'])
+        )
             ->take(50)
             ->get()
             ->each(fn (Pesanan $pesanan) => $combinedData->push([
-                'tanggal' => $pesanan->tanggal,
+                'tanggal' => $this->reportTransactionDateValue($pesanan),
                 'jenis' => 'Pesanan',
-                'pelanggan' => $pesanan->pelanggan?->nama ?? '-',
+                'pelanggan' => $this->customerName($pesanan),
                 'keterangan' => $this->productItemSummary($pesanan),
                 'status' => $pesanan->publicStatusLabel(),
                 'source' => $this->sourceLabel($pesanan->sumber_pesanan),
                 'pemasukan' => (float) $pesanan->payableTotal(),
             ]));
 
-        (clone $serviceQuery)
-            ->with(['unitApar.pelanggan', 'pesanan.pelanggan', 'pesanan.servicePaket'])
-            ->latest('tgl_service')
+        $this->applyRevenueSort(
+            (clone $serviceQuery)->with(['pelanggan', 'teknisi', 'servicePaket', 'service', 'unitApars.produk'])
+        )
             ->take(50)
             ->get()
-            ->each(fn (Service $service) => $combinedData->push([
-                'tanggal' => $service->tgl_service,
+            ->each(fn (Pesanan $pesanan) => $combinedData->push([
+                'tanggal' => $this->reportTransactionDateValue($pesanan),
                 'jenis' => 'Service',
-                'pelanggan' => $this->serviceCustomerName($service),
-                'keterangan' => $this->serviceLabel($service).' - '.$this->serviceUnitSummary($service),
-                'status' => $service->pesanan?->publicStatusLabel() ?? $service->status_konfirmasi ?? '-',
-                'source' => $this->sourceLabel($service->pesanan?->sumber_pesanan),
-                'pemasukan' => (float) ($service->pesanan?->payableTotal() ?: $service->biaya),
+                'pelanggan' => $this->customerName($pesanan),
+                'keterangan' => $this->serviceLabel($pesanan).' - '.$this->serviceUnitSummary($pesanan),
+                'status' => $pesanan->publicStatusLabel(),
+                'source' => $this->sourceLabel($pesanan->sumber_pesanan),
+                'pemasukan' => (float) $pesanan->payableTotal(),
             ]));
 
-        (clone $refillQuery)
-            ->with(['unitApar.pelanggan', 'service.pesanan.pelanggan', 'service.pesanan', 'jenisRefill'])
-            ->latest('tgl_refill')
+        $this->applyRevenueSort(
+            (clone $refillQuery)->with(['pelanggan', 'serviceJenisRefill', 'service', 'unitApars.produk'])
+        )
             ->take(50)
             ->get()
-            ->each(fn (Refill $refill) => $combinedData->push([
-                'tanggal' => $refill->tgl_refill,
+            ->each(fn (Pesanan $pesanan) => $combinedData->push([
+                'tanggal' => $this->reportTransactionDateValue($pesanan),
                 'jenis' => 'Refill',
-                'pelanggan' => $this->refillCustomerName($refill),
-                'keterangan' => ($refill->jenisRefill?->nama_label ?? 'Refill APAR').' - '.$this->refillQuantityLabel($refill),
-                'status' => $refill->service?->pesanan?->publicStatusLabel() ?? '-',
-                'source' => $this->sourceLabel($refill->service?->pesanan?->sumber_pesanan),
-                'pemasukan' => (float) ($refill->service?->pesanan?->payableTotal() ?: $refill->biaya),
+                'pelanggan' => $this->customerName($pesanan),
+                'keterangan' => $this->refillLabel($pesanan).' - '.$this->refillQuantityLabel($pesanan),
+                'status' => $pesanan->publicStatusLabel(),
+                'source' => $this->sourceLabel($pesanan->sumber_pesanan),
+                'pemasukan' => (float) $pesanan->payableTotal(),
             ]));
 
         $pelangganNama = $filters['pelanggan_id'] ? (Pelanggan::find($filters['pelanggan_id'])?->nama ?? null) : null;
@@ -790,6 +793,13 @@ class LaporanController extends Controller
         return 'Semua Waktu';
     }
 
+    private function applyRevenueSort(Builder $query): Builder
+    {
+        return $query
+            ->orderByRaw(Pesanan::revenueRecognitionDateExpression().' DESC')
+            ->orderByDesc('id');
+    }
+
     private function pengeluaranQuery(array $filters): Builder
     {
         return Pengeluaran::query()
@@ -810,9 +820,9 @@ class LaporanController extends Controller
             $qty = (int) $pesanan->details->sum('jumlah');
 
             return [
-                'sort_at' => $pesanan->displayTransactionAt()?->timestamp ?? now()->timestamp,
-                'tanggal_label' => $pesanan->displayTransactionDateTime(),
-                'pelanggan' => $pesanan->pelanggan?->nama ?? '-',
+                'sort_at' => $this->reportTransactionAt($pesanan)?->timestamp ?? now()->timestamp,
+                'tanggal_label' => $this->reportTransactionDateTime($pesanan),
+                'pelanggan' => $this->customerName($pesanan),
                 'jenis_transaksi' => 'Penjualan Produk',
                 'item' => $this->productItemSummary($pesanan),
                 'jumlah' => $qty > 0 ? $qty.' unit' : '-',
@@ -823,18 +833,18 @@ class LaporanController extends Controller
             ];
         });
 
-        $refillRows = $refills->map(function (Refill $refill): array {
+        $refillRows = $refills->map(function (Pesanan $pesanan): array {
             return [
-                'sort_at' => $refill->displayTransactionAt()?->timestamp ?? now()->timestamp,
-                'tanggal_label' => $refill->displayTransactionDateTime(),
-                'pelanggan' => $this->refillCustomerName($refill),
+                'sort_at' => $this->reportTransactionAt($pesanan)?->timestamp ?? now()->timestamp,
+                'tanggal_label' => $this->reportTransactionDateTime($pesanan),
+                'pelanggan' => $this->customerName($pesanan),
                 'jenis_transaksi' => 'Refill APAR',
-                'item' => ($refill->jenisRefill?->nama_label ?? 'Refill APAR').' - '.$this->serviceUnitSummary($refill->service),
-                'jumlah' => $this->refillQuantityLabel($refill),
-                'total' => (float) ($refill->service?->pesanan?->payableTotal() ?: $refill->biaya),
-                'status' => $refill->service?->pesanan?->publicStatusLabel() ?? '-',
-                'source' => $this->sourceLabel($refill->service?->pesanan?->sumber_pesanan),
-                'detail_url' => $refill->service?->pesanan ? route('admin.pesanan.show', $refill->service->pesanan) : null,
+                'item' => $this->refillLabel($pesanan).' - '.$this->serviceUnitSummary($pesanan),
+                'jumlah' => $this->refillQuantityLabel($pesanan),
+                'total' => (float) $pesanan->payableTotal(),
+                'status' => $pesanan->publicStatusLabel(),
+                'source' => $this->sourceLabel($pesanan->sumber_pesanan),
+                'detail_url' => route('admin.pesanan.show', $pesanan),
             ];
         });
 
@@ -847,22 +857,22 @@ class LaporanController extends Controller
     private function buildServiceRows(Collection $services): Collection
     {
         return $services
-            ->map(function (Service $service): array {
-                $peralatanItems = $service->pesanan?->servicePeralatanItems() ?: $service->effective_peralatan;
+            ->map(function (Pesanan $pesanan): array {
+                $peralatanItems = $pesanan->servicePeralatanItems();
 
                 return [
-                    'sort_at' => $service->displayTransactionAt()?->timestamp ?? now()->timestamp,
-                    'tanggal_label' => $service->displayTransactionDateTime(),
-                    'pelanggan' => $this->serviceCustomerName($service),
-                    'jenis_service' => $this->serviceLabel($service),
-                    'unit' => $this->serviceUnitSummary($service),
-                    'jumlah_unit' => max(1, (int) ($service->pesanan?->service_jumlah_unit ?? 1)),
+                    'sort_at' => $this->reportTransactionAt($pesanan)?->timestamp ?? now()->timestamp,
+                    'tanggal_label' => $this->reportTransactionDateTime($pesanan),
+                    'pelanggan' => $this->customerName($pesanan),
+                    'jenis_service' => $this->serviceLabel($pesanan),
+                    'unit' => $this->serviceUnitSummary($pesanan),
+                    'jumlah_unit' => max(1, (int) ($pesanan->service_jumlah_unit ?? $pesanan->adminOrderUnitCount() ?? 1)),
                     'peralatan' => $this->peralatanSummary($peralatanItems),
-                    'total' => (float) ($service->pesanan?->payableTotal() ?: $service->biaya),
-                    'status' => $service->pesanan?->publicStatusLabel() ?? $service->status_konfirmasi ?? '-',
-                    'teknisi' => $service->pesanan?->teknisi?->name ?? '-',
-                    'source' => $this->sourceLabel($service->pesanan?->sumber_pesanan),
-                    'detail_url' => $service->pesanan ? route('admin.pesanan.show', $service->pesanan) : null,
+                    'total' => (float) $pesanan->payableTotal(),
+                    'status' => $pesanan->publicStatusLabel(),
+                    'teknisi' => $pesanan->teknisi?->name ?? '-',
+                    'source' => $this->sourceLabel($pesanan->sumber_pesanan),
+                    'detail_url' => route('admin.pesanan.show', $pesanan),
                 ];
             })
             ->sortByDesc('sort_at')
@@ -875,11 +885,11 @@ class LaporanController extends Controller
 
         foreach ($pesanans as $pesanan) {
             $records->push([
-                'sort_at' => $pesanan->displayTransactionAt()?->timestamp ?? now()->timestamp,
-                'tanggal_label' => $pesanan->displayTransactionDateTime(),
+                'sort_at' => $this->reportTransactionAt($pesanan)?->timestamp ?? now()->timestamp,
+                'tanggal_label' => $this->reportTransactionDateTime($pesanan),
                 'jenis' => 'Penjualan Produk',
                 'keterangan' => $this->productItemSummary($pesanan),
-                'pelanggan' => $pesanan->pelanggan?->nama ?? '-',
+                'pelanggan' => $this->customerName($pesanan),
                 'status' => $pesanan->publicStatusLabel(),
                 'source' => $this->sourceLabel($pesanan->sumber_pesanan),
                 'nominal' => (float) $pesanan->payableTotal(),
@@ -887,30 +897,30 @@ class LaporanController extends Controller
             ]);
         }
 
-        foreach ($services as $service) {
+        foreach ($services as $pesanan) {
             $records->push([
-                'sort_at' => $service->displayTransactionAt()?->timestamp ?? now()->timestamp,
-                'tanggal_label' => $service->displayTransactionDateTime(),
+                'sort_at' => $this->reportTransactionAt($pesanan)?->timestamp ?? now()->timestamp,
+                'tanggal_label' => $this->reportTransactionDateTime($pesanan),
                 'jenis' => 'Service APAR',
-                'keterangan' => $this->serviceLabel($service).' - '.$this->serviceUnitSummary($service),
-                'pelanggan' => $this->serviceCustomerName($service),
-                'status' => $service->pesanan?->publicStatusLabel() ?? $service->status_konfirmasi ?? '-',
-                'source' => $this->sourceLabel($service->pesanan?->sumber_pesanan),
-                'nominal' => (float) ($service->pesanan?->payableTotal() ?: $service->biaya),
+                'keterangan' => $this->serviceLabel($pesanan).' - '.$this->serviceUnitSummary($pesanan),
+                'pelanggan' => $this->customerName($pesanan),
+                'status' => $pesanan->publicStatusLabel(),
+                'source' => $this->sourceLabel($pesanan->sumber_pesanan),
+                'nominal' => (float) $pesanan->payableTotal(),
                 'direction' => 'in',
             ]);
         }
 
-        foreach ($refills as $refill) {
+        foreach ($refills as $pesanan) {
             $records->push([
-                'sort_at' => $refill->displayTransactionAt()?->timestamp ?? now()->timestamp,
-                'tanggal_label' => $refill->displayTransactionDateTime(),
+                'sort_at' => $this->reportTransactionAt($pesanan)?->timestamp ?? now()->timestamp,
+                'tanggal_label' => $this->reportTransactionDateTime($pesanan),
                 'jenis' => 'Refill APAR',
-                'keterangan' => ($refill->jenisRefill?->nama_label ?? 'Refill APAR').' - '.$this->refillQuantityLabel($refill),
-                'pelanggan' => $this->refillCustomerName($refill),
-                'status' => $refill->service?->pesanan?->publicStatusLabel() ?? '-',
-                'source' => $this->sourceLabel($refill->service?->pesanan?->sumber_pesanan),
-                'nominal' => (float) ($refill->service?->pesanan?->payableTotal() ?: $refill->biaya),
+                'keterangan' => $this->refillLabel($pesanan).' - '.$this->refillQuantityLabel($pesanan),
+                'pelanggan' => $this->customerName($pesanan),
+                'status' => $pesanan->publicStatusLabel(),
+                'source' => $this->sourceLabel($pesanan->sumber_pesanan),
+                'nominal' => (float) $pesanan->payableTotal(),
                 'direction' => 'in',
             ]);
         }
@@ -947,49 +957,65 @@ class LaporanController extends Controller
         return $names->take(2)->implode(', ').' +'.($names->count() - 2).' item';
     }
 
-    private function serviceLabel(Service $service): string
+    private function reportTransactionAt(Pesanan $pesanan): ?Carbon
     {
-        return $service->pesanan?->servicePaket?->nama
-            ?? $service->jenis_service
-            ?? 'Service APAR';
+        return $pesanan->recognizedRevenueAt()
+            ?? $pesanan->displayTransactionAt()
+            ?? optional($pesanan->tanggal)?->copy()->timezone(config('app.timezone'))->startOfDay();
     }
 
-    private function serviceCustomerName(?Service $service): string
+    private function reportTransactionDateValue(Pesanan $pesanan): string
     {
-        return (string) ($service?->unitApar?->pelanggan?->nama
-            ?? $service?->pesanan?->pelanggan?->nama
-            ?? '-');
+        return $this->reportTransactionAt($pesanan)?->toDateTimeString()
+            ?? (optional($pesanan->tanggal)?->toDateTimeString() ?: now()->toDateTimeString());
     }
 
-    private function refillCustomerName(?Refill $refill): string
+    private function reportTransactionDateTime(Pesanan $pesanan, string $format = 'd M Y, H:i'): string
     {
-        return (string) ($refill?->unitApar?->pelanggan?->nama
-            ?? $refill?->service?->pesanan?->pelanggan?->nama
-            ?? '-');
+        return $this->reportTransactionAt($pesanan)?->format($format) ?? '-';
     }
 
-    private function serviceUnitSummary(?Service $service): string
+    private function customerName(Pesanan $pesanan): string
     {
-        if (! $service) {
-            return '-';
-        }
+        return (string) ($pesanan->pelanggan?->nama ?? '-');
+    }
 
-        $display = $service->pesanan?->serviceUnitDisplay() ?? ServiceUnitDisplay::forService($service);
+    private function serviceLabel(Pesanan $pesanan): string
+    {
+        return $pesanan->servicePaket?->nama
+            ?: $pesanan->adminOrderDetailTitle();
+    }
+
+    private function refillLabel(Pesanan $pesanan): string
+    {
+        $breakdownLabels = collect($pesanan->servicePricingBreakdown())
+            ->map(fn (array $item) => trim((string) ($item['display_label'] ?? $item['label'] ?? '')))
+            ->filter()
+            ->unique()
+            ->values();
+
+        return (string) ($pesanan->serviceJenisRefill?->nama_label
+            ?: ($breakdownLabels->isNotEmpty() ? $breakdownLabels->implode(', ') : $pesanan->adminOrderDetailTitle()));
+    }
+
+    private function serviceUnitSummary(Pesanan $pesanan): string
+    {
+        $display = $pesanan->serviceUnitDisplay();
 
         return (string) ($display['summary']
             ?? $display['detail_label']
             ?? '-');
     }
 
-    private function refillQuantityLabel(Refill $refill): string
+    private function refillQuantityLabel(Pesanan $pesanan): string
     {
-        $totalKg = (float) ($refill->service?->pesanan?->service_total_kg ?? 0);
+        $totalKg = (float) ($pesanan->service_total_kg ?? 0);
 
         if ($totalKg > 0) {
             return $this->formatQty($totalKg).' Kg';
         }
 
-        $unitCount = (int) ($refill->service?->pesanan?->service_jumlah_unit ?? 0);
+        $unitCount = (int) ($pesanan->service_jumlah_unit ?? $pesanan->adminOrderUnitCount() ?? 0);
 
         return $unitCount > 0 ? $unitCount.' unit' : '-';
     }

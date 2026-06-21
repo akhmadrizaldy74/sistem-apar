@@ -17,6 +17,7 @@ use App\Models\WebsiteVisit;
 use App\Support\AdminPesananData;
 use App\Services\AdminAnalyticsService;
 use App\Services\FinalRevenueService;
+use App\Services\StockAlertService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -24,7 +25,11 @@ use Illuminate\Http\Request;
 
 class AdminRealtimeController extends Controller
 {
-    public function dashboard(FinalRevenueService $finalRevenue, AdminAnalyticsService $analytics): JsonResponse
+    public function dashboard(
+        FinalRevenueService $finalRevenue,
+        AdminAnalyticsService $analytics,
+        StockAlertService $stockAlerts
+    ): JsonResponse
     {
         $today = Carbon::today();
         $now = now();
@@ -77,6 +82,10 @@ class AdminRealtimeController extends Controller
             'success' => true,
             'kpi_html' => view('dashboard.partials.kpi-cards', compact('kpis', 'notifications', 'visitorStats', 'monitoringPrioritas'))->render(),
             'priority_html' => view('dashboard.partials.priority-panel', compact('kpis', 'notifications', 'monitoringPrioritas'))->render(),
+            'stock_alert_html' => view('dashboard.partials.stock-alert-panel', [
+                'stockAlerts' => $stockAlerts->adminDashboard(),
+                'audience' => 'admin',
+            ])->render(),
             'updated_at' => now()->toIso8601String(),
         ]);
     }

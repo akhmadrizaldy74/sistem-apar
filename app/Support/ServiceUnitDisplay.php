@@ -13,7 +13,7 @@ class ServiceUnitDisplay
     {
         return [
             'is_registered' => false,
-            'heading' => 'APAR Tidak Terdaftar',
+            'heading' => 'Item Layanan APAR',
             'entries' => [],
             'quantity' => 0,
             'quantity_label' => null,
@@ -150,7 +150,7 @@ class ServiceUnitDisplay
 
         return [
             'is_registered' => $isRegistered,
-            'heading' => $isRegistered ? 'Unit APAR Terdaftar' : 'APAR Tidak Terdaftar',
+            'heading' => $isRegistered ? 'Referensi Unit APAR' : 'Item Layanan APAR',
             'entries' => $entries,
             'quantity' => $quantity,
             'quantity_label' => $quantityLabel,
@@ -243,6 +243,15 @@ class ServiceUnitDisplay
 
     private static function manualOrderLabel(Pesanan $pesanan): string
     {
+        $serviceLines = collect($pesanan->servicePricingBreakdown());
+        if ($serviceLines->isNotEmpty()) {
+            $label = trim((string) ($serviceLines->first()['display_label'] ?? $serviceLines->first()['label'] ?? ''));
+
+            if ($label !== '') {
+                return $label;
+            }
+        }
+
         $ukuran = trim((string) ($pesanan->service_ukuran_apar ?? ''));
         $media = trim((string) ($pesanan->service_jenis_apar ?? ''));
 

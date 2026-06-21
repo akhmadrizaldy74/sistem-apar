@@ -88,7 +88,11 @@
                                     <p class="text-xs font-bold text-gray-700">{{ $p->kapasitas ?? '-' }}</p>
                                 </td>
                                 <td class="px-8 py-6">
+                                    @php
+                                        $hargaAcuanBeli = (float) ($productPurchaseReferencePrices->get($p->id, (float) ($p->harga ?? 0)));
+                                    @endphp
                                     <p class="text-sm font-bold text-gray-900">Rp {{ number_format($p->harga, 0, ',', '.') }}</p>
+                                    <p class="mt-1 text-[11px] font-semibold text-gray-500">Acuan beli terakhir: Rp {{ number_format($hargaAcuanBeli, 0, ',', '.') }}</p>
                                 </td>
                                 <td class="px-8 py-6 text-right">
                                     <div class="flex justify-end gap-2">

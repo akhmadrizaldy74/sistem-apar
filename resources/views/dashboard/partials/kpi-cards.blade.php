@@ -82,8 +82,8 @@
         data-revenue-card
         data-month-value="{{ $formatRupiah($kpis['pendapatanBulanIni'] ?? 0) }}"
         data-overall-value="{{ $formatRupiah($kpis['pendapatanKeseluruhan'] ?? 0) }}"
-        data-month-hint="Menghitung transaksi selesai final pada bulan berjalan."
-        data-overall-hint="Menghitung semua transaksi selesai final yang tersimpan."
+        data-month-hint="Menghitung transaksi dengan pembayaran valid pada bulan berjalan."
+        data-overall-hint="Menghitung semua transaksi dengan pembayaran valid yang tersimpan."
         class="min-h-[138px] rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 shadow-sm sm:p-5"
     >
         <div class="flex items-start justify-between gap-3">
@@ -103,11 +103,11 @@
                     <option value="month" selected>Bulan Ini</option>
                     <option value="overall">Keseluruhan</option>
                 </select>
-                <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">Final</span>
+                <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">Valid</span>
             </div>
         </div>
         <p data-revenue-hint class="mt-4 text-sm font-medium leading-6 text-emerald-700/85">
-            Menghitung transaksi selesai final pada bulan berjalan.
+            Menghitung transaksi dengan pembayaran valid pada bulan berjalan.
         </p>
     </div>
 

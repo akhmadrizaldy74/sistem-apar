@@ -87,7 +87,6 @@ class LandingPageController extends Controller
             ->values();
 
         $testimonis = Testimoni::with('pelanggan')
-            ->where('status', 'approved')
             ->latest('tanggal')
             ->take(6)
             ->get();

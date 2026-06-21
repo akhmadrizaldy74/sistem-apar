@@ -24,6 +24,11 @@
             </div>
         </div>
 
+        @include('dashboard.partials.stock-alert-panel', [
+            'stockAlerts' => $stockAlerts,
+            'audience' => 'teknisi',
+        ])
+
         <div class="grid gap-4 lg:grid-cols-2">
             <a href="{{ route('teknisi.pekerjaan-aktif') }}" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/40 transition hover:border-slate-300 hover:shadow-md">
                 <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Halaman Utama</p>

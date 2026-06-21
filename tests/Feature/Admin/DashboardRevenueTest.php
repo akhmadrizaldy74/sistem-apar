@@ -5,12 +5,14 @@ namespace Tests\Feature\Admin;
 use App\Models\JenisApar;
 use App\Models\JenisRefill;
 use App\Models\Pelanggan;
+use App\Models\Peralatan;
 use App\Models\Pengeluaran;
 use App\Models\Pesanan;
 use App\Models\PesananDetail;
 use App\Models\Produk;
 use App\Models\Refill;
 use App\Models\Service;
+use App\Models\StokBatch;
 use App\Models\UnitApar;
 use App\Models\User;
 use Carbon\Carbon;
@@ -21,7 +23,7 @@ class DashboardRevenueTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_dashboard_and_laporan_use_same_final_revenue_values(): void
+    public function test_dashboard_and_laporan_use_same_paid_revenue_values(): void
     {
         $admin = User::factory()->create([
             'role' => 'admin',
@@ -65,11 +67,11 @@ class DashboardRevenueTest extends TestCase
 
         $penjualanTransactions = $penjualan->viewData('transactions');
 
-        $this->assertSame(1800000.0, (float) $dashboardKpis['pendapatanBulanIni']);
-        $this->assertSame(2200000.0, (float) $dashboardKpis['pendapatanKeseluruhan']);
-        $this->assertSame([1500000.0, 300000.0, 400000.0], array_map('floatval', $dashboardCharts['revenueComposition']['series']));
-        $this->assertSame(2200000.0, (float) $laporanSummary['totalPemasukan']);
-        $this->assertSame(2200000.0, (float) $keuanganTotals['total_pemasukan']);
+        $this->assertSame(3400000.0, (float) $dashboardKpis['pendapatanBulanIni']);
+        $this->assertSame(3800000.0, (float) $dashboardKpis['pendapatanKeseluruhan']);
+        $this->assertSame([1500000.0, 1200000.0, 1100000.0], array_map('floatval', $dashboardCharts['revenueComposition']['series']));
+        $this->assertSame(3800000.0, (float) $laporanSummary['totalPemasukan']);
+        $this->assertSame(3800000.0, (float) $keuanganTotals['total_pemasukan']);
         $this->assertSame($dashboardCharts['revenueComposition']['labels'], $laporanCharts['revenueComposition']['labels']);
         $this->assertSame($dashboardCharts['revenueComposition']['colors'], $laporanCharts['revenueComposition']['colors']);
         $this->assertSame(
@@ -93,15 +95,17 @@ class DashboardRevenueTest extends TestCase
             array_sum(array_map('floatval', $dashboardCharts['revenueComposition']['series']))
         );
         $this->assertTrue($laporanCombinedData->contains(fn (array $row) => $row['jenis'] === 'Refill' && (float) $row['pemasukan'] === 400000.0));
-        $this->assertCount(2, $penjualanTransactions);
+        $this->assertTrue($laporanCombinedData->contains(fn (array $row) => $row['jenis'] === 'Refill' && (float) $row['pemasukan'] === 700000.0));
+        $this->assertCount(3, $penjualanTransactions);
         $this->assertTrue($penjualanTransactions->contains(fn (array $row) => $row['jenis_transaksi'] === 'Penjualan Produk' && (float) $row['total'] === 1500000.0));
         $this->assertTrue($penjualanTransactions->contains(fn (array $row) => $row['jenis_transaksi'] === 'Refill APAR' && (float) $row['total'] === 400000.0));
+        $this->assertTrue($penjualanTransactions->contains(fn (array $row) => $row['jenis_transaksi'] === 'Refill APAR' && (float) $row['total'] === 700000.0));
         $dashboard->assertSeeText('Total Pendapatan');
         $dashboard->assertSeeText('Bulan Ini');
         $dashboard->assertSeeText('Keseluruhan');
         $dashboard->assertSee('data-revenue-period', false);
-        $dashboard->assertSee('data-month-value="Rp 1.800.000"', false);
-        $dashboard->assertSee('data-overall-value="Rp 2.200.000"', false);
+        $dashboard->assertSee('data-month-value="Rp 3.400.000"', false);
+        $dashboard->assertSee('data-overall-value="Rp 3.800.000"', false);
         $dashboard->assertDontSeeText('Prioritas');
         $dashboard->assertDontSeeText('Pesanan Menunggu');
         $dashboard->assertDontSeeText('Unit Akan Expired');
@@ -109,7 +113,7 @@ class DashboardRevenueTest extends TestCase
         $dashboard->assertDontSeeText('Semua transaksi utama dalam kondisi aman');
     }
 
-    public function test_dashboard_revenue_defaults_to_zero_when_no_final_transactions_exist(): void
+    public function test_dashboard_revenue_defaults_to_zero_when_no_paid_transactions_exist(): void
     {
         $admin = User::factory()->create([
             'role' => 'admin',
@@ -140,6 +144,128 @@ class DashboardRevenueTest extends TestCase
         $response->assertDontSeeText('Unit Akan Expired');
         $response->assertDontSeeText('Unit Expired');
         $response->assertDontSeeText('Semua transaksi utama dalam kondisi aman');
+        $response->assertSeeText('Peringatan Stok');
+        $response->assertSeeText('Semua stok dalam kondisi aman');
+        $this->assertFalse((bool) $response->viewData('stockAlerts')['hasIssues']);
+    }
+
+    public function test_dashboard_shows_stock_warnings_for_admin(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'no_telpon' => '081111111144',
+        ]);
+
+        $jenisApar = JenisApar::create([
+            'nama' => 'Powder',
+        ]);
+
+        $produkLow = Produk::create([
+            'nama' => 'APAR Powder 3 Kg',
+            'merek' => 'SAFECO',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '3 Kg',
+            'penggunaan' => 'Gudang',
+            'harga' => 800000,
+            'stok' => 3,
+        ]);
+
+        Produk::create([
+            'nama' => 'APAR CO2 5 Kg',
+            'merek' => 'SAFECO',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '5 Kg',
+            'penggunaan' => 'Panel listrik',
+            'harga' => 1200000,
+            'stok' => 0,
+        ]);
+
+        StokBatch::create([
+            'produk_id' => $produkLow->id,
+            'jumlah_masuk' => 3,
+            'sisa_qty' => 3,
+            'tgl_produksi' => now()->subMonth()->toDateString(),
+            'tgl_expired' => now()->addYear()->toDateString(),
+            'keterangan' => 'Stok uji dashboard',
+        ]);
+
+        JenisRefill::create([
+            'nama' => 'Dry Powder',
+            'stok' => 4,
+            'satuan' => 'kg',
+            'harga' => 100000,
+            'stok_minimum' => 5,
+        ]);
+
+        JenisRefill::create([
+            'nama' => 'Foam',
+            'stok' => 0,
+            'satuan' => 'kg',
+            'harga' => 120000,
+            'stok_minimum' => 5,
+        ]);
+
+        Peralatan::create([
+            'nama' => 'Pressure Gauge APAR',
+            'stok' => 2,
+            'stok_minimum' => 3,
+            'harga_standar' => 20000,
+        ]);
+
+        Peralatan::create([
+            'nama' => 'Safety Pin APAR',
+            'stok' => 0,
+            'stok_minimum' => 3,
+            'harga_standar' => 10000,
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('dashboard'));
+
+        $response->assertOk();
+        $response->assertSeeText('Peringatan Stok');
+        $response->assertSeeText('APAR Powder 3 Kg');
+        $response->assertSeeText('APAR CO2 5 Kg');
+        $response->assertSeeText('Powder');
+        $response->assertSeeText('Foam');
+        $response->assertSeeText('Pressure Gauge APAR');
+        $response->assertSeeText('Safety Pin APAR');
+
+        $stockAlerts = $response->viewData('stockAlerts');
+
+        $this->assertTrue((bool) $stockAlerts['hasIssues']);
+        $this->assertSame(6, (int) $stockAlerts['totalIssueCount']);
+        $this->assertSame(3, (int) $stockAlerts['totalEmptyCount']);
+        $this->assertSame(3, (int) $stockAlerts['totalLowCount']);
+        $this->assertCount(3, $stockAlerts['groups']);
+    }
+
+    public function test_dashboard_ignores_empty_equipment_alias_when_canonical_stock_is_available(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'no_telpon' => '081111111145',
+        ]);
+
+        Peralatan::create([
+            'nama' => 'Safety Pin APAR',
+            'stok' => 201,
+            'stok_minimum' => 3,
+            'harga_standar' => 10000,
+        ]);
+
+        Peralatan::create([
+            'nama' => 'Safety Pin (Pin Pengaman)',
+            'stok' => 0,
+            'stok_minimum' => 20,
+            'harga_standar' => 10000,
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('dashboard'));
+
+        $response->assertOk();
+        $response->assertSeeText('Semua stok dalam kondisi aman');
+        $response->assertDontSeeText('Safety Pin (Pin Pengaman)');
+        $this->assertFalse((bool) $response->viewData('stockAlerts')['hasIssues']);
     }
 
     public function test_dashboard_monthly_purchase_chart_uses_fallback_when_no_purchase_expense_exists(): void

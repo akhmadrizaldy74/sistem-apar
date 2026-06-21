@@ -3,9 +3,12 @@
 namespace Tests\Feature\Teknisi;
 
 use App\Models\JenisApar;
+use App\Models\JenisRefill;
 use App\Models\Pelanggan;
+use App\Models\Peralatan;
 use App\Models\Pesanan;
 use App\Models\Produk;
+use App\Models\StokBatch;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -167,6 +170,96 @@ class PekerjaanAktifUiTest extends TestCase
         $response->assertOk();
         $response->assertSeeText('Belum ada pekerjaan aktif.');
         $response->assertSeeText('Pekerjaan dari admin akan muncul di halaman ini.');
+    }
+
+    public function test_teknisi_dashboard_shows_stock_warnings_for_refill_and_equipment_only(): void
+    {
+        $teknisi = User::factory()->create([
+            'role' => 'teknisi',
+        ]);
+
+        $jenisApar = JenisApar::create([
+            'nama' => 'Powder',
+        ]);
+
+        $produk = Produk::create([
+            'nama' => 'APAR Admin Only 2 Kg',
+            'merek' => 'HIDDEN',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '2 Kg',
+            'penggunaan' => 'Testing',
+            'harga' => 500000,
+            'stok' => 2,
+        ]);
+
+        StokBatch::create([
+            'produk_id' => $produk->id,
+            'jumlah_masuk' => 2,
+            'sisa_qty' => 2,
+            'tgl_produksi' => now()->subWeek()->toDateString(),
+            'tgl_expired' => now()->addYear()->toDateString(),
+            'keterangan' => 'Produk hanya untuk admin',
+        ]);
+
+        JenisRefill::create([
+            'nama' => 'Dry Powder',
+            'stok' => 3,
+            'satuan' => 'kg',
+            'harga' => 95000,
+            'stok_minimum' => 5,
+        ]);
+
+        JenisRefill::create([
+            'nama' => 'Foam',
+            'stok' => 0,
+            'satuan' => 'kg',
+            'harga' => 105000,
+            'stok_minimum' => 5,
+        ]);
+
+        Peralatan::create([
+            'nama' => 'Valve APAR',
+            'stok' => 1,
+            'stok_minimum' => 3,
+            'harga_standar' => 50000,
+        ]);
+
+        Peralatan::create([
+            'nama' => 'Safety Pin APAR',
+            'stok' => 0,
+            'stok_minimum' => 3,
+            'harga_standar' => 10000,
+        ]);
+
+        $response = $this->actingAs($teknisi)->get(route('teknisi.dashboard'));
+
+        $response->assertOk();
+        $response->assertSeeText('Peringatan Stok');
+        $response->assertSeeText('Powder');
+        $response->assertSeeText('Foam');
+        $response->assertSeeText('Valve APAR');
+        $response->assertSeeText('Safety Pin APAR');
+        $response->assertDontSeeText('APAR Admin Only 2 Kg');
+
+        $stockAlerts = $response->viewData('stockAlerts');
+
+        $this->assertTrue((bool) $stockAlerts['hasIssues']);
+        $this->assertSame(4, (int) $stockAlerts['totalIssueCount']);
+        $this->assertCount(2, $stockAlerts['groups']);
+    }
+
+    public function test_teknisi_dashboard_shows_safe_message_when_stock_is_okay(): void
+    {
+        $teknisi = User::factory()->create([
+            'role' => 'teknisi',
+        ]);
+
+        $response = $this->actingAs($teknisi)->get(route('teknisi.dashboard'));
+
+        $response->assertOk();
+        $response->assertSeeText('Peringatan Stok');
+        $response->assertSeeText('Semua stok dalam kondisi aman');
+        $this->assertFalse((bool) $response->viewData('stockAlerts')['hasIssues']);
     }
 
     public function test_teknisi_can_start_task_and_status_moves_to_dikerjakan(): void

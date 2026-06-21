@@ -9,7 +9,7 @@
                 <p class="text-sm font-bold text-red-600">Laporan Keuangan</p>
                 <h2 class="mt-1 text-2xl font-black tracking-tight text-slate-900 md:text-3xl">Ringkasan Keuangan</h2>
                 <p class="mt-2 text-sm font-medium leading-6 text-slate-500 md:text-[15px]">
-                    Pemasukan final, pengeluaran operasional, dan arus kas bulanan dengan visual yang konsisten dengan dashboard admin.
+                    Pemasukan dari pembayaran valid, pengeluaran operasional, dan arus kas bulanan dengan visual yang konsisten dengan dashboard admin.
                 </p>
             </div>
             <a href="{{ route('admin.laporan.keuangan.pdf', request()->query()) }}" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-700 px-5 py-3 text-sm font-black text-white shadow-xl shadow-red-700/20 transition hover:bg-red-800">
@@ -82,12 +82,12 @@
                 <article class="flex min-h-[360px] flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
-                            <h4 class="text-base font-black text-slate-900">Sumber Pendapatan Final</h4>
+                            <h4 class="text-base font-black text-slate-900">Sumber Pendapatan Valid</h4>
                             <p class="mt-1 text-sm font-medium leading-6 text-slate-500">
                                 Diagram ini memakai label, warna, dan perhitungan yang sama dengan dashboard admin.
                             </p>
                         </div>
-                        <span class="shrink-0 rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-600">Final</span>
+                        <span class="shrink-0 rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-600">Valid</span>
                     </div>
                     <div class="mt-4 flex flex-1 flex-col justify-between gap-4">
                         <div class="flex min-h-[250px] items-center justify-center">
@@ -152,7 +152,7 @@
         <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div class="border-b border-slate-100 bg-slate-50/70 px-5 py-4 sm:px-6">
                 <h3 class="text-base font-black text-slate-900">Detail Laporan Keuangan</h3>
-                <p class="mt-1 text-sm font-medium text-slate-500">Rincian transaksi pemasukan final dan pengeluaran operasional dalam periode aktif.</p>
+                <p class="mt-1 text-sm font-medium text-slate-500">Rincian transaksi pemasukan tervalidasi dan pengeluaran operasional dalam periode aktif.</p>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
@@ -225,7 +225,7 @@
                     series: revenueComposition.series,
                     colors: revenueComposition.colors,
                     valueFormatter: (value) => chartKit.rupiah(value),
-                    emptyLabel: 'Belum ada data pendapatan final.',
+                    emptyLabel: 'Belum ada data pendapatan dengan pembayaran valid.',
                 });
 
                 chartKit.createChart('#finance-expense-breakdown-chart', chartKit.makeCurrencyDonutChart({

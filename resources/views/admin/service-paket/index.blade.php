@@ -10,7 +10,7 @@
         <div class="flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
             <div>
                 <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Data Layanan</p>
-                <p class="mt-2 text-sm font-semibold text-slate-500">Harga service bersifat standar per jenis service. Peralatan yang tampil di halaman ini dipakai sebagai acuan pengurangan stok saat service selesai final.</p>
+                <p class="mt-2 text-sm font-semibold text-slate-500">Harga service bersifat standar per jenis service. Peralatan yang tampil di halaman ini dipakai sebagai acuan pengurangan stok saat pembayaran service valid.</p>
             </div>
             <span class="inline-flex rounded-full bg-emerald-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-700">
                 {{ $servicePakets->count() }} Jenis Aktif
@@ -78,7 +78,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-6 py-12 text-center text-sm font-semibold text-slate-400">Belum ada jenis service final.</td>
+                                <td colspan="6" class="px-6 py-12 text-center text-sm font-semibold text-slate-400">Belum ada jenis service aktif.</td>
                             </tr>
                         @endforelse
                     </tbody>

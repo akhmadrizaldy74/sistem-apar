@@ -621,8 +621,8 @@ class ServiceController extends Controller
             return back()->with('error', 'Service ini sudah dikonfirmasi.');
         }
 
-        if (!$service->pesanan || (string) $service->pesanan->status !== Pesanan::STATUS_SELESAI_FINAL) {
-            return back()->with('error', 'Stok service hanya bisa dikurangi setelah transaksi berstatus Selesai Final.');
+        if (!$service->pesanan || ! $service->pesanan->isPaymentConfirmed()) {
+            return back()->with('error', 'Stok service hanya bisa dikurangi setelah pembayaran transaksi valid.');
         }
 
         if (!empty($service->stok_kurang_history)) {
@@ -631,7 +631,7 @@ class ServiceController extends Controller
                 'status_konfirmasi' => 'confirmed',
             ]);
 
-            return back()->with('success', 'Service dikonfirmasi selesai. Stok peralatan sudah diproses pada tahap selesai final.');
+            return back()->with('success', 'Service dikonfirmasi selesai. Stok peralatan sudah diproses saat pembayaran transaksi valid.');
         }
 
         $actualPeralatan = $service->actual_peralatan;

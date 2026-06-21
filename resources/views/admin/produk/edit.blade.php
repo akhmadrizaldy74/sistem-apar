@@ -58,6 +58,9 @@
                                     class="w-full pl-14 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 transition"
                                     placeholder="0">
                             </div>
+                            <p class="mt-2 text-[11px] font-semibold text-gray-500">
+                                Acuan pembelian terakhir dari menu Pengeluaran: Rp {{ number_format((float) ($productPurchaseReferencePrice ?? $produk->harga ?? 0), 0, ',', '.') }}.
+                            </p>
                             <x-input-error :messages="$errors->get('harga')" class="mt-2" />
                         </div>
 

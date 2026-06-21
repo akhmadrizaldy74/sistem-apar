@@ -7,6 +7,7 @@ use App\Models\Pesanan;
 use App\Models\StockMovement;
 use App\Models\UnitApar;
 use App\Services\InventoryService;
+use App\Services\StockAlertService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -77,7 +78,7 @@ class TeknisiController extends Controller
         }
     }
 
-    public function dashboard()
+    public function dashboard(StockAlertService $stockAlerts)
     {
         $teknisiId = (int) Auth::id();
         $activeTasks = $this->activeTasks($teknisiId);
@@ -95,6 +96,7 @@ class TeknisiController extends Controller
                 'sedang_dikerjakan' => $activeTasks->where('status', Pesanan::STATUS_DIKERJAKAN_TEKNISI)->count(),
                 'selesai_bulan_ini' => $selesaiBulanIni,
             ],
+            'stockAlerts' => $stockAlerts->teknisiDashboard(),
         ]);
     }
 

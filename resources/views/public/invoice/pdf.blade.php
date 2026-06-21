@@ -134,6 +134,11 @@
         </table>
 
     @elseif($pesanan->isRefillOrder())
+        @php
+            $serviceLines = $pesanan->tipe === 'service'
+                ? $pesanan->servicePricingBreakdown()
+                : [];
+        @endphp
         <table>
             <thead>
                 <tr>
@@ -144,26 +149,22 @@
                 </tr>
             </thead>
             <tbody>
-                <tr>
-                    <td>
-                        <strong>Refill / Pengisian Ulang APAR</strong><br>
-                        <span style="font-size: 9px; color: #6b7280;">Bahan Refill: {{ $pesanan->serviceJenisRefill?->nama_label ?? $pesanan->service_jenis_apar ?? 'Dry Chemical Powder' }}</span>
-                    </td>
-                    <td class="text-center">
-                        {{ $pesanan->service_jenis_apar ?: '-' }} ({{ $pesanan->service_ukuran_apar ?: '-' }})
-                        @if($pesanan->service?->unitApar?->no_seri)
-                            <br><span style="font-size: 8px; color: #4b5563;">No. Seri: {{ $pesanan->service->unitApar->no_seri }}</span>
-                        @endif
-                    </td>
-                    <td class="text-center">{{ (int) ($pesanan->service_jumlah_unit ?: 1) }} unit</td>
-                    <td class="text-right">Rp {{ number_format($pesanan->payableTotal(), 0, ',', '.') }}</td>
-                </tr>
+                @foreach($serviceLines as $line)
+                    <tr>
+                        <td><strong>{{ $line['label'] ?? 'Refill APAR' }}</strong></td>
+                        <td class="text-center">{{ $line['ukuran'] ?? '-' }}</td>
+                        <td class="text-center">{{ (int) ($line['qty'] ?? 1) }} unit</td>
+                        <td class="text-right">Rp {{ number_format((float) ($line['total'] ?? 0), 0, ',', '.') }}</td>
+                    </tr>
+                @endforeach
             </tbody>
         </table>
 
     @elseif($pesanan->isServiceOrder())
         @php
-            $serviceLines = $pesanan->servicePricingBreakdown();
+            $serviceLines = $pesanan->tipe === 'service'
+                ? $pesanan->servicePricingBreakdown()
+                : [];
             $servicePeralatan = $pesanan->servicePeralatanItems();
         @endphp
         <table>
@@ -186,7 +187,7 @@
                     <td>
                         @foreach($serviceLines as $line)
                             <div style="margin-bottom: 4px;">
-                                <strong>{{ $line['label'] }}</strong><br>
+                                <strong>{{ $line['display_label'] ?? $line['label'] }}</strong><br>
                                 <span style="font-size: 9px; color: #4b5563;">{{ (int) ($line['qty'] ?? 1) }} unit - Rp {{ number_format((float) ($line['total'] ?? 0), 0, ',', '.') }}</span>
                             </div>
                         @endforeach

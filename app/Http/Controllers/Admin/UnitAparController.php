@@ -493,7 +493,7 @@ class UnitAparController extends Controller
     {
         return redirect()
             ->route('admin.unit-apar.index')
-            ->with('error', 'Registrasi manual unit APAR dinonaktifkan. Unit dibuat otomatis dari transaksi pelanggan yang selesai final.');
+            ->with('error', 'Registrasi manual unit APAR dinonaktifkan. Unit dibuat otomatis dari transaksi pelanggan setelah pembayaran valid, lalu ditampilkan penuh saat transaksi selesai final.');
     }
 
     public function edit(UnitApar $unitApar)

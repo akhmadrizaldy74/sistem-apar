@@ -259,6 +259,51 @@ class OrderWorkflowRevisionTest extends TestCase
 
         $this->assertTrue((bool) $serviceOrder->fresh()->stok_dikurangi);
         $this->assertSame(4, (int) $peralatan->fresh()->stok);
+
+        $hose = Peralatan::create([
+            'nama' => 'Hose APAR',
+            'stok' => 5,
+            'harga_standar' => 35000,
+            'stok_minimum' => 1,
+        ]);
+
+        $manualServiceOrder = Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'user_id' => $customerUser->id,
+            'tipe' => 'service',
+            'service_jenis_layanan' => 'service',
+            'service_jenis_apar' => 'Powder',
+            'service_ukuran_apar' => '3 kg',
+            'service_jumlah_unit' => 1,
+            'service_metode_penanganan' => 'antar sendiri',
+            'service_keluhan' => implode("\n", [
+                'Rincian Service Manual',
+                '1. Hydrotest | 3 kg | 1 unit - Rp175.000',
+                'Peralatan Paket:',
+                '- Valve APAR x1',
+                '- Hose APAR x2',
+                'Total Service: Rp175.000',
+                'Metode Penanganan: Antar Sendiri',
+                'Catatan Pelanggan: -',
+            ]),
+            'status' => Pesanan::STATUS_DIPROSES,
+            'tanggal' => now()->toDateString(),
+            'total' => 175000,
+            'total_harga' => 175000,
+            'service_estimasi_biaya' => 175000,
+            'pembayaran_terkonfirmasi_at' => now(),
+        ]);
+
+        app(PaidOrderStockService::class)->apply($manualServiceOrder->fresh(['service', 'pelanggan']));
+        app(PaidOrderStockService::class)->apply($manualServiceOrder->fresh(['service', 'pelanggan']));
+
+        $manualServiceLog = Service::query()->where('pesanan_id', $manualServiceOrder->id)->first();
+
+        $this->assertTrue((bool) $manualServiceOrder->fresh()->stok_dikurangi);
+        $this->assertNotNull($manualServiceLog);
+        $this->assertNotEmpty($manualServiceLog?->stok_kurang_history);
+        $this->assertSame(3, (int) $peralatan->fresh()->stok);
+        $this->assertSame(3, (int) $hose->fresh()->stok);
     }
 
     public function test_ready_to_ship_flow_requires_customer_confirmation_before_final(): void

@@ -197,6 +197,12 @@
                     </div>
                 @endif
 
+                @php
+                    $serviceLines = $pesanan->tipe === 'service'
+                        ? $pesanan->servicePricingBreakdown()
+                        : [];
+                @endphp
+
                 @if($pesanan->isRefillOrder())
                     <!-- REFILL APAR TABLE -->
                     <div class="overflow-hidden rounded-2xl border border-slate-100">
@@ -209,35 +215,30 @@
                                     <th class="px-6 py-4 text-xs font-black uppercase tracking-wider text-slate-500 text-right">Biaya Refill</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                <tr class="hover:bg-slate-50/30 transition-colors">
-                                    <td class="px-6 py-4">
-                                        <p class="font-black text-slate-900">Refill / Pengisian Ulang APAR</p>
-                                        <p class="text-[10px] text-slate-400 font-bold uppercase mt-1">Jenis Refill: {{ $pesanan->serviceJenisRefill?->nama_label ?? $pesanan->service_jenis_apar ?? 'Dry Chemical Powder' }}</p>
-                                    </td>
-                                    <td class="px-6 py-4 text-center">
-                                        <span class="inline-block px-2.5 py-1 text-[10px] font-black uppercase tracking-wider bg-slate-100 rounded text-slate-700">
-                                            {{ $pesanan->service_jenis_apar ?: '-' }} ({{ $pesanan->service_ukuran_apar ?: '-' }})
-                                        </span>
-                                        @if($pesanan->service?->unitApar?->no_seri)
-                                            <p class="text-[10px] font-bold text-slate-500 mt-1.5">No. Seri: <span class="font-black text-slate-900">{{ $pesanan->service->unitApar->no_seri }}</span></p>
-                                        @endif
-                                    </td>
-                                    <td class="px-6 py-4 text-center font-bold text-slate-800">
-                                        {{ (int) ($pesanan->service_jumlah_unit ?: 1) }} unit
-                                    </td>
-                                    <td class="px-6 py-4 text-right font-black text-slate-900">
-                                        Rp {{ number_format($pesanan->payableTotal(), 0, ',', '.') }}
-                                    </td>
-                                </tr>
+                            <tbody class="divide-y divide-slate-100">
+                                @foreach($serviceLines as $line)
+                                    <tr class="hover:bg-slate-50/30 transition-colors">
+                                        <td class="px-6 py-4">
+                                            <p class="font-black text-slate-900">{{ $line['label'] ?? 'Refill APAR' }}</p>
+                                        </td>
+                                        <td class="px-6 py-4 text-center">
+                                            <span class="inline-block px-2.5 py-1 text-[10px] font-black uppercase tracking-wider bg-slate-100 rounded text-slate-700">
+                                                {{ $line['ukuran'] ?? '-' }}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 text-center font-bold text-slate-800">
+                                            {{ (int) ($line['qty'] ?? 1) }} unit
+                                        </td>
+                                        <td class="px-6 py-4 text-right font-black text-slate-900">
+                                            Rp {{ number_format((float) ($line['total'] ?? 0), 0, ',', '.') }}
+                                        </td>
+                                    </tr>
+                                @endforeach
                             </tbody>
                         </table>
                     </div>
-                @endif
-
-                @if($pesanan->isServiceOrder())
+                @elseif($pesanan->isServiceOrder())
                     @php
-                        $serviceLines = $pesanan->servicePricingBreakdown();
                         $servicePeralatan = $pesanan->servicePeralatanItems();
                     @endphp
                     <!-- SERVICE APAR TABLE -->
@@ -263,7 +264,7 @@
                                         <div class="space-y-2">
                                             @foreach($serviceLines as $line)
                                                 <div class="rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2">
-                                                    <p class="font-semibold text-slate-800">{{ $line['label'] }}</p>
+                                                    <p class="font-semibold text-slate-800">{{ $line['display_label'] ?? $line['label'] }}</p>
                                                     <p class="text-xs font-bold text-slate-500 mt-1">{{ (int) ($line['qty'] ?? 1) }} unit - Rp {{ number_format((float) ($line['total'] ?? 0), 0, ',', '.') }}</p>
                                                 </div>
                                             @endforeach

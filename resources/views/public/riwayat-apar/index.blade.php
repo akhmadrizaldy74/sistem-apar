@@ -208,42 +208,20 @@
                 </div>
             </div>
 
-            <div x-show="activeTab === 'unit'" x-cloak x-transition.opacity.duration.150ms class="mt-5" x-data="{ selectedRefillUnits: [] }">
+            <div x-show="activeTab === 'unit'" x-cloak x-transition.opacity.duration.150ms class="mt-5">
                 <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                         <h2 class="text-base font-black text-slate-950">Unit APAR Saya</h2>
-                        <p class="text-sm text-slate-500">Monitoring unit dibuat kecil dan fokus ke informasi utama.</p>
+                        <p class="text-sm text-slate-500">Halaman ini khusus untuk monitoring unit hasil pembelian dan pengingat masa aktif APAR Anda.</p>
                     </div>
                     <span class="text-sm font-bold text-slate-500">{{ $totalUnits }} unit terdaftar</span>
                 </div>
 
-                <form method="POST" action="{{ route('riwayat-apar.ajukan-refill') }}" class="mt-4">
-                    @csrf
+                <div class="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-600 shadow-sm">
+                    Unit APAR di halaman ini dipakai untuk pemantauan saja. Jika butuh refill atau service, silakan buat pesanan baru dari halaman order lalu isi item layanan secara manual sesuai kebutuhan.
+                </div>
 
-                    <div class="mb-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <p class="text-sm font-black text-slate-900">Ajukan refill beberapa unit sekaligus</p>
-                            <p class="mt-1 text-sm font-medium text-slate-500">Centang unit yang berstatus perlu refill, lalu lanjutkan satu checkout refill tanpa harus satu per satu.</p>
-                        </div>
-
-                        @if($canCreateOrder)
-                            <button
-                                type="submit"
-                                :disabled="selectedRefillUnits.length === 0"
-                                class="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3 text-sm font-black text-white shadow-sm shadow-red-600/20 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none"
-                            >
-                                <i class="fa-solid fa-fire-extinguisher text-xs"></i>
-                                <span x-text="selectedRefillUnits.length > 0 ? `Ajukan Refill ${selectedRefillUnits.length} Unit` : 'Ajukan Refill Unit Terpilih'"></span>
-                            </button>
-                        @else
-                            <button type="button" disabled title="{{ $paymentWarning }}" class="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-slate-200 px-4 py-3 text-sm font-black text-slate-500">
-                                <i class="fa-solid fa-lock text-xs"></i>
-                                Ajukan Refill Unit Terpilih
-                            </button>
-                        @endif
-                    </div>
-
-                    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                         @forelse($pelanggan->units->sortBy(fn ($unit) => $unit->tgl_expired ?? now()->addYears(20)) as $unit)
                             @php
                                 $daysUntilExpiry = $unit->tgl_expired
@@ -305,26 +283,15 @@
                                 </dl>
 
                                 @if($needsRefill)
-                                    <div class="mt-4 space-y-3">
+                                    <div class="mt-4">
                                         @if($refillLock)
                                             <div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs font-bold leading-5 text-amber-800">
                                                 {{ $refillLock['message'] ?? 'Unit ini sedang dalam proses refill.' }}
                                             </div>
-                                        @elseif($canCreateOrder)
-                                            <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-700">
-                                                <input type="checkbox" name="unit_ids[]" value="{{ $unit->id }}" x-model="selectedRefillUnits" class="mt-0.5 h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500">
-                                                <span>Pilih untuk Refill</span>
-                                            </label>
-
-                                            <button type="submit" name="action_unit_id" value="{{ $unit->id }}" class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs font-black text-red-700 transition hover:bg-red-100">
-                                                <i class="fa-solid fa-fire-extinguisher text-[10px]"></i>
-                                                Ajukan Refill
-                                            </button>
                                         @else
-                                            <button type="button" disabled title="{{ $paymentWarning }}" class="inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-xs font-black text-slate-500">
-                                                <i class="fa-solid fa-lock text-[10px]"></i>
-                                                Ajukan Refill
-                                            </button>
+                                            <div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs font-bold leading-5 text-amber-800">
+                                                Unit ini sudah mendekati masa refill. Buat pesanan baru dari halaman order jika ingin menjadwalkan layanan.
+                                            </div>
                                         @endif
                                     </div>
                                 @endif
@@ -335,8 +302,7 @@
                                 <p class="mt-1 text-sm text-slate-500">Unit APAR akan tampil setelah transaksi selesai diproses.</p>
                             </div>
                         @endforelse
-                    </div>
-                </form>
+                </div>
             </div>
         </section>
 

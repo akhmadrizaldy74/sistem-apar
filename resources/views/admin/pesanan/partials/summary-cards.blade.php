@@ -85,11 +85,11 @@
                     <option value="month" @selected(($summary['revenuePeriod'] ?? 'month') === 'month')>Bulan Ini</option>
                     <option value="all" @selected(($summary['revenuePeriod'] ?? 'month') === 'all')>Keseluruhan</option>
                 </select>
-                <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">Selesai Final</span>
+                <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">Pembayaran Valid</span>
             </div>
         </div>
         <p class="mt-4 text-sm font-medium leading-6 text-emerald-700/85">
-            Menghitung transaksi selesai final sesuai periode yang dipilih.
+            Menghitung transaksi dengan pembayaran valid sesuai periode yang dipilih.
         </p>
     </article>
 

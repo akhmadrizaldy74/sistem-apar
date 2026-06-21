@@ -17,8 +17,8 @@
     @include('pdf.partials.letterhead')
     <h1>Laporan Penjualan Barang & Refill</h1>
     <p>Periode: {{ $periode }}</p>
-    <p>Total transaksi final: {{ $stats['total_transaksi'] }}</p>
-    <p>Total pembayaran final: Rp {{ number_format($stats['total_nilai'], 0, ',', '.') }}</p>
+    <p>Total transaksi valid: {{ $stats['total_transaksi'] }}</p>
+    <p>Total pembayaran valid: Rp {{ number_format($stats['total_nilai'], 0, ',', '.') }}</p>
 
     <table>
         <thead>
@@ -47,7 +47,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="8">Tidak ada data penjualan final.</td>
+                    <td colspan="8">Tidak ada data penjualan dengan pembayaran valid.</td>
                 </tr>
             @endforelse
         </tbody>

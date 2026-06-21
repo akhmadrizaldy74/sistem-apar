@@ -60,24 +60,17 @@ class AdminPesananData
     {
         $resolvedPeriod = static::normalizeRevenuePeriod($period);
         $revenueQuery = Pesanan::query()
-            ->where(function (Builder $builder) {
-                $builder->whereRaw(
-                    "TRIM(LOWER(REPLACE(COALESCE(status, ''), '_', ' '))) = ?",
-                    [trim(strtolower(str_replace('_', ' ', Pesanan::STATUS_SELESAI_FINAL)))]
-                );
-            });
+            ->revenueRecognized();
 
         if ($resolvedPeriod === 'month') {
             $monthStart = now()->startOfMonth()->toDateString();
             $monthEnd = now()->endOfMonth()->toDateString();
+            $revenueDateExpression = Pesanan::revenueRecognitionDateExpression();
 
-            $revenueQuery->where(function (Builder $builder) use ($monthStart, $monthEnd) {
-                $builder->whereBetween('tanggal', [$monthStart, $monthEnd])
-                    ->orWhere(function (Builder $fallbackBuilder) use ($monthStart, $monthEnd) {
-                        $fallbackBuilder->whereNull('tanggal')
-                            ->whereBetween('created_at', [$monthStart . ' 00:00:00', $monthEnd . ' 23:59:59']);
-                    });
-            });
+            $revenueQuery->whereRaw(
+                "DATE({$revenueDateExpression}) BETWEEN ? AND ?",
+                [$monthStart, $monthEnd]
+            );
         }
 
         return [
@@ -212,6 +205,24 @@ class AdminPesananData
         }
 
         if ($pesanan->isRefillOrder()) {
+            $refillItems = collect($pesanan->servicePricingBreakdown())
+                ->map(function (array $item) {
+                    return [
+                        'nama' => (string) ($item['label'] ?? 'Refill APAR'),
+                        'meta' => collect([
+                            $item['ukuran'] ?? null,
+                            isset($item['unit_price']) ? 'Rp ' . number_format((float) $item['unit_price'], 0, ',', '.') . '/unit' : null,
+                        ])->filter()->implode(' â€¢ '),
+                        'qty_label' => max(1, (int) ($item['qty'] ?? 1)) . ' unit',
+                        'subtotal' => 'Rp ' . number_format((float) ($item['total'] ?? 0), 0, ',', '.'),
+                    ];
+                })
+                ->values();
+
+            if ($refillItems->isNotEmpty()) {
+                return $refillItems->all();
+            }
+
             return [[
                 'nama' => $pesanan->serviceJenisRefill?->nama_label ?? 'Refill APAR',
                 'meta' => collect([
@@ -226,8 +237,9 @@ class AdminPesananData
         $items = collect($pesanan->servicePricingBreakdown())
             ->map(function (array $item) {
                 return [
-                    'nama' => (string) ($item['label'] ?? 'Service APAR'),
+                    'nama' => (string) ($item['display_label'] ?? $item['label'] ?? 'Service APAR'),
                     'meta' => collect([
+                        $item['ukuran'] ?? null,
                         isset($item['unit_price']) ? 'Rp ' . number_format((float) $item['unit_price'], 0, ',', '.') . '/unit' : null,
                     ])->filter()->implode(' • '),
                     'qty_label' => max(1, (int) ($item['qty'] ?? 1)) . ' unit',

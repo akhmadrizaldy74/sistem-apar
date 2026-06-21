@@ -5,12 +5,13 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\JenisApar;
 use App\Models\Produk;
+use App\Services\StockPurchaseReferenceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class ProdukController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, StockPurchaseReferenceService $purchaseReferences)
     {
         $query = Produk::with(['jenisApar', 'stokBatches']);
 
@@ -24,8 +25,11 @@ class ProdukController extends Controller
 
         $produks = $query->latest()->paginate(15)->withQueryString();
         $jenisApars = JenisApar::all();
+        $productPurchaseReferencePrices = $purchaseReferences->latestProductPurchasePrices(
+            $produks->getCollection()->pluck('id')
+        );
 
-        return view('admin.produk.index', compact('produks', 'jenisApars'));
+        return view('admin.produk.index', compact('produks', 'jenisApars', 'productPurchaseReferencePrices'));
     }
 
     public function create()
@@ -56,11 +60,14 @@ class ProdukController extends Controller
         return redirect()->route('admin.produk.index')->with('success', 'Produk berhasil ditambahkan.');
     }
 
-    public function edit(Produk $produk)
+    public function edit(Produk $produk, StockPurchaseReferenceService $purchaseReferences)
     {
         $jenisApars = JenisApar::all();
+        $productPurchaseReferencePrice = (float) (
+            $purchaseReferences->latestProductPurchasePrices([$produk->id])->get($produk->id, (float) ($produk->harga ?? 0))
+        );
 
-        return view('admin.produk.edit', compact('produk', 'jenisApars'));
+        return view('admin.produk.edit', compact('produk', 'jenisApars', 'productPurchaseReferencePrice'));
     }
 
     public function update(Request $request, Produk $produk)

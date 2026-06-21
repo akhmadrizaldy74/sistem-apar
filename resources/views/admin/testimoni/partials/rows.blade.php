@@ -27,45 +27,11 @@
                 </p>
             @endif
         </td>
-        <td class="px-8 py-5">
-            @php
-                $statusClass = match($t->status) {
-                    'pending' => 'bg-amber-50 text-amber-700',
-                    'approved' => 'bg-emerald-50 text-emerald-700',
-                    'rejected' => 'bg-red-50 text-red-700',
-                    default => 'bg-gray-50 text-gray-700',
-                };
-            @endphp
-            <span class="px-3 py-1 {{ $statusClass }} text-xs font-bold uppercase rounded-lg">
-                {{ $t->status }}
-            </span>
-        </td>
         <td class="px-8 py-5 text-xs font-bold text-gray-500 whitespace-nowrap">{{ $t->displaySubmittedDateTime() }}</td>
         <td class="px-8 py-5">
             <div class="flex gap-1.5 flex-wrap">
-                @if($t->status !== 'approved')
-                    <form action="{{ route('admin.testimoni.approve', $t) }}" method="POST">
-                        @csrf
-                        <button class="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition shadow-sm border border-emerald-200">
-                            Setujui
-                        </button>
-                    </form>
-                @endif
-                @if($t->status !== 'rejected')
-                    <button onclick="openReject({{ $t->id }})" class="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition shadow-sm border border-red-200">
-                        Tolak
-                    </button>
-                @endif
-                @if($t->status !== 'pending')
-                    <form action="{{ route('admin.testimoni.pending', $t) }}" method="POST">
-                        @csrf
-                        <button class="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 rounded-xl hover:bg-amber-100 transition shadow-sm border border-amber-200">
-                            Menunggu
-                        </button>
-                    </form>
-                @endif
-                <button onclick="openEdit({{ $t->id }}, {{ $t->rating }}, '{{ addslashes($t->review) }}', '{{ addslashes($t->admin_note ?? '') }}')" class="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition shadow-sm border border-blue-200">
-                    Edit
+                <button onclick="openReply({{ $t->id }}, '{{ addslashes($t->admin_note ?? '') }}')" class="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition shadow-sm border border-blue-200">
+                    Balas
                 </button>
                 <form action="{{ route('admin.testimoni.destroy', $t) }}" method="POST" data-confirm="Hapus testimoni ini?" data-confirm-title="Konfirmasi Hapus" data-confirm-button="Ya, Hapus">
                     @csrf

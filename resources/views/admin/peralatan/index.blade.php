@@ -58,7 +58,7 @@
                 <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                         <h3 class="text-lg font-black text-slate-900">Jenis Service</h3>
-                        <p class="mt-1 text-sm font-semibold text-slate-500">Harga standar dan peralatan di bawah akan dipakai saat transaksi service mencapai status selesai final.</p>
+                        <p class="mt-1 text-sm font-semibold text-slate-500">Harga standar dan peralatan di bawah akan dipakai saat transaksi service memiliki pembayaran yang valid.</p>
                     </div>
                     <a href="{{ route('admin.service-paket.create') }}" class="inline-flex items-center justify-center rounded-2xl bg-red-700 px-5 py-3 text-xs font-black uppercase tracking-widest text-white transition hover:bg-red-800">
                         Tambah Jenis Service
@@ -71,7 +71,7 @@
                             <thead class="bg-slate-50">
                                 <tr>
                                     <th class="px-5 py-4 text-[11px] font-black uppercase tracking-widest text-slate-400">Nama Service</th>
-                                    <th class="px-5 py-4 text-[11px] font-black uppercase tracking-widest text-slate-400">Harga Standar</th>
+                                    <th class="px-5 py-4 text-[11px] font-black uppercase tracking-widest text-slate-400">Harga Acuan Terbaru</th>
                                     <th class="px-5 py-4 text-[11px] font-black uppercase tracking-widest text-slate-400">Peralatan Digunakan</th>
                                     <th class="px-5 py-4 text-[11px] font-black uppercase tracking-widest text-slate-400">Status</th>
                                     <th class="px-5 py-4 text-[11px] font-black uppercase tracking-widest text-slate-400">Aksi</th>
@@ -136,7 +136,7 @@
                 <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                         <h3 class="text-lg font-black text-slate-900">Peralatan Service</h3>
-                        <p class="mt-1 text-sm font-semibold text-slate-500">Stok di bawah dipakai saat finalisasi service dan tidak akan dikurangi dua kali.</p>
+                        <p class="mt-1 text-sm font-semibold text-slate-500">Stok di bawah dipakai saat pembayaran service valid dan tidak akan dikurangi dua kali.</p>
                     </div>
                     <a href="{{ route('admin.peralatan.create') }}" class="inline-flex items-center justify-center rounded-2xl bg-red-700 px-5 py-3 text-xs font-black uppercase tracking-widest text-white transition hover:bg-red-800">
                         Tambah Peralatan

@@ -3,6 +3,25 @@
     $totalHarga = $pesanan->payableTotal();
     $unitInfo = $pesanan->getUnitInfo();
     $linkedTestimoni = $pesanan->linkedTestimoni ?? null;
+    $linkedTestimoniStatus = (string) ($linkedTestimoni?->status ?? 'pending');
+    $linkedTestimoniRating = max(0, min((int) ($linkedTestimoni?->rating ?? 0), 5));
+    $reviewStatusClass = match($linkedTestimoniStatus) {
+        'approved' => 'bg-emerald-50 text-emerald-700',
+        'rejected' => 'bg-red-50 text-red-700',
+        default => 'bg-amber-50 text-amber-700',
+    };
+    $complain = $pesanan->complain;
+    $complainStatus = (string) ($complain?->status_penyelesaian ?? 'menunggu');
+    $complainStatusClass = match($complainStatus) {
+        'selesai' => 'bg-emerald-50 text-emerald-700',
+        'diproses' => 'bg-amber-50 text-amber-700',
+        default => 'bg-red-50 text-red-700',
+    };
+    $complainStatusText = match($complainStatus) {
+        'selesai' => 'Komplain sudah diselesaikan. Jika masih ada kendala, Anda bisa kirim komplain baru lewat admin.',
+        'diproses' => 'Komplain sedang ditangani. Admin biasanya menindaklanjuti detailnya lewat WhatsApp.',
+        default => 'Komplain sudah tercatat dan menunggu follow up dari admin via WhatsApp.',
+    };
     $canViewInvoice = $pesanan->canViewInvoice();
     $canConfirmReceived = $pesanan->canCustomerConfirmReceived();
     $hasConfirmed = $pesanan->hasCustomerConfirmed();
@@ -120,6 +139,7 @@
         @endif
 
         @if($pesanan->tipe === 'service')
+            @php($serviceLines = $pesanan->servicePricingBreakdown())
             <div class="mt-4">
                 <p class="text-xs font-black uppercase tracking-wide text-slate-500">Detail Layanan</p>
                 <dl class="mt-2 grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-4">
@@ -140,61 +160,65 @@
                         <dd class="mt-1 font-black text-slate-900">{{ (int) ($pesanan->service_jumlah_unit ?? 0) }} unit</dd>
                     </div>
                 </dl>
+
+                @if(!empty($serviceLines))
+                    <div class="mt-3 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-100 bg-white">
+                        @foreach($serviceLines as $line)
+                            <div class="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
+                                <div class="min-w-0">
+                                    <p class="truncate font-black text-slate-900">{{ $line['display_label'] ?? $line['label'] ?? 'Layanan APAR' }}</p>
+                                    <p class="mt-0.5 text-xs font-semibold text-slate-500">
+                                        {{ (int) ($line['qty'] ?? 1) }} unit
+                                        @if(!empty($line['ukuran']))
+                                            - {{ $line['ukuran'] }}
+                                        @endif
+                                    </p>
+                                </div>
+                                <div class="shrink-0 text-right">
+                                    <p class="font-black text-slate-900">Rp {{ number_format((float) ($line['total'] ?? 0), 0, ',', '.') }}</p>
+                                    @if(!empty($line['unit_price']))
+                                        <p class="mt-0.5 text-xs font-bold text-slate-500">Rp {{ number_format((float) $line['unit_price'], 0, ',', '.') }}/unit</p>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
             </div>
         @endif
 
         @if($linkedTestimoni)
-            @php
-                $reviewStatusClass = match($linkedTestimoni->status) {
-                    'approved' => 'bg-emerald-50 text-emerald-700',
-                    'rejected' => 'bg-red-50 text-red-700',
-                    default => 'bg-amber-50 text-amber-700',
-                };
-            @endphp
             <div class="mt-4">
                 <p class="text-xs font-black uppercase tracking-wide text-slate-500">Penilaian Anda</p>
                 <div class="mt-2 rounded-xl border border-slate-100 bg-white px-4 py-4">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <div class="flex items-center gap-1 text-amber-400 text-sm">
-                            @for($i = 0; $i < $linkedTestimoni->rating; $i++)
+                            @for($i = 0; $i < $linkedTestimoniRating; $i++)
                                 <i class="fa-solid fa-star"></i>
                             @endfor
-                            @for($i = $linkedTestimoni->rating; $i < 5; $i++)
+                            @for($i = $linkedTestimoniRating; $i < 5; $i++)
                                 <i class="fa-regular fa-star text-slate-300"></i>
                             @endfor
                         </div>
-                        <span class="rounded-full px-2.5 py-1 text-[11px] font-black uppercase {{ $reviewStatusClass }}">{{ $linkedTestimoni->status }}</span>
+                        <span class="rounded-full px-2.5 py-1 text-[11px] font-black uppercase {{ $reviewStatusClass }}">{{ $linkedTestimoniStatus }}</span>
                     </div>
-                    <p class="mt-3 text-sm leading-6 text-slate-700">{{ $linkedTestimoni->review }}</p>
-                    @if($linkedTestimoni->admin_note)
+                    <p class="mt-3 text-sm leading-6 text-slate-700">{{ $linkedTestimoni?->review ?? 'Ulasan sudah tercatat, tetapi detailnya belum tersedia.' }}</p>
+                    @if(filled($linkedTestimoni?->admin_note))
                         <div class="mt-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-3">
                             <p class="text-[11px] font-black uppercase tracking-wide text-slate-400">Balasan Admin</p>
-                            <p class="mt-1 text-sm font-semibold leading-6 text-slate-700">{{ $linkedTestimoni->admin_note }}</p>
+                            <p class="mt-1 text-sm font-semibold leading-6 text-slate-700">{{ $linkedTestimoni?->admin_note }}</p>
                         </div>
                     @endif
                 </div>
             </div>
         @endif
 
-        @if($pesanan->complain)
-            @php
-                $complain = $pesanan->complain;
-                $complainStatusClass = match($complain->status_penyelesaian) {
-                    'selesai' => 'bg-emerald-50 text-emerald-700',
-                    'diproses' => 'bg-amber-50 text-amber-700',
-                    default => 'bg-red-50 text-red-700',
-                };
-                $complainStatusText = match($complain->status_penyelesaian) {
-                    'selesai' => 'Komplain sudah diselesaikan. Jika masih ada kendala, Anda bisa kirim komplain baru lewat admin.',
-                    'diproses' => 'Komplain sedang ditangani. Admin biasanya menindaklanjuti detailnya lewat WhatsApp.',
-                    default => 'Komplain sudah tercatat dan menunggu follow up dari admin via WhatsApp.',
-                };
-            @endphp
+        @if($complain)
             <div class="mt-4">
                 <p class="text-xs font-black uppercase tracking-wide text-slate-500">Status Komplain</p>
                 <div class="mt-2 rounded-xl border border-slate-100 bg-white px-4 py-4">
                     <div class="flex flex-wrap items-center justify-between gap-2">
-                        <span class="rounded-full px-2.5 py-1 text-[11px] font-black uppercase {{ $complainStatusClass }}">{{ $complain->status_penyelesaian }}</span>
+                        <span class="rounded-full px-2.5 py-1 text-[11px] font-black uppercase {{ $complainStatusClass }}">{{ $complainStatus }}</span>
                         <span class="text-xs font-bold text-slate-400">{{ $complain->displaySubmittedDateTime() }}</span>
                     </div>
                     <p class="mt-3 text-sm leading-6 text-slate-700">{{ $complain->isi_complain }}</p>

@@ -3,7 +3,7 @@
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
                 <h2 class="text-3xl font-black text-gray-900 tracking-tight">Laporan Service</h2>
-                <p class="text-sm text-gray-500 font-medium">Rekap service final yang terhubung dengan transaksi dan peralatan.</p>
+                <p class="text-sm text-gray-500 font-medium">Rekap service dengan pembayaran valid yang terhubung dengan transaksi dan peralatan.</p>
             </div>
             <a href="{{ route('admin.laporan.service.pdf', request()->query()) }}" class="inline-flex items-center justify-center px-6 py-3 bg-red-700 text-white rounded-2xl text-sm font-black hover:bg-red-800 transition shadow-xl shadow-red-700/20">
                 Cetak PDF
@@ -46,7 +46,7 @@
 
         <div class="grid md:grid-cols-4 gap-6">
             <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Service Final</p>
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Service Valid</p>
                 <p class="text-4xl font-black text-gray-900 mt-3">{{ $stats['total_transaksi'] }}</p>
             </div>
             <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
@@ -58,7 +58,7 @@
                 <p class="text-4xl font-black text-emerald-700 mt-3">{{ $stats['riwayat_lama'] }}</p>
             </div>
             <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Biaya Final</p>
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Biaya Valid</p>
                 <p class="text-3xl font-black text-red-700 mt-3">Rp {{ number_format($stats['total_biaya'], 0, ',', '.') }}</p>
             </div>
         </div>
@@ -83,6 +83,15 @@
                     </thead>
                     <tbody class="divide-y divide-gray-50">
                         @forelse($serviceRows as $service)
+                            @php
+                                $statusKey = strtolower((string) $service['status']);
+                                $statusClass = match (true) {
+                                    str_contains($statusKey, 'selesai') || str_contains($statusKey, 'final') => 'bg-emerald-50 text-emerald-700',
+                                    str_contains($statusKey, 'ditolak') || str_contains($statusKey, 'batal') => 'bg-red-50 text-red-700',
+                                    str_contains($statusKey, 'diproses') || str_contains($statusKey, 'teknisi') || str_contains($statusKey, 'ditugas') || str_contains($statusKey, 'dikonfirmasi') || str_contains($statusKey, 'siap') => 'bg-amber-50 text-amber-700',
+                                    default => 'bg-slate-100 text-slate-700',
+                                };
+                            @endphp
                             <tr class="hover:bg-gray-50/40 transition">
                                 <td class="px-8 py-6 text-sm font-bold text-gray-900">{{ $service['tanggal_label'] }}</td>
                                 <td class="px-8 py-6 text-sm font-bold text-gray-900">{{ $service['pelanggan'] }}</td>
@@ -92,7 +101,7 @@
                                 <td class="px-8 py-6 text-sm font-semibold text-gray-600">{{ $service['peralatan'] }}</td>
                                 <td class="px-8 py-6 text-sm font-bold text-gray-700">{{ $service['teknisi'] }}</td>
                                 <td class="px-8 py-6">
-                                    <span class="inline-flex px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-widest">
+                                    <span class="inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest {{ $statusClass }}">
                                         {{ $service['status'] }}
                                     </span>
                                 </td>
@@ -110,7 +119,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="11" class="px-8 py-12 text-center text-sm font-medium text-gray-500">Belum ada data service final sesuai filter.</td>
+                                <td colspan="11" class="px-8 py-12 text-center text-sm font-medium text-gray-500">Belum ada data service dengan pembayaran valid sesuai filter.</td>
                             </tr>
                         @endforelse
                     </tbody>

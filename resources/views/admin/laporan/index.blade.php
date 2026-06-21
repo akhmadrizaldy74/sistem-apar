@@ -71,7 +71,7 @@
             <div class="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-5 shadow-sm">
                 <p class="text-sm font-bold text-emerald-700">Total Pemasukan</p>
                 <p class="mt-2 text-2xl font-black text-emerald-800">{{ $formatRupiah($summary['totalPemasukan']) }}</p>
-                <p class="mt-2 text-sm font-medium text-emerald-700/80">Berdasarkan transaksi yang sudah selesai final.</p>
+                <p class="mt-2 text-sm font-medium text-emerald-700/80">Berdasarkan transaksi dengan pembayaran yang sudah valid.</p>
             </div>
             <div class="rounded-2xl border border-red-200 bg-red-50/80 p-5 shadow-sm">
                 <p class="text-sm font-bold text-red-700">Total Pengeluaran</p>
@@ -83,21 +83,21 @@
                 <p class="mt-2 text-2xl font-black {{ $summary['labaBersih'] >= 0 ? 'text-blue-800' : 'text-amber-800' }}">
                     {{ $summary['labaBersih'] >= 0 ? '+' : '' }}{{ $formatRupiah($summary['labaBersih']) }}
                 </p>
-                <p class="mt-2 text-sm font-medium {{ $summary['labaBersih'] >= 0 ? 'text-blue-700/80' : 'text-amber-700/80' }}">Selisih pemasukan final dan pengeluaran operasional.</p>
+                <p class="mt-2 text-sm font-medium {{ $summary['labaBersih'] >= 0 ? 'text-blue-700/80' : 'text-amber-700/80' }}">Selisih pemasukan tervalidasi dan pengeluaran operasional.</p>
             </div>
         </div>
 
         <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-                <p class="text-sm font-bold text-slate-600">Pesanan Final</p>
+                <p class="text-sm font-bold text-slate-600">Pesanan Valid</p>
                 <p class="mt-3 text-2xl font-black text-slate-900">{{ number_format($summary['totalPesanan']) }}</p>
             </div>
             <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-                <p class="text-sm font-bold text-slate-600">Service Final</p>
+                <p class="text-sm font-bold text-slate-600">Service Valid</p>
                 <p class="mt-3 text-2xl font-black text-slate-900">{{ number_format($summary['totalService']) }}</p>
             </div>
             <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-                <p class="text-sm font-bold text-slate-600">Refill Final</p>
+                <p class="text-sm font-bold text-slate-600">Refill Valid</p>
                 <p class="mt-3 text-2xl font-black text-slate-900">{{ number_format($summary['totalRefill']) }}</p>
             </div>
             <div class="rounded-2xl border border-blue-100 bg-blue-50/70 p-4 shadow-sm sm:p-5">
@@ -132,10 +132,10 @@
                         <div class="min-w-0">
                             <h4 class="text-base font-black text-slate-900">Sumber Pendapatan</h4>
                             <p class="mt-1 text-sm font-medium leading-6 text-slate-500">
-                                {{ $charts['revenueComposition']['scopeLabel'] ?? 'Semua transaksi selesai final' }}
+                                {{ $charts['revenueComposition']['scopeLabel'] ?? 'Semua transaksi dengan pembayaran valid' }}
                             </p>
                         </div>
-                        <span class="shrink-0 rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-600">Final</span>
+                        <span class="shrink-0 rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-600">Valid</span>
                     </div>
                     <div class="mt-4 flex flex-1 flex-col justify-between gap-4">
                         <div class="flex min-h-[250px] items-center justify-center">
@@ -510,7 +510,7 @@
                     series: revenueComposition.series,
                     colors: revenueComposition.colors,
                     valueFormatter: (value) => chartKit.rupiah(value),
-                    emptyLabel: 'Belum ada data pendapatan final.',
+                    emptyLabel: 'Belum ada data pendapatan dengan pembayaran valid.',
                 });
 
                 chartKit.createChart('#report-unit-status-chart', chartKit.makeCountDonutChart({

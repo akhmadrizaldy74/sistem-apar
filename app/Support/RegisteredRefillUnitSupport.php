@@ -119,6 +119,28 @@ class RegisteredRefillUnitSupport
                 continue;
             }
 
+            if (preg_match('/^\d+\.\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(\d+)\s*unit\s*-\s*Rp\s*([\d\.]+)/u', $line, $matches)) {
+                $refillLabel = trim((string) ($matches[1] ?? ''));
+                $ukuran = trim((string) ($matches[2] ?? ''));
+                $qty = max(1, (int) ($matches[3] ?? 1));
+                $ukuranKg = 0.0;
+
+                if (preg_match('/(\d+(?:[.,]\d+)?)/', $ukuran, $sizeMatch)) {
+                    $ukuranKg = (float) str_replace(',', '.', (string) ($sizeMatch[1] ?? '0'));
+                }
+
+                $details[] = [
+                    'code' => null,
+                    'label' => trim($refillLabel . ' | ' . $ukuran),
+                    'refill_label' => $refillLabel,
+                    'usage_kg' => round($ukuranKg * $qty, 2),
+                    'usage_unit' => 'Kg',
+                    'amount' => (float) str_replace('.', '', (string) ($matches[4] ?? '0')),
+                ];
+
+                continue;
+            }
+
             if (! preg_match('/^\d+\.\s*(.+?)\s+-\s+Masa berlaku:\s+(.+?)\s+-\s+Refill:\s+(.+?)\s+-\s+Kebutuhan:\s+([\d.,]+)\s*([A-Za-z]+)(?:\s+-\s+Rp([\d\.]+))?$/u', $line, $matches)) {
                 continue;
             }

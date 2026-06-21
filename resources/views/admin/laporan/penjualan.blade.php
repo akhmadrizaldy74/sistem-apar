@@ -46,7 +46,7 @@
 
         <div class="grid md:grid-cols-4 gap-6">
             <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Transaksi Final</p>
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Transaksi Valid</p>
                 <p class="text-4xl font-black text-gray-900 mt-3">{{ $stats['total_transaksi'] }}</p>
             </div>
             <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
@@ -58,7 +58,7 @@
                 <p class="text-4xl font-black text-amber-700 mt-3">{{ $stats['refill_transaksi'] }}</p>
             </div>
             <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Pembayaran Final</p>
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Pembayaran Valid</p>
                 <p class="text-3xl font-black text-red-700 mt-3">Rp {{ number_format($stats['total_nilai'], 0, ',', '.') }}</p>
             </div>
         </div>
@@ -81,6 +81,15 @@
                     </thead>
                     <tbody class="divide-y divide-gray-50">
                         @forelse($transactions as $transaction)
+                            @php
+                                $statusKey = strtolower((string) $transaction['status']);
+                                $statusClass = match (true) {
+                                    str_contains($statusKey, 'selesai') || str_contains($statusKey, 'final') => 'bg-emerald-50 text-emerald-700',
+                                    str_contains($statusKey, 'ditolak') || str_contains($statusKey, 'batal') => 'bg-red-50 text-red-700',
+                                    str_contains($statusKey, 'diproses') || str_contains($statusKey, 'teknisi') || str_contains($statusKey, 'ditugas') || str_contains($statusKey, 'dikonfirmasi') || str_contains($statusKey, 'siap') => 'bg-amber-50 text-amber-700',
+                                    default => 'bg-slate-100 text-slate-700',
+                                };
+                            @endphp
                             <tr class="hover:bg-gray-50/40 transition">
                                 <td class="px-8 py-6 text-sm font-bold text-gray-900">{{ $transaction['tanggal_label'] }}</td>
                                 <td class="px-8 py-6 text-sm font-bold text-gray-900">{{ $transaction['pelanggan'] }}</td>
@@ -92,7 +101,7 @@
                                 <td class="px-8 py-6 text-sm font-semibold text-gray-700">{{ $transaction['item'] }}</td>
                                 <td class="px-8 py-6 text-sm font-bold text-gray-700">{{ $transaction['jumlah'] }}</td>
                                 <td class="px-8 py-6">
-                                    <span class="inline-flex px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-widest">
+                                    <span class="inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest {{ $statusClass }}">
                                         {{ $transaction['status'] }}
                                     </span>
                                 </td>
@@ -110,7 +119,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" class="px-8 py-12 text-center text-sm font-medium text-gray-500">Belum ada data penjualan final sesuai filter.</td>
+                                <td colspan="9" class="px-8 py-12 text-center text-sm font-medium text-gray-500">Belum ada data penjualan dengan pembayaran valid sesuai filter.</td>
                             </tr>
                         @endforelse
                     </tbody>

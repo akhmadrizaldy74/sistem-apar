@@ -36,10 +36,17 @@
             ])
         </div>
 
+        <div id="dashboard-stock-alert-panel">
+            @include('dashboard.partials.stock-alert-panel', [
+                'stockAlerts' => $stockAlerts,
+                'audience' => 'admin',
+            ])
+        </div>
+
         <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div class="border-b border-slate-100 bg-slate-50/70 px-5 py-4 sm:px-6">
                 <h3 class="text-base font-black text-slate-900 md:text-lg">Analitik Ringkas</h3>
-                <p class="mt-1 text-sm font-medium text-slate-500">Perbandingan pendapatan final dan status unit APAR dengan layout yang seimbang.</p>
+                <p class="mt-1 text-sm font-medium text-slate-500">Perbandingan pendapatan dari pembayaran valid dan status unit APAR dengan layout yang seimbang.</p>
             </div>
             <div class="grid gap-5 p-5 lg:grid-cols-2 sm:p-6">
                 <article class="flex min-h-[360px] flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -47,10 +54,10 @@
                         <div class="min-w-0">
                             <h4 class="text-base font-black text-slate-900">Sumber Pendapatan</h4>
                             <p class="mt-1 text-sm font-medium leading-6 text-slate-500">
-                                {{ $charts['revenueComposition']['scopeLabel'] ?? 'Semua transaksi selesai final' }}
+                                {{ $charts['revenueComposition']['scopeLabel'] ?? 'Semua transaksi dengan pembayaran valid' }}
                             </p>
                         </div>
-                        <span class="shrink-0 rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-600">Final</span>
+                        <span class="shrink-0 rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-600">Valid</span>
                     </div>
                     <div class="mt-4 flex flex-1 flex-col justify-between gap-4">
                         <div class="flex min-h-[250px] items-center justify-center">
@@ -151,7 +158,7 @@
                     <div class="flex items-center justify-between gap-3">
                         <div>
                             <h3 class="text-base font-black text-slate-900">Produk Paling Dibeli</h3>
-                            <p class="mt-1 text-sm font-medium text-slate-500">Lihat produk yang paling banyak terjual dari transaksi final.</p>
+                            <p class="mt-1 text-sm font-medium text-slate-500">Lihat produk yang paling banyak terjual dari transaksi dengan pembayaran valid.</p>
                         </div>
                         <a href="{{ route('admin.laporan.index') }}" class="text-sm font-bold text-emerald-600 hover:text-emerald-700">Lihat laporan</a>
                     </div>
@@ -232,7 +239,7 @@
                     series: revenueComposition.series,
                     colors: revenueComposition.colors,
                     valueFormatter: (value) => chartKit.rupiah(value),
-                    emptyLabel: 'Belum ada data pendapatan final.',
+                    emptyLabel: 'Belum ada data pendapatan dengan pembayaran valid.',
                 });
 
                 chartKit.createChart('#unit-status-chart', chartKit.makeCountDonutChart({
@@ -279,10 +286,15 @@
                     interval: 10000,
                     onSuccess(payload) {
                         const kpiGrid = document.getElementById('dashboard-kpi-grid');
+                        const stockAlertPanel = document.getElementById('dashboard-stock-alert-panel');
 
                         if (kpiGrid && typeof payload.kpi_html === 'string') {
                             kpiGrid.innerHTML = payload.kpi_html;
                             applyRevenuePeriod(kpiGrid);
+                        }
+
+                        if (stockAlertPanel && typeof payload.stock_alert_html === 'string') {
+                            stockAlertPanel.innerHTML = payload.stock_alert_html;
                         }
                     },
                 });

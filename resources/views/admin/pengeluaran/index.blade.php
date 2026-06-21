@@ -28,6 +28,7 @@
             'jenis_apar' => $item->jenisApar?->nama,
             'kapasitas' => $item->kapasitas,
             'stok' => (int) ($item->stok_tersedia ?? 0),
+            'harga_acuan' => (float) ($productPurchaseReferencePrices->get($item->id, (float) ($item->harga ?? 0))),
         ])->values();
         $refillOptions = $jenisRefills->map(fn ($item) => [
             'id' => $item->id,
@@ -234,7 +235,7 @@
                                 <div class="space-y-4 rounded-[1.5rem] border border-gray-100 bg-gray-50/60 p-4 sm:p-5">
                                     <div class="border-b border-gray-200 pb-3">
                                         <p class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Detail Pembelian APAR</p>
-                                        <p class="mt-1 text-xs font-semibold text-gray-500">Pilih produk APAR, isi kuantitas dan harga modal, lalu total dihitung otomatis.</p>
+                                        <p class="mt-1 text-xs font-semibold text-gray-500">Harga acuan pembelian terakhir ditampilkan otomatis, lalu admin tetap bisa menyesuaikan harga beli aktual sesuai nota pembelian.</p>
                                     </div>
 
                                     <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -270,13 +271,19 @@
                                             <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Stok Saat Ini</p>
                                             <p class="mt-1 text-sm font-bold text-gray-900" x-text="currentProduct ? `${formatQty(currentProduct.stok || 0)} Unit` : '-'"></p>
                                         </div>
+                                        <div class="rounded-xl bg-white px-4 py-3">
+                                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Harga Acuan Saat Ini</p>
+                                            <p class="mt-1 text-sm font-bold text-gray-900" x-text="currentProduct ? currency(currentProduct.harga_acuan || 0) : '-'"></p>
+                                            <p class="mt-2 text-[11px] font-semibold text-gray-500">Diambil dari pembelian terakhir item ini pada menu Pengeluaran.</p>
+                                        </div>
                                         <div>
                                             <label for="qty_apar" class="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-400">Kuantitas</label>
                                             <input id="qty_apar" name="qty_apar" type="number" step="1" min="1" x-model.number="qty" :disabled="jenisPengeluaran !== '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}'" class="w-full rounded-xl border-none bg-white px-4 py-3 text-sm font-bold text-gray-900 transition focus:ring-2 focus:ring-red-600/20" placeholder="Contoh: 5">
                                         </div>
                                         <div>
-                                            <label for="harga_beli_display" class="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-400">Harga Modal per Unit</label>
+                                            <label for="harga_beli_display" class="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-400">Harga Beli Aktual</label>
                                             <input id="harga_beli_display" name="harga_beli_display" type="text" inputmode="numeric" :value="formattedHargaBeliInput" @input="setHargaBeliInput($event.target.value)" :disabled="jenisPengeluaran !== '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}'" class="w-full rounded-xl border-none bg-white px-4 py-3 text-sm font-bold text-gray-900 transition focus:ring-2 focus:ring-red-600/20" placeholder="Rp 0">
+                                            <p class="mt-2 text-[11px] font-semibold text-gray-500">Nilai ini dipakai untuk histori pembelian dan dasar acuan pembelian berikutnya.</p>
                                         </div>
                                         <div class="lg:col-span-2">
                                             <label for="tgl_produksi_apar" class="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-400">Tanggal Produksi APAR</label>
@@ -298,7 +305,7 @@
                                 <div class="space-y-4 rounded-[1.5rem] border border-gray-100 bg-gray-50/60 p-4 sm:p-5">
                                     <div class="border-b border-gray-200 pb-3">
                                         <p class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Detail Pembelian Refill</p>
-                                        <p class="mt-1 text-xs font-semibold text-gray-500">Isi jenis, kuantitas, dan harga beli satuan.</p>
+                                        <p class="mt-1 text-xs font-semibold text-gray-500">Harga acuan refill mengikuti pembelian terakhir, tetapi admin tetap bisa mengubah harga beli aktual sesuai pembelian nyata.</p>
                                     </div>
 
                                     <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -320,13 +327,19 @@
                                             <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Stok Saat Ini</p>
                                             <p class="mt-1 text-sm font-bold text-gray-900" x-text="currentRefill ? `${formatQty(currentRefill.stok || 0)} ${currentUnit}` : '-'"></p>
                                         </div>
+                                        <div class="rounded-xl bg-white px-4 py-3">
+                                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Harga Acuan Saat Ini</p>
+                                            <p class="mt-1 text-sm font-bold text-gray-900" x-text="currentRefill ? currency(currentRefill.harga || 0) : '-'"></p>
+                                            <p class="mt-2 text-[11px] font-semibold text-gray-500">Harga master refill akan ikut diperbarui setelah pembelian berhasil disimpan.</p>
+                                        </div>
                                         <div>
                                             <label for="qty_refill" class="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-400">Kuantitas</label>
                                             <input id="qty_refill" name="qty_refill" type="number" step="0.01" min="0.01" x-model.number="qty" :disabled="jenisPengeluaran !== '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_REFILL }}'" class="w-full rounded-xl border-none bg-white px-4 py-3 text-sm font-bold text-gray-900 transition focus:ring-2 focus:ring-red-600/20" placeholder="Contoh: 10">
                                         </div>
-                                        <div class="rounded-xl bg-white px-4 py-3">
-                                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Harga Beli Satuan</p>
-                                            <p class="mt-1 text-sm font-bold text-gray-900" x-text="currency(displayPrice)"></p>
+                                        <div>
+                                            <label for="harga_beli_refill_display" class="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-400">Harga Beli Aktual</label>
+                                            <input id="harga_beli_refill_display" name="harga_beli_refill_display" type="text" inputmode="numeric" :value="formattedHargaBeliRefillInput" @input="setHargaBeliRefillInput($event.target.value)" :disabled="jenisPengeluaran !== '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_REFILL }}'" class="w-full rounded-xl border-none bg-white px-4 py-3 text-sm font-bold text-gray-900 transition focus:ring-2 focus:ring-red-600/20" placeholder="Rp 0">
+                                            <p class="mt-2 text-[11px] font-semibold text-gray-500">Nilai ini dipakai sebagai harga transaksi nyata dan akan menjadi acuan refill berikutnya.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -336,7 +349,7 @@
                                 <div class="space-y-4 rounded-[1.5rem] border border-gray-100 bg-gray-50/60 p-4 sm:p-5">
                                     <div class="border-b border-gray-200 pb-3">
                                         <p class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Detail Pembelian Peralatan</p>
-                                        <p class="mt-1 text-xs font-semibold text-gray-500">Pilih peralatan, isi kuantitas, lalu total dihitung otomatis.</p>
+                                        <p class="mt-1 text-xs font-semibold text-gray-500">Harga standar dari master dipakai sebagai acuan awal, tetapi harga beli aktual tetap bisa diubah sesuai nota atau supplier.</p>
                                     </div>
 
                                     <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -354,13 +367,19 @@
                                             <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Stok Saat Ini</p>
                                             <p class="mt-1 text-sm font-bold text-gray-900" x-text="currentPeralatan ? `${formatQty(currentPeralatan.stok || 0)} Unit` : '-'"></p>
                                         </div>
+                                        <div class="rounded-xl bg-white px-4 py-3">
+                                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Harga Standar Master</p>
+                                            <p class="mt-1 text-sm font-bold text-gray-900" x-text="currentPeralatan ? currency(currentPeralatan.harga || 0) : '-'"></p>
+                                            <p class="mt-2 text-[11px] font-semibold text-gray-500">Harga referensi dari data master peralatan.</p>
+                                        </div>
                                         <div>
                                             <label for="qty_peralatan" class="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-400">Kuantitas</label>
                                             <input id="qty_peralatan" name="qty_peralatan" type="number" step="1" min="1" x-model.number="qty" :disabled="jenisPengeluaran !== '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_PERALATAN }}'" class="w-full rounded-xl border-none bg-white px-4 py-3 text-sm font-bold text-gray-900 transition focus:ring-2 focus:ring-red-600/20" placeholder="Contoh: 5">
                                         </div>
-                                        <div class="rounded-xl bg-white px-4 py-3">
-                                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Harga Beli Satuan</p>
-                                            <p class="mt-1 text-sm font-bold text-gray-900" x-text="currency(displayPrice)"></p>
+                                        <div>
+                                            <label for="harga_beli_peralatan_display" class="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-400">Harga Beli Aktual</label>
+                                            <input id="harga_beli_peralatan_display" name="harga_beli_peralatan_display" type="text" inputmode="numeric" :value="formattedHargaBeliPeralatanInput" @input="setHargaBeliPeralatanInput($event.target.value)" :disabled="jenisPengeluaran !== '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_PERALATAN }}'" class="w-full rounded-xl border-none bg-white px-4 py-3 text-sm font-bold text-gray-900 transition focus:ring-2 focus:ring-red-600/20" placeholder="Rp 0">
+                                            <p class="mt-2 text-[11px] font-semibold text-gray-500">Nilai ini dipakai sebagai harga transaksi nyata dan dasar perhitungan total pengeluaran.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -425,8 +444,17 @@
                 selectedRefillId: prefill.jenisRefillId || '',
                 selectedPeralatanId: prefill.peralatanId || '',
                 qty: Number(prefill.qty) || 0,
-                hargaBeliInput: prefill.hargaBeli ? String(prefill.hargaBeli).replace(/[^\d]/g, '') : '',
+                hargaBeliInput: prefill.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}' && prefill.hargaBeli
+                    ? String(prefill.hargaBeli).replace(/[^\d]/g, '')
+                    : '',
+                hargaBeliRefillInput: prefill.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_REFILL }}' && prefill.hargaBeli
+                    ? String(prefill.hargaBeli).replace(/[^\d]/g, '')
+                    : '',
+                hargaBeliPeralatanInput: prefill.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_PERALATAN }}' && prefill.hargaBeli
+                    ? String(prefill.hargaBeli).replace(/[^\d]/g, '')
+                    : '',
                 initialized: false,
+                isBootstrappingSelections: true,
                 init() {
                     const form = document.getElementById('pengeluaranForm');
                     if (form) {
@@ -454,6 +482,7 @@
                             this.selectedPeralatanId = String(prefill.peralatanId);
                         }
                         syncPengeluaranForm();
+                        this.isBootstrappingSelections = false;
                     });
 
                     this.$watch('jenisPengeluaran', (value) => {
@@ -467,15 +496,49 @@
                         this.selectedRefillId = '';
                         this.selectedPeralatanId = '';
                         this.hargaBeliInput = '';
+                        this.hargaBeliRefillInput = '';
+                        this.hargaBeliPeralatanInput = '';
                         this.qty = value === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_PERALATAN }}' ? 1 : 0;
                         syncPengeluaranForm();
                     });
 
-                    this.$watch('selectedProdukId', () => syncPengeluaranForm());
-                    this.$watch('selectedRefillId', () => syncPengeluaranForm());
-                    this.$watch('selectedPeralatanId', () => syncPengeluaranForm());
+                    this.$watch('selectedProdukId', (value, oldValue) => {
+                        if (
+                            !this.isBootstrappingSelections
+                            && this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}'
+                            && value !== oldValue
+                        ) {
+                            this.hargaBeliInput = '';
+                        }
+
+                        syncPengeluaranForm();
+                    });
+                    this.$watch('selectedRefillId', (value, oldValue) => {
+                        if (
+                            !this.isBootstrappingSelections
+                            && this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_REFILL }}'
+                            && value !== oldValue
+                        ) {
+                            this.hargaBeliRefillInput = '';
+                        }
+
+                        syncPengeluaranForm();
+                    });
+                    this.$watch('selectedPeralatanId', (value, oldValue) => {
+                        if (
+                            !this.isBootstrappingSelections
+                            && this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_PERALATAN }}'
+                            && value !== oldValue
+                        ) {
+                            this.hargaBeliPeralatanInput = '';
+                        }
+
+                        syncPengeluaranForm();
+                    });
                     this.$watch('qty', () => syncPengeluaranForm());
                     this.$watch('hargaBeliInput', () => syncPengeluaranForm());
+                    this.$watch('hargaBeliRefillInput', () => syncPengeluaranForm());
+                    this.$watch('hargaBeliPeralatanInput', () => syncPengeluaranForm());
                 },
                 get currentProduct() {
                     return this.productOptions.find(item => String(item.id) === String(this.selectedProdukId)) ?? null;
@@ -520,7 +583,15 @@
                 },
                 get displayPrice() {
                     if (this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}') {
-                        return Number(this.normalizedHargaBeliInput) || 0;
+                        return Number(this.normalizedHargaBeliInput || this.currentProduct?.harga_acuan || 0);
+                    }
+
+                    if (this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_REFILL }}') {
+                        return Number(this.normalizedHargaBeliRefillInput || this.currentRefill?.harga || 0);
+                    }
+
+                    if (this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_PERALATAN }}') {
+                        return Number(this.normalizedHargaBeliPeralatanInput || this.currentPeralatan?.harga || 0);
                     }
 
                     return Number(this.currentItem?.harga || 0);
@@ -528,12 +599,26 @@
                 get normalizedHargaBeliInput() {
                     return String(this.hargaBeliInput || '').replace(/[^\d]/g, '');
                 },
+                get normalizedHargaBeliRefillInput() {
+                    return String(this.hargaBeliRefillInput || '').replace(/[^\d]/g, '');
+                },
+                get normalizedHargaBeliPeralatanInput() {
+                    return String(this.hargaBeliPeralatanInput || '').replace(/[^\d]/g, '');
+                },
                 get submittedHargaBeli() {
-                    if (this.jenisPengeluaran !== '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}') {
-                        return '';
+                    if (this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}') {
+                        return this.normalizedHargaBeliInput || String(Number(this.currentProduct?.harga_acuan || 0) || '');
                     }
 
-                    return this.normalizedHargaBeliInput;
+                    if (this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_REFILL }}') {
+                        return this.normalizedHargaBeliRefillInput || String(Number(this.currentRefill?.harga || 0) || '');
+                    }
+
+                    if (this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_PERALATAN }}') {
+                        return this.normalizedHargaBeliPeralatanInput || String(Number(this.currentPeralatan?.harga || 0) || '');
+                    }
+
+                    return '';
                 },
                 get hargaBeli() {
                     if (this.jenisPengeluaran !== '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}') {
@@ -550,11 +635,37 @@
                     return this.qty;
                 },
                 get formattedHargaBeliInput() {
-                    if (this.normalizedHargaBeliInput === '') {
-                        return '';
+                    if (this.normalizedHargaBeliInput !== '') {
+                        return this.currency(this.normalizedHargaBeliInput);
                     }
 
-                    return this.currency(this.normalizedHargaBeliInput);
+                    if (this.currentProduct) {
+                        return this.currency(this.currentProduct.harga_acuan || 0);
+                    }
+
+                    return '';
+                },
+                get formattedHargaBeliRefillInput() {
+                    if (this.normalizedHargaBeliRefillInput !== '') {
+                        return this.currency(this.normalizedHargaBeliRefillInput);
+                    }
+
+                    if (this.currentRefill) {
+                        return this.currency(this.currentRefill.harga || 0);
+                    }
+
+                    return '';
+                },
+                get formattedHargaBeliPeralatanInput() {
+                    if (this.normalizedHargaBeliPeralatanInput !== '') {
+                        return this.currency(this.normalizedHargaBeliPeralatanInput);
+                    }
+
+                    if (this.currentPeralatan) {
+                        return this.currency(this.currentPeralatan.harga || 0);
+                    }
+
+                    return '';
                 },
                 get total() {
                     return (Number(this.qty) || 0) * this.displayPrice;
@@ -591,21 +702,27 @@
                 },
                 get priceSummaryText() {
                     if (this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}') {
-                        return 'Harga modal APAR diisi manual per transaksi pembelian. Harga jual produk tetap berasal dari menu Produk.';
+                        return 'Harga beli aktual APAR disimpan ke histori pembelian, lalu dipakai lagi sebagai acuan pembelian berikutnya tanpa mengubah harga jasa service.';
                     }
 
                     if (this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_REFILL }}') {
-                        return 'Harga standar refill diambil otomatis dari Data Layanan dan total dihitung langsung dari kuantitas pembelian.';
+                        return 'Harga master refill akan mengikuti pembelian terakhir, sedangkan total transaksi tetap dihitung dari harga beli aktual saat ini.';
                     }
 
                     if (this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_PERALATAN }}') {
-                        return 'Harga standar peralatan diambil otomatis dari Data Layanan dan total dihitung langsung dari kuantitas pembelian.';
+                        return 'Harga standar peralatan tampil sebagai acuan, sedangkan total pengeluaran dihitung dari harga beli aktual yang bisa disesuaikan admin.';
                     }
 
                     return 'Nominal pengeluaran akan tampil otomatis dalam format Rupiah Indonesia.';
                 },
                 setHargaBeliInput(value) {
                     this.hargaBeliInput = String(value || '').replace(/[^\d]/g, '');
+                },
+                setHargaBeliRefillInput(value) {
+                    this.hargaBeliRefillInput = String(value || '').replace(/[^\d]/g, '');
+                },
+                setHargaBeliPeralatanInput(value) {
+                    this.hargaBeliPeralatanInput = String(value || '').replace(/[^\d]/g, '');
                 },
                 formatQty(value) {
                     const number = Number(value) || 0;

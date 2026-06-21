@@ -84,10 +84,14 @@ class ServiceMasterSyncService
 
                 $allPeralatan->push($survivor);
             } else {
+                $isCanonicalRecord = ServiceMasterCatalog::normalize($survivor->nama) === ServiceMasterCatalog::normalize($canonicalName);
+
                 $survivor->forceFill([
                     'nama' => $canonicalName,
                     'stok_minimum' => max((int) ($survivor->stok_minimum ?? 0), (int) ($definition['stok_minimum'] ?? 3)),
-                    'harga_standar' => (float) ($definition['harga_standar'] ?? 0),
+                    'harga_standar' => $isCanonicalRecord && (float) ($survivor->harga_standar ?? 0) > 0
+                        ? (float) $survivor->harga_standar
+                        : (float) ($definition['harga_standar'] ?? 0),
                 ])->save();
             }
 
