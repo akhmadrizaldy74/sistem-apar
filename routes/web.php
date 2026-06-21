@@ -34,6 +34,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/riwayat', [LandingPageController::class, 'riwayatApar'])->name('riwayat');
     Route::get('/riwayat-apar', [LandingPageController::class, 'riwayatApar'])->name('riwayat-apar');
     Route::get('/riwayat-apar/status', [LandingPageController::class, 'riwayatAparStatus'])->name('riwayat-apar.status');
+    Route::post('/riwayat-apar/ajukan-service', [LandingPageController::class, 'ajukanService'])->name('riwayat-apar.ajukan-service');
     Route::post('/riwayat-apar/ajukan-refill', [LandingPageController::class, 'ajukanRefill'])->name('riwayat-apar.ajukan-refill');
     Route::post('/riwayat-apar/{pesanan}/confirm-received', [PublicController::class, 'confirmOrderReceived'])->name('riwayat-apar.confirm-received');
     

@@ -4,13 +4,16 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Pelanggan;
+use App\Models\Pesanan;
 use App\Models\Produk;
 use App\Models\UnitApar;
+use App\Support\RegisteredRefillUnitSupport;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class UnitAparController extends Controller
 {
@@ -118,6 +121,91 @@ class UnitAparController extends Controller
     protected function resolveUnitBaseDate(UnitApar $unit): ?CarbonInterface
     {
         return $unit->tgl_beli ?? $unit->tgl_produksi;
+    }
+
+    protected function unitHistoryOrders(UnitApar $unit): Collection
+    {
+        return Pesanan::query()
+            ->with([
+                'service.servicePaket',
+                'service.refill.jenisRefill',
+                'serviceJenisRefill',
+                'servicePaket',
+            ])
+            ->where('pelanggan_id', $unit->pelanggan_id)
+            ->where('tipe', 'service')
+            ->orderByDesc('updated_at')
+            ->orderByDesc('created_at')
+            ->get()
+            ->filter(fn (Pesanan $pesanan) => RegisteredRefillUnitSupport::orderReferencesUnit($pesanan, $unit))
+            ->values();
+    }
+
+    protected function resolveUnitHistoryTimestamp(Pesanan $pesanan): ?CarbonInterface
+    {
+        $timezone = config('app.timezone');
+
+        foreach ([
+            $pesanan->service?->tgl_selesai_admin,
+            $pesanan->teknisi_selesai_at,
+            $pesanan->updated_at,
+            $pesanan->created_at,
+        ] as $candidate) {
+            if ($candidate) {
+                return $candidate->copy()->timezone($timezone);
+            }
+        }
+
+        return null;
+    }
+
+    protected function buildUnitHistorySummary(Pesanan $pesanan, string $actionType): string
+    {
+        $title = trim((string) (
+            $actionType === 'refill'
+                ? ($pesanan->service?->refill?->jenisRefill?->nama_label ?: $pesanan->serviceJenisRefill?->nama_label ?: 'Refill APAR')
+                : ($pesanan->service?->jenis_service ?: $pesanan->servicePaket?->nama ?: 'Service APAR')
+        ));
+
+        $source = trim((string) ($pesanan->service_keluhan ?: $pesanan->service?->keterangan ?: $pesanan->keterangan ?: ''));
+        $lines = collect(preg_split('/\r\n|\r|\n/', $source) ?: [])
+            ->map(fn ($line) => trim((string) $line))
+            ->filter()
+            ->reject(fn ($line) => Str::startsWith(mb_strtolower($line), 'catatan pelanggan:'))
+            ->take(3)
+            ->implode(' | ');
+
+        return $lines !== '' ? $lines : ($title !== '' ? $title : 'Tidak ada ringkasan layanan.');
+    }
+
+    protected function buildUnitHistoryEntry(Pesanan $pesanan, string $actionType): array
+    {
+        $timezone = config('app.timezone');
+        $updatedAt = $this->resolveUnitHistoryTimestamp($pesanan);
+        $createdAt = $pesanan->created_at?->copy()->timezone($timezone);
+        $finishedAt = $pesanan->service?->tgl_selesai_admin?->copy()->timezone($timezone)
+            ?: $pesanan->teknisi_selesai_at?->copy()->timezone($timezone);
+        $serviceDate = $pesanan->service?->tgl_service?->copy()->timezone($timezone);
+        $title = trim((string) (
+            $actionType === 'refill'
+                ? ($pesanan->service?->refill?->jenisRefill?->nama_label ?: $pesanan->serviceJenisRefill?->nama_label ?: 'Refill APAR')
+                : ($pesanan->service?->jenis_service ?: $pesanan->servicePaket?->nama ?: 'Service APAR')
+        ));
+
+        return [
+            'action_type' => $actionType,
+            'action_label' => $actionType === 'refill' ? 'Refill' : 'Service',
+            'title' => $title !== '' ? $title : ($actionType === 'refill' ? 'Refill APAR' : 'Service APAR'),
+            'summary' => $this->buildUnitHistorySummary($pesanan, $actionType),
+            'order_code' => $pesanan->orderCode(),
+            'status_label' => $pesanan->publicStatusLabel(),
+            'biaya' => (float) ($pesanan->service_estimasi_biaya ?: $pesanan->total_harga ?: $pesanan->total ?: 0),
+            'updated_date_label' => $updatedAt?->format('d M Y') ?? '-',
+            'updated_time_label' => $updatedAt?->format('H:i') ?? '-',
+            'service_date_label' => $serviceDate?->format('d M Y') ?? '-',
+            'created_at_label' => $createdAt?->format('d M Y, H:i') ?? '-',
+            'finished_at_label' => $finishedAt?->format('d M Y, H:i') ?? '-',
+        ];
     }
 
     protected function transformUnitForIndex(UnitApar $unit): array
@@ -472,14 +560,17 @@ class UnitAparController extends Controller
         $unit = $unitApar->load([
             'pelanggan',
             'produk.jenisApar',
-            'services' => fn ($query) => $query
-                ->with(['servicePaket', 'pesanan.serviceJenisRefill', 'refill.jenisRefill'])
-                ->orderByDesc('tgl_service')
-                ->orderByDesc('id'),
         ]);
         $statusMeta = $this->resolveUnitStatusMeta($unit->tgl_expired);
-        $refillHistories = $unit->services->filter(fn ($service) => !is_null($service->refill))->values();
-        $serviceHistories = $unit->services->filter(fn ($service) => is_null($service->refill))->values();
+        $unitHistories = $this->unitHistoryOrders($unit)
+            ->map(function (Pesanan $pesanan) {
+                $actionType = $pesanan->service_jenis_layanan === 'refill' ? 'refill' : 'service';
+
+                return $this->buildUnitHistoryEntry($pesanan, $actionType);
+            })
+            ->values();
+        $refillHistories = $unitHistories->where('action_type', 'refill')->values();
+        $serviceHistories = $unitHistories->where('action_type', 'service')->values();
 
         return view('admin.unit-apar.show', compact('unit', 'statusMeta', 'refillHistories', 'serviceHistories'));
     }

@@ -11,8 +11,9 @@ use Illuminate\Support\Collection;
 class RegisteredRefillUnitSupport
 {
     public const PREFILL_GROUP_KEY = '__prefilled__';
+    public const REFILL_WARNING_DAYS = 7;
 
-    public static function statusMeta(UnitApar $unitApar, int $warningDays = 30): array
+    public static function statusMeta(UnitApar $unitApar, int $warningDays = self::REFILL_WARNING_DAYS): array
     {
         $daysUntilExpiry = $unitApar->tgl_expired
             ? (int) now()->startOfDay()->diffInDays($unitApar->tgl_expired->copy()->startOfDay(), false)
@@ -29,6 +30,13 @@ class RegisteredRefillUnitSupport
             'needs_refill' => $needsRefill,
             'status_label' => $needsRefill ? 'Perlu Refill' : 'Aman',
         ];
+    }
+
+    public static function orderReferencesUnit(Pesanan $pesanan, UnitApar $unitApar): bool
+    {
+        $resolvedUnits = static::resolveRegisteredUnitsForOrder($pesanan);
+
+        return $resolvedUnits->contains(fn (UnitApar $resolvedUnit) => (int) $resolvedUnit->id === (int) $unitApar->id);
     }
 
     public static function activeRefillLocks(Pelanggan $pelanggan): array

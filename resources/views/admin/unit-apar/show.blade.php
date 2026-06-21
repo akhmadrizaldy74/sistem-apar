@@ -106,16 +106,6 @@
                     <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Kondisi Awal</p>
                     <p class="mt-2 text-sm font-bold capitalize text-slate-900">{{ str_replace('_', ' ', $unit->kondisi_awal ?: '-') }}</p>
                 </div>
-
-                <div>
-                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Lokasi Unit</p>
-                    <p class="mt-2 text-sm font-bold text-slate-900">{{ $unit->lokasi_unit ?: '-' }}</p>
-                </div>
-
-                <div class="sm:col-span-2 lg:col-span-1">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Keterangan</p>
-                    <p class="mt-2 text-sm font-semibold text-slate-700">{{ $unit->catatan_unit ?: '-' }}</p>
-                </div>
             </div>
         </div>
 
@@ -127,21 +117,27 @@
                 </div>
 
                 <div class="space-y-4 px-6 py-6 sm:px-8">
-                    @forelse ($refillHistories as $service)
-                        @php
-                            $refill = $service->refill;
-                        @endphp
+                    @forelse ($refillHistories as $history)
                         <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
                             <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                                 <div>
-                                    <p class="text-sm font-black text-slate-900">{{ $refill?->jenisRefill?->nama_label ?: 'Refill APAR' }}</p>
-                                    <p class="mt-1 text-xs font-semibold uppercase tracking-widest text-slate-400">{{ optional($service->tgl_service)->format('d M Y') ?: '-' }}</p>
+                                    <p class="text-sm font-black text-slate-900">{{ $history['title'] ?? 'Refill APAR' }}</p>
+                                    <p class="mt-1 text-xs font-semibold uppercase tracking-widest text-slate-400">Update layanan {{ $history['updated_date_label'] ?? '-' }} • {{ $history['updated_time_label'] ?? '-' }}</p>
                                 </div>
-                                <p class="text-sm font-black text-slate-700">Rp {{ number_format((float) ($service->biaya ?? 0), 0, ',', '.') }}</p>
+                                <p class="text-sm font-black text-slate-700">Rp {{ number_format((float) ($history['biaya'] ?? 0), 0, ',', '.') }}</p>
+                            </div>
+
+                            <div class="mt-3 grid gap-2 text-xs font-semibold text-slate-500 sm:grid-cols-2">
+                                <p><span class="font-black uppercase tracking-wider text-slate-400">Jenis Tindakan:</span> {{ $history['action_label'] ?? 'Refill' }}</p>
+                                <p><span class="font-black uppercase tracking-wider text-slate-400">Status Transaksi:</span> {{ $history['status_label'] ?? '-' }}</p>
+                                <p><span class="font-black uppercase tracking-wider text-slate-400">Transaksi:</span> {{ $history['order_code'] ?? '-' }}</p>
+                                <p><span class="font-black uppercase tracking-wider text-slate-400">Tanggal Service:</span> {{ $history['service_date_label'] ?? '-' }}</p>
+                                <p><span class="font-black uppercase tracking-wider text-slate-400">Dibuat:</span> {{ $history['created_at_label'] ?? '-' }}</p>
+                                <p><span class="font-black uppercase tracking-wider text-slate-400">Selesai / Update:</span> {{ $history['finished_at_label'] ?? ($history['updated_date_label'] ?? '-') }}</p>
                             </div>
 
                             <p class="mt-3 text-sm font-medium text-slate-600">
-                                {{ trim((string) ($service->keterangan ?: $service->catatan_teknisi ?: 'Tidak ada catatan tambahan.')) }}
+                                {{ trim((string) ($history['summary'] ?? 'Tidak ada ringkasan layanan.')) }}
                             </p>
                         </div>
                     @empty
@@ -157,18 +153,27 @@
                 </div>
 
                 <div class="space-y-4 px-6 py-6 sm:px-8">
-                    @forelse ($serviceHistories as $service)
+                    @forelse ($serviceHistories as $history)
                         <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
                             <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                                 <div>
-                                    <p class="text-sm font-black text-slate-900">{{ $service->jenis_service ?: ($service->servicePaket?->nama ?: 'Service APAR') }}</p>
-                                    <p class="mt-1 text-xs font-semibold uppercase tracking-widest text-slate-400">{{ optional($service->tgl_service)->format('d M Y') ?: '-' }}</p>
+                                    <p class="text-sm font-black text-slate-900">{{ $history['title'] ?? 'Service APAR' }}</p>
+                                    <p class="mt-1 text-xs font-semibold uppercase tracking-widest text-slate-400">Update layanan {{ $history['updated_date_label'] ?? '-' }} • {{ $history['updated_time_label'] ?? '-' }}</p>
                                 </div>
-                                <p class="text-sm font-black text-slate-700">Rp {{ number_format((float) ($service->biaya ?? 0), 0, ',', '.') }}</p>
+                                <p class="text-sm font-black text-slate-700">Rp {{ number_format((float) ($history['biaya'] ?? 0), 0, ',', '.') }}</p>
+                            </div>
+
+                            <div class="mt-3 grid gap-2 text-xs font-semibold text-slate-500 sm:grid-cols-2">
+                                <p><span class="font-black uppercase tracking-wider text-slate-400">Jenis Tindakan:</span> {{ $history['action_label'] ?? 'Service' }}</p>
+                                <p><span class="font-black uppercase tracking-wider text-slate-400">Status Transaksi:</span> {{ $history['status_label'] ?? '-' }}</p>
+                                <p><span class="font-black uppercase tracking-wider text-slate-400">Transaksi:</span> {{ $history['order_code'] ?? '-' }}</p>
+                                <p><span class="font-black uppercase tracking-wider text-slate-400">Tanggal Service:</span> {{ $history['service_date_label'] ?? '-' }}</p>
+                                <p><span class="font-black uppercase tracking-wider text-slate-400">Dibuat:</span> {{ $history['created_at_label'] ?? '-' }}</p>
+                                <p><span class="font-black uppercase tracking-wider text-slate-400">Selesai / Update:</span> {{ $history['finished_at_label'] ?? ($history['updated_date_label'] ?? '-') }}</p>
                             </div>
 
                             <p class="mt-3 text-sm font-medium text-slate-600">
-                                {{ trim((string) ($service->keterangan ?: $service->catatan_teknisi ?: 'Tidak ada catatan tambahan.')) }}
+                                {{ trim((string) ($history['summary'] ?? 'Tidak ada ringkasan layanan.')) }}
                             </p>
                         </div>
                     @empty

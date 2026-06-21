@@ -235,11 +235,21 @@ class FinalTransactionStockService
     {
         foreach ($unitsToRefresh as $unitApar) {
             $unitApar->update([
+                'kondisi_awal' => 'layak',
                 'tgl_expired' => $this->unitExpiryService->calculateExpiry(
                     $effectiveWorkDate,
                     $unitApar->ukuran ?: $pesanan->service_ukuran_apar ?: $unitApar->produk?->kapasitas,
                     $unitApar->bahan ?: $unitApar->produk?->jenisApar?->nama ?: $this->manualUnitMedia($pesanan),
                 ),
+            ]);
+        }
+    }
+
+    private function markResolvedUnitsServiced(Collection $unitsToRefresh): void
+    {
+        foreach ($unitsToRefresh as $unitApar) {
+            $unitApar->update([
+                'kondisi_awal' => 'layak',
             ]);
         }
     }
@@ -269,7 +279,7 @@ class FinalTransactionStockService
                 'status_konfirmasi' => 'confirmed',
                 'tgl_selesai_admin' => $service->tgl_selesai_admin ?: now(),
             ]);
-            $this->refreshResolvedUnitsExpiry($generatedUnits, $pesanan, $effectiveWorkDate);
+            $this->markResolvedUnitsServiced($generatedUnits);
             return;
         }
 
@@ -318,7 +328,7 @@ class FinalTransactionStockService
             'stok_kurang_history_json' => json_encode($history),
         ]);
 
-        $this->refreshResolvedUnitsExpiry($generatedUnits, $pesanan, $effectiveWorkDate);
+        $this->markResolvedUnitsServiced($generatedUnits);
     }
 
     private function ensureCompletedServiceUnits(Pesanan $pesanan): Collection

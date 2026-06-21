@@ -18,6 +18,7 @@
 
 @section('content')
 @php
+    $refillWarningDays = \App\Support\RegisteredRefillUnitSupport::REFILL_WARNING_DAYS;
     $pendingPaymentOrder = $pendingPaymentOrder ?? null;
     $canCreateOrder = ! $pendingPaymentOrder;
     $paymentWarning = $pendingPaymentOrder?->hasPendingPurchasePriceRequest()
@@ -26,7 +27,7 @@
 
     $totalUnits = $pelanggan->units->count();
     $expiredUnits = $pelanggan->units->filter(fn ($unit) => $unit->tgl_expired && $unit->tgl_expired->isPast())->count();
-    $expiringSoon = $pelanggan->units->filter(fn ($unit) => $unit->tgl_expired && ! $unit->tgl_expired->isPast() && now()->startOfDay()->diffInDays($unit->tgl_expired->copy()->startOfDay(), false) <= 30)->count();
+    $expiringSoon = $pelanggan->units->filter(fn ($unit) => $unit->tgl_expired && ! $unit->tgl_expired->isPast() && now()->startOfDay()->diffInDays($unit->tgl_expired->copy()->startOfDay(), false) <= $refillWarningDays)->count();
     $activeUnits = max(0, $totalUnits - $expiredUnits);
 
     $allOrders = $pelanggan->pesanan->sortByDesc(fn ($pesanan) => $pesanan->created_at);
@@ -36,7 +37,7 @@
     $unitRefillLocks = $unitRefillLocks ?? [];
     $initialActiveTab = request('tab') === 'unit' ? 'unit' : 'riwayat';
     $attentionUnits = $pelanggan->units
-        ->filter(fn ($unit) => $unit->tgl_expired && ($unit->tgl_expired->isPast() || now()->startOfDay()->diffInDays($unit->tgl_expired->copy()->startOfDay(), false) <= 30))
+        ->filter(fn ($unit) => $unit->tgl_expired && ($unit->tgl_expired->isPast() || now()->startOfDay()->diffInDays($unit->tgl_expired->copy()->startOfDay(), false) <= $refillWarningDays))
         ->sortBy(fn ($unit) => $unit->tgl_expired ?? now()->addYears(20));
 @endphp
 
@@ -218,18 +219,17 @@
                 </div>
 
                 <div class="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-600 shadow-sm">
-                    Unit APAR di halaman ini dipakai untuk pemantauan saja. Jika butuh refill atau service, silakan buat pesanan baru dari halaman order lalu isi item layanan secara manual sesuai kebutuhan.
+                    Service selalu tersedia untuk setiap unit APAR. Tombol refill hanya akan muncul otomatis saat masa berlaku tinggal {{ $refillWarningDays }} hari atau kurang, atau unit sudah expired.
                 </div>
 
                 <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                         @forelse($pelanggan->units->sortBy(fn ($unit) => $unit->tgl_expired ?? now()->addYears(20)) as $unit)
                             @php
-                                $daysUntilExpiry = $unit->tgl_expired
-                                    ? (int) now()->startOfDay()->diffInDays($unit->tgl_expired->copy()->startOfDay(), false)
-                                    : null;
-                                $isExpired = ! is_null($daysUntilExpiry) && $daysUntilExpiry < 0;
-                                $isExpiringSoon = ! $isExpired && ! is_null($daysUntilExpiry) && $daysUntilExpiry <= 30;
-                                $needsRefill = $isExpired || $isExpiringSoon;
+                                $statusMeta = \App\Support\RegisteredRefillUnitSupport::statusMeta($unit, $refillWarningDays);
+                                $daysUntilExpiry = $statusMeta['days_until_expiry'];
+                                $isExpired = (bool) ($statusMeta['is_expired'] ?? false);
+                                $isExpiringSoon = (bool) ($statusMeta['is_expiring_soon'] ?? false);
+                                $needsRefill = (bool) ($statusMeta['needs_refill'] ?? false);
                                 $conditionLabel = $needsRefill ? 'Perlu Refill' : 'Aman';
                                 $conditionClass = $needsRefill
                                     ? 'bg-amber-50 text-amber-700 ring-amber-100'
@@ -282,19 +282,62 @@
                                     </div>
                                 </dl>
 
-                                @if($needsRefill)
-                                    <div class="mt-4">
-                                        @if($refillLock)
-                                            <div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs font-bold leading-5 text-amber-800">
-                                                {{ $refillLock['message'] ?? 'Unit ini sedang dalam proses refill.' }}
-                                            </div>
+                                <div class="mt-4 space-y-3">
+                                    <div class="grid gap-2 sm:grid-cols-2">
+                                        @if($canCreateOrder)
+                                            <form method="POST" action="{{ route('riwayat-apar.ajukan-service') }}">
+                                                @csrf
+                                                <input type="hidden" name="action_unit_id" value="{{ $unit->id }}">
+                                                <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 text-sm font-black text-blue-700 transition hover:border-blue-300 hover:bg-blue-100">
+                                                    <i class="fa-solid fa-screwdriver-wrench text-xs"></i>
+                                                    Ajukan Service
+                                                </button>
+                                            </form>
                                         @else
-                                            <div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs font-bold leading-5 text-amber-800">
-                                                Unit ini sudah mendekati masa refill. Buat pesanan baru dari halaman order jika ingin menjadwalkan layanan.
-                                            </div>
+                                            <button type="button" disabled title="{{ $paymentWarning }}" class="inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-100 px-3 py-3 text-sm font-black text-slate-400">
+                                                <i class="fa-solid fa-screwdriver-wrench text-xs"></i>
+                                                Ajukan Service
+                                            </button>
+                                        @endif
+
+                                        @if($needsRefill)
+                                            @if($refillLock)
+                                                <button type="button" disabled class="inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-black text-amber-700">
+                                                    <i class="fa-solid fa-gas-pump text-xs"></i>
+                                                    Refill Diproses
+                                                </button>
+                                            @elseif($canCreateOrder)
+                                                <form method="POST" action="{{ route('riwayat-apar.ajukan-refill') }}">
+                                                    @csrf
+                                                    <input type="hidden" name="action_unit_id" value="{{ $unit->id }}">
+                                                    <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-black text-amber-700 transition hover:border-amber-300 hover:bg-amber-100">
+                                                        <i class="fa-solid fa-gas-pump text-xs"></i>
+                                                        Ajukan Refill
+                                                    </button>
+                                                </form>
+                                            @else
+                                                <button type="button" disabled title="{{ $paymentWarning }}" class="inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-100 px-3 py-3 text-sm font-black text-slate-400">
+                                                    <i class="fa-solid fa-gas-pump text-xs"></i>
+                                                    Ajukan Refill
+                                                </button>
+                                            @endif
                                         @endif
                                     </div>
-                                @endif
+
+                                    @if($refillLock)
+                                        <div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs font-bold leading-5 text-amber-800">
+                                            {{ $refillLock['message'] ?? 'Unit ini sedang dalam proses refill.' }}
+                                        </div>
+                                    @elseif($needsRefill)
+                                        <div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs font-bold leading-5 text-amber-800">
+                                            Unit ini sudah masuk masa refill. Tombol refill di atas akan langsung membawa unit yang sama ke form pemesanan.
+                                        </div>
+                                    @else
+                                        <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs font-bold leading-5 text-slate-600">
+                                            Refill akan muncul otomatis saat sisa masa berlaku tinggal {{ $refillWarningDays }} hari atau kurang.
+                                        </div>
+                                    @endif
+                                </div>
                             </article>
                         @empty
                             <div class="rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:col-span-2 xl:col-span-3">

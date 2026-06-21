@@ -236,6 +236,16 @@ class LandingPageController extends Controller
 
     public function ajukanRefill(Request $request)
     {
+        return $this->redirectToRegisteredUnitOrder($request, 'refill');
+    }
+
+    public function ajukanService(Request $request)
+    {
+        return $this->redirectToRegisteredUnitOrder($request, 'service');
+    }
+
+    private function redirectToRegisteredUnitOrder(Request $request, string $serviceType)
+    {
         /** @var \App\Models\User|null $user */
         $user = Auth::user();
 
@@ -252,31 +262,19 @@ class LandingPageController extends Controller
         if (! $pelanggan) {
             return redirect()
                 ->route('riwayat-apar')
-                ->with('error', 'Profil pelanggan belum tersambung. Hubungi admin untuk melanjutkan refill.');
+                ->with('error', 'Profil pelanggan belum tersambung. Hubungi admin untuk melanjutkan layanan.');
         }
 
-        $selectedUnitIds = collect($request->filled('action_unit_id')
-            ? [$request->input('action_unit_id')]
-            : (array) $request->input('unit_ids', []))
-            ->map(fn ($id) => (int) $id)
-            ->filter(fn ($id) => $id > 0)
-            ->unique()
-            ->values();
+        $serviceType = $serviceType === 'service' ? 'service' : 'refill';
+        $selectedUnitIds = $this->selectedHistoryUnitIds($request);
 
         if ($selectedUnitIds->isEmpty()) {
             return redirect()
                 ->route('riwayat-apar')
-                ->with('error', 'Pilih minimal satu Unit APAR yang perlu refill terlebih dahulu.');
+                ->with('error', 'Pilih minimal satu Unit APAR terlebih dahulu.');
         }
 
-        $selectedUnits = UnitApar::query()
-            ->visible()
-            ->with('produk.jenisApar')
-            ->where('pelanggan_id', $pelanggan->id)
-            ->whereIn('id', $selectedUnitIds->all())
-            ->get()
-            ->sortBy(fn (UnitApar $unitApar) => $selectedUnitIds->search((int) $unitApar->id))
-            ->values();
+        $selectedUnits = $this->selectedHistoryUnits($pelanggan, $selectedUnitIds);
 
         if ($selectedUnits->count() !== $selectedUnitIds->count()) {
             return redirect()
@@ -284,31 +282,57 @@ class LandingPageController extends Controller
                 ->with('error', 'Ada Unit APAR yang tidak valid atau bukan milik akun pelanggan ini.');
         }
 
-        $activeLocks = RegisteredRefillUnitSupport::activeRefillLocks($pelanggan);
-        $blockedUnit = $selectedUnits->first(fn (UnitApar $unitApar) => isset($activeLocks[$unitApar->id]));
+        if ($serviceType === 'refill') {
+            $activeLocks = RegisteredRefillUnitSupport::activeRefillLocks($pelanggan);
+            $blockedUnit = $selectedUnits->first(fn (UnitApar $unitApar) => isset($activeLocks[$unitApar->id]));
 
-        if ($blockedUnit) {
-            return redirect()
-                ->route('riwayat-apar')
-                ->with('error', ($activeLocks[$blockedUnit->id]['message'] ?? 'Unit ini sedang dalam proses refill.') . ' Nomor Unit: ' . ($blockedUnit->no_seri ?: ('UNIT-' . $blockedUnit->id)));
-        }
+            if ($blockedUnit) {
+                return redirect()
+                    ->route('riwayat-apar')
+                    ->with('error', ($activeLocks[$blockedUnit->id]['message'] ?? 'Unit ini sedang dalam proses refill.') . ' Nomor Unit: ' . ($blockedUnit->no_seri ?: ('UNIT-' . $blockedUnit->id)));
+            }
 
-        $safeUnit = $selectedUnits->first(function (UnitApar $unitApar) {
-            return ! (RegisteredRefillUnitSupport::statusMeta($unitApar)['needs_refill'] ?? false);
-        });
+            $safeUnit = $selectedUnits->first(function (UnitApar $unitApar) {
+                return ! (RegisteredRefillUnitSupport::statusMeta($unitApar)['needs_refill'] ?? false);
+            });
 
-        if ($safeUnit) {
-            return redirect()
-                ->route('riwayat-apar')
-                ->with('error', 'Unit ' . ($safeUnit->no_seri ?: ('UNIT-' . $safeUnit->id)) . ' masih berstatus aman. Gunakan menu layanan APAR biasa jika ingin refill manual.');
+            if ($safeUnit) {
+                return redirect()
+                    ->route('riwayat-apar')
+                    ->with('error', 'Unit ' . ($safeUnit->no_seri ?: ('UNIT-' . $safeUnit->id)) . ' belum masuk masa refill H-7. Refill hanya tersedia untuk unit yang sisa masa berlakunya 7 hari atau kurang, atau sudah expired.');
+            }
         }
 
         return redirect()
             ->route('order.create')
-            ->with('prefill_registered_refill', [
+            ->with($serviceType === 'service' ? 'prefill_registered_service' : 'prefill_registered_refill', [
                 'selected_unit_ids' => $selectedUnitIds->all(),
                 'source' => 'riwayat_apar',
+                'service_jenis_layanan' => $serviceType,
             ]);
+    }
+
+    private function selectedHistoryUnitIds(Request $request)
+    {
+        return collect($request->filled('action_unit_id')
+            ? [$request->input('action_unit_id')]
+            : (array) $request->input('unit_ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+    }
+
+    private function selectedHistoryUnits(Pelanggan $pelanggan, $selectedUnitIds)
+    {
+        return UnitApar::query()
+            ->visible()
+            ->with('produk.jenisApar')
+            ->where('pelanggan_id', $pelanggan->id)
+            ->whereIn('id', $selectedUnitIds->all())
+            ->get()
+            ->sortBy(fn (UnitApar $unitApar) => $selectedUnitIds->search((int) $unitApar->id))
+            ->values();
     }
 
     public function riwayatAparStatus(Request $request)

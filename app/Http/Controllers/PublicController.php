@@ -1810,8 +1810,20 @@ class PublicController extends Controller
                 })
                 ->values();
 
+            $prefilledRegisteredService = (array) session('prefill_registered_service', []);
             $prefilledRegisteredRefill = (array) session('prefill_registered_refill', []);
-            $prefilledUnitIds = collect((array) ($prefilledRegisteredRefill['selected_unit_ids'] ?? []))
+            $prefilledRegisteredOrder = collect([$prefilledRegisteredService, $prefilledRegisteredRefill])
+                ->first(function (array $payload) {
+                    return collect((array) ($payload['selected_unit_ids'] ?? []))
+                        ->map(fn ($id) => (int) $id)
+                        ->contains(fn ($id) => $id > 0);
+                }) ?? [];
+            $prefilledServiceType = in_array(
+                strtolower(trim((string) ($prefilledRegisteredOrder['service_jenis_layanan'] ?? ''))),
+                ['service', 'refill'],
+                true
+            ) ? strtolower(trim((string) ($prefilledRegisteredOrder['service_jenis_layanan'] ?? ''))) : 'refill';
+            $prefilledUnitIds = collect((array) ($prefilledRegisteredOrder['selected_unit_ids'] ?? []))
                 ->map(fn ($id) => (int) $id)
                 ->filter(fn ($id) => $id > 0)
                 ->unique()
@@ -1826,49 +1838,8 @@ class PublicController extends Controller
                 if ($selectedUnits->count() !== $prefilledUnitIds->count()) {
                     return redirect()
                         ->route('riwayat-apar')
-                        ->with('error', 'Ada Unit APAR yang tidak valid atau sudah tidak tersedia untuk diajukan refill.');
+                        ->with('error', 'Ada Unit APAR yang tidak valid atau sudah tidak tersedia untuk diajukan layanan.');
                 }
-
-                $blockedUnit = $selectedUnits->first(fn (UnitApar $unitApar) => (bool) $unitApar->getAttribute('is_refill_locked'));
-                if ($blockedUnit) {
-                    return redirect()
-                        ->route('riwayat-apar')
-                        ->with('error', (($blockedUnit->getAttribute('refill_lock_message') ?: 'Unit ini sedang dalam proses refill.') . ' Nomor Unit: ' . ($blockedUnit->no_seri ?: ('UNIT-' . $blockedUnit->id))));
-                }
-
-                $safeUnit = $selectedUnits->first(fn (UnitApar $unitApar) => ! (bool) $unitApar->getAttribute('needs_refill'));
-                if ($safeUnit) {
-                    return redirect()
-                        ->route('riwayat-apar')
-                        ->with('error', 'Unit ' . ($safeUnit->no_seri ?: ('UNIT-' . $safeUnit->id)) . ' masih berstatus aman. Gunakan menu layanan APAR biasa jika ingin refill manual.');
-                }
-
-                try {
-                    $prefillSummary = $this->summarizeRegisteredRefillUnits($selectedUnits);
-                } catch (ValidationException $exception) {
-                    return redirect()
-                        ->route('riwayat-apar')
-                        ->with('error', collect($exception->errors())->flatten()->first() ?: 'Data refill otomatis untuk unit yang dipilih belum lengkap.');
-                }
-
-                $prefillLines = $selectedUnits->map(function (UnitApar $unitApar) use ($prefillSummary) {
-                    $detail = $prefillSummary['unit_details'][$unitApar->id] ?? [];
-                    $produkNama = (string) ($unitApar->produk?->nama ?: 'APAR');
-                    $jenisApar = (string) ($unitApar->produk?->jenisApar?->nama ?: $unitApar->bahan ?: '-');
-                    $ukuran = (string) ($unitApar->ukuran ?: $unitApar->produk?->kapasitas ?: '-');
-                    $unitPrice = (float) ($detail['unit_price'] ?? 0);
-
-                    return [
-                        'id' => (int) $unitApar->id,
-                        'nomor_unit' => (string) ($unitApar->no_seri ?: ('UNIT-' . $unitApar->id)),
-                        'nama_apar' => $produkNama,
-                        'jenis_apar' => $jenisApar,
-                        'ukuran' => $ukuran,
-                        'jenis_refill' => (string) ($detail['refill_label'] ?? '-'),
-                        'harga_per_unit' => $unitPrice,
-                        'subtotal' => $unitPrice,
-                    ];
-                })->values();
 
                 $uniquePurchaseDates = $selectedUnits
                     ->map(fn (UnitApar $unitApar) => $unitApar->tgl_beli?->translatedFormat('d F Y'))
@@ -1876,19 +1847,92 @@ class PublicController extends Controller
                     ->unique()
                     ->values();
 
-                $prefillServiceOrder = [
-                    'group_key' => RegisteredRefillUnitSupport::PREFILL_GROUP_KEY,
-                    'group_label' => 'Pilihan dari Riwayat APAR - ' . $selectedUnits->count() . ' Unit',
-                    'selected_unit_ids' => $prefilledUnitIds->all(),
-                    'selected_units' => $prefillLines->all(),
-                    'total_unit' => $selectedUnits->count(),
-                    'total_price' => (float) ($prefillSummary['estimasi_biaya'] ?? 0),
-                    'total_kg' => (float) ($prefillSummary['total_kg'] ?? 0),
-                    'purchase_label' => $uniquePurchaseDates->count() === 1
-                        ? (string) $uniquePurchaseDates->first()
-                        : $uniquePurchaseDates->count() . ' batch pembelian',
-                    'is_mixed_refill' => (bool) ($prefillSummary['is_mixed'] ?? false),
-                ];
+                if ($prefilledServiceType === 'refill') {
+                    $blockedUnit = $selectedUnits->first(fn (UnitApar $unitApar) => (bool) $unitApar->getAttribute('is_refill_locked'));
+                    if ($blockedUnit) {
+                        return redirect()
+                            ->route('riwayat-apar')
+                            ->with('error', (($blockedUnit->getAttribute('refill_lock_message') ?: 'Unit ini sedang dalam proses refill.') . ' Nomor Unit: ' . ($blockedUnit->no_seri ?: ('UNIT-' . $blockedUnit->id))));
+                    }
+
+                    $safeUnit = $selectedUnits->first(fn (UnitApar $unitApar) => ! (bool) $unitApar->getAttribute('needs_refill'));
+                    if ($safeUnit) {
+                        return redirect()
+                            ->route('riwayat-apar')
+                            ->with('error', 'Unit ' . ($safeUnit->no_seri ?: ('UNIT-' . $safeUnit->id)) . ' belum masuk masa refill H-7. Refill hanya tersedia untuk unit yang sisa masa berlakunya 7 hari atau kurang, atau sudah expired.');
+                    }
+
+                    try {
+                        $prefillSummary = $this->summarizeRegisteredRefillUnits($selectedUnits);
+                    } catch (ValidationException $exception) {
+                        return redirect()
+                            ->route('riwayat-apar')
+                            ->with('error', collect($exception->errors())->flatten()->first() ?: 'Data refill otomatis untuk unit yang dipilih belum lengkap.');
+                    }
+
+                    $prefillLines = $selectedUnits->map(function (UnitApar $unitApar) use ($prefillSummary) {
+                        $detail = $prefillSummary['unit_details'][$unitApar->id] ?? [];
+                        $produkNama = (string) ($unitApar->produk?->nama ?: 'APAR');
+                        $jenisApar = (string) ($unitApar->produk?->jenisApar?->nama ?: $unitApar->bahan ?: '-');
+                        $ukuran = (string) ($unitApar->ukuran ?: $unitApar->produk?->kapasitas ?: '-');
+                        $unitPrice = (float) ($detail['unit_price'] ?? 0);
+
+                        return [
+                            'id' => (int) $unitApar->id,
+                            'nomor_unit' => (string) ($unitApar->no_seri ?: ('UNIT-' . $unitApar->id)),
+                            'nama_apar' => $produkNama,
+                            'jenis_apar' => $jenisApar,
+                            'ukuran' => $ukuran,
+                            'jenis_refill' => (string) ($detail['refill_label'] ?? '-'),
+                            'harga_per_unit' => $unitPrice,
+                            'subtotal' => $unitPrice,
+                        ];
+                    })->values();
+
+                    $prefillServiceOrder = [
+                        'group_key' => RegisteredRefillUnitSupport::PREFILL_GROUP_KEY,
+                        'group_label' => 'Pilihan dari Riwayat APAR - ' . $selectedUnits->count() . ' Unit',
+                        'selected_unit_ids' => $prefilledUnitIds->all(),
+                        'selected_units' => $prefillLines->all(),
+                        'total_unit' => $selectedUnits->count(),
+                        'total_price' => (float) ($prefillSummary['estimasi_biaya'] ?? 0),
+                        'total_kg' => (float) ($prefillSummary['total_kg'] ?? 0),
+                        'purchase_label' => $uniquePurchaseDates->count() === 1
+                            ? (string) $uniquePurchaseDates->first()
+                            : $uniquePurchaseDates->count() . ' batch pembelian',
+                        'is_mixed_refill' => (bool) ($prefillSummary['is_mixed'] ?? false),
+                        'service_jenis_layanan' => 'refill',
+                    ];
+                } else {
+                    $prefillLines = $selectedUnits->map(function (UnitApar $unitApar) {
+                        $produkNama = (string) ($unitApar->produk?->nama ?: 'APAR');
+                        $jenisApar = (string) ($unitApar->produk?->jenisApar?->nama ?: $unitApar->bahan ?: '-');
+                        $ukuran = (string) ($unitApar->ukuran ?: $unitApar->produk?->kapasitas ?: '-');
+
+                        return [
+                            'id' => (int) $unitApar->id,
+                            'nomor_unit' => (string) ($unitApar->no_seri ?: ('UNIT-' . $unitApar->id)),
+                            'nama_apar' => $produkNama,
+                            'jenis_apar' => $jenisApar,
+                            'ukuran' => $ukuran,
+                        ];
+                    })->values();
+
+                    $prefillServiceOrder = [
+                        'group_key' => RegisteredRefillUnitSupport::PREFILL_GROUP_KEY,
+                        'group_label' => 'Pilihan Service dari Riwayat APAR - ' . $selectedUnits->count() . ' Unit',
+                        'selected_unit_ids' => $prefilledUnitIds->all(),
+                        'selected_units' => $prefillLines->all(),
+                        'total_unit' => $selectedUnits->count(),
+                        'total_price' => 0,
+                        'total_kg' => 0,
+                        'purchase_label' => $uniquePurchaseDates->count() === 1
+                            ? (string) $uniquePurchaseDates->first()
+                            : $uniquePurchaseDates->count() . ' batch pembelian',
+                        'is_mixed_refill' => false,
+                        'service_jenis_layanan' => 'service',
+                    ];
+                }
             }
         }
 

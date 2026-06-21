@@ -1,5 +1,5 @@
 @php
-    $serviceKategoriOld = old('service_jenis_layanan', 'refill');
+    $serviceKategoriOld = old('service_jenis_layanan', $prefillServiceOrder['service_jenis_layanan'] ?? 'refill');
     $oldRefillItems = collect(old('service_refill_items', []))
         ->map(function ($item) {
             return [

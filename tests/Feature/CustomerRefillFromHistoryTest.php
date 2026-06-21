@@ -19,7 +19,7 @@ class CustomerRefillFromHistoryTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_history_page_shows_refill_action_only_for_units_that_need_it(): void
+    public function test_history_page_shows_service_on_every_unit_and_refill_only_when_h_minus_seven_or_expired(): void
     {
         [$user, $pelanggan] = $this->createCustomer();
         $produk = $this->createPowderProduct();
@@ -36,10 +36,10 @@ class CustomerRefillFromHistoryTest extends TestCase
             'kondisi_awal' => 'layak',
         ]);
 
-        $refillUnit = UnitApar::create([
+        UnitApar::create([
             'pelanggan_id' => $pelanggan->id,
             'produk_id' => $produk->id,
-            'no_seri' => 'REFILL-001',
+            'no_seri' => 'H10-001',
             'ukuran' => '1 kg',
             'bahan' => 'Dry Chemical Powder',
             'tgl_beli' => now()->subMonths(4)->toDateString(),
@@ -48,45 +48,28 @@ class CustomerRefillFromHistoryTest extends TestCase
             'kondisi_awal' => 'layak',
         ]);
 
-        $lockedUnit = UnitApar::create([
+        UnitApar::create([
             'pelanggan_id' => $pelanggan->id,
             'produk_id' => $produk->id,
-            'no_seri' => 'LOCK-001',
+            'no_seri' => 'REFILL-001',
             'ukuran' => '1 kg',
             'bahan' => 'Dry Chemical Powder',
             'tgl_beli' => now()->subMonths(5)->toDateString(),
             'tgl_produksi' => now()->subMonths(5)->toDateString(),
-            'tgl_expired' => now()->addDays(5)->toDateString(),
+            'tgl_expired' => now()->addDays(7)->toDateString(),
             'kondisi_awal' => 'layak',
         ]);
 
-        $activeOrder = Pesanan::create([
+        UnitApar::create([
             'pelanggan_id' => $pelanggan->id,
-            'user_id' => $user->id,
-            'tipe' => 'service',
-            'service_jenis_layanan' => 'refill',
-            'service_jenis_apar' => 'Powder',
-            'service_ukuran_apar' => '1 kg',
-            'service_jumlah_unit' => 1,
-            'service_total_kg' => 1,
-            'status' => Pesanan::STATUS_DIPROSES,
-            'tanggal' => now()->toDateString(),
-            'total' => 50000,
-            'total_harga' => 50000,
-            'service_estimasi_biaya' => 50000,
-            'alamat_maps' => $pelanggan->alamat_maps,
-            'alamat_detail' => $pelanggan->alamat_detail,
-            'pembayaran_terkonfirmasi_at' => now(),
-            'service_keluhan' => '1. LOCK-001 - APAR GuardALL Powder 1 kg - Dry Chemical Powder - 1 kg - Masa berlaku: ' . now()->addDays(5)->translatedFormat('d F Y') . ' - Refill: Powder - Kebutuhan: 1 Kg - Rp50.000',
-        ]);
-
-        Service::create([
-            'pesanan_id' => $activeOrder->id,
-            'unit_apar_id' => $lockedUnit->id,
-            'jenis_service' => 'Refill APAR',
-            'tgl_service' => now()->toDateString(),
-            'biaya' => 50000,
-            'status_konfirmasi' => 'pending',
+            'produk_id' => $produk->id,
+            'no_seri' => 'EXPIRED-001',
+            'ukuran' => '1 kg',
+            'bahan' => 'Dry Chemical Powder',
+            'tgl_beli' => now()->subMonths(6)->toDateString(),
+            'tgl_produksi' => now()->subMonths(6)->toDateString(),
+            'tgl_expired' => now()->subDay()->toDateString(),
+            'kondisi_awal' => 'layak',
         ]);
 
         $response = $this->actingAs($user)->get(route('riwayat-apar'));
@@ -94,12 +77,12 @@ class CustomerRefillFromHistoryTest extends TestCase
         $response->assertOk();
         $response->assertSeeText('Aman');
         $response->assertSeeText('Perlu Refill');
-        $response->assertSeeText('Unit APAR di halaman ini dipakai untuk pemantauan saja.');
-        $response->assertSeeText('Unit ini sedang dalam proses refill.');
-        $response->assertDontSeeText('Ajukan Refill');
-        $response->assertDontSeeText('Pilih untuk Refill');
+        $response->assertSeeText('Service selalu tersedia untuk setiap unit APAR.');
+        $response->assertDontSeeText('Unit APAR di halaman ini dipakai untuk pemantauan saja.');
         $this->assertStringContainsString('REFILL-001', $response->getContent());
-        $this->assertStringContainsString('LOCK-001', $response->getContent());
+        $this->assertStringContainsString('EXPIRED-001', $response->getContent());
+        $this->assertSame(4, substr_count($response->getContent(), 'Ajukan Service'));
+        $this->assertSame(2, substr_count($response->getContent(), 'Ajukan Refill'));
     }
 
     public function test_history_refill_route_still_redirects_with_prefill_session(): void
@@ -118,7 +101,7 @@ class CustomerRefillFromHistoryTest extends TestCase
             'bahan' => 'Dry Chemical Powder',
             'tgl_beli' => now()->subMonths(6)->toDateString(),
             'tgl_produksi' => now()->subMonths(6)->toDateString(),
-            'tgl_expired' => now()->addDays(8)->toDateString(),
+            'tgl_expired' => now()->addDays(7)->toDateString(),
             'kondisi_awal' => 'layak',
         ]);
 
@@ -144,6 +127,45 @@ class CustomerRefillFromHistoryTest extends TestCase
             [$unitA->id, $unitB->id],
             session('prefill_registered_refill.selected_unit_ids')
         );
+
+        $orderPage = $this->actingAs($user)->get(route('order.create'));
+        $orderPage->assertOk();
+        $orderPage->assertSee('"service_jenis_layanan":"refill"', false);
+        $orderPage->assertSee('PREFILL-001');
+        $orderPage->assertSee('PREFILL-002');
+    }
+
+    public function test_history_service_route_redirects_with_prefill_session(): void
+    {
+        config(['broadcasting.default' => 'null']);
+
+        [$user, $pelanggan] = $this->createCustomer();
+        $produk = $this->createPowderProduct();
+
+        $unit = UnitApar::create([
+            'pelanggan_id' => $pelanggan->id,
+            'produk_id' => $produk->id,
+            'no_seri' => 'SERVICE-001',
+            'ukuran' => '1 kg',
+            'bahan' => 'Dry Chemical Powder',
+            'tgl_beli' => now()->subMonths(2)->toDateString(),
+            'tgl_produksi' => now()->subMonths(2)->toDateString(),
+            'tgl_expired' => now()->addDays(45)->toDateString(),
+            'kondisi_awal' => 'layak',
+        ]);
+
+        $response = $this->actingAs($user)->post(route('riwayat-apar.ajukan-service'), [
+            'action_unit_id' => $unit->id,
+        ]);
+
+        $response->assertRedirect(route('order.create'));
+        $response->assertSessionHas('prefill_registered_service');
+        $this->assertSame([$unit->id], session('prefill_registered_service.selected_unit_ids'));
+
+        $orderPage = $this->actingAs($user)->get(route('order.create'));
+        $orderPage->assertOk();
+        $orderPage->assertSee('"service_jenis_layanan":"service"', false);
+        $orderPage->assertSee('SERVICE-001');
     }
 
     public function test_history_refill_route_rejects_unit_that_is_still_in_active_refill_process(): void
@@ -294,6 +316,10 @@ class CustomerRefillFromHistoryTest extends TestCase
         $this->assertNotSame($oldExpiryA, $unitA->fresh()->tgl_expired?->toDateString());
         $this->assertNotSame($oldExpiryB, $unitB->fresh()->tgl_expired?->toDateString());
         $this->assertDatabaseHas('services', [
+            'pesanan_id' => $pesanan->id,
+        ]);
+        $this->assertSame(2, UnitApar::query()->count());
+        $this->assertDatabaseMissing('unit_apars', [
             'pesanan_id' => $pesanan->id,
         ]);
     }

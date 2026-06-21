@@ -4,12 +4,14 @@ namespace Tests\Feature;
 
 use App\Models\JenisApar;
 use App\Models\JenisRefill;
+use App\Models\Peralatan;
 use App\Models\Pelanggan;
 use App\Models\Pesanan;
 use App\Models\Produk;
 use App\Models\ServicePaket;
 use App\Models\UnitApar;
 use App\Models\User;
+use App\Services\FinalTransactionStockService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -377,6 +379,132 @@ class PublicOrderServicePricingTest extends TestCase
         $this->assertStringContainsString('2 kg', (string) $pesanan->service_keluhan);
         $this->assertStringContainsString('4 kg', (string) $pesanan->service_keluhan);
         $this->assertStringContainsString('Rp150.000', (string) $pesanan->service_keluhan);
+    }
+
+    public function test_finalized_registered_service_updates_existing_units_without_creating_new_ones(): void
+    {
+        config(['broadcasting.default' => 'null']);
+
+        $user = User::factory()->create([
+            'role' => 'pelanggan',
+            'no_telpon' => '081234567891',
+        ]);
+
+        $pelanggan = Pelanggan::create([
+            'user_id' => $user->id,
+            'nama' => 'Pelanggan Service Final',
+            'no_wa' => '081234567891',
+            'alamat' => 'Jl. Service Final',
+            'alamat_maps' => 'Jl. Service Final',
+            'alamat_detail' => 'Gudang depan',
+            'alamat_lat' => -6.2,
+            'alamat_lng' => 106.8,
+            'status' => 'tetap',
+        ]);
+
+        $jenisApar = JenisApar::create([
+            'nama' => 'Dry Chemical Powder',
+            'deskripsi' => 'Powder',
+        ]);
+
+        $produk = Produk::create([
+            'nama' => 'APAR Powder 6 kg',
+            'merek' => 'GuardALL',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '6 kg',
+            'penggunaan' => 'Gudang',
+            'harga' => 600000,
+            'deskripsi' => 'Demo',
+            'stok' => 10,
+        ]);
+
+        $paket = ServicePaket::create([
+            'nama' => 'Service Ringan',
+            'label' => 'Ringan',
+            'harga' => 35000,
+        ]);
+
+        Peralatan::create([
+            'nama' => 'Safety Pin APAR',
+            'stok' => 10,
+            'stok_minimum' => 3,
+            'harga_standar' => 10000,
+        ]);
+
+        Peralatan::create([
+            'nama' => 'Segel Pengaman Plastik',
+            'stok' => 10,
+            'stok_minimum' => 5,
+            'harga_standar' => 5000,
+        ]);
+
+        $purchaseDate = now()->subMonths(2)->toDateString();
+
+        $unitA = UnitApar::create([
+            'pelanggan_id' => $pelanggan->id,
+            'produk_id' => $produk->id,
+            'no_seri' => 'FINAL-SVC-001',
+            'ukuran' => '6 kg',
+            'bahan' => 'Dry Chemical Powder',
+            'tgl_beli' => $purchaseDate,
+            'tgl_produksi' => now()->subYear()->toDateString(),
+            'tgl_expired' => now()->addMonths(4)->toDateString(),
+            'kondisi_awal' => 'perlu_servis',
+        ]);
+
+        $unitB = UnitApar::create([
+            'pelanggan_id' => $pelanggan->id,
+            'produk_id' => $produk->id,
+            'no_seri' => 'FINAL-SVC-002',
+            'ukuran' => '6 kg',
+            'bahan' => 'Dry Chemical Powder',
+            'tgl_beli' => $purchaseDate,
+            'tgl_produksi' => now()->subYear()->toDateString(),
+            'tgl_expired' => now()->addMonths(5)->toDateString(),
+            'kondisi_awal' => 'perlu_servis',
+        ]);
+
+        $oldExpiryA = $unitA->tgl_expired->toDateString();
+        $oldExpiryB = $unitB->tgl_expired->toDateString();
+
+        $response = $this->actingAs($user)->post(route('order.store'), [
+            'nama' => $pelanggan->nama,
+            'no_wa' => $pelanggan->no_wa,
+            'alamat_maps' => $pelanggan->alamat_maps,
+            'alamat_detail' => $pelanggan->alamat_detail,
+            'alamat_lat' => $pelanggan->alamat_lat,
+            'alamat_lng' => $pelanggan->alamat_lng,
+            'tipe_layanan' => 'service',
+            'metode_pengiriman' => 'pickup',
+            'bank_tujuan' => 'bca',
+            'service_jenis_layanan' => 'service',
+            'service_unit_status' => 'terdaftar',
+            'service_purchase_group' => $purchaseDate,
+            'service_unit_apar_ids' => [$unitA->id, $unitB->id],
+            'service_paket_id' => $paket->id,
+            'service_metode_penanganan' => 'antar sendiri',
+            'service_keluhan' => 'Mohon service untuk dua unit terdaftar.',
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionDoesntHaveErrors();
+
+        $pesanan = Pesanan::query()->latest('id')->firstOrFail();
+        $pesanan->update(['status' => Pesanan::STATUS_SELESAI_FINAL]);
+
+        app(FinalTransactionStockService::class)->apply($pesanan->fresh());
+
+        $this->assertSame(2, UnitApar::query()->count());
+        $this->assertDatabaseMissing('unit_apars', [
+            'pesanan_id' => $pesanan->id,
+        ]);
+        $this->assertSame($oldExpiryA, $unitA->fresh()->tgl_expired?->toDateString());
+        $this->assertSame($oldExpiryB, $unitB->fresh()->tgl_expired?->toDateString());
+        $this->assertSame('layak', $unitA->fresh()->kondisi_awal);
+        $this->assertSame('layak', $unitB->fresh()->kondisi_awal);
+        $this->assertDatabaseHas('services', [
+            'pesanan_id' => $pesanan->id,
+        ]);
     }
 
     public function test_service_pickup_quote_returns_round_trip_distance_and_pickup_cost(): void

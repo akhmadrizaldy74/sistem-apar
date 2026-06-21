@@ -2,10 +2,12 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Models\JenisRefill;
 use App\Models\JenisApar;
 use App\Models\Pelanggan;
 use App\Models\Pesanan;
 use App\Models\Produk;
+use App\Models\Refill;
 use App\Models\Service;
 use App\Models\StokBatch;
 use App\Models\UnitApar;
@@ -235,7 +237,7 @@ class UnitAparTest extends TestCase
         ]);
 
         $response->assertRedirect(route('admin.unit-apar.index'));
-        $response->assertSessionHas('error', 'Registrasi manual unit APAR dinonaktifkan. Unit dibuat otomatis dari transaksi pelanggan yang selesai final.');
+        $response->assertSessionHas('error', 'Registrasi manual unit APAR dinonaktifkan. Unit dibuat otomatis dari transaksi pelanggan setelah pembayaran valid, lalu ditampilkan penuh saat transaksi selesai final.');
         $this->assertDatabaseCount('unit_apars', 0);
     }
 
@@ -258,6 +260,77 @@ class UnitAparTest extends TestCase
             'tgl_expired' => now()->addMonths(9)->toDateString(),
         ]);
 
+        $jenisRefill = JenisRefill::create([
+            'nama' => 'Powder',
+            'nama_label' => 'Powder',
+            'harga' => 50000,
+            'stok' => 100,
+            'stok_minimum' => 5,
+        ]);
+
+        $refillOrder = Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'user_id' => $pelanggan->user_id,
+            'tipe' => 'service',
+            'service_jenis_layanan' => 'refill',
+            'service_jenis_refill_id' => $jenisRefill->id,
+            'service_jenis_apar' => 'Powder',
+            'service_ukuran_apar' => '6 Kg',
+            'service_jumlah_unit' => 1,
+            'service_total_kg' => 6,
+            'status' => Pesanan::STATUS_SELESAI_FINAL,
+            'tanggal' => '2026-06-20',
+            'total' => 120000,
+            'total_harga' => 120000,
+            'service_estimasi_biaya' => 120000,
+            'service_keluhan' => 'Refill unit detail admin.',
+        ]);
+
+        $refillService = Service::create([
+            'pesanan_id' => $refillOrder->id,
+            'unit_apar_id' => $unit->id,
+            'jenis_service' => 'Refill APAR',
+            'tgl_service' => '2026-06-21',
+            'biaya' => 120000,
+            'status_konfirmasi' => 'confirmed',
+            'tgl_selesai_admin' => '2026-06-21 10:30:00',
+        ]);
+
+        Refill::create([
+            'service_id' => $refillService->id,
+            'unit_apar_id' => $unit->id,
+            'jenis_refill_id' => $jenisRefill->id,
+            'tgl_refill' => '2026-06-21',
+            'biaya' => 120000,
+        ]);
+
+        $serviceOrder = Pesanan::create([
+            'pelanggan_id' => $pelanggan->id,
+            'user_id' => $pelanggan->user_id,
+            'tipe' => 'service',
+            'service_jenis_layanan' => 'service',
+            'service_paket_id' => null,
+            'service_jenis_apar' => 'Dry Chemical Powder',
+            'service_ukuran_apar' => '6 Kg',
+            'service_jumlah_unit' => 1,
+            'status' => Pesanan::STATUS_SELESAI_FINAL,
+            'tanggal' => '2026-06-22',
+            'total' => 75000,
+            'total_harga' => 75000,
+            'service_estimasi_biaya' => 75000,
+            'service_keluhan' => 'Service ringan untuk unit detail admin.',
+        ]);
+
+        Service::create([
+            'pesanan_id' => $serviceOrder->id,
+            'unit_apar_id' => $unit->id,
+            'jenis_service' => 'Service Ringan',
+            'tgl_service' => '2026-06-22',
+            'biaya' => 75000,
+            'status_konfirmasi' => 'confirmed',
+            'tgl_selesai_admin' => '2026-06-22 14:45:00',
+        ]);
+
         $response = $this->actingAs($admin)->get(route('admin.unit-apar.show', $unit));
 
         $response->assertOk();
@@ -267,8 +340,18 @@ class UnitAparTest extends TestCase
         $response->assertSee('081234567899');
         $response->assertSee('APAR Powder 6 Kg');
         $response->assertSee('Dry Chemical Powder');
-        $response->assertSee('Gudang utama');
-        $response->assertSee('Segel baru diganti');
+        $response->assertSee('Riwayat Refill');
+        $response->assertSee('Riwayat Service');
+        $response->assertSee('Powder');
+        $response->assertSee('Service Ringan');
+        $response->assertSee('10:30');
+        $response->assertSee('14:45');
+        $response->assertSee('Dibuat:');
+        $response->assertSee('Selesai / Update:');
+        $response->assertDontSee('Lokasi Unit');
+        $response->assertDontSee('Keterangan');
+        $response->assertDontSee('Gudang utama');
+        $response->assertDontSee('Segel baru diganti');
         $response->assertDontSee(route('admin.unit-apar.edit', $unit), false);
     }
 
