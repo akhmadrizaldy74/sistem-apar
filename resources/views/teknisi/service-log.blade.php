@@ -7,17 +7,6 @@
             </div>
         </div>
 
-        {{-- DEBUG MARKER — remove after debugging
-        <div style="background:yellow;border:3px solid red;padding:20px;position:fixed;bottom:10px;left:10px;z-index:9999;font-size:14px;font-family:monospace">
-            pendingServices: {{ $pendingServices->count() }}<br>
-            reportedServices: {{ $reportedServices->count() }}<br>
-            completedServices: {{ $completedServices->count() }}<br>
-            @foreach($pendingServices as $s)
-            PENDING: #{{ $s->id }} unit={{ $s->unitApar?->no_seri }} paket={{ $s->servicePaket?->nama }}<br>
-            @endforeach
-        </div>
-        --}}
-
         {{-- Service Pending (butuh kerja teknisi) --}}
         @if($pendingServices->count() > 0)
         <div class="mb-8">
@@ -198,12 +187,6 @@
             </div>
         </div>
         @endif
-
-        {{-- DEBUG EMPTY STATE CHECK — remove after debugging
-        <div style="background:lime;border:3px solid green;padding:20px;position:fixed;bottom:10px;right:10px;z-index:9999;font-size:14px;font-family:monospace">
-            EMPTY STATE SHOWN! All collections are empty!
-        </div>
-        --}}
 
         @if($pendingServices->isEmpty() && $reportedServices->isEmpty() && $completedServices->isEmpty())
         <div class="py-16 px-4 flex flex-col items-center justify-center bg-white rounded-3xl border border-slate-200 border-dashed text-center">
