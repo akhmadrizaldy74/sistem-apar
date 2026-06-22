@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Pengeluaran;
 use App\Models\UnitApar;
+use App\Support\RegisteredRefillUnitSupport;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -23,8 +24,8 @@ class AdminAnalyticsService
     ];
 
     private const UNIT_STATUS_LABELS = [
-        'Aktif',
-        'Akan Expired',
+        'Aman',
+        'Hampir Expired',
         'Expired',
     ];
 
@@ -115,7 +116,7 @@ class AdminAnalyticsService
     public function unitStatus(?CarbonInterface $today = null): array
     {
         $today = $today ? Carbon::instance($today) : Carbon::today();
-        $expiringLimit = $today->copy()->addDays(30);
+        $expiringLimit = $today->copy()->addDays(RegisteredRefillUnitSupport::REFILL_WARNING_DAYS);
 
         return [
             'labels' => self::UNIT_STATUS_LABELS,

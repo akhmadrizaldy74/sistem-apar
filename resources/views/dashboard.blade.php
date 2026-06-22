@@ -43,6 +43,12 @@
             ])
         </div>
 
+        <div id="dashboard-product-expiry-alert-panel">
+            @include('dashboard.partials.product-expiry-alert-panel', [
+                'productExpiryAlerts' => $productExpiryAlerts,
+            ])
+        </div>
+
         <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div class="border-b border-slate-100 bg-slate-50/70 px-5 py-4 sm:px-6">
                 <h3 class="text-base font-black text-slate-900 md:text-lg">Analitik Ringkas</h3>
@@ -287,6 +293,7 @@
                     onSuccess(payload) {
                         const kpiGrid = document.getElementById('dashboard-kpi-grid');
                         const stockAlertPanel = document.getElementById('dashboard-stock-alert-panel');
+                        const productExpiryAlertPanel = document.getElementById('dashboard-product-expiry-alert-panel');
 
                         if (kpiGrid && typeof payload.kpi_html === 'string') {
                             kpiGrid.innerHTML = payload.kpi_html;
@@ -295,6 +302,10 @@
 
                         if (stockAlertPanel && typeof payload.stock_alert_html === 'string') {
                             stockAlertPanel.innerHTML = payload.stock_alert_html;
+                        }
+
+                        if (productExpiryAlertPanel && typeof payload.product_expiry_html === 'string') {
+                            productExpiryAlertPanel.innerHTML = payload.product_expiry_html;
                         }
                     },
                 });

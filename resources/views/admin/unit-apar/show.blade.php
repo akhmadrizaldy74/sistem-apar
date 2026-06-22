@@ -86,12 +86,12 @@
                 </div>
 
                 <div>
-                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Tanggal Produksi / Dasar Expired</p>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Tanggal Dasar Masa Berlaku</p>
                     <p class="mt-2 text-sm font-bold text-slate-900">{{ optional($unit->tgl_produksi)->format('d M Y') ?: '-' }}</p>
                 </div>
 
                 <div>
-                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Tanggal Expired</p>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Masa Berlaku Sampai</p>
                     <p class="mt-2 text-sm font-bold text-slate-900">{{ optional($unit->tgl_expired)->format('d M Y') ?: '-' }}</p>
                 </div>
 
@@ -100,6 +100,11 @@
                     <span class="mt-2 inline-flex rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-widest {{ $statusMeta['badge_class'] }}">
                         {{ $statusMeta['label'] }}
                     </span>
+                </div>
+
+                <div>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Sisa Masa Berlaku</p>
+                    <p class="mt-2 text-sm font-bold {{ $statusMeta['date_class'] }}">{{ $statusMeta['remaining_label'] }}</p>
                 </div>
 
                 <div>

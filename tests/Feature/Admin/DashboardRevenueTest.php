@@ -23,6 +23,13 @@ class DashboardRevenueTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
+    }
+
     public function test_dashboard_and_laporan_use_same_paid_revenue_values(): void
     {
         $admin = User::factory()->create([
@@ -146,7 +153,10 @@ class DashboardRevenueTest extends TestCase
         $response->assertDontSeeText('Semua transaksi utama dalam kondisi aman');
         $response->assertSeeText('Peringatan Stok');
         $response->assertSeeText('Semua stok dalam kondisi aman');
+        $response->assertSeeText('Peringatan Masa Berlaku Stok APAR');
+        $response->assertSeeText('Belum ada stok APAR yang mendekati masa expired.');
         $this->assertFalse((bool) $response->viewData('stockAlerts')['hasIssues']);
+        $this->assertFalse((bool) $response->viewData('productExpiryAlerts')['hasIssues']);
     }
 
     public function test_dashboard_shows_stock_warnings_for_admin(): void
@@ -237,6 +247,101 @@ class DashboardRevenueTest extends TestCase
         $this->assertSame(3, (int) $stockAlerts['totalEmptyCount']);
         $this->assertSame(3, (int) $stockAlerts['totalLowCount']);
         $this->assertCount(3, $stockAlerts['groups']);
+    }
+
+    public function test_dashboard_shows_product_expiry_warnings_for_apar_stock(): void
+    {
+        Carbon::setTestNow('2026-06-22');
+
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'no_telpon' => '081111111146',
+        ]);
+
+        $jenisApar = JenisApar::create([
+            'nama' => 'Dry Chemical Powder',
+        ]);
+
+        $produkExpired = Produk::create([
+            'nama' => 'APAR TONATA Powder 2 kg',
+            'merek' => 'TONATA',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '2 kg',
+            'penggunaan' => 'Gudang',
+            'harga' => 650000,
+        ]);
+
+        $produkHampirExpired = Produk::create([
+            'nama' => 'APAR GuardALL Powder 4 kg',
+            'merek' => 'GuardALL',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '4 kg',
+            'penggunaan' => 'Perkantoran',
+            'harga' => 1486207,
+        ]);
+
+        $produkAman = Produk::create([
+            'nama' => 'APAR FIREFIX Powder 6 kg',
+            'merek' => 'FIREFIX',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '6 kg',
+            'penggunaan' => 'Panel listrik',
+            'harga' => 1750000,
+        ]);
+
+        StokBatch::create([
+            'produk_id' => $produkExpired->id,
+            'jumlah_masuk' => 12,
+            'sisa_qty' => 12,
+            'tgl_produksi' => '2025-06-21',
+            'tgl_expired' => '2026-06-21',
+            'keterangan' => 'Batch expired dashboard',
+        ]);
+
+        StokBatch::create([
+            'produk_id' => $produkHampirExpired->id,
+            'jumlah_masuk' => 23,
+            'sisa_qty' => 23,
+            'tgl_produksi' => '2025-06-26',
+            'tgl_expired' => '2026-06-26',
+            'keterangan' => 'Batch hampir expired dashboard',
+        ]);
+
+        StokBatch::create([
+            'produk_id' => $produkAman->id,
+            'jumlah_masuk' => 8,
+            'sisa_qty' => 8,
+            'tgl_produksi' => '2026-06-22',
+            'tgl_expired' => '2027-06-22',
+            'keterangan' => 'Batch aman dashboard',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('dashboard'));
+
+        $response->assertOk();
+        $response->assertSeeText('Peringatan Masa Berlaku Stok APAR');
+        $response->assertSeeText('APAR TONATA Powder 2 kg');
+        $response->assertSeeText('APAR GuardALL Powder 4 kg');
+        $response->assertSeeText('21 Juni 2026');
+        $response->assertSeeText('26 Juni 2026');
+        $response->assertSeeText('2 produk APAR perlu perhatian masa berlaku.');
+        $response->assertSeeText('1 produk hampir expired, 1 produk sudah expired.');
+        $response->assertSeeText('Status masa berlaku: Expired');
+        $response->assertSeeText('Status masa berlaku: Hampir Expired');
+        $response->assertSeeText('Sudah expired sejak 21 Juni 2026');
+        $response->assertSeeText('Sisa masa berlaku: 4 hari lagi');
+        $response->assertDontSeeText('Sisa: Expired');
+        $response->assertDontSeeText('APAR FIREFIX Powder 6 kg');
+        $response->assertSee('/admin/stok?', false);
+        $response->assertSee('filter=masa-berlaku', false);
+
+        $productExpiryAlerts = $response->viewData('productExpiryAlerts');
+
+        $this->assertTrue((bool) $productExpiryAlerts['hasIssues']);
+        $this->assertSame(2, (int) $productExpiryAlerts['totalIssueCount']);
+        $this->assertSame(1, (int) $productExpiryAlerts['expiringCount']);
+        $this->assertSame(1, (int) $productExpiryAlerts['expiredCount']);
+        $this->assertCount(2, $productExpiryAlerts['items']);
     }
 
     public function test_dashboard_ignores_empty_equipment_alias_when_canonical_stock_is_available(): void

@@ -1,7 +1,7 @@
 @props(['produk'])
 
 @php
-    $stokSiapJual = (int) ($produk->stok_tersedia ?? 0);
+    $stokSiapJual = (int) ($produk->catalog_ready_stock ?? 0);
     $isHabis = $stokSiapJual <= 0;
     $formatRupiah = static fn ($amount) => 'Rp ' . number_format((float) $amount, 0, ',', '.');
     $jenisNama = trim((string) ($produk->jenisApar?->nama ?? 'APAR'));
@@ -10,6 +10,14 @@
         : (str_contains(strtolower($jenisNama), 'foam') || str_contains(strtolower($jenisNama), 'busa') ? 'FOAM' : 'DRY CHEMICAL POWDER');
     $stockBadge = $isHabis ? 'HABIS' : 'TERSEDIA';
     $stockDetail = $isHabis ? 'Habis' : $stokSiapJual . ' unit tersedia';
+    $displayBatch = $produk->catalogDisplayBatch();
+    $productExpiryMeta = \App\Support\RegisteredRefillUnitSupport::statusMetaFromExpiry($displayBatch?->tgl_expired);
+    $hasExpiryInfo = ($productExpiryMeta['expired_at_label'] ?? '-') !== '-';
+    $productExpiryTone = match ($productExpiryMeta['status_key'] ?? null) {
+        'expired' => 'text-red-700',
+        'hampir' => 'text-amber-700',
+        default => 'text-slate-700',
+    };
 @endphp
 
 <article class="group flex h-full flex-col overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_18px_50px_-28px_rgba(15,23,42,0.35)] transition duration-300 hover:-translate-y-1 hover:border-red-200 hover:shadow-[0_28px_65px_-30px_rgba(185,28,28,0.28)]">
@@ -57,6 +65,14 @@
             <p class="{{ $isHabis ? 'font-bold text-red-700' : '' }}">
                 <span class="font-bold {{ $isHabis ? 'text-red-700' : 'text-slate-900' }}">Stok:</span>
                 {{ ' ' }}{{ $stockDetail }}
+            </p>
+            <p>
+                <span class="font-bold text-slate-900">Masa Berlaku:</span>
+                <span class="{{ $productExpiryTone }}">{{ ' ' }}{{ $hasExpiryInfo ? ($productExpiryMeta['expired_at_label'] ?? '-') : '-' }}</span>
+            </p>
+            <p>
+                <span class="font-bold text-slate-900">Sisa:</span>
+                <span class="{{ $productExpiryTone }}">{{ ' ' }}{{ $hasExpiryInfo ? ($productExpiryMeta['remaining_label'] ?? '-') : '-' }}</span>
             </p>
         </div>
 

@@ -568,18 +568,21 @@ class Pesanan extends Model
                 $produk = $detail->produk;
                 $jumlahDibutuhkan = $detail->jumlah;
                 $stokSebelum = (float) $produk->stok_tersedia;
+                $warningLimit = now()->startOfDay()
+                    ->addDays(\App\Support\RegisteredRefillUnitSupport::REFILL_WARNING_DAYS)
+                    ->toDateString();
 
-                // FIFO: Ambil batch yang tidak expired & memiliki sisa stok
+                // FIFO: Ambil batch siap jual dengan masa berlaku aman.
                 $batches = \App\Models\StokBatch::where('produk_id', $produk->id)
                     ->where('sisa_qty', '>', 0)
-                    ->where('tgl_expired', '>=', now()->toDateString())
+                    ->whereDate('tgl_expired', '>', $warningLimit)
                     ->orderBy('tgl_expired', 'asc')
                     ->get();
 
                 $totalTersedia = $batches->sum('sisa_qty');
 
                 if ($totalTersedia < $jumlahDibutuhkan) {
-                    throw new \RuntimeException("Stok non-expired produk '{$produk->nama}' tidak mencukupi untuk memenuhi pesanan!");
+                    throw new \RuntimeException("Stok siap jual produk '{$produk->nama}' tidak mencukupi untuk memenuhi pesanan!");
                 }
 
                 foreach ($batches as $batch) {

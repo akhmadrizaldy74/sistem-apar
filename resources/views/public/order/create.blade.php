@@ -192,6 +192,7 @@
     const REGISTERED_UNIT_APAR_DB = {!! json_encode(($registeredUnitApars ?? collect())->map(function ($unitApar) {
         $unitApar->loadMissing('produk.jenisApar');
         $produk = $unitApar->produk;
+        $statusMeta = \App\Support\RegisteredRefillUnitSupport::statusMeta($unitApar);
         $jenisApar = (string) ($produk?->jenisApar?->nama ?: $unitApar->bahan ?: '');
         $ukuran = (string) ($unitApar->ukuran ?: $produk?->kapasitas ?: '');
         $kode = (string) ($unitApar->no_seri ?: 'UNIT-' . $unitApar->id);
@@ -199,13 +200,6 @@
         $purchaseDate = $unitApar->tgl_beli ? $unitApar->tgl_beli->translatedFormat('d F Y') : 'Tanpa tanggal';
         $purchaseKey = $unitApar->tgl_beli ? $unitApar->tgl_beli->toDateString() : 'tanpa-tanggal';
         $purchaseLabel = $purchaseDate;
-        $rawStatusUnit = mb_strtolower(trim((string) ($unitApar->kondisi_awal ?? '')));
-        $statusUnit = match ($rawStatusUnit) {
-            'tidak_aktif' => 'Tidak Aktif',
-            'perlu_servis' => 'Perlu Servis',
-            'aktif', 'valid', 'layak', '' => 'Aktif',
-            default => ucwords(str_replace('_', ' ', $rawStatusUnit)),
-        };
         $label = collect([$kode, $produkNama, $jenisApar, $ukuran])
             ->map(fn ($part) => trim((string) $part))
             ->filter()
@@ -218,13 +212,14 @@
             'jenis_apar' => $jenisApar,
             'ukuran' => $ukuran,
             'tgl_beli' => $purchaseDate,
-            'masa_berlaku' => $unitApar->tgl_expired ? $unitApar->tgl_expired->translatedFormat('d F Y') : '-',
-            'status_unit' => $statusUnit,
+            'masa_berlaku_sampai' => (string) ($statusMeta['expired_at_label'] ?? '-'),
+            'sisa_masa_berlaku' => (string) ($statusMeta['remaining_label'] ?? '-'),
+            'status_masa_berlaku' => (string) ($statusMeta['status_label'] ?? 'Aman'),
             'label' => $label,
             'purchase_key' => $purchaseKey,
             'purchase_label' => $purchaseLabel,
-            'needs_refill' => (bool) ($unitApar->getAttribute('needs_refill') ?? false),
-            'refill_status_label' => (string) ($unitApar->getAttribute('refill_status_label') ?? 'Aman'),
+            'needs_refill' => (bool) ($statusMeta['needs_refill'] ?? false),
+            'expiry_status_key' => (string) ($statusMeta['status_key'] ?? 'aman'),
             'is_refill_locked' => (bool) ($unitApar->getAttribute('is_refill_locked') ?? false),
             'refill_lock_message' => (string) ($unitApar->getAttribute('refill_lock_message') ?? ''),
         ];
@@ -2832,10 +2827,14 @@
             const jenisApar = escapeHtml(unit.jenis_apar || '-');
             const ukuran = escapeHtml(unit.ukuran || '-');
             const tglBeli = escapeHtml(unit.tgl_beli || '-');
-            const masaBerlaku = escapeHtml(unit.masa_berlaku || '-');
-            const statusUnit = escapeHtml(unit.status_unit || '-');
+            const masaBerlaku = escapeHtml(unit.masa_berlaku_sampai || '-');
+            const sisaMasaBerlaku = escapeHtml(unit.sisa_masa_berlaku || '-');
+            const statusMasaBerlaku = escapeHtml(unit.status_masa_berlaku || '-');
             const refillLabel = escapeHtml(unitRefillSelection.refill?.nama_label || '-');
-            const refillStatusLabel = escapeHtml(unit.refill_status_label || 'Aman');
+            const expiryStatusKey = String(unit.expiry_status_key || 'aman');
+            const expiryStatusClass = expiryStatusKey === 'expired'
+                ? 'text-red-600'
+                : (expiryStatusKey === 'hampir' ? 'text-amber-600' : 'text-emerald-600');
             const isLocked = Boolean(unit.is_refill_locked);
             const lockMessage = escapeHtml(unit.refill_lock_message || 'Unit ini sedang dalam proses refill.');
 
@@ -2850,14 +2849,15 @@
                             <p class="text-sm font-black text-blue-700">${subtotalText}</p>
                         </div>
                         <p class="mt-1 text-sm font-semibold text-slate-700">${produkNama}</p>
-                        <p class="mt-2 text-xs font-black uppercase tracking-[0.18em] ${unit.needs_refill ? 'text-amber-600' : 'text-emerald-600'}">${refillStatusLabel}</p>
+                        <p class="mt-2 text-xs font-black uppercase tracking-[0.18em] ${expiryStatusClass}">${statusMasaBerlaku}</p>
                         <div class="mt-3 grid grid-cols-1 gap-2 text-xs font-semibold text-slate-500 sm:grid-cols-2">
                             <p><span class="font-black text-slate-400 uppercase tracking-wider">Jenis APAR:</span> ${jenisApar}</p>
                             <p><span class="font-black text-slate-400 uppercase tracking-wider">Ukuran:</span> ${ukuran}</p>
                             <p><span class="font-black text-slate-400 uppercase tracking-wider">Jenis Refill:</span> ${refillLabel}</p>
                             <p><span class="font-black text-slate-400 uppercase tracking-wider">Tanggal Beli:</span> ${tglBeli}</p>
-                            <p><span class="font-black text-slate-400 uppercase tracking-wider">Tanggal Expired:</span> ${masaBerlaku}</p>
-                            <p><span class="font-black text-slate-400 uppercase tracking-wider">Status:</span> ${statusUnit}</p>
+                            <p><span class="font-black text-slate-400 uppercase tracking-wider">Masa Berlaku Sampai:</span> ${masaBerlaku}</p>
+                            <p><span class="font-black text-slate-400 uppercase tracking-wider">Sisa Masa Berlaku:</span> ${sisaMasaBerlaku}</p>
+                            <p><span class="font-black text-slate-400 uppercase tracking-wider">Status:</span> ${statusMasaBerlaku}</p>
                         </div>
                         <p class="mt-3 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Pilih untuk Refill</p>
                         ${isLocked ? `<div class="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">${lockMessage}</div>` : ''}

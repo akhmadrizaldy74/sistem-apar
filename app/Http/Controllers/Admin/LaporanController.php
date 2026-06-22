@@ -15,6 +15,7 @@ use App\Models\WebsiteVisit;
 use App\Services\AdminAnalyticsService;
 use App\Services\FinalRevenueService;
 use App\Services\ProductAnalyticsService;
+use App\Services\StockHistoryService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -27,7 +28,8 @@ class LaporanController extends Controller
         Request $request,
         ProductAnalyticsService $productAnalytics,
         FinalRevenueService $finalRevenue,
-        AdminAnalyticsService $analytics
+        AdminAnalyticsService $analytics,
+        StockHistoryService $stockHistoryService
     )
     {
         $filters = $this->filters($request);
@@ -189,6 +191,11 @@ class LaporanController extends Controller
             ->orderByDesc('tanggal')
             ->limit(50)
             ->get();
+        $stockHistories = $stockHistoryService->recent(
+            limit: 15,
+            tanggalDari: $filters['tanggal_dari'],
+            tanggalSampai: $filters['tanggal_sampai'],
+        );
 
         $visitorQuery = WebsiteVisit::query()
             ->when($filters['tanggal_dari'], fn ($query, $tanggalDari) => $query->whereDate('visited_at', '>=', $tanggalDari))
@@ -225,6 +232,7 @@ class LaporanController extends Controller
             'mostViewedProducts',
             'mostSoldProducts',
             'pengeluarans',
+            'stockHistories',
             'pelanggans',
             'stockSummary'
         ));
@@ -606,7 +614,12 @@ class LaporanController extends Controller
         ];
     }
 
-    public function indexPdf(Request $request, ProductAnalyticsService $productAnalytics, FinalRevenueService $finalRevenue)
+    public function indexPdf(
+        Request $request,
+        ProductAnalyticsService $productAnalytics,
+        FinalRevenueService $finalRevenue,
+        StockHistoryService $stockHistoryService
+    )
     {
         $filters = $this->filters($request);
         $now = now();
@@ -746,6 +759,11 @@ class LaporanController extends Controller
             ->orderByDesc('tanggal')
             ->limit(50)
             ->get();
+        $stockHistoriesPdf = $stockHistoryService->recent(
+            limit: 20,
+            tanggalDari: $filters['tanggal_dari'],
+            tanggalSampai: $filters['tanggal_sampai'],
+        );
 
         return Pdf::loadView('admin.laporan.pdf.index', [
             'filters' => $filters,
@@ -771,6 +789,7 @@ class LaporanController extends Controller
             'mostViewedProducts' => $mostViewedProductsPdf,
             'mostSoldProducts' => $mostSoldProductsPdf,
             'pengeluarans' => $pengeluaransPdf,
+            'stockHistories' => $stockHistoriesPdf,
             'combinedData' => $combinedData->sortByDesc('tanggal')->values(),
             'printedAt' => now(),
         ])->download('laporan-apar-'.now()->format('Y-m-d').'.pdf');
@@ -803,6 +822,7 @@ class LaporanController extends Controller
     private function pengeluaranQuery(array $filters): Builder
     {
         return Pengeluaran::query()
+            ->with(['produk', 'jenisRefill', 'peralatan'])
             ->when($filters['tanggal_dari'], fn (Builder $query, string $tanggalDari) => $query->whereDate('tanggal', '>=', $tanggalDari))
             ->when($filters['tanggal_sampai'], fn (Builder $query, string $tanggalSampai) => $query->whereDate('tanggal', '<=', $tanggalSampai));
     }
@@ -930,10 +950,10 @@ class LaporanController extends Controller
                 'sort_at' => $pengeluaran->tanggal?->timestamp ?? now()->timestamp,
                 'tanggal_label' => $pengeluaran->tanggal?->format('d M Y') ?? '-',
                 'jenis' => $this->expenseTypeLabel($pengeluaran),
-                'keterangan' => $pengeluaran->display_item_name ?: ($pengeluaran->keterangan ?: '-'),
+                'keterangan' => $this->expenseDescription($pengeluaran),
                 'pelanggan' => '-',
                 'status' => 'Tercatat',
-                'source' => 'Operasional',
+                'source' => $this->expenseSourceLabel($pengeluaran),
                 'nominal' => (float) $pengeluaran->effective_amount,
                 'direction' => 'out',
             ]);
@@ -1032,7 +1052,80 @@ class LaporanController extends Controller
 
     private function expenseTypeLabel(Pengeluaran $pengeluaran): string
     {
-        return $pengeluaran->jenis_pengeluaran_label;
+        return match ($pengeluaran->jenis_pengeluaran) {
+            Pengeluaran::JENIS_PEMBELIAN_APAR => 'Pembelian Stok APAR',
+            Pengeluaran::JENIS_PEMBELIAN_REFILL => 'Pembelian Stok Refill',
+            Pengeluaran::JENIS_PEMBELIAN_PERALATAN => 'Pembelian Peralatan Service',
+            default => $pengeluaran->jenis_pengeluaran_label,
+        };
+    }
+
+    private function expenseDescription(Pengeluaran $pengeluaran): string
+    {
+        $itemLabel = $this->expenseItemLabel($pengeluaran);
+        $qtyLabel = $this->expenseQuantityLabel($pengeluaran);
+
+        return match ($pengeluaran->jenis_pengeluaran) {
+            Pengeluaran::JENIS_PEMBELIAN_APAR => $this->appendExpenseNote(
+                'Pembelian stok APAR untuk '.$itemLabel.($qtyLabel !== '' ? ' sebanyak '.$qtyLabel : '').'.',
+                $pengeluaran,
+                $itemLabel,
+            ),
+            Pengeluaran::JENIS_PEMBELIAN_REFILL => $this->appendExpenseNote(
+                'Pembelian stok refill untuk '.$itemLabel.($qtyLabel !== '' ? ' sebanyak '.$qtyLabel : '').'.',
+                $pengeluaran,
+                $itemLabel,
+            ),
+            Pengeluaran::JENIS_PEMBELIAN_PERALATAN => $this->appendExpenseNote(
+                'Pembelian peralatan service untuk '.$itemLabel.($qtyLabel !== '' ? ' sebanyak '.$qtyLabel : '').'.',
+                $pengeluaran,
+                $itemLabel,
+            ),
+            default => $this->appendExpenseNote(
+                $itemLabel !== '-' ? $itemLabel . '.' : 'Pengeluaran operasional lainnya.',
+                $pengeluaran,
+                $itemLabel,
+            ),
+        };
+    }
+
+    private function expenseSourceLabel(Pengeluaran $pengeluaran): string
+    {
+        return $pengeluaran->isStockAffecting()
+            ? 'Menu Pengeluaran Stok'
+            : 'Operasional';
+    }
+
+    private function expenseItemLabel(Pengeluaran $pengeluaran): string
+    {
+        return (string) ($pengeluaran->display_item_name ?: $pengeluaran->nama_item ?: '-');
+    }
+
+    private function expenseQuantityLabel(Pengeluaran $pengeluaran): string
+    {
+        $qty = (float) ($pengeluaran->qty ?? 0);
+        if ($qty <= 0) {
+            return '';
+        }
+
+        return $this->formatQty($qty).' '.trim((string) ($pengeluaran->satuan ?: 'unit'));
+    }
+
+    private function appendExpenseNote(string $baseText, Pengeluaran $pengeluaran, ?string $ignoreIfSame = null): string
+    {
+        $baseText = trim($baseText);
+        if ($baseText !== '' && !str_ends_with($baseText, '.')) {
+            $baseText .= '.';
+        }
+
+        $note = trim((string) ($pengeluaran->keterangan ?? ''));
+        $ignoreIfSame = trim((string) $ignoreIfSame);
+
+        if ($note === '' || strcasecmp($note, $ignoreIfSame) === 0) {
+            return $baseText;
+        }
+
+        return trim($baseText . ' Catatan: ' . $note);
     }
 
     private function sourceLabel(?string $source): string

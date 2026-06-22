@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Support\RegisteredRefillUnitSupport;
 use App\Traits\Auditable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
@@ -48,13 +50,67 @@ class Produk extends Model
             ->whereDate('tgl_expired', '>=', now()->toDateString());
     }
 
+    public function catalogReadyStokBatches()
+    {
+        return $this->hasMany(StokBatch::class)
+            ->where('sisa_qty', '>', 0)
+            ->whereDate('tgl_expired', '>', $this->catalogWarningLimitDate());
+    }
+
+    public function scopeCatalogVisible(Builder $query): Builder
+    {
+        $warningLimit = now()->startOfDay()->addDays(RegisteredRefillUnitSupport::REFILL_WARNING_DAYS)->toDateString();
+
+        return $query->where(function (Builder $catalogQuery) use ($warningLimit) {
+            $catalogQuery
+                ->whereDoesntHave('stokBatches', function (Builder $batchQuery) {
+                    $batchQuery->where('sisa_qty', '>', 0);
+                })
+                ->orWhere(function (Builder $stockedQuery) use ($warningLimit) {
+                    $stockedQuery
+                        ->whereHas('stokBatches', function (Builder $batchQuery) {
+                            $batchQuery->where('sisa_qty', '>', 0);
+                        })
+                        ->whereDoesntHave('stokBatches', function (Builder $batchQuery) use ($warningLimit) {
+                            $batchQuery
+                                ->where('sisa_qty', '>', 0)
+                                ->whereDate('tgl_expired', '<=', $warningLimit);
+                        });
+                });
+        });
+    }
+
+    public function scopeCatalogSellable(Builder $query): Builder
+    {
+        $warningLimit = now()->startOfDay()->addDays(RegisteredRefillUnitSupport::REFILL_WARNING_DAYS)->toDateString();
+
+        return $query
+            ->whereHas('stokBatches', function (Builder $batchQuery) {
+                $batchQuery->where('sisa_qty', '>', 0);
+            })
+            ->whereDoesntHave('stokBatches', function (Builder $batchQuery) use ($warningLimit) {
+                $batchQuery
+                    ->where('sisa_qty', '>', 0)
+                    ->whereDate('tgl_expired', '<=', $warningLimit);
+            });
+    }
+
     public function getStokTersediaAttribute(): int
     {
-        return $this->sellableBatchCollection()->sum(fn (StokBatch $batch) => (int) ($batch->sisa_qty ?? 0));
+        return $this->allPositiveBatchCollection()->sum(fn (StokBatch $batch) => (int) ($batch->sisa_qty ?? 0));
     }
 
     public function getStokBatchTotalAttribute(): int
     {
+        return $this->allPositiveBatchCollection()->sum(fn (StokBatch $batch) => (int) ($batch->sisa_qty ?? 0));
+    }
+
+    public function getCatalogReadyStockAttribute(): int
+    {
+        if (! $this->isCatalogReady()) {
+            return 0;
+        }
+
         return $this->allPositiveBatchCollection()->sum(fn (StokBatch $batch) => (int) ($batch->sisa_qty ?? 0));
     }
 
@@ -109,23 +165,115 @@ class Produk extends Model
         return $this->stok_tersedia >= max(0, $qty);
     }
 
-    private function sellableBatchCollection(): Collection
+    public function hasEnoughCatalogStock(int $qty): bool
     {
-        if ($this->relationLoaded('stokBatches')) {
-            $today = now()->toDateString();
+        return $this->catalog_ready_stock >= max(0, $qty);
+    }
 
-            return $this->stokBatches
-                ->filter(function (StokBatch $batch) use ($today) {
-                    $expiredAt = $batch->tgl_expired?->toDateString();
+    public function activeStockBatch(): ?StokBatch
+    {
+        return $this->sortBatchesByExpiry($this->allPositiveBatchCollection())->first();
+    }
 
-                    return (int) ($batch->sisa_qty ?? 0) > 0
-                        && !empty($expiredAt)
-                        && $expiredAt >= $today;
-                })
-                ->values();
+    public function activeStockStatusMeta(): array
+    {
+        $batch = $this->activeStockBatch();
+        if (! $batch?->tgl_expired) {
+            return [
+                'status_key' => 'kosong',
+                'status_label' => '-',
+                'expired_at_label' => '-',
+                'expired_at_short_label' => '-',
+                'remaining_label' => '-',
+                'days_until_expiry' => null,
+                'is_expired' => false,
+                'is_expiring_soon' => false,
+                'needs_refill' => false,
+                'notice_text' => 'Belum ada stok APAR aktif.',
+            ];
         }
 
-        return $this->sellableStokBatches()->get();
+        return RegisteredRefillUnitSupport::statusMetaFromExpiry($batch->tgl_expired);
+    }
+
+    public function activeStockStatusKey(): string
+    {
+        return (string) ($this->activeStockStatusMeta()['status_key'] ?? 'kosong');
+    }
+
+    public function activeStockStatusLabel(): string
+    {
+        return (string) ($this->activeStockStatusMeta()['status_label'] ?? '-');
+    }
+
+    public function isCatalogReady(): bool
+    {
+        return $this->activeStockStatusKey() === 'aman';
+    }
+
+    public function canAddStockDirectly(): bool
+    {
+        return $this->stok_tersedia <= 0 || $this->activeStockStatusKey() === 'aman';
+    }
+
+    public function blockedStockPurchaseMessage(): string
+    {
+        $statusKey = $this->activeStockStatusKey();
+
+        if (! in_array($statusKey, ['hampir', 'expired'], true)) {
+            return '';
+        }
+
+        return 'Stok APAR ini hampir expired/expired. Perbarui masa berlaku terlebih dahulu sebelum menambah stok baru agar data stok tetap sinkron.';
+    }
+
+    public function syncStoredStockFromBatches(): void
+    {
+        $calculatedStock = (int) $this->stokBatches()
+            ->where('sisa_qty', '>', 0)
+            ->sum('sisa_qty');
+
+        if ((int) ($this->stok ?? 0) === (int) $calculatedStock) {
+            return;
+        }
+
+        $this->forceFill([
+            'stok' => (int) $calculatedStock,
+        ])->saveQuietly();
+
+        $this->setAttribute('stok', (int) $calculatedStock);
+
+        if ($this->relationLoaded('stokBatches')) {
+            $this->unsetRelation('stokBatches');
+        }
+    }
+
+    public function publicDisplayBatch(): ?StokBatch
+    {
+        return $this->activeStockBatch();
+    }
+
+    public function catalogDisplayBatch(): ?StokBatch
+    {
+        if (! $this->isCatalogReady()) {
+            return null;
+        }
+
+        return $this->activeStockBatch();
+    }
+
+    private function sellableBatchCollection(): Collection
+    {
+        return $this->allPositiveBatchCollection();
+    }
+
+    private function catalogReadyBatchCollection(): Collection
+    {
+        if (! $this->isCatalogReady()) {
+            return collect();
+        }
+
+        return $this->allPositiveBatchCollection();
     }
 
     private function allPositiveBatchCollection(): Collection
@@ -139,6 +287,25 @@ class Produk extends Model
         return $this->stokBatches()
             ->where('sisa_qty', '>', 0)
             ->get();
+    }
+
+    private function sortBatchesByExpiry(Collection $batches): Collection
+    {
+        return $batches
+            ->sortBy(fn (StokBatch $batch) => sprintf(
+                '%s|%010d',
+                $batch->tgl_expired?->toDateString() ?? '9999-12-31',
+                (int) $batch->id,
+            ))
+            ->values();
+    }
+
+    private function catalogWarningLimitDate(): string
+    {
+        return now()
+            ->startOfDay()
+            ->addDays(RegisteredRefillUnitSupport::REFILL_WARNING_DAYS)
+            ->toDateString();
     }
 
     private function resolveImagePath(): ?string

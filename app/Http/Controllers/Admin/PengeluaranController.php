@@ -25,7 +25,7 @@ class PengeluaranController extends Controller
             ->latest('tanggal')
             ->latest()
             ->get();
-        $produks = Produk::with('jenisApar')->orderBy('nama')->get();
+        $produks = Produk::with(['jenisApar', 'stokBatches'])->orderBy('nama')->get();
         $jenisRefills = JenisRefill::orderBy('nama')->get();
         $peralatans = $serviceMasterSyncService->visiblePeralatans();
         $productPurchaseReferencePrices = $purchaseReferences->latestProductPurchasePrices($produks->pluck('id'));
@@ -184,13 +184,19 @@ class PengeluaranController extends Controller
 
     private function resolveAparPurchaseData(array $validated): array
     {
-        $produk = Produk::with('jenisApar')->findOrFail($validated['produk_id']);
+        $produk = Produk::with(['jenisApar', 'stokBatches'])->findOrFail($validated['produk_id']);
         $qty = (int) $validated['qty'];
         $hargaBeli = round((float) ($validated['harga_beli'] ?? 0), 2);
 
         if ($hargaBeli <= 0) {
             throw ValidationException::withMessages([
                 'harga_beli' => 'Harga beli per unit APAR wajib diisi dan harus lebih dari 0.',
+            ]);
+        }
+
+        if (! $produk->canAddStockDirectly()) {
+            throw ValidationException::withMessages([
+                'produk_id' => $produk->blockedStockPurchaseMessage(),
             ]);
         }
 
@@ -220,7 +226,7 @@ class PengeluaranController extends Controller
 
         if ($hargaBeliAktual <= 0) {
             throw ValidationException::withMessages([
-                'harga_beli' => 'Harga beli aktual refill wajib diisi dan harus lebih dari 0.',
+                'harga_beli' => 'Harga beli refill wajib diisi dan harus lebih dari 0.',
             ]);
         }
 
@@ -256,7 +262,7 @@ class PengeluaranController extends Controller
 
         if ($hargaBeliAktual <= 0) {
             throw ValidationException::withMessages([
-                'harga_beli' => 'Harga beli aktual peralatan wajib diisi dan harus lebih dari 0.',
+                'harga_beli' => 'Harga beli peralatan wajib diisi dan harus lebih dari 0.',
             ]);
         }
 

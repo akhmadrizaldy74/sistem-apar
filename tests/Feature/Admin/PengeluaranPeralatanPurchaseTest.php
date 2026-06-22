@@ -32,7 +32,7 @@ class PengeluaranPeralatanPurchaseTest extends TestCase
 
         $response->assertOk();
         $response->assertSeeText('Harga Standar Master');
-        $response->assertSeeText('Harga Beli Aktual');
+        $response->assertSeeText('Harga Beli');
         $response->assertSeeText('Pilih Peralatan');
     }
 

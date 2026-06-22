@@ -6,10 +6,23 @@
             </a>
             <div>
                 <h2 class="text-3xl font-black text-gray-900 tracking-tight">Edit Produk</h2>
-                <p class="text-sm text-gray-500 font-medium">Perbarui informasi peralatan: {{ $produk->nama }}</p>
+                <p class="text-base font-semibold text-gray-700">Perbarui informasi produk: {{ $produk->nama }}</p>
             </div>
         </div>
     </x-slot>
+
+    @php
+        $formatRupiahInput = static function ($value): string {
+            if (is_null($value) || $value === '') {
+                return '';
+            }
+            if (is_numeric($value)) {
+                return 'Rp ' . number_format(floor((float) $value), 0, ',', '.');
+            }
+            $digits = preg_replace('/\D+/', '', (string) $value) ?? '';
+            return $digits !== '' ? 'Rp ' . number_format((float) $digits, 0, ',', '.') : '';
+        };
+    @endphp
 
     <div class="max-w-4xl">
         <div class="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
@@ -51,15 +64,12 @@
                         </div>
 
                         <div>
-                            <label for="harga" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Harga (IDR)</label>
-                            <div class="relative">
-                                <span class="absolute left-6 top-1/2 -translate-y-1/2 font-black text-gray-400">Rp</span>
-                                <input type="number" name="harga" id="harga" value="{{ old('harga', $produk->harga) }}" required
-                                    class="w-full pl-14 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 transition"
-                                    placeholder="0">
-                            </div>
-                            <p class="mt-2 text-[11px] font-semibold text-gray-500">
-                                Acuan pembelian terakhir dari menu Pengeluaran: Rp {{ number_format((float) ($productPurchaseReferencePrice ?? $produk->harga ?? 0), 0, ',', '.') }}.
+                            <label for="harga" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Harga Produk</label>
+                            <input type="text" name="harga" id="harga" value="{{ $formatRupiahInput(old('harga', $produk->harga)) }}" required inputmode="numeric"
+                                class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-black text-gray-900 transition"
+                                placeholder="Rp 0">
+                            <p class="mt-2 text-xs font-bold leading-6 text-gray-700">
+                                Acuan beli terakhir dari menu Pengeluaran: Rp {{ number_format((float) ($productPurchaseReferencePrice ?? $produk->harga ?? 0), 0, ',', '.') }}.
                             </p>
                             <x-input-error :messages="$errors->get('harga')" class="mt-2" />
                         </div>
@@ -110,6 +120,21 @@
     </div>
 
     <script>
+        const hargaInput = document.getElementById('harga');
+
+        if (hargaInput) {
+            const formatRupiahInput = (value) => {
+                const digits = String(value || '').replace(/\D+/g, '');
+                return digits ? `Rp ${new Intl.NumberFormat('id-ID').format(Number(digits))}` : '';
+            };
+
+            hargaInput.addEventListener('input', () => {
+                hargaInput.value = formatRupiahInput(hargaInput.value);
+            });
+
+            hargaInput.value = formatRupiahInput(hargaInput.value);
+        }
+
         document.getElementById('gambar').onchange = function (evt) {
             const [file] = this.files
             if (file) {

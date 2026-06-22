@@ -18,8 +18,8 @@
                 </a>
             </div>
 
-            <form method="GET" class="mt-8 bg-gray-50 border border-gray-100 rounded-[1.75rem] p-6 grid md:grid-cols-4 gap-4 items-end" data-reveal>
-                <div class="md:col-span-2">
+            <form method="GET" class="mt-8 bg-gray-50 border border-gray-100 rounded-[1.75rem] p-6 grid md:grid-cols-5 gap-4 items-end" data-reveal>
+                <div>
                     <label for="jenis_apar_id" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Filter Jenis APAR</label>
                     <select name="jenis_apar_id" id="jenis_apar_id" class="w-full px-5 py-4 bg-white border border-gray-100 rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-red-600/20">
                         <option value="">Semua Jenis</option>
@@ -37,7 +37,16 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="flex gap-3">
+                <div>
+                    <label for="ukuran" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Filter Ukuran</label>
+                    <select name="ukuran" id="ukuran" class="w-full px-5 py-4 bg-white border border-gray-100 rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-red-600/20">
+                        <option value="">Semua Ukuran</option>
+                        @foreach($ukurans as $ukuran)
+                            <option value="{{ $ukuran }}" @selected(($filters['ukuran'] ?? '') === $ukuran)>{{ $ukuran }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="flex gap-3 md:col-span-2">
                     <button type="submit" class="flex-1 px-5 py-4 bg-red-700 text-white font-black rounded-2xl hover:bg-red-800 transition uppercase tracking-widest text-xs">
                         Filter
                     </button>

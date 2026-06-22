@@ -39,6 +39,10 @@ class ProdukController extends Controller
 
     public function store(Request $request)
     {
+        $request->merge([
+            'harga' => $this->sanitizeCurrencyInput($request->input('harga')),
+        ]);
+
         $request->validate([
             'nama' => 'required',
             'merek' => 'required|string|max:100',
@@ -72,6 +76,10 @@ class ProdukController extends Controller
 
     public function update(Request $request, Produk $produk)
     {
+        $request->merge([
+            'harga' => $this->sanitizeCurrencyInput($request->input('harga')),
+        ]);
+
         $request->validate([
             'nama' => 'required',
             'merek' => 'required|string|max:100',
@@ -104,5 +112,20 @@ class ProdukController extends Controller
         $produk->delete();
 
         return redirect()->route('admin.produk.index')->with('success', 'Produk berhasil dihapus.');
+    }
+
+    private function sanitizeCurrencyInput(mixed $value): mixed
+    {
+        if ($value === null || $value === '') {
+            return $value;
+        }
+
+        if (is_numeric($value)) {
+            return $value;
+        }
+
+        $digits = preg_replace('/\D+/', '', (string) $value) ?? '';
+
+        return $digits === '' ? null : $digits;
     }
 }

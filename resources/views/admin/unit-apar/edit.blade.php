@@ -53,11 +53,11 @@
 
                     <div class="space-y-6">
                         <div>
-                            <label for="tgl_produksi" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Tanggal Produksi</label>
+                            <label for="tgl_produksi" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Tanggal Dasar Masa Berlaku</label>
                             <input type="date" name="tgl_produksi" id="tgl_produksi" value="{{ old('tgl_produksi', optional($unitApar->tgl_produksi ?? $unitApar->tgl_beli)->format('Y-m-d')) }}" required
                                 class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 transition">
                             <p class="mt-2 text-[10px] text-gray-400 font-black uppercase tracking-wider italic">
-                                * Masa berlaku dihitung sejak tanggal produksi APAR.
+                                * Masa berlaku dihitung dari tanggal dasar ini, lalu otomatis diperbarui lagi saat refill selesai.
                             </p>
                             <x-input-error :messages="$errors->get('tgl_produksi')" class="mt-2" />
                         </div>

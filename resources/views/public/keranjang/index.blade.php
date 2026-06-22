@@ -68,7 +68,7 @@
                     {{-- Left Column: Cart Items --}}
                     <div class="space-y-4 lg:col-span-2">
                         @foreach($keranjangs as $item)
-                            <div class="cart-item flex flex-col sm:flex-row gap-5 items-center justify-between" id="cart-item-{{ $item->id }}" data-id="{{ $item->id }}" data-price="{{ $item->harga }}" data-stock="{{ $item->produk->stok_tersedia }}">
+                            <div class="cart-item flex flex-col sm:flex-row gap-5 items-center justify-between" id="cart-item-{{ $item->id }}" data-id="{{ $item->id }}" data-price="{{ $item->harga }}" data-stock="{{ $item->produk->catalog_ready_stock }}">
                                 {{-- Left Group: Thumbnail and details --}}
                                 <div class="flex items-center gap-4 w-full sm:flex-1 min-w-0">
                                     <div class="cart-thumb">

@@ -32,7 +32,7 @@ class KeranjangController extends Controller
 
         $produk = Produk::findOrFail($request->produk_id);
         $qty = (int) $request->input('qty', 1);
-        $stokTersedia = (int) $produk->stok_tersedia;
+        $stokTersedia = (int) ($produk->catalog_ready_stock ?? 0);
 
         if ($stokTersedia < $qty) {
             return back()->with('error', 'Stok siap jual tidak mencukupi. Stok tersedia: ' . $stokTersedia);
@@ -68,7 +68,7 @@ class KeranjangController extends Controller
         }
 
         $produk = $keranjang->produk;
-        $stokTersedia = (int) $produk->stok_tersedia;
+        $stokTersedia = (int) ($produk->catalog_ready_stock ?? 0);
 
         if ((int) $request->qty > $stokTersedia) {
             if ($request->wantsJson() || $request->ajax()) {

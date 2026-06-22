@@ -8,13 +8,22 @@ use App\Models\Pengeluaran;
 use App\Models\Peralatan;
 use App\Models\Produk;
 use App\Models\ServicePaket;
+use App\Models\StokBatch;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class PengeluaranLatestPriceSyncTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
+    }
 
     public function test_peralatan_purchase_updates_master_price_and_next_reference(): void
     {
@@ -135,6 +144,104 @@ class PengeluaranLatestPriceSyncTest extends TestCase
         );
     }
 
+    public function test_apar_purchase_is_blocked_when_product_is_near_expiry(): void
+    {
+        Carbon::setTestNow('2026-06-22');
+
+        $admin = $this->createAdmin();
+        $jenisApar = JenisApar::create([
+            'nama' => 'Powder',
+        ]);
+
+        $produk = Produk::create([
+            'nama' => 'APAR Powder 6 Kg',
+            'merek' => 'SAFE',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '6 kg',
+            'penggunaan' => 'Gudang',
+            'harga' => 1500000,
+            'stok' => 5,
+        ]);
+
+        StokBatch::create([
+            'produk_id' => $produk->id,
+            'jumlah_masuk' => 5,
+            'sisa_qty' => 5,
+            'tgl_produksi' => '2025-06-26',
+            'tgl_expired' => '2026-06-26',
+            'keterangan' => 'Stok hampir expired',
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->from(route('admin.pengeluaran.index'))
+            ->post(route('admin.pengeluaran.store'), [
+                'jenis_pengeluaran' => Pengeluaran::JENIS_PEMBELIAN_APAR,
+                'produk_id' => $produk->id,
+                'qty' => 3,
+                'harga_beli' => 1250000,
+                'tanggal' => '2026-06-22',
+                'tgl_produksi_apar' => '2026-06-22',
+                'keterangan' => 'Tidak boleh lolos karena hampir expired',
+            ]);
+
+        $response->assertRedirect(route('admin.pengeluaran.index'));
+        $response->assertSessionHasErrors('produk_id');
+        $this->assertDatabaseCount('pengeluarans', 0);
+        $this->assertSame(5, (int) $produk->fresh()->stok);
+        $this->assertSame(5, (int) $produk->fresh()->stok_tersedia);
+    }
+
+    public function test_apar_purchase_on_safe_product_keeps_active_expiry_and_syncs_stock(): void
+    {
+        Carbon::setTestNow('2026-06-22');
+
+        $admin = $this->createAdmin();
+        $jenisApar = JenisApar::create([
+            'nama' => 'Powder',
+        ]);
+
+        $produk = Produk::create([
+            'nama' => 'APAR Powder 6 Kg',
+            'merek' => 'SAFE',
+            'jenis_apar_id' => $jenisApar->id,
+            'kapasitas' => '6 kg',
+            'penggunaan' => 'Gudang',
+            'harga' => 1500000,
+            'stok' => 5,
+        ]);
+
+        $batch = StokBatch::create([
+            'produk_id' => $produk->id,
+            'jumlah_masuk' => 5,
+            'sisa_qty' => 5,
+            'tgl_produksi' => '2026-06-20',
+            'tgl_expired' => '2027-06-20',
+            'keterangan' => 'Stok aman aktif',
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('admin.pengeluaran.store'), [
+            'jenis_pengeluaran' => Pengeluaran::JENIS_PEMBELIAN_APAR,
+            'produk_id' => $produk->id,
+            'qty' => 3,
+            'harga_beli' => 1250000,
+            'tanggal' => '2026-06-22',
+            'tgl_produksi_apar' => '2026-06-22',
+            'keterangan' => 'Tambah stok aman',
+        ]);
+
+        $response->assertRedirect(route('admin.pengeluaran.index'));
+
+        $produk->refresh();
+        $batch->refresh();
+
+        $this->assertSame(8, (int) $produk->stok);
+        $this->assertSame(8, (int) $produk->stok_tersedia);
+        $this->assertSame(8, (int) $batch->sisa_qty);
+        $this->assertSame(8, (int) $batch->jumlah_masuk);
+        $this->assertSame('2027-06-20', $batch->tgl_expired?->toDateString());
+        $this->assertSame(1, StokBatch::query()->where('produk_id', $produk->id)->count());
+    }
+
     public function test_stock_purchase_sync_does_not_change_service_package_price(): void
     {
         $admin = $this->createAdmin();
@@ -203,6 +310,25 @@ class PengeluaranLatestPriceSyncTest extends TestCase
         ])->assertRedirect(route('admin.pengeluaran.index'));
 
         $this->assertSame(35000.0, (float) $servicePaket->fresh()->harga);
+    }
+
+    public function test_pengeluaran_page_keeps_modal_trigger_and_valid_selection_watchers(): void
+    {
+        $admin = $this->createAdmin();
+
+        $page = $this->actingAs($admin)->get(route('admin.pengeluaran.index', [
+            'open' => 1,
+            'jenis_pengeluaran' => Pengeluaran::JENIS_PEMBELIAN_APAR,
+        ]));
+
+        $page->assertOk();
+        $page->assertSeeText('Tambah Pengeluaran');
+        $page->assertSee('onclick="openPengeluaranModal()"', false);
+        $page->assertSee("this.jenisPengeluaran === '".Pengeluaran::JENIS_PEMBELIAN_APAR."'", false);
+        $page->assertSee("this.jenisPengeluaran === '".Pengeluaran::JENIS_PEMBELIAN_REFILL."'", false);
+        $page->assertSee("this.jenisPengeluaran === '".Pengeluaran::JENIS_PEMBELIAN_PERALATAN."'", false);
+        $page->assertDontSee("if (\r\n                            && this.jenisPengeluaran", false);
+        $page->assertDontSee("if (\n                            && this.jenisPengeluaran", false);
     }
 
     private function createAdmin(): User

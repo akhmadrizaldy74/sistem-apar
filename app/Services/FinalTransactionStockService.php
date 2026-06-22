@@ -236,6 +236,7 @@ class FinalTransactionStockService
         foreach ($unitsToRefresh as $unitApar) {
             $unitApar->update([
                 'kondisi_awal' => 'layak',
+                'tgl_produksi' => $effectiveWorkDate,
                 'tgl_expired' => $this->unitExpiryService->calculateExpiry(
                     $effectiveWorkDate,
                     $unitApar->ukuran ?: $pesanan->service_ukuran_apar ?: $unitApar->produk?->kapasitas,
@@ -419,7 +420,7 @@ class FinalTransactionStockService
         $serialDate = optional($pesanan->tanggal)->toDateString() ?: now()->toDateString();
         $productionDate = (string) ($allocation['tgl_produksi'] ?? $serialDate);
         $expiredDate = $this->unitExpiryService
-            ->calculateExpiry($serialDate, $produk->kapasitas ?? '-', $produk->jenisApar?->nama ?? '-')
+            ->calculateExpiry($productionDate, $produk->kapasitas ?? '-', $produk->jenisApar?->nama ?? '-')
             ->toDateString();
 
         return UnitApar::create([

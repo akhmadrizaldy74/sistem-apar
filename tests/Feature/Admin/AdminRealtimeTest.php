@@ -21,7 +21,7 @@ class AdminRealtimeTest extends TestCase
             ->getJson(route('admin.realtime.dashboard'))
             ->assertOk()
             ->assertJson(['success' => true])
-            ->assertJsonStructure(['kpi_html', 'priority_html']);
+            ->assertJsonStructure(['kpi_html', 'priority_html', 'product_expiry_html']);
 
         $this->actingAs($admin)
             ->getJson(route('admin.realtime.pesanan'))

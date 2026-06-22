@@ -1670,7 +1670,7 @@ class PublicController extends Controller
 
             $lines[] = ($index + 1) . '. '
                 . $this->registeredUnitAparLabel($unitApar)
-                . ' - Masa berlaku: '
+                . ' - Masa berlaku sampai: '
                 . $this->registeredUnitAparExpiryLabel($unitApar)
                 . ($refillLabel !== '' ? ' - Refill: ' . $refillLabel : '')
                 . ($usageKg > 0 ? ' - Kebutuhan: ' . $this->formatKgNumber($usageKg) . ' Kg' : '')
@@ -1713,11 +1713,9 @@ class PublicController extends Controller
                 ->with('warning', 'Selesaikan pembayaran sebelumnya sebelum membuat pesanan baru.');
         }
 
-        $produks = Produk::with(['jenisApar', 'stokBatches'])
-            ->whereHas('stokBatches', function ($q) {
-                $q->where('sisa_qty', '>', 0)
-                  ->where('tgl_expired', '>=', now()->toDateString());
-            })
+        $produks = Produk::query()
+            ->catalogSellable()
+            ->with(['jenisApar', 'stokBatches'])
             ->get()
             ->filter(fn (Produk $produk) => $produk->hasResolvedImage())
             ->values();
@@ -1744,7 +1742,7 @@ class PublicController extends Controller
             $selectedOrderProduct = Produk::with(['jenisApar', 'stokBatches'])->find($requestedProductId);
 
             if ($selectedOrderProduct) {
-                $stokTersedia = (int) ($selectedOrderProduct->stok_tersedia ?? 0);
+                $stokTersedia = (int) ($selectedOrderProduct->catalog_ready_stock ?? 0);
                 if ($stokTersedia <= 0) {
                     return redirect()
                         ->route('produk.show', $selectedOrderProduct)
@@ -2210,7 +2208,7 @@ class PublicController extends Controller
                 foreach ($productItems as $item) {
                     $produk = Produk::findOrFail($item['produk_id']);
                     $hargaSatuan = (float) ($item['harga'] ?? $produk->harga);
-                    $stokTersedia = (int) $produk->stok_tersedia;
+                    $stokTersedia = (int) ($produk->catalog_ready_stock ?? 0);
 
                     if ($stokTersedia < (int) $item['jumlah']) {
                         throw new \RuntimeException('Stok siap jual "' . $produk->nama . '" tidak mencukupi. Tersedia: ' . $stokTersedia);

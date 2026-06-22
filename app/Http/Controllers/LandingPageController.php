@@ -79,7 +79,9 @@ class LandingPageController extends Controller
 
     public function index()
     {
-        $produks = Produk::with('jenisApar')
+        $produks = Produk::query()
+            ->catalogVisible()
+            ->with(['jenisApar', 'stokBatches'])
             ->latest()
             ->get()
             ->filter(fn (Produk $produk) => $produk->hasResolvedImage())
@@ -99,30 +101,55 @@ class LandingPageController extends Controller
         $filters = [
             'jenis_apar_id' => $request->string('jenis_apar_id')->toString() ?: null,
             'merek' => $request->string('merek')->toString() ?: null,
+            'ukuran' => $request->string('ukuran')->toString() ?: null,
         ];
 
-        $produks = Produk::with(['jenisApar', 'stokBatches'])
+        $produks = Produk::query()
+            ->catalogVisible()
+            ->with(['jenisApar', 'stokBatches'])
             ->when($filters['jenis_apar_id'], fn ($query, $jenisAparId) => $query->where('jenis_apar_id', $jenisAparId))
             ->when($filters['merek'], fn ($query, $merek) => $query->where('merek', $merek))
+            ->when($filters['ukuran'], fn ($query, $ukuran) => $query->where('kapasitas', $ukuran))
             ->latest()
             ->paginate(12)
             ->withQueryString();
 
-        $jenisApars = JenisApar::orderBy('nama')->get();
+        // Hanya ambil jenis APAR yang benar-benar dipakai oleh produk catalog-visible (distinct, tanpa duplikat)
+        $usedJenisAparIds = Produk::query()
+            ->catalogVisible()
+            ->select('jenis_apar_id')
+            ->distinct()
+            ->whereNotNull('jenis_apar_id')
+            ->pluck('jenis_apar_id');
+        $jenisApars = JenisApar::whereIn('id', $usedJenisAparIds)->orderBy('nama')->get();
+
         $mereks = Produk::query()
+            ->catalogVisible()
             ->select('merek')
             ->distinct()
             ->orderBy('merek')
             ->pluck('merek');
 
-        return view('public.produk.index', compact('produks', 'jenisApars', 'mereks', 'filters'));
+        $ukurans = Produk::query()
+            ->catalogVisible()
+            ->select('kapasitas')
+            ->distinct()
+            ->whereNotNull('kapasitas')
+            ->where('kapasitas', '!=', '')
+            ->orderBy('kapasitas')
+            ->pluck('kapasitas');
+
+        return view('public.produk.index', compact('produks', 'jenisApars', 'mereks', 'ukurans', 'filters'));
     }
 
     public function produkShow(Produk $produk)
     {
         $produk->load(['jenisApar', 'stokBatches']);
+        // Gunakan catalogDisplayBatch agar pelanggan hanya melihat masa berlaku stok aman (>7 hari)
+        $displayBatch = $produk->catalogDisplayBatch();
+        $productExpiryMeta = RegisteredRefillUnitSupport::statusMetaFromExpiry($displayBatch?->tgl_expired);
 
-        return view('public.produk.show', compact('produk'));
+        return view('public.produk.show', compact('produk', 'productExpiryMeta'));
     }
 
     public function riwayatApar()
@@ -379,17 +406,23 @@ class LandingPageController extends Controller
             ->with(['produk.jenisApar'])
             ->where('pelanggan_id', $pelanggan->id)
             ->get()
-            ->map(fn($u) => [
-                'id' => $u->id,
-                'no_seri' => $u->no_seri,
-                'nama' => $u->produk?->nama ?? 'APAR',
-                'jenis' => $u->produk?->jenisApar?->nama ?? '-',
-                'ukuran' => $u->produk?->kapasitas ?? $u->ukuran ?? '-',
-                'tgl_expired' => $u->tgl_expired?->format('d M Y'),
-                'is_expired' => $u->tgl_expired && $u->tgl_expired->isPast(),
-                'is_expiring_soon' => $u->tgl_expired && !$u->tgl_expired->isPast() && $u->tgl_expired->diffInDays(now()) <= 30,
-                'days_until_expiry' => $u->tgl_expired ? $u->tgl_expired->diffInDays(now()) : null,
-            ]);
+            ->map(function ($u) {
+                $statusMeta = RegisteredRefillUnitSupport::statusMeta($u);
+
+                return [
+                    'id' => $u->id,
+                    'no_seri' => $u->no_seri,
+                    'nama' => $u->produk?->nama ?? 'APAR',
+                    'jenis' => $u->produk?->jenisApar?->nama ?? '-',
+                    'ukuran' => $u->produk?->kapasitas ?? $u->ukuran ?? '-',
+                    'tgl_expired' => $statusMeta['expired_at_short_label'] ?? '-',
+                    'is_expired' => (bool) ($statusMeta['is_expired'] ?? false),
+                    'is_expiring_soon' => (bool) ($statusMeta['is_expiring_soon'] ?? false),
+                    'days_until_expiry' => $statusMeta['days_until_expiry'],
+                    'remaining_label' => $statusMeta['remaining_label'] ?? '-',
+                    'status_label' => $statusMeta['status_label'] ?? 'Aman',
+                ];
+            });
 
         return response()->json([
             'success' => true,

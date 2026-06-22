@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Pesanan;
 use App\Models\UnitApar;
+use App\Support\RegisteredRefillUnitSupport;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -30,9 +31,11 @@ class NotificationController extends Controller
                 'created_at' => $p->created_at->toIso8601String(),
             ]);
 
-        // APAR expiring dalam 30 hari
+        $warningDays = RegisteredRefillUnitSupport::REFILL_WARNING_DAYS;
+
+        // APAR expiring dalam batas peringatan
         $expiringApar = UnitApar::with('pelanggan')
-            ->whereBetween('tgl_expired', [now()->toDateString(), now()->addDays(30)->toDateString()])
+            ->whereBetween('tgl_expired', [now()->toDateString(), now()->addDays($warningDays)->toDateString()])
             ->orderBy('tgl_expired', 'asc')
             ->limit(10)
             ->get()
@@ -62,7 +65,7 @@ class NotificationController extends Controller
             'new_orders_today' => Pesanan::whereNotIn('status', ['selesai final', 'ditolak'])
                 ->whereDate('created_at', now()->toDateString())
                 ->count(),
-            'expiring_soon' => UnitApar::whereBetween('tgl_expired', [now()->toDateString(), now()->addDays(30)->toDateString()])->count(),
+            'expiring_soon' => UnitApar::whereBetween('tgl_expired', [now()->toDateString(), now()->addDays($warningDays)->toDateString()])->count(),
             'already_expired' => UnitApar::whereDate('tgl_expired', '<', now()->toDateString())->count(),
         ];
 

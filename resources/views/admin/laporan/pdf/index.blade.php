@@ -49,6 +49,16 @@
     </style>
 </head>
 <body>
+    @php
+        $formatQty = static function ($value) {
+            $number = (float) $value;
+            if ((int) $number === $number) {
+                return number_format($number, 0, ',', '.');
+            }
+
+            return rtrim(rtrim(number_format($number, 2, ',', '.'), '0'), ',');
+        };
+    @endphp
     <div class="page">
         {{-- Header --}}
         <div class="header">
@@ -264,23 +274,36 @@
                     @foreach($pengeluarans as $i => $peng)
                         @php
                             $jenisLabel = match($peng->jenis_pengeluaran ?? $peng->kategori ?? 'lain') {
-                                'pembelian_apar' => 'Pembelian APAR',
-                                'pembelian_refill' => 'Pembelian Refill',
-                                'pembelian_peralatan' => 'Peralatan',
+                                'pembelian_apar' => 'Pembelian Stok APAR',
+                                'pembelian_refill' => 'Pembelian Stok Refill',
+                                'pembelian_peralatan' => 'Pembelian Peralatan Service',
                                 'pengeluaran_lainnya' => 'Lainnya',
-                                default => $peng->jenis_pengeluaran ?? $peng->kategori ?? 'Lainnya',
+                                default => $peng->jenis_pengeluaran_label,
                             };
-                            $keterangan = $peng->nama_item ?? $peng->keterangan ?? '-';
-                            $jumlah = $peng->qty ?? 1;
-                            $satuan = $peng->satuan ?? 'unit';
+                            $itemLabel = $peng->display_item_name ?: $peng->nama_item ?: '-';
+                            $jumlah = (float) ($peng->qty ?? 1);
+                            $satuan = trim((string) ($peng->satuan ?? 'unit'));
+                            $catatan = trim((string) ($peng->keterangan ?? ''));
+                            $deskripsi = match($peng->jenis_pengeluaran ?? $peng->kategori ?? 'lain') {
+                                'pembelian_apar' => 'Stok APAR masuk lewat transaksi pembelian admin.',
+                                'pembelian_refill' => 'Stok refill masuk lewat transaksi pembelian admin.',
+                                'pembelian_peralatan' => 'Stok peralatan service masuk lewat transaksi pembelian admin.',
+                                default => 'Pengeluaran operasional dicatat admin.',
+                            };
                             $total = $peng->effective_amount;
                         @endphp
                         <tr>
                             <td style="text-align:center;">{{ $i + 1 }}</td>
                             <td>{{ $peng->tanggal ? \Carbon\Carbon::parse($peng->tanggal)->format('d/m/Y') : '-' }}</td>
                             <td>{{ $jenisLabel }}</td>
-                            <td>{{ $keterangan }}</td>
-                            <td>{{ number_format($jumlah) }} {{ $satuan }}</td>
+                            <td>
+                                {{ $itemLabel }}<br>
+                                <span style="color:#64748b;">{{ $deskripsi }}</span>
+                                @if($catatan !== '' && strcasecmp($catatan, $itemLabel) !== 0)
+                                    <br><span style="color:#64748b;">Catatan: {{ $catatan }}</span>
+                                @endif
+                            </td>
+                            <td>{{ $formatQty($jumlah) }} {{ $satuan }}</td>
                             <td class="money" style="color:#dc2626;">Rp {{ number_format($total, 0, ',', '.') }}</td>
                         </tr>
                     @endforeach
@@ -288,6 +311,55 @@
                         <td colspan="5" style="text-align:right;"><strong>TOTAL PENGELUARAN</strong></td>
                         <td class="money" style="color:#dc2626;"><strong>Rp {{ number_format($pengeluarans->sum('effective_amount'), 0, ',', '.') }}</strong></td>
                     </tr>
+                </tbody>
+            </table>
+        </div>
+        @endif
+
+        {{-- Riwayat Pergerakan Stok --}}
+        @if(isset($stockHistories) && $stockHistories->count() > 0)
+        <div class="section">
+            <div class="section-title">Riwayat Pergerakan Stok</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:12%;">Tanggal</th>
+                        <th style="width:16%;">Jenis</th>
+                        <th style="width:19%;">Item</th>
+                        <th style="width:16%;">Sumber</th>
+                        <th style="width:12%;">Perubahan</th>
+                        <th style="width:25%;">Keterangan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($stockHistories as $movement)
+                        @php
+                            $isIn = $movement->movement_type === \App\Models\StockMovement::MOVE_IN;
+                        @endphp
+                        <tr>
+                            <td>{{ optional($movement->tanggal)->format('d/m/Y H:i') ?? '-' }}</td>
+                            <td>
+                                {{ $movement->item_type_label }}
+                                @if(!empty($movement->flow_label))
+                                    <br><span style="color:{{ $isIn ? '#059669' : '#dc2626' }};">{{ $movement->flow_label }}</span>
+                                @endif
+                            </td>
+                            <td>
+                                {{ $movement->item_nama }}
+                                <br><span style="color:#64748b;">{{ $movement->satuan }}</span>
+                            </td>
+                            <td>
+                                {{ $movement->source_label }}
+                                @if(!empty($movement->source_detail))
+                                    <br><span style="color:#64748b;">{{ $movement->source_detail }}</span>
+                                @endif
+                            </td>
+                            <td style="color:{{ $isIn ? '#059669' : '#dc2626' }};">
+                                {{ $isIn ? '+' : '-' }}{{ $formatQty($movement->qty) }} {{ $movement->satuan }}
+                            </td>
+                            <td>{{ $movement->keterangan ?: '-' }}</td>
+                        </tr>
+                    @endforeach
                 </tbody>
             </table>
         </div>

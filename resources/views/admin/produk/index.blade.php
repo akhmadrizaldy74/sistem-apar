@@ -3,7 +3,7 @@
         <div class="flex flex-col md:flex-row justify-between items-center w-full gap-4">
             <div>
                 <h2 class="text-3xl font-black text-gray-900 tracking-tight">Daftar Produk</h2>
-                <p class="text-sm text-gray-500 font-medium">Kelola data produk APAR yang tampil di katalog pelanggan.</p>
+                <p class="text-base font-semibold leading-7 text-gray-700">Kelola data produk APAR yang tampil di katalog pelanggan.</p>
             </div>
             <button type="button" onclick="window.dispatchEvent(new CustomEvent('open-produk-modal'))" class="px-8 py-4 bg-red-700 text-white font-black rounded-2xl hover:bg-red-800 transition shadow-xl shadow-red-700/30 flex items-center gap-2 uppercase tracking-widest text-xs">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
@@ -16,8 +16,8 @@
         <!-- Filter Form -->
         <form method="GET" class="flex flex-wrap gap-3 items-center">
             <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari produk..."
-                class="px-5 py-3 bg-white rounded-2xl border border-gray-200 text-sm font-medium focus:border-red-400 focus:ring-1 focus:ring-red-400 w-72" />
-            <select name="jenis_apar_id" onchange="this.form.submit()" class="px-4 py-3 bg-white rounded-2xl border border-gray-200 text-sm font-medium focus:border-red-400">
+                class="px-5 py-3 bg-white rounded-2xl border border-gray-200 text-sm font-semibold text-gray-800 focus:border-red-400 focus:ring-1 focus:ring-red-400 w-72" />
+            <select name="jenis_apar_id" onchange="this.form.submit()" class="px-4 py-3 bg-white rounded-2xl border border-gray-200 text-sm font-semibold text-gray-800 focus:border-red-400">
                 <option value="">Semua Jenis</option>
                 @foreach($jenisApars as $ja)
                     <option value="{{ $ja->id }}" {{ request('jenis_apar_id') == $ja->id ? 'selected' : '' }}>{{ $ja->nama }}</option>
@@ -71,28 +71,28 @@
                                     </div>
                                 </td>
                                 <td class="px-8 py-6">
-                                    <p class="text-sm font-bold text-gray-900 group-hover:text-red-700 transition">{{ $p->nama }}</p>
-                                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">SKU: FSA-{{ strtoupper(Str::slug($p->nama)) }}</p>
+                                    <p class="text-base font-black leading-6 text-gray-900 group-hover:text-red-700 transition">{{ $p->nama }}</p>
+                                    <p class="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-gray-600">SKU: FSA-{{ strtoupper(Str::slug($p->nama)) }}</p>
                                 </td>
                                 <td class="px-8 py-6">
-                                    <span class="px-4 py-1.5 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded-full">
+                                    <span class="px-4 py-1.5 bg-emerald-50 text-emerald-700 text-[11px] font-black uppercase tracking-widest rounded-full">
                                         {{ $p->merek }}
                                     </span>
                                 </td>
                                 <td class="px-8 py-6">
-                                    <span class="px-4 py-1.5 bg-gray-100 text-gray-600 text-[10px] font-black uppercase tracking-widest rounded-full group-hover:bg-red-50 group-hover:text-red-700 transition-colors">
+                                    <span class="px-4 py-1.5 bg-gray-100 text-gray-700 text-[11px] font-black uppercase tracking-widest rounded-full group-hover:bg-red-50 group-hover:text-red-700 transition-colors">
                                         {{ $p->jenisApar->nama }}
                                     </span>
                                 </td>
                                 <td class="px-8 py-6">
-                                    <p class="text-xs font-bold text-gray-700">{{ $p->kapasitas ?? '-' }}</p>
+                                    <p class="text-sm font-black text-gray-800">{{ $p->kapasitas ?? '-' }}</p>
                                 </td>
                                 <td class="px-8 py-6">
                                     @php
                                         $hargaAcuanBeli = (float) ($productPurchaseReferencePrices->get($p->id, (float) ($p->harga ?? 0)));
                                     @endphp
-                                    <p class="text-sm font-bold text-gray-900">Rp {{ number_format($p->harga, 0, ',', '.') }}</p>
-                                    <p class="mt-1 text-[11px] font-semibold text-gray-500">Acuan beli terakhir: Rp {{ number_format($hargaAcuanBeli, 0, ',', '.') }}</p>
+                                    <p class="text-base font-black text-gray-900">Rp {{ number_format($p->harga, 0, ',', '.') }}</p>
+                                    <p class="mt-1 text-xs font-bold leading-5 text-gray-700">Acuan beli terakhir: Rp {{ number_format($hargaAcuanBeli, 0, ',', '.') }}</p>
                                 </td>
                                 <td class="px-8 py-6 text-right">
                                     <div class="flex justify-end gap-2">

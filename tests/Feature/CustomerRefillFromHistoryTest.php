@@ -76,7 +76,10 @@ class CustomerRefillFromHistoryTest extends TestCase
 
         $response->assertOk();
         $response->assertSeeText('Aman');
-        $response->assertSeeText('Perlu Refill');
+        $response->assertSeeText('Hampir Expired');
+        $response->assertSeeText('Expired');
+        $response->assertSeeText('Masa Berlaku Sampai');
+        $response->assertSeeText('Sisa Masa Berlaku');
         $response->assertSeeText('Service selalu tersedia untuk setiap unit APAR.');
         $response->assertDontSeeText('Unit APAR di halaman ini dipakai untuk pemantauan saja.');
         $this->assertStringContainsString('REFILL-001', $response->getContent());
@@ -304,6 +307,7 @@ class CustomerRefillFromHistoryTest extends TestCase
         $this->assertStringContainsString('FINAL-001', (string) $pesanan->service_keluhan);
         $this->assertStringContainsString('FINAL-002', (string) $pesanan->service_keluhan);
         $this->assertStringContainsString('Refill: Powder', (string) $pesanan->service_keluhan);
+        $expectedBaseDate = $pesanan->resolvedOperationalDate();
 
         $oldExpiryA = $unitA->tgl_expired->toDateString();
         $oldExpiryB = $unitB->tgl_expired->toDateString();
@@ -315,6 +319,16 @@ class CustomerRefillFromHistoryTest extends TestCase
         $this->assertTrue((bool) $pesanan->fresh()->stok_dikurangi);
         $this->assertNotSame($oldExpiryA, $unitA->fresh()->tgl_expired?->toDateString());
         $this->assertNotSame($oldExpiryB, $unitB->fresh()->tgl_expired?->toDateString());
+        $this->assertSame($expectedBaseDate, $unitA->fresh()->tgl_produksi?->toDateString());
+        $this->assertSame($expectedBaseDate, $unitB->fresh()->tgl_produksi?->toDateString());
+        $this->assertSame(
+            UnitApar::calculateExpiry($expectedBaseDate, '1 kg', 'Dry Chemical Powder')->toDateString(),
+            $unitA->fresh()->tgl_expired?->toDateString()
+        );
+        $this->assertSame(
+            UnitApar::calculateExpiry($expectedBaseDate, '1 kg', 'Dry Chemical Powder')->toDateString(),
+            $unitB->fresh()->tgl_expired?->toDateString()
+        );
         $this->assertDatabaseHas('services', [
             'pesanan_id' => $pesanan->id,
         ]);

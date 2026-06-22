@@ -123,7 +123,7 @@ class CheckoutController extends Controller
             if (!$item->produk) {
                 return back()->with('error', 'Produk tidak ditemukan di keranjang.');
             }
-            $stokTersedia = (int) $item->produk->stok_tersedia;
+            $stokTersedia = (int) ($item->produk->catalog_ready_stock ?? 0);
             if ($stokTersedia < $item->qty) {
                 return back()->with('error', 'Stok siap jual "' . $item->produk->nama . '" tidak mencukupi. Tersedia: ' . $stokTersedia);
             }

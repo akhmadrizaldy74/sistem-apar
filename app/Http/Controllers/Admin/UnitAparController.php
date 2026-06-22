@@ -17,7 +17,7 @@ use Illuminate\Support\Str;
 
 class UnitAparController extends Controller
 {
-    protected const NEAR_EXPIRY_DAYS = 30;
+    protected const NEAR_EXPIRY_DAYS = RegisteredRefillUnitSupport::REFILL_WARNING_DAYS;
     protected const DEFAULT_PER_PAGE = 10;
     protected const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
@@ -49,31 +49,23 @@ class UnitAparController extends Controller
 
     protected function resolveUnitStatus(?CarbonInterface $expiredAt): string
     {
-        if (! $expiredAt) {
-            return 'aktif';
-        }
+        $statusKey = RegisteredRefillUnitSupport::statusMetaFromExpiry($expiredAt, self::NEAR_EXPIRY_DAYS)['status_key'] ?? 'aman';
 
-        $today = now()->startOfDay();
-        $expiredDate = Carbon::parse($expiredAt)->startOfDay();
-
-        if ($expiredDate->lte($today)) {
-            return 'expired';
-        }
-
-        if ($today->diffInDays($expiredDate, false) <= self::NEAR_EXPIRY_DAYS) {
-            return 'hampir';
-        }
-
-        return 'aktif';
+        return match ($statusKey) {
+            'expired' => 'expired',
+            'hampir' => 'hampir',
+            default => 'aktif',
+        };
     }
 
     protected function resolveUnitStatusMeta(?CarbonInterface $expiredAt): array
     {
+        $baseMeta = RegisteredRefillUnitSupport::statusMetaFromExpiry($expiredAt, self::NEAR_EXPIRY_DAYS);
         $status = $this->resolveUnitStatus($expiredAt);
         $label = match ($status) {
             'expired' => 'Expired',
             'hampir' => 'Hampir Expired',
-            default => 'Aktif',
+            default => 'Aman',
         };
 
         $badgeClass = match ($status) {
@@ -94,27 +86,15 @@ class UnitAparController extends Controller
             default => 'text-slate-900',
         };
 
-        $noticeText = 'Masa berlaku unit dipantau otomatis oleh sistem.';
-        if ($expiredAt) {
-            $expiredLabel = Carbon::parse($expiredAt)->format('d M Y');
-
-            if ($status === 'expired') {
-                $noticeText = 'Unit ini sudah melewati masa berlaku pada ' . $expiredLabel . '.';
-            } elseif ($status === 'hampir') {
-                $daysLeft = now()->startOfDay()->diffInDays(Carbon::parse($expiredAt)->startOfDay(), false);
-                $noticeText = 'Masa berlaku akan habis dalam ' . $daysLeft . ' hari, pada ' . $expiredLabel . '.';
-            } else {
-                $noticeText = 'Masa berlaku unit masih aktif sampai ' . $expiredLabel . '.';
-            }
-        }
-
         return [
             'key' => $status,
             'label' => $label,
             'badge_class' => $badgeClass,
             'date_class' => $dateClass,
             'notice_class' => $noticeClass,
-            'notice_text' => $noticeText,
+            'notice_text' => (string) ($baseMeta['notice_text'] ?? 'Masa berlaku unit dipantau otomatis oleh sistem.'),
+            'remaining_label' => (string) ($baseMeta['remaining_label'] ?? '-'),
+            'expired_at_label' => (string) ($baseMeta['expired_at_short_label'] ?? '-'),
         ];
     }
 
@@ -293,7 +273,7 @@ class UnitAparController extends Controller
     {
         return [
             'semua' => 'Semua',
-            'aktif' => 'Aktif',
+            'aktif' => 'Aman',
             'hampir' => 'Hampir Expired',
             'expired' => 'Expired',
         ];
@@ -435,9 +415,9 @@ class UnitAparController extends Controller
                     ->orWhereDate('tgl_expired', '>', $nearExpiryLimit);
             }),
             'hampir' => $query
-                ->whereDate('tgl_expired', '>', $today)
+                ->whereDate('tgl_expired', '>=', $today)
                 ->whereDate('tgl_expired', '<=', $nearExpiryLimit),
-            'expired' => $query->whereDate('tgl_expired', '<=', $today),
+            'expired' => $query->whereDate('tgl_expired', '<', $today),
             default => null,
         };
 

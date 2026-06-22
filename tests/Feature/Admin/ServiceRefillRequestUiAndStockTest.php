@@ -58,7 +58,7 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
 
         $response->assertOk();
         $response->assertDontSeeText('Input Refill Offline');
-        $response->assertSeeText('APAR Tidak Terdaftar');
+        $response->assertSeeText('Item Layanan APAR');
         $response->assertSeeText('APAR Powder 9 kg');
         $response->assertSeeText('Powder');
     }
@@ -98,12 +98,12 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
         $response->assertOk();
         $response->assertDontSeeText('Input Service Offline');
         $response->assertDontSeeText('Master Jenis Service');
-        $response->assertSeeText('APAR Tidak Terdaftar');
+        $response->assertSeeText('Item Layanan APAR');
         $response->assertSeeText('APAR Foam 6 kg');
         $response->assertSeeText('Hydrotest Ringan');
     }
 
-    public function test_product_final_uses_batch_production_date_but_order_date_for_unit_expiry(): void
+    public function test_product_final_uses_batch_production_date_as_unit_expiry_base(): void
     {
         $admin = User::factory()->create([
             'role' => 'admin',
@@ -167,7 +167,7 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
         $this->assertSame('2026-06-15', $unit->tgl_beli->toDateString());
         $this->assertSame('2026-05-01', $unit->tgl_produksi->toDateString());
         $this->assertSame(
-            UnitApar::calculateExpiry('2026-06-15', '6 kg', 'Foam')->toDateString(),
+            UnitApar::calculateExpiry('2026-05-01', '6 kg', 'Foam')->toDateString(),
             $unit->tgl_expired->toDateString()
         );
         $this->assertSame(1, (int) $stokBatch->fresh()->sisa_qty);
@@ -233,7 +233,7 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
         $this->assertSame(12.0, (float) $jenisRefill->fresh()->stok);
     }
 
-    public function test_refill_final_uses_technician_completion_date_for_registered_one_kg_unit_expiry(): void
+    public function test_refill_final_updates_registered_one_kg_unit_base_date_and_expiry_from_technician_completion_date(): void
     {
         $admin = User::factory()->create([
             'role' => 'admin',
@@ -310,7 +310,7 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
         $refillLog = Refill::query()->where('unit_apar_id', $unit->id)->latest('id')->first();
         $serviceLog = Service::query()->where('pesanan_id', $pesanan->id)->first();
 
-        $this->assertSame('2026-01-10', $unit->tgl_produksi->toDateString());
+        $this->assertSame('2026-06-20', $unit->tgl_produksi->toDateString());
         $this->assertSame(
             UnitApar::calculateExpiry('2026-06-20', '1 kg', 'Powder')->toDateString(),
             $unit->tgl_expired->toDateString()
@@ -320,7 +320,7 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
         $this->assertSame('2026-06-20', $serviceLog->tgl_service->toDateString());
     }
 
-    public function test_refill_final_uses_one_year_expiry_for_registered_three_kg_unit(): void
+    public function test_refill_final_updates_registered_three_kg_unit_base_date_and_uses_one_year_expiry(): void
     {
         $admin = User::factory()->create([
             'role' => 'admin',
@@ -397,7 +397,7 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
         $refillLog = Refill::query()->where('unit_apar_id', $unit->id)->latest('id')->first();
         $serviceLog = Service::query()->where('pesanan_id', $pesanan->id)->first();
 
-        $this->assertSame('2026-02-10', $unit->tgl_produksi->toDateString());
+        $this->assertSame('2026-06-22', $unit->tgl_produksi->toDateString());
         $this->assertSame(
             UnitApar::calculateExpiry('2026-06-22', '3 kg', 'Foam')->toDateString(),
             $unit->tgl_expired->toDateString()
@@ -408,7 +408,7 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
         $this->assertSame(17.0, (float) $jenisRefill->fresh()->stok);
     }
 
-    public function test_service_final_uses_six_month_expiry_for_registered_one_kg_unit(): void
+    public function test_service_final_keeps_existing_expiry_for_registered_one_kg_unit(): void
     {
         $admin = User::factory()->create([
             'role' => 'admin',
@@ -497,16 +497,13 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
         $serviceLog = Service::query()->where('pesanan_id', $pesanan->id)->first();
 
         $this->assertSame('2026-01-05', $unit->tgl_produksi->toDateString());
-        $this->assertSame(
-            UnitApar::calculateExpiry('2026-06-21', '1 kg', 'Powder')->toDateString(),
-            $unit->tgl_expired->toDateString()
-        );
+        $this->assertSame('2026-04-05', $unit->tgl_expired->toDateString());
         $this->assertSame('2026-06-21', $serviceLog->tgl_service->toDateString());
         $this->assertSame('confirmed', $serviceLog->status_konfirmasi);
         $this->assertSame(9, $peralatan->fresh()->stok);
     }
 
-    public function test_service_final_uses_one_year_expiry_for_registered_three_kg_unit(): void
+    public function test_service_final_keeps_existing_expiry_for_registered_three_kg_unit(): void
     {
         $admin = User::factory()->create([
             'role' => 'admin',
@@ -595,10 +592,7 @@ class ServiceRefillRequestUiAndStockTest extends TestCase
         $serviceLog = Service::query()->where('pesanan_id', $pesanan->id)->first();
 
         $this->assertSame('2026-02-12', $unit->tgl_produksi->toDateString());
-        $this->assertSame(
-            UnitApar::calculateExpiry('2026-06-23', '3 kg', 'Foam')->toDateString(),
-            $unit->tgl_expired->toDateString()
-        );
+        $this->assertSame('2026-03-01', $unit->tgl_expired->toDateString());
         $this->assertSame('2026-06-23', $serviceLog->tgl_service->toDateString());
         $this->assertSame('confirmed', $serviceLog->status_konfirmasi);
         $this->assertSame(10, $peralatan->fresh()->stok);

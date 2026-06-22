@@ -17,22 +17,34 @@ class InventoryService
     public function applyPurchaseExpense(Pengeluaran $pengeluaran, Carbon|string|null $batchProductionDate = null): void
     {
         if ($pengeluaran->jenis_pengeluaran === Pengeluaran::JENIS_PEMBELIAN_APAR) {
-            $produk = Produk::findOrFail($pengeluaran->produk_id);
+            $produk = Produk::with(['jenisApar', 'stokBatches'])->findOrFail($pengeluaran->produk_id);
             $tanggalMasuk = $this->resolveMovementDate($pengeluaran->tanggal);
             $tanggalProduksi = $this->resolveMovementDate($batchProductionDate ?: $pengeluaran->tanggal);
             $qty = (int) round((float) $pengeluaran->qty);
 
-            $produk->stokBatches()->create([
-                'jumlah_masuk' => $qty,
-                'sisa_qty' => $qty,
-                'tgl_produksi' => $tanggalProduksi->toDateString(),
-                'tgl_expired' => $this->resolveAparExpiredDate($produk, $tanggalProduksi)->toDateString(),
-                'keterangan' => $pengeluaran->keterangan,
-            ]);
+            if (! $produk->canAddStockDirectly()) {
+                throw new RuntimeException($produk->blockedStockPurchaseMessage());
+            }
 
-            $produk->forceFill([
-                'stok' => (int) ($produk->stok ?? 0) + $qty,
-            ])->save();
+            $activeBatch = $produk->activeStockBatch();
+
+            if ($activeBatch && $produk->stok_tersedia > 0) {
+                $activeBatch->forceFill([
+                    'jumlah_masuk' => (int) ($activeBatch->jumlah_masuk ?? 0) + $qty,
+                    'sisa_qty' => (int) ($activeBatch->sisa_qty ?? 0) + $qty,
+                ])->save();
+            } else {
+                $produk->stokBatches()->create([
+                    'jumlah_masuk' => $qty,
+                    'sisa_qty' => $qty,
+                    'tgl_produksi' => $tanggalProduksi->toDateString(),
+                    'tgl_expired' => $this->resolveAparExpiredDate($produk, $tanggalProduksi)->toDateString(),
+                    'keterangan' => $pengeluaran->keterangan,
+                ]);
+            }
+
+            $produk->refresh();
+            $produk->syncStoredStockFromBatches();
 
             $pengeluaran->forceFill([
                 'kategori' => 'lainnya',

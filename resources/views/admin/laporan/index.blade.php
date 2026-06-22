@@ -1,6 +1,14 @@
 <x-app-layout>
     @php
         $formatRupiah = static fn ($amount) => 'Rp ' . number_format((float) $amount, 0, ',', '.');
+        $formatQty = static function ($value) {
+            $number = (float) $value;
+            if ((int) $number === $number) {
+                return number_format($number, 0, ',', '.');
+            }
+
+            return rtrim(rtrim(number_format($number, 2, ',', '.'), '0'), ',');
+        };
         $monthlyPurchases = $charts['monthlyPurchases'] ?? [
             'labels' => [],
             'shortLabels' => [],
@@ -346,7 +354,7 @@
                 <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                         <h3 class="text-base font-black text-slate-900">Rincian Pengeluaran</h3>
-                        <p class="mt-1 text-sm font-medium text-slate-500">Detail semua pengeluaran yang masuk pada periode laporan.</p>
+                        <p class="mt-1 text-sm font-medium text-slate-500">Detail pembelian stok dan pengeluaran operasional yang tercatat pada periode laporan.</p>
                     </div>
                     <span class="inline-flex w-fit rounded-full bg-red-100 px-4 py-1.5 text-sm font-bold text-red-700">
                         Total: {{ $formatRupiah($pengeluarans->sum('effective_amount')) }}
@@ -368,21 +376,105 @@
                     <tbody class="divide-y divide-slate-100">
                         @forelse($pengeluarans as $i => $peng)
                             @php
-                                $keterangan = $peng->nama_item ?? $peng->keterangan ?? '-';
-                                $jumlah = $peng->qty ?? 1;
-                                $satuan = $peng->satuan ?? 'unit';
+                                $jenisLabel = match($peng->jenis_pengeluaran ?? $peng->kategori ?? 'lain') {
+                                    'pembelian_apar' => 'Pembelian Stok APAR',
+                                    'pembelian_refill' => 'Pembelian Stok Refill',
+                                    'pembelian_peralatan' => 'Pembelian Peralatan Service',
+                                    'pengeluaran_lainnya' => 'Pengeluaran Lainnya',
+                                    default => $peng->jenis_pengeluaran_label,
+                                };
+                                $itemLabel = $peng->display_item_name ?: $peng->nama_item ?: '-';
+                                $jumlah = (float) ($peng->qty ?? 1);
+                                $satuan = trim((string) ($peng->satuan ?? 'unit'));
+                                $catatan = trim((string) ($peng->keterangan ?? ''));
+                                $deskripsi = match($peng->jenis_pengeluaran ?? $peng->kategori ?? 'lain') {
+                                    'pembelian_apar' => 'Stok APAR masuk lewat transaksi pembelian admin.',
+                                    'pembelian_refill' => 'Stok refill masuk lewat transaksi pembelian admin.',
+                                    'pembelian_peralatan' => 'Stok peralatan service masuk lewat transaksi pembelian admin.',
+                                    default => 'Pengeluaran operasional dicatat admin.',
+                                };
                             @endphp
                             <tr class="transition hover:bg-slate-50">
                                 <td class="px-5 py-3 text-sm text-slate-500">{{ $i + 1 }}</td>
                                 <td class="px-5 py-3 text-sm text-slate-700 whitespace-nowrap">{{ $peng->tanggal ? \Carbon\Carbon::parse($peng->tanggal)->format('d M Y') : '-' }}</td>
-                                <td class="px-5 py-3"><span class="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700">{{ $peng->jenis_pengeluaran_label }}</span></td>
-                                <td class="px-5 py-3 text-sm text-slate-600">{{ $keterangan }}</td>
-                                <td class="px-5 py-3 text-right text-sm text-slate-600">{{ number_format($jumlah) }} {{ $satuan }}</td>
+                                <td class="px-5 py-3"><span class="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700">{{ $jenisLabel }}</span></td>
+                                <td class="px-5 py-3">
+                                    <p class="text-sm font-semibold text-slate-900">{{ $itemLabel }}</p>
+                                    <p class="mt-1 text-xs font-medium text-slate-500">{{ $deskripsi }}</p>
+                                    @if($catatan !== '' && strcasecmp($catatan, $itemLabel) !== 0)
+                                        <p class="mt-1 text-xs font-medium text-slate-500">Catatan: {{ $catatan }}</p>
+                                    @endif
+                                </td>
+                                <td class="px-5 py-3 text-right text-sm text-slate-600">{{ $formatQty($jumlah) }} {{ $satuan }}</td>
                                 <td class="px-5 py-3 text-right text-sm font-black text-red-700">{{ $formatRupiah($peng->effective_amount) }}</td>
                             </tr>
                         @empty
                             <tr>
                                 <td colspan="6" class="px-5 py-8 text-center text-sm text-slate-500">Belum ada data pengeluaran.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="border-b border-slate-100 bg-slate-50/70 px-5 py-4 sm:px-6">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                        <h3 class="text-base font-black text-slate-900">Riwayat Pergerakan Stok</h3>
+                        <p class="mt-1 text-sm font-medium text-slate-500">Ringkasan stok masuk dari pembelian admin dan stok keluar karena penjualan, refill, atau service pada periode laporan.</p>
+                    </div>
+                    <span class="inline-flex w-fit rounded-full bg-slate-100 px-4 py-1.5 text-sm font-bold text-slate-700">
+                        {{ $stockHistories->count() }} transaksi
+                    </span>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50/80">
+                        <tr>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">Tanggal</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">Jenis</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">Item</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">Sumber</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">Perubahan</th>
+                            <th class="px-5 py-3 text-xs font-bold text-slate-500">Keterangan</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        @forelse($stockHistories as $movement)
+                            @php
+                                $isIn = $movement->movement_type === \App\Models\StockMovement::MOVE_IN;
+                            @endphp
+                            <tr class="transition hover:bg-slate-50">
+                                <td class="px-5 py-3 text-sm font-semibold text-slate-900 whitespace-nowrap">{{ optional($movement->tanggal)->format('d M Y H:i') ?? '-' }}</td>
+                                <td class="px-5 py-3">
+                                    <p class="text-sm font-semibold text-slate-900">{{ $movement->item_type_label }}</p>
+                                    @if(!empty($movement->flow_label))
+                                        <p class="mt-1 text-xs font-medium {{ $isIn ? 'text-emerald-600' : 'text-red-600' }}">{{ $movement->flow_label }}</p>
+                                    @endif
+                                </td>
+                                <td class="px-5 py-3">
+                                    <p class="text-sm font-semibold text-slate-900">{{ $movement->item_nama }}</p>
+                                    <p class="mt-1 text-xs font-medium text-slate-500">{{ $movement->satuan }}</p>
+                                </td>
+                                <td class="px-5 py-3">
+                                    <p class="text-sm font-semibold text-slate-700">{{ $movement->source_label }}</p>
+                                    @if(!empty($movement->source_detail))
+                                        <p class="mt-1 text-xs font-medium text-slate-500">{{ $movement->source_detail }}</p>
+                                    @endif
+                                </td>
+                                <td class="px-5 py-3">
+                                    <span class="rounded-full px-3 py-1 text-xs font-bold {{ $isIn ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700' }}">
+                                        {{ $isIn ? '+' : '-' }}{{ $formatQty($movement->qty) }} {{ $movement->satuan }}
+                                    </span>
+                                </td>
+                                <td class="px-5 py-3 text-sm text-slate-600">{{ $movement->keterangan ?: '-' }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6" class="px-5 py-8 text-center text-sm text-slate-500">Belum ada pergerakan stok pada periode ini.</td>
                             </tr>
                         @endforelse
                     </tbody>

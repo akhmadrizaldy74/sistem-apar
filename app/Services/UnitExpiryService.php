@@ -24,18 +24,12 @@ class UnitExpiryService
 
     public function resolveBaseDate(UnitApar $unitApar): ?CarbonInterface
     {
-        $purchaseDate = $unitApar->tgl_beli?->copy()->startOfDay();
-        $latestConfirmedServiceDate = $this->latestConfirmedServiceDate($unitApar);
+        $baseProductionDate = $unitApar->tgl_produksi?->copy()->startOfDay();
+        $latestConfirmedRefillDate = $this->latestConfirmedRefillDate($unitApar);
 
-        if ($purchaseDate && $latestConfirmedServiceDate) {
-            return $latestConfirmedServiceDate->greaterThan($purchaseDate)
-                ? $latestConfirmedServiceDate
-                : $purchaseDate;
-        }
-
-        return $latestConfirmedServiceDate
-            ?: $purchaseDate
-            ?: $unitApar->tgl_produksi?->copy()->startOfDay();
+        return $latestConfirmedRefillDate
+            ?: $baseProductionDate
+            ?: $unitApar->tgl_beli?->copy()->startOfDay();
     }
 
     public function expectedExpiry(UnitApar $unitApar): ?CarbonInterface
@@ -85,11 +79,15 @@ class UnitExpiryService
         return $bahan !== '' ? $bahan : null;
     }
 
-    private function latestConfirmedServiceDate(UnitApar $unitApar): ?CarbonInterface
+    private function latestConfirmedRefillDate(UnitApar $unitApar): ?CarbonInterface
     {
         if ($unitApar->relationLoaded('services')) {
             $serviceDate = $unitApar->services
-                ->filter(fn (Service $service) => (string) $service->status_konfirmasi === 'confirmed' && ! is_null($service->tgl_service))
+                ->filter(function (Service $service) {
+                    return (string) $service->status_konfirmasi === 'confirmed'
+                        && ! is_null($service->tgl_service)
+                        && mb_strtolower(trim((string) $service->jenis_service)) === 'refill apar';
+                })
                 ->sortByDesc(fn (Service $service) => $service->tgl_service?->toDateString())
                 ->first()?->tgl_service;
 
@@ -99,6 +97,7 @@ class UnitExpiryService
         $serviceDate = $unitApar->services()
             ->where('status_konfirmasi', 'confirmed')
             ->whereNotNull('tgl_service')
+            ->whereRaw('LOWER(COALESCE(jenis_service, "")) = ?', ['refill apar'])
             ->max('tgl_service');
 
         return $serviceDate ? Carbon::parse($serviceDate)->startOfDay() : null;

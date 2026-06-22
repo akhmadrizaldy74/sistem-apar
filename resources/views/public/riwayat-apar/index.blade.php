@@ -24,11 +24,13 @@
     $paymentWarning = $pendingPaymentOrder?->hasPendingPurchasePriceRequest()
         ? 'Pengajuan harga Anda sedang menunggu persetujuan admin.'
         : 'Selesaikan pembayaran sebelumnya sebelum membuat pesanan baru.';
+    $unitStatusMeta = $pelanggan->units
+        ->mapWithKeys(fn ($unit) => [$unit->id => \App\Support\RegisteredRefillUnitSupport::statusMeta($unit, $refillWarningDays)]);
 
     $totalUnits = $pelanggan->units->count();
-    $expiredUnits = $pelanggan->units->filter(fn ($unit) => $unit->tgl_expired && $unit->tgl_expired->isPast())->count();
-    $expiringSoon = $pelanggan->units->filter(fn ($unit) => $unit->tgl_expired && ! $unit->tgl_expired->isPast() && now()->startOfDay()->diffInDays($unit->tgl_expired->copy()->startOfDay(), false) <= $refillWarningDays)->count();
-    $activeUnits = max(0, $totalUnits - $expiredUnits);
+    $expiredUnits = $unitStatusMeta->filter(fn ($meta) => ($meta['status_key'] ?? null) === 'expired')->count();
+    $expiringSoon = $unitStatusMeta->filter(fn ($meta) => ($meta['status_key'] ?? null) === 'hampir')->count();
+    $activeUnits = $unitStatusMeta->filter(fn ($meta) => ($meta['status_key'] ?? null) === 'aman')->count();
 
     $allOrders = $pelanggan->pesanan->sortByDesc(fn ($pesanan) => $pesanan->created_at);
     $activeOrderList = $allOrders->filter(fn ($pesanan) => $pesanan->isActiveOrder());
@@ -37,7 +39,7 @@
     $unitRefillLocks = $unitRefillLocks ?? [];
     $initialActiveTab = request('tab') === 'unit' ? 'unit' : 'riwayat';
     $attentionUnits = $pelanggan->units
-        ->filter(fn ($unit) => $unit->tgl_expired && ($unit->tgl_expired->isPast() || now()->startOfDay()->diffInDays($unit->tgl_expired->copy()->startOfDay(), false) <= $refillWarningDays))
+        ->filter(fn ($unit) => in_array($unitStatusMeta->get($unit->id)['status_key'] ?? null, ['hampir', 'expired'], true))
         ->sortBy(fn ($unit) => $unit->tgl_expired ?? now()->addYears(20));
 @endphp
 
@@ -126,7 +128,7 @@
                 </div>
             </div>
             <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                <p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">Unit Aktif</p>
+                <p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">Unit Aman</p>
                 <div class="mt-2 flex items-center justify-between">
                     <span class="text-2xl font-black text-slate-950">{{ $activeUnits }}</span>
                     <i class="fa-solid fa-fire-extinguisher text-emerald-400"></i>
@@ -225,15 +227,20 @@
                 <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                         @forelse($pelanggan->units->sortBy(fn ($unit) => $unit->tgl_expired ?? now()->addYears(20)) as $unit)
                             @php
-                                $statusMeta = \App\Support\RegisteredRefillUnitSupport::statusMeta($unit, $refillWarningDays);
-                                $daysUntilExpiry = $statusMeta['days_until_expiry'];
-                                $isExpired = (bool) ($statusMeta['is_expired'] ?? false);
-                                $isExpiringSoon = (bool) ($statusMeta['is_expiring_soon'] ?? false);
+                                $statusMeta = $unitStatusMeta->get($unit->id)
+                                    ?? \App\Support\RegisteredRefillUnitSupport::statusMeta($unit, $refillWarningDays);
                                 $needsRefill = (bool) ($statusMeta['needs_refill'] ?? false);
-                                $conditionLabel = $needsRefill ? 'Perlu Refill' : 'Aman';
-                                $conditionClass = $needsRefill
-                                    ? 'bg-amber-50 text-amber-700 ring-amber-100'
-                                    : 'bg-emerald-50 text-emerald-700 ring-emerald-100';
+                                $conditionLabel = (string) ($statusMeta['status_label'] ?? 'Aman');
+                                $conditionClass = match ($statusMeta['status_key'] ?? 'aman') {
+                                    'expired' => 'bg-red-50 text-red-700 ring-red-100',
+                                    'hampir' => 'bg-amber-50 text-amber-700 ring-amber-100',
+                                    default => 'bg-emerald-50 text-emerald-700 ring-emerald-100',
+                                };
+                                $conditionTextClass = match ($statusMeta['status_key'] ?? 'aman') {
+                                    'expired' => 'text-red-700',
+                                    'hampir' => 'text-amber-700',
+                                    default => 'text-emerald-700',
+                                };
                                 $refillLock = $unitRefillLocks[$unit->id] ?? null;
                                 $unitCode = $unit->no_seri ?: ('UNIT-' . $unit->id);
                             @endphp
@@ -260,25 +267,17 @@
                                     </div>
                                     <div class="grid grid-cols-2 gap-3">
                                         <div>
-                                            <dt class="font-bold uppercase tracking-wide text-slate-400">Expired</dt>
-                                            <dd class="mt-1 font-black text-slate-900">{{ $unit->tgl_expired?->format('d M Y') ?? '-' }}</dd>
+                                            <dt class="font-bold uppercase tracking-wide text-slate-400">Masa Berlaku Sampai</dt>
+                                            <dd class="mt-1 font-black text-slate-900">{{ $statusMeta['expired_at_short_label'] ?? '-' }}</dd>
                                         </div>
                                         <div>
-                                            <dt class="font-bold uppercase tracking-wide text-slate-400">Sisa Waktu</dt>
-                                            <dd class="mt-1 font-black {{ $isExpired ? 'text-red-700' : ($isExpiringSoon ? 'text-amber-700' : 'text-slate-900') }}">
-                                                @if(is_null($daysUntilExpiry))
-                                                    -
-                                                @elseif($isExpired)
-                                                    Lewat {{ abs($daysUntilExpiry) }} hari
-                                                @else
-                                                    {{ $daysUntilExpiry }} hari
-                                                @endif
-                                            </dd>
+                                            <dt class="font-bold uppercase tracking-wide text-slate-400">Sisa Masa Berlaku</dt>
+                                            <dd class="mt-1 font-black {{ $conditionTextClass }}">{{ $statusMeta['remaining_label'] ?? '-' }}</dd>
                                         </div>
                                     </div>
                                     <div>
                                         <dt class="font-bold uppercase tracking-wide text-slate-400">Status</dt>
-                                        <dd class="mt-1 font-black {{ $needsRefill ? 'text-amber-700' : 'text-emerald-700' }}">{{ $conditionLabel }}</dd>
+                                        <dd class="mt-1 font-black {{ $conditionTextClass }}">{{ $conditionLabel }}</dd>
                                     </div>
                                 </dl>
 

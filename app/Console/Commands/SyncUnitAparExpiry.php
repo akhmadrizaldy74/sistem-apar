@@ -27,7 +27,7 @@ class SyncUnitAparExpiry extends Command
             ->with([
                 'produk.jenisApar',
                 'services' => fn ($query) => $query
-                    ->select('id', 'unit_apar_id', 'tgl_service', 'status_konfirmasi')
+                    ->select('id', 'unit_apar_id', 'jenis_service', 'tgl_service', 'status_konfirmasi')
                     ->orderByDesc('tgl_service')
                     ->orderByDesc('id'),
             ])

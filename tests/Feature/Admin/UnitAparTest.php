@@ -46,7 +46,7 @@ class UnitAparTest extends TestCase
             'ukuran' => '6 Kg',
             'bahan' => 'Dry Chemical Powder',
             'kondisi_awal' => 'layak',
-            'tgl_expired' => now()->addDays(10)->toDateString(),
+            'tgl_expired' => now()->addDays(7)->toDateString(),
         ]);
 
         UnitApar::create([
@@ -67,7 +67,7 @@ class UnitAparTest extends TestCase
         $response->assertSee('Unit APAR');
         $response->assertSee('Daftar unit dibuat lebih ringkas supaya admin cepat mencari, menyaring, dan membuka detail tanpa scroll panjang.');
         $response->assertSee('Total Unit APAR');
-        $response->assertSee('Unit Aktif');
+        $response->assertSee('Unit Aman');
         $response->assertSee('Unit Expired');
         $response->assertSee('Filter Unit APAR');
         $response->assertSee('Produk');
@@ -340,6 +340,9 @@ class UnitAparTest extends TestCase
         $response->assertSee('081234567899');
         $response->assertSee('APAR Powder 6 Kg');
         $response->assertSee('Dry Chemical Powder');
+        $response->assertSee('Tanggal Dasar Masa Berlaku');
+        $response->assertSee('Masa Berlaku Sampai');
+        $response->assertSee('Sisa Masa Berlaku');
         $response->assertSee('Riwayat Refill');
         $response->assertSee('Riwayat Service');
         $response->assertSee('Powder');
@@ -478,11 +481,11 @@ class UnitAparTest extends TestCase
         $this->assertCount(2, $units);
         $this->assertSame('AKHMAD-18062026-01', $units[0]->no_seri);
         $this->assertSame('AKHMAD-18062026-02', $units[1]->no_seri);
-        $this->assertSame('2027-06-18', $units[0]->tgl_expired->toDateString());
-        $this->assertSame('2027-06-18', $units[1]->tgl_expired->toDateString());
+        $this->assertSame('2027-06-10', $units[0]->tgl_expired->toDateString());
+        $this->assertSame('2027-06-10', $units[1]->tgl_expired->toDateString());
     }
 
-    public function test_final_product_order_uses_purchase_date_expiry_rules_for_1kg_2kg_and_3kg_units(): void
+    public function test_final_product_order_uses_batch_production_date_expiry_rules_for_1kg_2kg_and_3kg_units(): void
     {
         ['pelanggan' => $pelanggan] = $this->createFixture(customerName: 'Akhmad Rizaldy');
         $jenisApar = JenisApar::create([
@@ -494,19 +497,19 @@ class UnitAparTest extends TestCase
                 'name' => 'APAR TONATA Powder 1 kg',
                 'brand' => 'TONATA',
                 'capacity' => '1 kg',
-                'expected_expiry' => '2026-12-19',
+                'expected_expiry' => '2026-09-11',
             ],
             [
                 'name' => 'APAR GuardALL Powder 2 kg',
                 'brand' => 'GuardALL',
                 'capacity' => '2 kg',
-                'expected_expiry' => '2027-06-19',
+                'expected_expiry' => '2027-03-11',
             ],
             [
                 'name' => 'APAR Firefix Powder 3 kg',
                 'brand' => 'FIREFIX',
                 'capacity' => '3 kg',
-                'expected_expiry' => '2027-06-19',
+                'expected_expiry' => '2027-03-11',
             ],
         ];
 
@@ -565,7 +568,7 @@ class UnitAparTest extends TestCase
         }
     }
 
-    public function test_sync_unit_expiry_command_corrects_legacy_units_using_purchase_or_latest_service_date(): void
+    public function test_sync_unit_expiry_command_corrects_legacy_units_using_production_or_latest_refill_date(): void
     {
         ['pelanggan' => $pelanggan] = $this->createFixture(customerName: 'Akhmad Rizaldy');
         $jenisApar = JenisApar::create([
@@ -627,10 +630,10 @@ class UnitAparTest extends TestCase
         ]);
 
         $this->artisan('apar:sync-unit-expiry')
-            ->expectsOutputToContain('diperbarui: 2')
+            ->expectsOutputToContain('diperbarui: 1')
             ->assertSuccessful();
 
-        $this->assertSame('2026-12-19', $unitSatuKg->fresh()->tgl_expired->toDateString());
+        $this->assertSame('2026-09-11', $unitSatuKg->fresh()->tgl_expired->toDateString());
         $this->assertSame('2027-06-20', $unitTigaKg->fresh()->tgl_expired->toDateString());
     }
 

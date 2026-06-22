@@ -16,7 +16,7 @@
             </div>
 
             <div class="rounded-2xl border border-emerald-100 bg-emerald-50/80 px-4 py-4 shadow-sm">
-                <p class="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-600">Unit Aktif</p>
+                <p class="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-600">Unit Aman</p>
                 <p class="mt-2 text-2xl font-black text-emerald-700">{{ $summary['aktif'] }}</p>
             </div>
 
@@ -205,7 +205,7 @@
                                 <th class="px-3.5 py-3 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Pelanggan</th>
                                 <th class="px-3.5 py-3 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Produk</th>
                                 <th class="px-3.5 py-3 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Tanggal Masuk</th>
-                                <th class="px-3.5 py-3 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Expired</th>
+                                <th class="px-3.5 py-3 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Masa Berlaku Sampai</th>
                                 <th class="px-3.5 py-3 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Status</th>
                                 <th class="px-3.5 py-3 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Aksi</th>
                             </tr>

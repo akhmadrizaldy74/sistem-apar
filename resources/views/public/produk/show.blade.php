@@ -5,7 +5,7 @@
 @section('content')
     <section class="bg-gray-50">
         @php
-            $stokSiapJual = (int) ($produk->stok_tersedia ?? 0);
+            $stokSiapJual = (int) ($produk->catalog_ready_stock ?? 0);
             $isHabis = $stokSiapJual <= 0;
             $formatRupiah = static fn ($amount) => 'Rp ' . number_format((float) $amount, 0, ',', '.');
             $jenisNama = trim((string) ($produk->jenisApar?->nama ?? 'APAR'));
@@ -15,6 +15,14 @@
             $stockBadge = $isHabis ? 'HABIS' : 'TERSEDIA';
             $stockLabel = $isHabis ? 'Habis' : $stokSiapJual . ' unit tersedia';
             $productWaUrl = \App\Support\WhatsApp::companyLink('Halo PD Anugrah Utama, saya ingin menanyakan produk ' . $produk->nama . '.');
+            $productExpiryMeta = $productExpiryMeta ?? [];
+            $hasExpiryInfo = ($productExpiryMeta['expired_at_label'] ?? '-') !== '-';
+            $productExpiryStatus = $hasExpiryInfo ? ($productExpiryMeta['status_label'] ?? '-') : '-';
+            $productExpiryTone = match ($productExpiryMeta['status_key'] ?? null) {
+                'expired' => 'text-red-700',
+                'hampir' => 'text-amber-700',
+                default => 'text-slate-700',
+            };
         @endphp
 
         <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5">
@@ -70,15 +78,21 @@
                                     <dd class="font-semibold {{ $isHabis ? 'text-red-700' : 'text-slate-700' }}">{{ $stockLabel }}</dd>
                                 </div>
                                 <div class="flex flex-col gap-0.5 py-2 first:pt-0 last:pb-0 sm:flex-row sm:gap-3">
+                                    <dt class="font-bold text-slate-950 sm:w-20 sm:shrink-0">Masa Berlaku:</dt>
+                                    <dd class="font-semibold {{ $productExpiryTone }}">{{ $productExpiryMeta['expired_at_label'] ?? '-' }}</dd>
+                                </div>
+                                <div class="flex flex-col gap-0.5 py-2 first:pt-0 last:pb-0 sm:flex-row sm:gap-3">
+                                    <dt class="font-bold text-slate-950 sm:w-20 sm:shrink-0">Sisa:</dt>
+                                    <dd class="font-semibold {{ $productExpiryTone }}">{{ $hasExpiryInfo ? ($productExpiryMeta['remaining_label'] ?? '-') : '-' }}</dd>
+                                </div>
+                                <div class="flex flex-col gap-0.5 py-2 first:pt-0 last:pb-0 sm:flex-row sm:gap-3">
+                                    <dt class="font-bold text-slate-950 sm:w-20 sm:shrink-0">Status:</dt>
+                                    <dd class="font-semibold {{ $productExpiryTone }}">{{ $productExpiryStatus }}</dd>
+                                </div>
+                                <div class="flex flex-col gap-0.5 py-2 first:pt-0 last:pb-0 sm:flex-row sm:gap-3">
                                     <dt class="font-bold text-slate-950 sm:w-20 sm:shrink-0">Fungsi:</dt>
                                     <dd class="font-semibold leading-5">{{ $produk->penggunaan ?: '-' }}</dd>
                                 </div>
-                                @if($produk->deskripsi)
-                                    <div class="flex flex-col gap-0.5 pt-2 sm:flex-row sm:gap-3">
-                                        <dt class="font-bold text-slate-950 sm:w-20 sm:shrink-0">Ringkasan:</dt>
-                                        <dd class="font-medium leading-5 text-slate-600">{{ $produk->deskripsi }}</dd>
-                                    </div>
-                                @endif
                             </dl>
                         </div>
 

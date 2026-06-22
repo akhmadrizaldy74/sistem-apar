@@ -14,10 +14,12 @@ use App\Models\Service;
 use App\Models\Testimoni;
 use App\Models\UnitApar;
 use App\Models\WebsiteVisit;
-use App\Support\AdminPesananData;
 use App\Services\AdminAnalyticsService;
 use App\Services\FinalRevenueService;
+use App\Services\ProductExpiryAlertService;
 use App\Services\StockAlertService;
+use App\Support\AdminPesananData;
+use App\Support\RegisteredRefillUnitSupport;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -28,12 +30,13 @@ class AdminRealtimeController extends Controller
     public function dashboard(
         FinalRevenueService $finalRevenue,
         AdminAnalyticsService $analytics,
-        StockAlertService $stockAlerts
+        StockAlertService $stockAlerts,
+        ProductExpiryAlertService $productExpiryAlerts
     ): JsonResponse
     {
         $today = Carbon::today();
         $now = now();
-        $expiringLimit = $today->copy()->addDays(30);
+        $expiringLimit = $today->copy()->addDays(RegisteredRefillUnitSupport::REFILL_WARNING_DAYS);
         $monthStart = $now->copy()->startOfMonth()->toDateString();
         $monthEnd = $now->copy()->endOfMonth()->toDateString();
         $monthlyRevenue = $finalRevenue->breakdown($monthStart, $monthEnd);
@@ -52,7 +55,7 @@ class AdminRealtimeController extends Controller
         ];
 
         $unitStatusChart = [
-            'Akan Expired' => UnitApar::query()->whereBetween('tgl_expired', [$today, $expiringLimit])->count(),
+            'Hampir Expired' => UnitApar::query()->whereBetween('tgl_expired', [$today, $expiringLimit])->count(),
             'Expired' => UnitApar::query()->whereDate('tgl_expired', '<', $today)->count(),
         ];
 
@@ -64,7 +67,7 @@ class AdminRealtimeController extends Controller
             'totalKomplain' => Complain::count(),
             'totalUnitApar' => UnitApar::count(),
             'pendapatanBulanIni' => $monthlyRevenue['total'],
-            'unitAkanExpired' => $unitStatusChart['Akan Expired'],
+            'unitAkanExpired' => $unitStatusChart['Hampir Expired'],
             'unitExpired' => $unitStatusChart['Expired'],
         ];
 
@@ -85,6 +88,9 @@ class AdminRealtimeController extends Controller
             'stock_alert_html' => view('dashboard.partials.stock-alert-panel', [
                 'stockAlerts' => $stockAlerts->adminDashboard(),
                 'audience' => 'admin',
+            ])->render(),
+            'product_expiry_html' => view('dashboard.partials.product-expiry-alert-panel', [
+                'productExpiryAlerts' => $productExpiryAlerts->adminDashboard(),
             ])->render(),
             'updated_at' => now()->toIso8601String(),
         ]);
@@ -198,16 +204,19 @@ class AdminRealtimeController extends Controller
     {
         $query = Testimoni::with('pelanggan');
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
+        if ($request->filled('replied')) {
+            if ($request->input('replied') === 'yes') {
+                $query->whereNotNull('admin_note');
+            } else {
+                $query->whereNull('admin_note');
+            }
         }
 
         $testimonis = $query->latest('tanggal')->paginate(15)->withQueryString();
         $counts = [
             'total' => Testimoni::count(),
-            'pending' => Testimoni::where('status', 'pending')->count(),
-            'approved' => Testimoni::where('status', 'approved')->count(),
-            'rejected' => Testimoni::where('status', 'rejected')->count(),
+            'replied' => Testimoni::whereNotNull('admin_note')->count(),
+            'unreplied' => Testimoni::whereNull('admin_note')->count(),
         ];
         $currentStatus = trim((string) $request->input('status'));
 

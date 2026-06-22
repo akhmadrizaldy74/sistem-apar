@@ -6,6 +6,8 @@ use App\Models\JenisRefill;
 use App\Models\Pelanggan;
 use App\Models\Pesanan;
 use App\Models\UnitApar;
+use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
 class RegisteredRefillUnitSupport
@@ -15,20 +17,38 @@ class RegisteredRefillUnitSupport
 
     public static function statusMeta(UnitApar $unitApar, int $warningDays = self::REFILL_WARNING_DAYS): array
     {
-        $daysUntilExpiry = $unitApar->tgl_expired
-            ? (int) now()->startOfDay()->diffInDays($unitApar->tgl_expired->copy()->startOfDay(), false)
-            : null;
+        return static::statusMetaFromExpiry($unitApar->tgl_expired, $warningDays);
+    }
 
+    public static function statusMetaFromExpiry(
+        CarbonInterface|string|null $expiredAt,
+        int $warningDays = self::REFILL_WARNING_DAYS
+    ): array {
+        $today = now()->startOfDay();
+        $expiredDate = static::normalizeExpiryDate($expiredAt);
+        $daysUntilExpiry = $expiredDate
+            ? (int) $today->diffInDays($expiredDate, false)
+            : null;
         $isExpired = ! is_null($daysUntilExpiry) && $daysUntilExpiry < 0;
         $isExpiringSoon = ! $isExpired && ! is_null($daysUntilExpiry) && $daysUntilExpiry <= $warningDays;
         $needsRefill = $isExpired || $isExpiringSoon;
+        $statusKey = $isExpired ? 'expired' : ($isExpiringSoon ? 'hampir' : 'aman');
 
         return [
+            'status_key' => $statusKey,
             'days_until_expiry' => $daysUntilExpiry,
             'is_expired' => $isExpired,
             'is_expiring_soon' => $isExpiringSoon,
             'needs_refill' => $needsRefill,
-            'status_label' => $needsRefill ? 'Perlu Refill' : 'Aman',
+            'status_label' => match ($statusKey) {
+                'expired' => 'Expired',
+                'hampir' => 'Hampir Expired',
+                default => 'Aman',
+            },
+            'expired_at_label' => static::formatDateLabel($expiredDate),
+            'expired_at_short_label' => static::formatShortDateLabel($expiredDate),
+            'remaining_label' => static::remainingLabel($daysUntilExpiry, $today, $expiredDate),
+            'notice_text' => static::noticeText($statusKey, $daysUntilExpiry, $expiredDate),
         ];
     }
 
@@ -208,5 +228,82 @@ class RegisteredRefillUnitSupport
 
         return str_contains($note, 'unit dibuat otomatis dari')
             || str_starts_with($serial, 'AUTO-');
+    }
+
+    private static function normalizeExpiryDate(CarbonInterface|string|null $expiredAt): ?CarbonInterface
+    {
+        if ($expiredAt instanceof CarbonInterface) {
+            return $expiredAt->copy()->startOfDay();
+        }
+
+        $raw = trim((string) $expiredAt);
+        if ($raw === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($raw)->startOfDay();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private static function remainingLabel(
+        ?int $daysUntilExpiry,
+        CarbonInterface $today,
+        ?CarbonInterface $expiredDate
+    ): string {
+        if (is_null($daysUntilExpiry) || ! $expiredDate) {
+            return '-';
+        }
+
+        if ($daysUntilExpiry < 0) {
+            return 'Expired';
+        }
+
+        if ($daysUntilExpiry === 0) {
+            return 'Hari ini';
+        }
+
+        $monthsUntilExpiry = (int) floor($today->diffInMonths($expiredDate));
+        if ($monthsUntilExpiry >= 1) {
+            $anchorDate = $today->copy()->addMonths($monthsUntilExpiry);
+            $remainingDays = max(0, (int) $anchorDate->diffInDays($expiredDate, false));
+
+            if ($remainingDays > 0 && $monthsUntilExpiry < 6) {
+                return $monthsUntilExpiry . ' bulan ' . $remainingDays . ' hari';
+            }
+
+            return $monthsUntilExpiry . ' bulan';
+        }
+
+        return $daysUntilExpiry . ' hari';
+    }
+
+    private static function noticeText(string $statusKey, ?int $daysUntilExpiry, ?CarbonInterface $expiredDate): string
+    {
+        if (! $expiredDate) {
+            return 'Masa berlaku unit belum tersedia.';
+        }
+
+        $expiredLabel = static::formatDateLabel($expiredDate);
+
+        return match ($statusKey) {
+            'expired' => 'Unit sudah melewati masa berlaku pada ' . $expiredLabel . '.',
+            'hampir' => $daysUntilExpiry === 0
+                ? 'Masa berlaku unit berakhir hari ini, ' . $expiredLabel . '.'
+                : 'Masa berlaku unit tinggal ' . $daysUntilExpiry . ' hari, sampai ' . $expiredLabel . '.',
+            default => 'Masa berlaku unit masih aktif sampai ' . $expiredLabel . '.',
+        };
+    }
+
+    private static function formatDateLabel(?CarbonInterface $date): string
+    {
+        return $date?->copy()->locale('id')->isoFormat('D MMMM YYYY') ?? '-';
+    }
+
+    private static function formatShortDateLabel(?CarbonInterface $date): string
+    {
+        return $date?->copy()->locale('id')->isoFormat('D MMM YYYY') ?? '-';
     }
 }

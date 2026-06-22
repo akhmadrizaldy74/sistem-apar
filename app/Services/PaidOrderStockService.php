@@ -97,16 +97,17 @@ class PaidOrderStockService
 
             $stokSebelum = (float) $produk->stok_tersedia;
             $allocations = $this->allocateProductBatches($pesanan, $produk, $jumlahDibutuhkan);
-
-            $produk->decrement('stok', $jumlahDibutuhkan);
+            $produk->refresh();
+            $produk->syncStoredStockFromBatches();
+            $produk->refresh()->load('stokBatches');
 
             $this->inventoryService->logProductMovement(
-                produk: $produk->fresh(),
+                produk: $produk,
                 qty: (float) $jumlahDibutuhkan,
                 movementType: StockMovement::MOVE_OUT,
                 sourceType: StockMovement::SOURCE_PENJUALAN_PRODUK,
                 stokSebelum: $stokSebelum,
-                stokSesudah: (float) $produk->fresh('stokBatches')->stok_tersedia,
+                stokSesudah: (float) $produk->stok_tersedia,
                 reference: $pesanan,
                 keterangan: 'Pesanan Produk - ' . $this->customerName($pesanan),
                 tanggal: now(),
@@ -122,16 +123,17 @@ class PaidOrderStockService
     private function allocateProductBatches(Pesanan $pesanan, Produk $produk, int $jumlahDibutuhkan): array
     {
         $allocations = [];
+        $warningLimit = now()->startOfDay()->addDays(RegisteredRefillUnitSupport::REFILL_WARNING_DAYS)->toDateString();
         $batches = StokBatch::query()
             ->where('produk_id', $produk->id)
             ->where('sisa_qty', '>', 0)
-            ->where('tgl_expired', '>=', now()->toDateString())
+            ->whereDate('tgl_expired', '>', $warningLimit)
             ->orderBy('tgl_expired')
             ->orderBy('id')
             ->get();
 
         if ((int) $batches->sum('sisa_qty') < $jumlahDibutuhkan) {
-            throw new \RuntimeException("Stok non-expired produk '{$produk->nama}' tidak mencukupi untuk memenuhi pesanan.");
+            throw new \RuntimeException("Stok siap jual produk '{$produk->nama}' tidak mencukupi untuk memenuhi pesanan.");
         }
 
         foreach ($batches as $batch) {
@@ -185,13 +187,11 @@ class PaidOrderStockService
         }
 
         $shouldHide = (string) $pesanan->status !== Pesanan::STATUS_SELESAI_FINAL && UnitApar::supportsDatabaseColumn('hidden_at');
-        $purchaseDate = optional($pesanan->tanggal)->toDateString() ?: now()->toDateString();
-        $unitExpiryDate = $this->unitExpiryService
-            ->calculateExpiry($purchaseDate, $produk->kapasitas ?? '-', $produk->jenisApar?->nama ?? '-')
-            ->toDateString();
 
         foreach ($allocations as $allocation) {
             $qty = max(0, (int) ($allocation['qty'] ?? 0));
+            $unitExpiryDate = $allocation['tgl_expired'];
+
             for ($index = 0; $index < $qty && $missingCount > 0; $index++) {
                 UnitApar::create([
                     'pelanggan_id' => $pesanan->pelanggan_id,
@@ -217,6 +217,7 @@ class PaidOrderStockService
 
     private function rollbackProductStock(Pesanan $pesanan): void
     {
+        $affectedProductIds = collect();
         $units = $pesanan->unitApars()
             ->with('produk')
             ->orderBy('id')
@@ -258,10 +259,7 @@ class PaidOrderStockService
                 ]);
             }
 
-            $produk = Produk::find($firstUnit->produk_id);
-            if ($produk) {
-                $produk->increment('stok', $qty);
-            }
+            $affectedProductIds->push((int) $firstUnit->produk_id);
         }
 
         if ($units->isEmpty()) {
@@ -276,8 +274,6 @@ class PaidOrderStockService
                     continue;
                 }
 
-                $produk->increment('stok', $qty);
-
                 StokBatch::create([
                     'produk_id' => $produk->id,
                     'jumlah_masuk' => $qty,
@@ -290,8 +286,21 @@ class PaidOrderStockService
                     )->toDateString(),
                     'keterangan' => 'Pemulihan stok dari pembatalan pesanan aktif #' . $pesanan->id,
                 ]);
+
+                $affectedProductIds->push((int) $produk->id);
             }
         }
+
+        $affectedProductIds
+            ->filter(fn ($id) => (int) $id > 0)
+            ->unique()
+            ->each(function (int $productId) {
+                $produk = Produk::find($productId);
+
+                if ($produk) {
+                    $produk->syncStoredStockFromBatches();
+                }
+            });
     }
 
     private function applyRefillStock(Pesanan $pesanan): void
@@ -519,10 +528,6 @@ class PaidOrderStockService
 
     private function resolvedBatchExpiryDate(UnitApar $unitApar): string
     {
-        $productionDate = optional($unitApar->tgl_produksi)->toDateString() ?: now()->toDateString();
-
-        return $this->unitExpiryService
-            ->calculateExpiry($productionDate, $unitApar->ukuran ?: '-', $unitApar->bahan ?: '-')
-            ->toDateString();
+        return optional($unitApar->tgl_expired)->toDateString() ?: now()->toDateString();
     }
 }

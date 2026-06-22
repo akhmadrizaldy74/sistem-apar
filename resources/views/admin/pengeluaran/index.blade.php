@@ -21,15 +21,24 @@
         $totalApar = $pengeluarans->where('jenis_pengeluaran', \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR)->sum('qty');
         $totalRefill = $pengeluarans->where('jenis_pengeluaran', \App\Models\Pengeluaran::JENIS_PEMBELIAN_REFILL)->sum('qty');
         $totalPeralatan = $pengeluarans->where('jenis_pengeluaran', \App\Models\Pengeluaran::JENIS_PEMBELIAN_PERALATAN)->sum('qty');
-        $productOptions = $produks->map(fn ($item) => [
-            'id' => $item->id,
-            'nama' => $item->nama,
-            'merek' => $item->merek,
-            'jenis_apar' => $item->jenisApar?->nama,
-            'kapasitas' => $item->kapasitas,
-            'stok' => (int) ($item->stok_tersedia ?? 0),
-            'harga_acuan' => (float) ($productPurchaseReferencePrices->get($item->id, (float) ($item->harga ?? 0))),
-        ])->values();
+        $productOptions = $produks->map(function ($item) use ($productPurchaseReferencePrices) {
+            $statusMeta = $item->activeStockStatusMeta();
+
+            return [
+                'id' => $item->id,
+                'nama' => $item->nama,
+                'merek' => $item->merek,
+                'jenis_apar' => $item->jenisApar?->nama,
+                'kapasitas' => $item->kapasitas,
+                'stok' => (int) ($item->stok_tersedia ?? 0),
+                'masa_berlaku' => (string) ($statusMeta['expired_at_label'] ?? '-'),
+                'status_label' => (string) ($statusMeta['status_label'] ?? '-'),
+                'status_key' => (string) ($statusMeta['status_key'] ?? 'kosong'),
+                'can_add_stock' => (bool) $item->canAddStockDirectly(),
+                'blocked_add_stock_message' => (string) $item->blockedStockPurchaseMessage(),
+                'harga_acuan' => (float) ($productPurchaseReferencePrices->get($item->id, (float) ($item->harga ?? 0))),
+            ];
+        })->values();
         $refillOptions = $jenisRefills->map(fn ($item) => [
             'id' => $item->id,
             'nama' => $item->nama,
@@ -235,7 +244,7 @@
                                 <div class="space-y-4 rounded-[1.5rem] border border-gray-100 bg-gray-50/60 p-4 sm:p-5">
                                     <div class="border-b border-gray-200 pb-3">
                                         <p class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Detail Pembelian APAR</p>
-                                        <p class="mt-1 text-xs font-semibold text-gray-500">Harga acuan pembelian terakhir ditampilkan otomatis, lalu admin tetap bisa menyesuaikan harga beli aktual sesuai nota pembelian.</p>
+                                        <p class="mt-1 text-xs font-semibold text-gray-500">Harga acuan pembelian terakhir ditampilkan otomatis, lalu admin tetap bisa menyesuaikan harga beli sesuai nota pembelian.</p>
                                     </div>
 
                                     <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -268,6 +277,14 @@
                                             <p class="mt-1 truncate text-sm font-black text-gray-900" x-text="currentProduct?.kapasitas || '-'"></p>
                                         </div>
                                         <div class="rounded-xl bg-white px-4 py-3">
+                                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Masa Berlaku Aktif</p>
+                                            <p class="mt-1 truncate text-sm font-black text-gray-900" x-text="currentProduct?.masa_berlaku || '-'"></p>
+                                        </div>
+                                        <div class="rounded-xl bg-white px-4 py-3">
+                                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Status</p>
+                                            <p class="mt-1 truncate text-sm font-black" :class="statusTextClass(currentProduct?.status_key)" x-text="currentProduct?.status_label || '-'"></p>
+                                        </div>
+                                        <div class="rounded-xl bg-white px-4 py-3">
                                             <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Stok Saat Ini</p>
                                             <p class="mt-1 text-sm font-bold text-gray-900" x-text="currentProduct ? `${formatQty(currentProduct.stok || 0)} Unit` : '-'"></p>
                                         </div>
@@ -276,26 +293,29 @@
                                             <p class="mt-1 text-sm font-bold text-gray-900" x-text="currentProduct ? currency(currentProduct.harga_acuan || 0) : '-'"></p>
                                             <p class="mt-2 text-[11px] font-semibold text-gray-500">Diambil dari pembelian terakhir item ini pada menu Pengeluaran.</p>
                                         </div>
-                                        <div>
-                                            <label for="qty_apar" class="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-400">Kuantitas</label>
-                                            <input id="qty_apar" name="qty_apar" type="number" step="1" min="1" x-model.number="qty" :disabled="jenisPengeluaran !== '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}'" class="w-full rounded-xl border-none bg-white px-4 py-3 text-sm font-bold text-gray-900 transition focus:ring-2 focus:ring-red-600/20" placeholder="Contoh: 5">
+                                        <div x-show="isAparPurchaseBlocked" x-cloak class="lg:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold leading-6 text-amber-900">
+                                            <p x-text="currentProduct?.blocked_add_stock_message || ''"></p>
                                         </div>
                                         <div>
-                                            <label for="harga_beli_display" class="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-400">Harga Beli Aktual</label>
-                                            <input id="harga_beli_display" name="harga_beli_display" type="text" inputmode="numeric" :value="formattedHargaBeliInput" @input="setHargaBeliInput($event.target.value)" :disabled="jenisPengeluaran !== '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}'" class="w-full rounded-xl border-none bg-white px-4 py-3 text-sm font-bold text-gray-900 transition focus:ring-2 focus:ring-red-600/20" placeholder="Rp 0">
+                                            <label for="qty_apar" class="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-400">Kuantitas</label>
+                                            <input id="qty_apar" name="qty_apar" type="number" step="1" min="1" x-model.number="qty" :disabled="aparInputsDisabled" class="w-full rounded-xl border-none bg-white px-4 py-3 text-sm font-bold text-gray-900 transition focus:ring-2 focus:ring-red-600/20 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400" placeholder="Contoh: 5">
+                                        </div>
+                                        <div>
+                                            <label for="harga_beli_display" class="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-400">Harga Beli</label>
+                                            <input id="harga_beli_display" name="harga_beli_display" type="text" inputmode="numeric" :value="formattedHargaBeliInput" @input="setHargaBeliInput($event.target.value)" :disabled="aparInputsDisabled" class="w-full rounded-xl border-none bg-white px-4 py-3 text-sm font-bold text-gray-900 transition focus:ring-2 focus:ring-red-600/20 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400" placeholder="Rp 0">
                                             <p class="mt-2 text-[11px] font-semibold text-gray-500">Nilai ini dipakai untuk histori pembelian dan dasar acuan pembelian berikutnya.</p>
                                         </div>
                                         <div class="lg:col-span-2">
                                             <label for="tgl_produksi_apar" class="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-400">Tanggal Produksi APAR</label>
-                                            <input id="tgl_produksi_apar" name="tgl_produksi_apar" type="date" value="{{ old('tgl_produksi_apar', old('tanggal', now()->format('Y-m-d'))) }}" :disabled="jenisPengeluaran !== '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}'" class="w-full rounded-xl border-none bg-white px-4 py-3 text-sm font-bold text-gray-900 transition focus:ring-2 focus:ring-red-600/20">
-                                            <p class="mt-2 text-[11px] font-semibold text-gray-500">Tanggal ini dipakai sistem untuk menghitung masa berlaku batch APAR dan unit pelanggan yang terjual dari batch tersebut.</p>
+                                            <input id="tgl_produksi_apar" name="tgl_produksi_apar" type="date" value="{{ old('tgl_produksi_apar', old('tanggal', now()->format('Y-m-d'))) }}" :disabled="aparInputsDisabled" class="w-full rounded-xl border-none bg-white px-4 py-3 text-sm font-bold text-gray-900 transition focus:ring-2 focus:ring-red-600/20 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400">
+                                            <p class="mt-2 text-[11px] font-semibold text-gray-500" x-text="productDateHelperText"></p>
                                         </div>
                                     </div>
 
                                     <div class="rounded-xl border border-gray-200 bg-white px-4 py-3">
                                         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                             <p class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Ringkasan Stok APAR</p>
-                                            <p class="text-xs font-black text-emerald-700" x-text="'Setelah pembelian: ' + stockAfterText"></p>
+                                            <p class="text-xs font-black" :class="isAparPurchaseBlocked ? 'text-amber-700' : 'text-emerald-700'" x-text="isAparPurchaseBlocked ? 'Tambah stok dikunci sampai masa berlaku diperbarui.' : ('Setelah pembelian: ' + stockAfterText)"></p>
                                         </div>
                                     </div>
                                 </div>
@@ -305,7 +325,7 @@
                                 <div class="space-y-4 rounded-[1.5rem] border border-gray-100 bg-gray-50/60 p-4 sm:p-5">
                                     <div class="border-b border-gray-200 pb-3">
                                         <p class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Detail Pembelian Refill</p>
-                                        <p class="mt-1 text-xs font-semibold text-gray-500">Harga acuan refill mengikuti pembelian terakhir, tetapi admin tetap bisa mengubah harga beli aktual sesuai pembelian nyata.</p>
+                                        <p class="mt-1 text-xs font-semibold text-gray-500">Harga acuan refill mengikuti pembelian terakhir, tetapi admin tetap bisa mengubah harga beli sesuai pembelian nyata.</p>
                                     </div>
 
                                     <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -337,9 +357,9 @@
                                             <input id="qty_refill" name="qty_refill" type="number" step="0.01" min="0.01" x-model.number="qty" :disabled="jenisPengeluaran !== '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_REFILL }}'" class="w-full rounded-xl border-none bg-white px-4 py-3 text-sm font-bold text-gray-900 transition focus:ring-2 focus:ring-red-600/20" placeholder="Contoh: 10">
                                         </div>
                                         <div>
-                                            <label for="harga_beli_refill_display" class="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-400">Harga Beli Aktual</label>
+                                            <label for="harga_beli_refill_display" class="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-400">Harga Beli</label>
                                             <input id="harga_beli_refill_display" name="harga_beli_refill_display" type="text" inputmode="numeric" :value="formattedHargaBeliRefillInput" @input="setHargaBeliRefillInput($event.target.value)" :disabled="jenisPengeluaran !== '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_REFILL }}'" class="w-full rounded-xl border-none bg-white px-4 py-3 text-sm font-bold text-gray-900 transition focus:ring-2 focus:ring-red-600/20" placeholder="Rp 0">
-                                            <p class="mt-2 text-[11px] font-semibold text-gray-500">Nilai ini dipakai sebagai harga transaksi nyata dan akan menjadi acuan refill berikutnya.</p>
+                                            <p class="mt-2 text-[11px] font-semibold text-gray-500">Nilai ini dipakai sebagai harga transaksi dan akan menjadi acuan refill berikutnya.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -349,7 +369,7 @@
                                 <div class="space-y-4 rounded-[1.5rem] border border-gray-100 bg-gray-50/60 p-4 sm:p-5">
                                     <div class="border-b border-gray-200 pb-3">
                                         <p class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Detail Pembelian Peralatan</p>
-                                        <p class="mt-1 text-xs font-semibold text-gray-500">Harga standar dari master dipakai sebagai acuan awal, tetapi harga beli aktual tetap bisa diubah sesuai nota atau supplier.</p>
+                                        <p class="mt-1 text-xs font-semibold text-gray-500">Harga standar dari master dipakai sebagai acuan awal, tetapi harga beli tetap bisa diubah sesuai nota atau supplier.</p>
                                     </div>
 
                                     <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -377,9 +397,9 @@
                                             <input id="qty_peralatan" name="qty_peralatan" type="number" step="1" min="1" x-model.number="qty" :disabled="jenisPengeluaran !== '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_PERALATAN }}'" class="w-full rounded-xl border-none bg-white px-4 py-3 text-sm font-bold text-gray-900 transition focus:ring-2 focus:ring-red-600/20" placeholder="Contoh: 5">
                                         </div>
                                         <div>
-                                            <label for="harga_beli_peralatan_display" class="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-400">Harga Beli Aktual</label>
+                                            <label for="harga_beli_peralatan_display" class="mb-2 block text-[10px] font-black uppercase tracking-widest text-gray-400">Harga Beli</label>
                                             <input id="harga_beli_peralatan_display" name="harga_beli_peralatan_display" type="text" inputmode="numeric" :value="formattedHargaBeliPeralatanInput" @input="setHargaBeliPeralatanInput($event.target.value)" :disabled="jenisPengeluaran !== '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_PERALATAN }}'" class="w-full rounded-xl border-none bg-white px-4 py-3 text-sm font-bold text-gray-900 transition focus:ring-2 focus:ring-red-600/20" placeholder="Rp 0">
-                                            <p class="mt-2 text-[11px] font-semibold text-gray-500">Nilai ini dipakai sebagai harga transaksi nyata dan dasar perhitungan total pengeluaran.</p>
+                                            <p class="mt-2 text-[11px] font-semibold text-gray-500">Nilai ini dipakai sebagai harga transaksi dan dasar perhitungan total pengeluaran.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -401,7 +421,7 @@
                         </div>
                         <div class="flex flex-col-reverse gap-2 sm:ml-auto sm:flex-row sm:items-center">
                             <button type="button" onclick="closePengeluaranModal()" class="w-full px-5 py-3 text-xs font-black uppercase tracking-widest text-gray-400 transition hover:text-gray-900 sm:w-auto">Batal</button>
-                            <button type="submit" class="w-full rounded-xl bg-gray-900 px-6 py-3 text-xs font-black uppercase tracking-widest text-white transition hover:bg-black sm:w-auto">Simpan</button>
+                            <button type="submit" :disabled="isSubmitDisabled" :class="isSubmitDisabled ? 'cursor-not-allowed bg-gray-300 text-white' : 'bg-gray-900 text-white hover:bg-black'" class="w-full rounded-xl px-6 py-3 text-xs font-black uppercase tracking-widest transition sm:w-auto" x-text="submitButtonLabel"></button>
                         </div>
                     </div>
                 </form>
@@ -481,6 +501,7 @@
                         if (prefill.peralatanId) {
                             this.selectedPeralatanId = String(prefill.peralatanId);
                         }
+                        this.seedHargaBeliFromSelection();
                         syncPengeluaranForm();
                         this.isBootstrappingSelections = false;
                     });
@@ -504,33 +525,36 @@
 
                     this.$watch('selectedProdukId', (value, oldValue) => {
                         if (
-                            !this.isBootstrappingSelections
-                            && this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}'
+                            this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}'
                             && value !== oldValue
                         ) {
-                            this.hargaBeliInput = '';
+                            if (!this.isBootstrappingSelections || this.normalizedHargaBeliInput === '') {
+                                this.hargaBeliInput = value ? this.defaultHargaBeliProdukInput() : '';
+                            }
                         }
 
                         syncPengeluaranForm();
                     });
                     this.$watch('selectedRefillId', (value, oldValue) => {
                         if (
-                            !this.isBootstrappingSelections
-                            && this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_REFILL }}'
+                            this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_REFILL }}'
                             && value !== oldValue
                         ) {
-                            this.hargaBeliRefillInput = '';
+                            if (!this.isBootstrappingSelections || this.normalizedHargaBeliRefillInput === '') {
+                                this.hargaBeliRefillInput = value ? this.defaultHargaBeliRefillInput() : '';
+                            }
                         }
 
                         syncPengeluaranForm();
                     });
                     this.$watch('selectedPeralatanId', (value, oldValue) => {
                         if (
-                            !this.isBootstrappingSelections
-                            && this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_PERALATAN }}'
+                            this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_PERALATAN }}'
                             && value !== oldValue
                         ) {
-                            this.hargaBeliPeralatanInput = '';
+                            if (!this.isBootstrappingSelections || this.normalizedHargaBeliPeralatanInput === '') {
+                                this.hargaBeliPeralatanInput = value ? this.defaultHargaBeliPeralatanInput() : '';
+                            }
                         }
 
                         syncPengeluaranForm();
@@ -548,6 +572,15 @@
                 },
                 get currentPeralatan() {
                     return this.peralatanOptions.find(item => String(item.id) === String(this.selectedPeralatanId)) ?? null;
+                },
+                get isAparPurchaseBlocked() {
+                    return this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}'
+                        && !!this.currentProduct
+                        && !Boolean(this.currentProduct.can_add_stock);
+                },
+                get aparInputsDisabled() {
+                    return this.jenisPengeluaran !== '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}'
+                        || this.isAparPurchaseBlocked;
                 },
                 get currentItem() {
                     if (this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}') {
@@ -583,15 +616,15 @@
                 },
                 get displayPrice() {
                     if (this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}') {
-                        return Number(this.normalizedHargaBeliInput || this.currentProduct?.harga_acuan || 0);
+                        return Number(this.normalizedHargaBeliInput || 0);
                     }
 
                     if (this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_REFILL }}') {
-                        return Number(this.normalizedHargaBeliRefillInput || this.currentRefill?.harga || 0);
+                        return Number(this.normalizedHargaBeliRefillInput || 0);
                     }
 
                     if (this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_PERALATAN }}') {
-                        return Number(this.normalizedHargaBeliPeralatanInput || this.currentPeralatan?.harga || 0);
+                        return Number(this.normalizedHargaBeliPeralatanInput || 0);
                     }
 
                     return Number(this.currentItem?.harga || 0);
@@ -607,15 +640,15 @@
                 },
                 get submittedHargaBeli() {
                     if (this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}') {
-                        return this.normalizedHargaBeliInput || String(Number(this.currentProduct?.harga_acuan || 0) || '');
+                        return this.normalizedHargaBeliInput || '';
                     }
 
                     if (this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_REFILL }}') {
-                        return this.normalizedHargaBeliRefillInput || String(Number(this.currentRefill?.harga || 0) || '');
+                        return this.normalizedHargaBeliRefillInput || '';
                     }
 
                     if (this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_PERALATAN }}') {
-                        return this.normalizedHargaBeliPeralatanInput || String(Number(this.currentPeralatan?.harga || 0) || '');
+                        return this.normalizedHargaBeliPeralatanInput || '';
                     }
 
                     return '';
@@ -635,40 +668,28 @@
                     return this.qty;
                 },
                 get formattedHargaBeliInput() {
-                    if (this.normalizedHargaBeliInput !== '') {
-                        return this.currency(this.normalizedHargaBeliInput);
-                    }
-
-                    if (this.currentProduct) {
-                        return this.currency(this.currentProduct.harga_acuan || 0);
-                    }
-
-                    return '';
+                    return this.normalizedHargaBeliInput !== ''
+                        ? this.currency(this.normalizedHargaBeliInput)
+                        : '';
                 },
                 get formattedHargaBeliRefillInput() {
-                    if (this.normalizedHargaBeliRefillInput !== '') {
-                        return this.currency(this.normalizedHargaBeliRefillInput);
-                    }
-
-                    if (this.currentRefill) {
-                        return this.currency(this.currentRefill.harga || 0);
-                    }
-
-                    return '';
+                    return this.normalizedHargaBeliRefillInput !== ''
+                        ? this.currency(this.normalizedHargaBeliRefillInput)
+                        : '';
                 },
                 get formattedHargaBeliPeralatanInput() {
-                    if (this.normalizedHargaBeliPeralatanInput !== '') {
-                        return this.currency(this.normalizedHargaBeliPeralatanInput);
-                    }
-
-                    if (this.currentPeralatan) {
-                        return this.currency(this.currentPeralatan.harga || 0);
-                    }
-
-                    return '';
+                    return this.normalizedHargaBeliPeralatanInput !== ''
+                        ? this.currency(this.normalizedHargaBeliPeralatanInput)
+                        : '';
                 },
                 get total() {
                     return (Number(this.qty) || 0) * this.displayPrice;
+                },
+                get isSubmitDisabled() {
+                    return this.isAparPurchaseBlocked;
+                },
+                get submitButtonLabel() {
+                    return this.isAparPurchaseBlocked ? 'Perbarui Masa Berlaku Dulu' : 'Simpan';
                 },
                 get currentStockText() {
                     if (!this.currentItem) {
@@ -702,18 +723,33 @@
                 },
                 get priceSummaryText() {
                     if (this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}') {
-                        return 'Harga beli aktual APAR disimpan ke histori pembelian, lalu dipakai lagi sebagai acuan pembelian berikutnya tanpa mengubah harga jasa service.';
+                        return 'Harga beli APAR disimpan ke histori pembelian, lalu dipakai lagi sebagai acuan pembelian berikutnya tanpa mengubah harga jasa service.';
                     }
 
                     if (this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_REFILL }}') {
-                        return 'Harga master refill akan mengikuti pembelian terakhir, sedangkan total transaksi tetap dihitung dari harga beli aktual saat ini.';
+                        return 'Harga master refill akan mengikuti pembelian terakhir, sedangkan total transaksi tetap dihitung dari harga beli saat ini.';
                     }
 
                     if (this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_PERALATAN }}') {
-                        return 'Harga standar peralatan tampil sebagai acuan, sedangkan total pengeluaran dihitung dari harga beli aktual yang bisa disesuaikan admin.';
+                        return 'Harga standar peralatan tampil sebagai acuan, sedangkan total pengeluaran dihitung dari harga beli yang bisa disesuaikan admin.';
                     }
 
                     return 'Nominal pengeluaran akan tampil otomatis dalam format Rupiah Indonesia.';
+                },
+                get productDateHelperText() {
+                    if (!this.currentProduct) {
+                        return 'Tanggal ini dipakai sistem untuk menghitung masa berlaku APAR.';
+                    }
+
+                    if (this.isAparPurchaseBlocked) {
+                        return this.currentProduct.blocked_add_stock_message || 'Perbarui masa berlaku produk ini terlebih dahulu.';
+                    }
+
+                    if ((Number(this.currentProduct.stok) || 0) > 0) {
+                        return 'Produk ini sudah punya stok aktif. Tambahan stok baru akan mengikuti masa berlaku aktif yang sama agar tetap sinkron.';
+                    }
+
+                    return 'Tanggal ini dipakai sistem untuk menghitung masa berlaku APAR dan unit pelanggan yang terjual dari stok ini.';
                 },
                 setHargaBeliInput(value) {
                     this.hargaBeliInput = String(value || '').replace(/[^\d]/g, '');
@@ -723,6 +759,43 @@
                 },
                 setHargaBeliPeralatanInput(value) {
                     this.hargaBeliPeralatanInput = String(value || '').replace(/[^\d]/g, '');
+                },
+                defaultHargaBeliProdukInput() {
+                    const amount = Number(this.currentProduct?.harga_acuan || 0);
+                    return amount > 0 ? String(Math.round(amount)) : '';
+                },
+                defaultHargaBeliRefillInput() {
+                    const amount = Number(this.currentRefill?.harga || 0);
+                    return amount > 0 ? String(Math.round(amount)) : '';
+                },
+                defaultHargaBeliPeralatanInput() {
+                    const amount = Number(this.currentPeralatan?.harga || 0);
+                    return amount > 0 ? String(Math.round(amount)) : '';
+                },
+                seedHargaBeliFromSelection() {
+                    if (
+                        this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR }}'
+                        && this.selectedProdukId
+                        && this.normalizedHargaBeliInput === ''
+                    ) {
+                        this.hargaBeliInput = this.defaultHargaBeliProdukInput();
+                    }
+
+                    if (
+                        this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_REFILL }}'
+                        && this.selectedRefillId
+                        && this.normalizedHargaBeliRefillInput === ''
+                    ) {
+                        this.hargaBeliRefillInput = this.defaultHargaBeliRefillInput();
+                    }
+
+                    if (
+                        this.jenisPengeluaran === '{{ \App\Models\Pengeluaran::JENIS_PEMBELIAN_PERALATAN }}'
+                        && this.selectedPeralatanId
+                        && this.normalizedHargaBeliPeralatanInput === ''
+                    ) {
+                        this.hargaBeliPeralatanInput = this.defaultHargaBeliPeralatanInput();
+                    }
                 },
                 formatQty(value) {
                     const number = Number(value) || 0;
@@ -738,6 +811,21 @@
                         currency: 'IDR',
                         maximumFractionDigits: 0,
                     }).format(Number(value) || 0);
+                },
+                statusTextClass(statusKey) {
+                    if (statusKey === 'expired') {
+                        return 'text-red-700';
+                    }
+
+                    if (statusKey === 'hampir') {
+                        return 'text-amber-700';
+                    }
+
+                    if (statusKey === 'aman') {
+                        return 'text-emerald-700';
+                    }
+
+                    return 'text-gray-900';
                 },
             };
         }
