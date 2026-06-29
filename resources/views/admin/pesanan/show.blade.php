@@ -27,7 +27,7 @@
         $approvedAdjustment = max(0, $initialTotal - (float) ($pricingSummary['totalPembayaran'] ?? 0));
         $adminNote = $pesanan->purchasePriceAdminNote();
         $customerWaUrl = \App\Support\WhatsApp::customerLink(
-            $pesanan->pelanggan->no_wa ?? null,
+            $pesanan->pelanggan?->no_wa ?? null,
             'Halo Bapak/Ibu, kami ingin mengonfirmasi ' . strtolower($pesanan->transactionDisplayName()) . ' APAR Anda.'
         );
     @endphp
@@ -61,9 +61,9 @@
                     </div>
                     <div class="text-left md:text-right">
                         <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Pelanggan</p>
-                        <p class="text-xl font-black text-gray-900 mt-3">{{ $pesanan->pelanggan->nama }}</p>
-                        <p class="text-sm font-semibold text-gray-500 mt-2">{{ $pesanan->pelanggan->no_wa }}</p>
-                        <p class="text-sm font-medium text-gray-500 mt-2">{{ $pesanan->pelanggan->alamat }}</p>
+                        <p class="text-xl font-black text-gray-900 mt-3">{{ $pesanan->pelanggan?->nama ?? '-' }}</p>
+                        <p class="text-sm font-semibold text-gray-500 mt-2">{{ $pesanan->pelanggan?->no_wa ?? '-' }}</p>
+                        <p class="text-sm font-medium text-gray-500 mt-2">{{ $pesanan->pelanggan?->alamat ?? '-' }}</p>
                         @if($customerWaUrl)
                             <a href="{{ $customerWaUrl }}" target="_blank" rel="noopener noreferrer" class="inline-block mt-3 px-4 py-2 bg-green-500 text-white rounded-xl text-xs font-bold hover:bg-green-600 transition">
                                 <i class="fa-brands fa-whatsapp"></i> Chat WhatsApp
@@ -99,8 +99,8 @@
                             @foreach($pesanan->details as $detail)
                                 <tr class="border-b border-gray-100">
                                     <td class="px-6 py-6 border-b border-gray-50">
-                                        <p class="text-sm font-black text-gray-900">{{ $detail->produk->nama ?? 'Produk Terhapus' }}</p>
-                                        <p class="text-xs font-semibold text-gray-500 mt-1">{{ optional($detail->produk)->jenisApar->nama ?? '' }} - {{ $detail->kapasitas }}</p>
+                                        <p class="text-sm font-black text-gray-900">{{ $detail->produk?->nama ?? 'Produk Terhapus' }}</p>
+                                        <p class="text-xs font-semibold text-gray-500 mt-1">{{ $detail->produk?->jenisApar?->nama ?? '' }} - {{ $detail->kapasitas }}</p>
                                     </td>
                                     <td class="px-6 py-6 border-b border-gray-50 text-sm font-semibold text-gray-600">{{ $detail->jumlah }} unit</td>
                                     <td class="px-6 py-6 border-b border-gray-50 text-sm font-semibold text-gray-600">Rp {{ number_format($detail->harga, 0, ',', '.') }}</td>

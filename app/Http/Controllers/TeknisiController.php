@@ -259,6 +259,10 @@ class TeknisiController extends Controller
         }
 
         $produk = $tugasRefill->produk;
+        if (!$produk) {
+            return back()->with('error', 'Produk tidak ditemukan untuk tugas refill ini.');
+        }
+
         $tgl_expired = UnitApar::calculateExpiry(
             $request->tanggal_refill,
             $produk->kapasitas ?? '-',

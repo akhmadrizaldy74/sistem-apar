@@ -7,7 +7,7 @@
             default => 'bg-gray-50 text-gray-700',
         };
 
-        $waMessage = 'Halo ' . $complain->pelanggan->nama . ", kami dari PD. Anugrah Utama menindaklanjuti komplain Anda";
+        $waMessage = 'Halo ' . ($complain->pelanggan?->nama ?? 'Pelanggan') . ", kami dari PD. Anugrah Utama menindaklanjuti komplain Anda";
         if ($complain->relatedTransactionType() !== 'umum') {
             $waMessage .= ' untuk ' . $complain->relatedTransactionLabel() . ' pada ' . $complain->relatedTransactionDateTime();
         }
@@ -16,8 +16,8 @@
     <tr class="transition hover:bg-gray-50/30">
         <td class="whitespace-nowrap px-8 py-5 text-xs font-bold text-gray-600">{{ $complain->displaySubmittedDateTime() }}</td>
         <td class="px-8 py-5">
-            <p class="text-sm font-black text-gray-900">{{ $complain->pelanggan->nama }}</p>
-            <p class="text-xs font-medium text-gray-500">{{ $complain->pelanggan->no_wa }}</p>
+            <p class="text-sm font-black text-gray-900">{{ $complain->pelanggan?->nama ?? '-' }}</p>
+            <p class="text-xs font-medium text-gray-500">{{ $complain->pelanggan?->no_wa ?? '-' }}</p>
             <p class="mt-1 text-[10px] font-semibold text-gray-400">Follow up utama dilakukan lewat WhatsApp.</p>
         </td>
         <td class="px-8 py-5">
@@ -55,7 +55,7 @@
                     <option value="diproses" {{ $complain->status_penyelesaian == 'diproses' ? 'selected' : '' }}>Diproses</option>
                     <option value="selesai" {{ $complain->status_penyelesaian == 'selesai' ? 'selected' : '' }}>Selesai</option>
                 </select>
-                @if($complain->pelanggan->no_wa)
+                @if($complain->pelanggan?->no_wa)
                     <button
                         type="button"
                         data-update-url="{{ route('admin.complain.update', $complain) }}"

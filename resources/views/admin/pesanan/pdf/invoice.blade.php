@@ -31,9 +31,9 @@
         <div class="col">
             <div class="box">
                 <h2>Data Pelanggan</h2>
-                <p><strong>Nama:</strong> {{ $pesanan->pelanggan->nama }}</p>
-                <p><strong>No. WhatsApp:</strong> {{ $pesanan->pelanggan->no_wa }}</p>
-                <p><strong>Alamat:</strong> {{ $pesanan->pelanggan->alamat }}</p>
+                <p><strong>Nama:</strong> {{ $pesanan->pelanggan?->nama ?? '-' }}</p>
+                <p><strong>No. WhatsApp:</strong> {{ $pesanan->pelanggan?->no_wa ?? '-' }}</p>
+                <p><strong>Alamat:</strong> {{ $pesanan->pelanggan?->alamat ?? '-' }}</p>
             </div>
         </div>
         <div class="col">
@@ -63,9 +63,9 @@
         <tbody>
             @foreach($pesanan->details as $detail)
                 <tr>
-                    <td>{{ $detail->produk->nama }}</td>
+                    <td>{{ $detail->produk?->nama ?? 'Produk Terhapus' }}</td>
                     <td>{{ $detail->merek }}</td>
-                    <td>{{ $detail->produk->jenisApar?->nama ?? '-' }}</td>
+                    <td>{{ $detail->produk?->jenisApar?->nama ?? '-' }}</td>
                     <td>{{ $detail->kapasitas }}</td>
                     <td>{{ $detail->jumlah }} unit</td>
                     <td>Rp {{ number_format($detail->harga, 0, ',', '.') }}</td>

@@ -12,15 +12,15 @@
     </x-slot>
 
     @php
-        $pelanggansEdit = $units->groupBy(fn($u) => $u->pelanggan->id ?? 0)->map(fn($units, $pelangganId) => [
+        $pelanggansEdit = $units->groupBy(fn($u) => $u->pelanggan?->id ?? 0)->map(fn($units, $pelangganId) => [
             'pelangganId' => $pelangganId,
-            'pelangganNama' => $units->first()->pelanggan->nama ?? '-',
+            'pelangganNama' => $units->first()->pelanggan?->nama ?? '-',
             'units' => $units->map(fn($u) => [
                 'id' => $u->id,
                 'seri' => $u->no_seri,
-                'merek' => $u->produk->merek ?? '-',
-                'kapasitas' => $u->produk->kapasitas ?? '-',
-                'jenis' => $u->produk->jenisApar->nama ?? '-',
+                'merek' => $u->produk?->merek ?? '-',
+                'kapasitas' => $u->produk?->kapasitas ?? '-',
+                'jenis' => $u->produk?->jenisApar?->nama ?? '-',
                 'expired' => $u->tgl_expired ? $u->tgl_expired->format('d M Y') : '-',
             ])->values(),
         ])->values();

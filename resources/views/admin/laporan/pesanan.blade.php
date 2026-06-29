@@ -77,8 +77,8 @@
                             <tr class="hover:bg-gray-50/40 transition">
                                 <td class="px-8 py-6 text-sm font-bold text-gray-900">{{ $pesanan->tanggal->format('d M Y') }}</td>
                                 <td class="px-8 py-6">
-                                    <p class="text-sm font-bold text-gray-900">{{ $pesanan->pelanggan->nama }}</p>
-                                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{{ $pesanan->pelanggan->no_wa }}</p>
+                                    <p class="text-sm font-bold text-gray-900">{{ $pesanan->pelanggan?->nama ?? '-' }}</p>
+                                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{{ $pesanan->pelanggan?->no_wa ?? '-' }}</p>
                                 </td>
                                 <td class="px-8 py-6">
                                     <span class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-700">

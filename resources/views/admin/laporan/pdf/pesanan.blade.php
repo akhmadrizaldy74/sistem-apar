@@ -35,7 +35,7 @@
             @forelse($pesanans as $pesanan)
                 <tr>
                     <td>{{ $pesanan->tanggal->format('d-m-Y') }}</td>
-                    <td>{{ $pesanan->pelanggan->nama }}</td>
+                    <td>{{ $pesanan->pelanggan?->nama ?? '-' }}</td>
                     <td>Produk</td>
                     <td>{{ $pesanan->details->pluck('produk.nama')->filter()->implode(', ') ?: 'Pesanan WhatsApp' }}</td>
                     <td>{{ $pesanan->details->sum('jumlah') }} unit</td>

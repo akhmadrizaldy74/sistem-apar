@@ -30,7 +30,7 @@
         <tbody>
             @foreach($units as $unit)
                 <tr>
-                    <td>{{ $unit->pelanggan->nama }}</td>
+                    <td>{{ $unit->pelanggan?->nama ?? '-' }}</td>
                     <td>{{ $unit->produk?->nama ?? '-' }}</td>
                     <td>{{ optional($unit->tgl_beli)->format('d-m-Y') }}</td>
                     <td>{{ $unit->tgl_expired->format('d-m-Y') }}</td>

@@ -81,8 +81,8 @@
         function paintStatus(select, status) {
             select.value = status;
             select.dataset.currentStatus = status;
-            const badge = select.closest('td').previousElementSibling.querySelector('span');
-            badge.textContent = status;
+            const badge = select.closest('td')?.previousElementSibling?.querySelector('span');
+            if (badge) badge.textContent = status;
             if (status === 'menunggu') badge.className = 'rounded-lg px-3 py-1 text-xs font-bold uppercase bg-red-50 text-red-700';
             if (status === 'diproses') badge.className = 'rounded-lg px-3 py-1 text-xs font-bold uppercase bg-amber-50 text-amber-700';
             if (status === 'selesai') badge.className = 'rounded-lg px-3 py-1 text-xs font-bold uppercase bg-emerald-50 text-emerald-700';

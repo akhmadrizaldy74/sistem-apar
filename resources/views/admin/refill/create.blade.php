@@ -22,7 +22,7 @@
                             <option value="">Pilih unit</option>
                             @foreach($units as $unit)
                                 <option value="{{ $unit->id }}" @selected(old('unit_apar_id') == $unit->id)>
-                                    {{ $unit->no_seri }} - {{ $unit->pelanggan->nama }} - {{ $unit->produk->nama }}
+                                    {{ $unit->no_seri }} - {{ $unit->pelanggan?->nama ?? '-' }} - {{ $unit->produk?->nama ?? 'Produk Terhapus' }}
                                 </option>
                             @endforeach
                         </select>

@@ -75,7 +75,7 @@
                         @forelse($units as $unit)
                             <tr class="hover:bg-gray-50/40 transition">
                                 <td class="px-8 py-6">
-                                    <p class="text-sm font-bold text-gray-900">{{ $unit->pelanggan->nama }}</p>
+                                    <p class="text-sm font-bold text-gray-900">{{ $unit->pelanggan?->nama ?? '-' }}</p>
                                     <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{{ $unit->no_seri }}</p>
                                 </td>
                                 <td class="px-8 py-6">

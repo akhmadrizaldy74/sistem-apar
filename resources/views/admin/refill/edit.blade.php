@@ -17,8 +17,8 @@
         units: @js($units->map(fn ($unit) => [
             'id' => $unit->id,
             'seri' => $unit->no_seri,
-            'pelanggan' => $unit->pelanggan->nama,
-            'produk' => $unit->produk->nama ?? 'Unit APAR',
+            'pelanggan' => $unit->pelanggan?->nama ?? '-',
+            'produk' => $unit->produk?->nama ?? 'Unit APAR',
             'expired' => optional($unit->tgl_expired)->format('d M Y'),
         ])->values()),
         refillMap: @js($jenisRefills->mapWithKeys(fn ($jenis) => [$jenis->id => ['nama' => $jenis->nama, 'harga' => $refillPackages[$jenis->nama] ?? 0]])),
@@ -43,7 +43,7 @@
                             <option value="">Pilih unit</option>
                             @foreach($units as $unit)
                                 <option value="{{ $unit->id }}" @selected(old('unit_apar_id', $refill->unit_apar_id) == $unit->id)>
-                                    {{ $unit->no_seri }} - {{ $unit->pelanggan->nama }} - {{ $unit->produk->nama }}
+                                    {{ $unit->no_seri }} - {{ $unit->pelanggan?->nama ?? '-' }} - {{ $unit->produk?->nama ?? 'Produk Terhapus' }}
                                 </option>
                             @endforeach
                         </select>

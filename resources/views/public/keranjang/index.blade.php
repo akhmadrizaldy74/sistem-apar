@@ -68,11 +68,11 @@
                     {{-- Left Column: Cart Items --}}
                     <div class="space-y-4 lg:col-span-2">
                         @foreach($keranjangs as $item)
-                            <div class="cart-item flex flex-col sm:flex-row gap-5 items-center justify-between" id="cart-item-{{ $item->id }}" data-id="{{ $item->id }}" data-price="{{ $item->harga }}" data-stock="{{ $item->produk->catalog_ready_stock }}">
+                            <div class="cart-item flex flex-col sm:flex-row gap-5 items-center justify-between" id="cart-item-{{ $item->id }}" data-id="{{ $item->id }}" data-price="{{ $item->harga }}" data-stock="{{ $item->produk?->catalog_ready_stock ?? 0 }}">
                                 {{-- Left Group: Thumbnail and details --}}
                                 <div class="flex items-center gap-4 w-full sm:flex-1 min-w-0">
                                     <div class="cart-thumb">
-                                        @if($item->produk->resolved_image_url)
+                                        @if($item->produk?->resolved_image_url)
                                             <img src="{{ $item->produk->resolved_image_url }}" alt="{{ $item->produk->nama }}">
                                         @else
                                             <div class="flex h-full w-full items-center justify-center text-slate-300">
@@ -81,10 +81,10 @@
                                         @endif
                                     </div>
                                     <div class="min-w-0 flex-1">
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded bg-red-50 text-[10px] font-black text-red-600 uppercase tracking-widest">{{ $item->produk->jenisApar?->nama ?? 'APAR' }}</span>
-                                        <h3 class="text-base font-black text-slate-900 truncate mt-1">{{ $item->produk->nama }}</h3>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded bg-red-50 text-[10px] font-black text-red-600 uppercase tracking-widest">{{ $item->produk?->jenisApar?->nama ?? 'APAR' }}</span>
+                                        <h3 class="text-base font-black text-slate-900 truncate mt-1">{{ $item->produk?->nama ?? 'Produk Terhapus' }}</h3>
                                         <p class="text-xs font-semibold text-slate-500 mt-0.5">
-                                            Merek: {{ $item->produk->merek ?? 'FIREFIX' }} @if($item->produk->kapasitas) • {{ $item->produk->kapasitas }} @endif
+                                            Merek: {{ $item->produk?->merek ?? 'FIREFIX' }} @if($item->produk?->kapasitas) • {{ $item->produk->kapasitas }} @endif
                                         </p>
                                         <p class="text-xs font-bold text-slate-400 mt-1">Harga Satuan: Rp {{ number_format($item->harga, 0, ',', '.') }}</p>
                                     </div>

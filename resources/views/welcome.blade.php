@@ -1794,7 +1794,7 @@
                     <div class="testi-author">
                         @php
                             $isAnonymous = $testimoni->is_anonymous ?? false;
-                            $authorName = $isAnonymous ? 'Pelanggan Anonim' : ($testimoni->pelanggan->nama ?? 'Pelanggan');
+                            $authorName = $isAnonymous ? 'Pelanggan Anonim' : ($testimoni->pelanggan?->nama ?? 'Pelanggan');
                             $authorInitial = \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($authorName, 0, 1));
                         @endphp
                         <div class="testi-avatar">

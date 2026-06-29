@@ -21,8 +21,8 @@
                         @endif
                     </div>
 
-                    <h3 class="font-black text-slate-900 text-lg leading-tight">{{ $tugas->produk->nama }}</h3>
-                    <p class="text-sm font-bold text-slate-500 mt-1">{{ $tugas->produk->merek }} - {{ $tugas->produk->kapasitas }}</p>
+                    <h3 class="font-black text-slate-900 text-lg leading-tight">{{ $tugas->produk?->nama ?? 'Produk Terhapus' }}</h3>
+                    <p class="text-sm font-bold text-slate-500 mt-1">{{ $tugas->produk?->merek ?? '-' }} - {{ $tugas->produk?->kapasitas ?? '-' }}</p>
 
                     <div class="mt-5 space-y-3 flex-1">
                         <div class="flex items-start gap-3 bg-slate-50 p-3 rounded-2xl">
