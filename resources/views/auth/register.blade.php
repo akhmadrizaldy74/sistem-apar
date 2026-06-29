@@ -109,29 +109,6 @@
                             <x-input-error :messages="$errors->get('name')" class="mt-1.5 text-sm font-medium text-rose-600" />
                         </div>
 
-                        {{-- Email --}}
-                        <div>
-                            <label for="email" class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-slate-500">
-                                Email Pemulihan (Opsional)
-                            </label>
-                            <div class="relative">
-                                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400" aria-hidden="true">
-                                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7l9 6 9-6m-18 10h18a2 2 0 002-2V9a2 2 0 00-2-2H3a2 2 0 00-2 2v6a2 2 0 002 2z" />
-                                    </svg>
-                                </div>
-                                <input
-                                    id="email"
-                                    class="{{ $inputBase }}"
-                                    type="email"
-                                    name="email"
-                                    value="{{ old('email') }}"
-                                    autocomplete="username"
-                                    placeholder="email@contoh.com"
-                                />
-                            </div>
-                            <x-input-error :messages="$errors->get('email')" class="mt-1.5 text-sm font-medium text-rose-600" />
-                        </div>
 
                         {{-- Phone --}}
                         <div>

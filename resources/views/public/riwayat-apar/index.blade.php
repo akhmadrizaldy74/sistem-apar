@@ -420,7 +420,7 @@
                             <div class="flex items-start justify-between gap-3">
                                 <div>
                                     <p class="text-sm font-black text-slate-900">{{ $complain->relatedTransactionLabel() }}</p>
-                                    <p class="mt-1 text-xs font-semibold text-slate-500">{{ $complain->relatedTransactionDateTime() }}</p>
+                                    <p class="mt-1 text-xs font-semibold text-slate-500">{{ $complain->displaySubmittedDateTime() }}</p>
                                 </div>
                                 <span class="rounded-full px-2.5 py-1 text-[11px] font-black uppercase {{ $complainStatusClass }}">{{ $complain->status_penyelesaian }}</span>
                             </div>

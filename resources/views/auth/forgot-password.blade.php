@@ -1,6 +1,9 @@
 <x-guest-layout variant="login-showcase">
     @php
         $inputBase = 'block w-full min-w-0 rounded-2xl border bg-white px-4 py-4 pl-12 text-base font-semibold text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:bg-white border-slate-200 focus:border-red-500 focus:ring-4 focus:ring-red-100';
+        $loginInputClasses = $inputBase . ($errors->has('login')
+            ? ' border-rose-300 focus:border-rose-400 focus:ring-4 focus:ring-rose-100'
+            : ' border-slate-200 focus:border-red-500 focus:ring-4 focus:ring-red-100');
     @endphp
 
     <div class="login-shell grid w-full min-w-0 max-w-[calc(100vw-2rem)] overflow-hidden rounded-[2rem] border border-white/70 bg-white shadow-2xl sm:max-w-6xl md:grid-cols-[1.05fr_0.95fr] lg:min-h-[720px]">
@@ -76,7 +79,7 @@
                             Lupa Password
                         </h1>
                         <p class="mt-3 max-w-sm text-sm leading-7 text-slate-500">
-                            Masukkan email yang terdaftar untuk menerima link reset password.
+                            Masukkan email atau nomor WhatsApp yang terdaftar. Jika akun memiliki email pemulihan, link reset akan dikirim ke email tersebut.
                         </p>
                     </div>
 
@@ -85,9 +88,9 @@
                         :status="session('status')"
                     />
 
-                    @if ($errors->has('email'))
+                    @if ($errors->has('login'))
                         <div class="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-                            {{ $errors->first('email') }}
+                            {{ $errors->first('login') }}
                         </div>
                     @endif
 
@@ -95,8 +98,8 @@
                         @csrf
 
                         <div>
-                            <label for="email" class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-slate-500">
-                                Email
+                            <label for="login" class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                                Email atau Nomor WhatsApp
                             </label>
                             <div class="relative">
                                 <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400" aria-hidden="true">
@@ -105,18 +108,19 @@
                                     </svg>
                                 </div>
                                 <input
-                                    id="email"
-                                    class="{{ $inputBase }}"
-                                    type="email"
-                                    name="email"
-                                    value="{{ old('email') }}"
+                                    id="login"
+                                    class="{{ $loginInputClasses }}"
+                                    type="text"
+                                    name="login"
+                                    value="{{ old('login') }}"
                                     required
                                     autofocus
-                                    autocomplete="email"
-                                    placeholder="Masukkan email Anda"
+                                    autocomplete="username"
+                                    placeholder="nama@email.com atau 08xxxxxxxxxx"
+                                    aria-invalid="{{ $errors->has('login') ? 'true' : 'false' }}"
                                 />
                             </div>
-                            <x-input-error :messages="$errors->get('email')" class="mt-1.5 text-sm font-medium text-rose-600" />
+                            <x-input-error :messages="$errors->get('login')" class="mt-1.5 text-sm font-medium text-rose-600" />
                         </div>
 
                         {{-- Submit --}}

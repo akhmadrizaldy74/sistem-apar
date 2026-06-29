@@ -167,5 +167,6 @@ class DatabaseSeeder extends Seeder
         }
 
         $this->call(ServicePaketSeeder::class);
+        $this->call(RefillPeralatanSeeder::class);
     }
 }

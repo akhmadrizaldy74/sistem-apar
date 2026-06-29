@@ -49,7 +49,31 @@ class TestimoniController extends Controller
         return back()->with('success', 'Balasan testimoni berhasil disimpan.');
     }
 
+    public function approve(Testimoni $testimoni)
+    {
+        $testimoni->update(['status' => 'approved']);
+        return back()->with('success', 'Testimoni disetujui.');
+    }
 
+    public function pending(Testimoni $testimoni)
+    {
+        $testimoni->update(['status' => 'pending']);
+        return back()->with('success', 'Testimoni diubah ke pending.');
+    }
+
+    public function reject(Request $request, Testimoni $testimoni)
+    {
+        $request->validate([
+            'admin_note' => 'nullable|string|max:500',
+        ]);
+
+        $testimoni->update([
+            'status' => 'rejected',
+            'admin_note' => $request->input('admin_note'),
+        ]);
+
+        return back()->with('success', 'Testimoni ditolak.');
+    }
 
     public function destroy(Testimoni $testimoni)
     {

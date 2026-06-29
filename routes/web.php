@@ -59,9 +59,19 @@ Route::post('/order/{pesanan}/payment', [PublicController::class, 'orderPaymentS
         \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
     ])  
     ->name('order.payment.store');
-Route::get('/complain', fn () => redirect()->route('riwayat-apar'));
+Route::get('/complain', function () {
+    if (!auth()->check() || !request()->filled('pesanan')) {
+        return redirect()->route('riwayat-apar');
+    }
+    return app(PublicController::class)->complainCreate();
+})->name('complain.create');
 Route::post('/complain', [PublicController::class, 'complainStore'])->name('complain.store');
-Route::get('/testimoni', fn () => redirect()->route('riwayat-apar'));
+Route::get('/testimoni', function () {
+    if (!auth()->check() || !request()->filled('pesanan')) {
+        return redirect()->route('riwayat-apar');
+    }
+    return app(PublicController::class)->testimoniCreate();
+})->name('testimoni.create');
 Route::post('/testimoni', [PublicController::class, 'testimoniStore'])->name('testimoni.store');
 
 Route::get('/dashboard', DashboardController::class)
@@ -161,6 +171,9 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/testimoni', [TestimoniController::class, 'store'])->name('testimoni.store');
     Route::put('/testimoni/{testimoni}', [TestimoniController::class, 'update'])->name('testimoni.update');
     Route::delete('/testimoni/{testimoni}', [TestimoniController::class, 'destroy'])->name('testimoni.destroy');
+    Route::post('/testimoni/{testimoni}/approve', [TestimoniController::class, 'approve'])->name('testimoni.approve');
+    Route::post('/testimoni/{testimoni}/pending', [TestimoniController::class, 'pending'])->name('testimoni.pending');
+    Route::post('/testimoni/{testimoni}/reject', [TestimoniController::class, 'reject'])->name('testimoni.reject');
 
 });
 

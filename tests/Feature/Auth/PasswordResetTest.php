@@ -23,9 +23,11 @@ class PasswordResetTest extends TestCase
         $response
             ->assertStatus(200)
             ->assertSee('Lupa Password')
-            ->assertSee('Masukkan email yang terdaftar untuk menerima link reset password.')
+            ->assertSee('Masukkan email atau nomor WhatsApp yang terdaftar. Jika akun memiliki email pemulihan, link reset akan dikirim ke email tersebut.')
             ->assertSee('PD Anugrah Utama')
-            ->assertSee('Kembali ke Login');
+            ->assertSee('Kembali ke Login')
+            ->assertSee('name="login"', false)
+            ->assertDontSee('name="email"', false);
     }
 
     public function test_reset_password_link_can_be_requested(): void
