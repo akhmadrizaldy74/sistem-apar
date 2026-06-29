@@ -1,0 +1,339 @@
+diff --git a/app/Http/Controllers/TeknisiController.php b/app/Http/Controllers/TeknisiController.php
+index b0c3636..532c734 100644
+--- a/app/Http/Controllers/TeknisiController.php
++++ b/app/Http/Controllers/TeknisiController.php
+@@ -259,6 +259,10 @@ public function selesaiRefill(Request $request, \App\Models\TugasRefill $tugasRe
+         }
+ 
+         $produk = $tugasRefill->produk;
++        if (!$produk) {
++            return back()->with('error', 'Produk tidak ditemukan untuk tugas refill ini.');
++        }
++
+         $tgl_expired = UnitApar::calculateExpiry(
+             $request->tanggal_refill,
+             $produk->kapasitas ?? '-',
+diff --git a/resources/views/admin/complain/index.blade.php b/resources/views/admin/complain/index.blade.php
+index 2b31592..3004578 100644
+--- a/resources/views/admin/complain/index.blade.php
++++ b/resources/views/admin/complain/index.blade.php
+@@ -81,11 +81,13 @@
+         function paintStatus(select, status) {
+             select.value = status;
+             select.dataset.currentStatus = status;
+-            const badge = select.closest('td').previousElementSibling.querySelector('span');
+-            badge.textContent = status;
+-            if (status === 'menunggu') badge.className = 'rounded-lg px-3 py-1 text-xs font-bold uppercase bg-red-50 text-red-700';
+-            if (status === 'diproses') badge.className = 'rounded-lg px-3 py-1 text-xs font-bold uppercase bg-amber-50 text-amber-700';
+-            if (status === 'selesai') badge.className = 'rounded-lg px-3 py-1 text-xs font-bold uppercase bg-emerald-50 text-emerald-700';
++            const badge = select.closest('td')?.previousElementSibling?.querySelector('span');
++            if (badge) {
++                badge.textContent = status;
++                if (status === 'menunggu') badge.className = 'rounded-lg px-3 py-1 text-xs font-bold uppercase bg-red-50 text-red-700';
++                if (status === 'diproses') badge.className = 'rounded-lg px-3 py-1 text-xs font-bold uppercase bg-amber-50 text-amber-700';
++                if (status === 'selesai') badge.className = 'rounded-lg px-3 py-1 text-xs font-bold uppercase bg-emerald-50 text-emerald-700';
++            }
+         }
+ 
+         async function updateStatus(select) {
+diff --git a/resources/views/admin/complain/partials/rows.blade.php b/resources/views/admin/complain/partials/rows.blade.php
+index 42fa36a..5d7eee4 100644
+--- a/resources/views/admin/complain/partials/rows.blade.php
++++ b/resources/views/admin/complain/partials/rows.blade.php
+@@ -7,7 +7,7 @@
+             default => 'bg-gray-50 text-gray-700',
+         };
+ 
+-        $waMessage = 'Halo ' . $complain->pelanggan->nama . ", kami dari PD. Anugrah Utama menindaklanjuti komplain Anda";
++        $waMessage = 'Halo ' . ($complain->pelanggan?->nama ?? 'Pelanggan') . ", kami dari PD. Anugrah Utama menindaklanjuti komplain Anda";
+         if ($complain->relatedTransactionType() !== 'umum') {
+             $waMessage .= ' untuk ' . $complain->relatedTransactionLabel() . ' pada ' . $complain->relatedTransactionDateTime();
+         }
+@@ -16,8 +16,8 @@
+     <tr class="transition hover:bg-gray-50/30">
+         <td class="whitespace-nowrap px-8 py-5 text-xs font-bold text-gray-600">{{ $complain->displaySubmittedDateTime() }}</td>
+         <td class="px-8 py-5">
+-            <p class="text-sm font-black text-gray-900">{{ $complain->pelanggan->nama }}</p>
+-            <p class="text-xs font-medium text-gray-500">{{ $complain->pelanggan->no_wa }}</p>
++            <p class="text-sm font-black text-gray-900">{{ $complain->pelanggan?->nama ?? '-' }}</p>
++            <p class="text-xs font-medium text-gray-500">{{ $complain->pelanggan?->no_wa ?? '-' }}</p>
+             <p class="mt-1 text-[10px] font-semibold text-gray-400">Follow up utama dilakukan lewat WhatsApp.</p>
+         </td>
+         <td class="px-8 py-5">
+@@ -55,7 +55,7 @@ class="rounded-xl border-gray-200 py-2 text-xs focus:border-red-400"
+                     <option value="diproses" {{ $complain->status_penyelesaian == 'diproses' ? 'selected' : '' }}>Diproses</option>
+                     <option value="selesai" {{ $complain->status_penyelesaian == 'selesai' ? 'selected' : '' }}>Selesai</option>
+                 </select>
+-                @if($complain->pelanggan->no_wa)
++                @if($complain->pelanggan?->no_wa)
+                     <button
+                         type="button"
+                         data-update-url="{{ route('admin.complain.update', $complain) }}"
+diff --git a/resources/views/admin/laporan/apar.blade.php b/resources/views/admin/laporan/apar.blade.php
+index 41b569a..d767232 100644
+--- a/resources/views/admin/laporan/apar.blade.php
++++ b/resources/views/admin/laporan/apar.blade.php
+@@ -75,7 +75,7 @@ class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ri
+                         @forelse($units as $unit)
+                             <tr class="hover:bg-gray-50/40 transition">
+                                 <td class="px-8 py-6">
+-                                    <p class="text-sm font-bold text-gray-900">{{ $unit->pelanggan->nama }}</p>
++                                    <p class="text-sm font-bold text-gray-900">{{ $unit->pelanggan?->nama ?? '-' }}</p>
+                                     <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{{ $unit->no_seri }}</p>
+                                 </td>
+                                 <td class="px-8 py-6">
+diff --git a/resources/views/admin/laporan/pdf/apar.blade.php b/resources/views/admin/laporan/pdf/apar.blade.php
+index 69396f1..b6c59a0 100644
+--- a/resources/views/admin/laporan/pdf/apar.blade.php
++++ b/resources/views/admin/laporan/pdf/apar.blade.php
+@@ -30,7 +30,7 @@
+         <tbody>
+             @foreach($units as $unit)
+                 <tr>
+-                    <td>{{ $unit->pelanggan->nama }}</td>
++                    <td>{{ $unit->pelanggan?->nama ?? '-' }}</td>
+                     <td>{{ $unit->produk?->nama ?? '-' }}</td>
+                     <td>{{ optional($unit->tgl_beli)->format('d-m-Y') }}</td>
+                     <td>{{ $unit->tgl_expired->format('d-m-Y') }}</td>
+diff --git a/resources/views/admin/laporan/pdf/pesanan.blade.php b/resources/views/admin/laporan/pdf/pesanan.blade.php
+index 326107b..d083c1b 100644
+--- a/resources/views/admin/laporan/pdf/pesanan.blade.php
++++ b/resources/views/admin/laporan/pdf/pesanan.blade.php
+@@ -35,7 +35,7 @@
+             @forelse($pesanans as $pesanan)
+                 <tr>
+                     <td>{{ $pesanan->tanggal->format('d-m-Y') }}</td>
+-                    <td>{{ $pesanan->pelanggan->nama }}</td>
++                    <td>{{ $pesanan->pelanggan?->nama ?? '-' }}</td>
+                     <td>Produk</td>
+                     <td>{{ $pesanan->details->pluck('produk.nama')->filter()->implode(', ') ?: 'Pesanan WhatsApp' }}</td>
+                     <td>{{ $pesanan->details->sum('jumlah') }} unit</td>
+diff --git a/resources/views/admin/laporan/pesanan.blade.php b/resources/views/admin/laporan/pesanan.blade.php
+index 635a608..f5affdf 100644
+--- a/resources/views/admin/laporan/pesanan.blade.php
++++ b/resources/views/admin/laporan/pesanan.blade.php
+@@ -77,8 +77,8 @@ class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ri
+                             <tr class="hover:bg-gray-50/40 transition">
+                                 <td class="px-8 py-6 text-sm font-bold text-gray-900">{{ $pesanan->tanggal->format('d M Y') }}</td>
+                                 <td class="px-8 py-6">
+-                                    <p class="text-sm font-bold text-gray-900">{{ $pesanan->pelanggan->nama }}</p>
+-                                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{{ $pesanan->pelanggan->no_wa }}</p>
++                                    <p class="text-sm font-bold text-gray-900">{{ $pesanan->pelanggan?->nama ?? '-' }}</p>
++                                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{{ $pesanan->pelanggan?->no_wa ?? '-' }}</p>
+                                 </td>
+                                 <td class="px-8 py-6">
+                                     <span class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-700">
+diff --git a/resources/views/admin/pesanan/pdf/invoice.blade.php b/resources/views/admin/pesanan/pdf/invoice.blade.php
+index bc14d51..6876da8 100644
+--- a/resources/views/admin/pesanan/pdf/invoice.blade.php
++++ b/resources/views/admin/pesanan/pdf/invoice.blade.php
+@@ -31,9 +31,9 @@
+         <div class="col">
+             <div class="box">
+                 <h2>Data Pelanggan</h2>
+-                <p><strong>Nama:</strong> {{ $pesanan->pelanggan->nama }}</p>
+-                <p><strong>No. WhatsApp:</strong> {{ $pesanan->pelanggan->no_wa }}</p>
+-                <p><strong>Alamat:</strong> {{ $pesanan->pelanggan->alamat }}</p>
++                <p><strong>Nama:</strong> {{ $pesanan->pelanggan?->nama ?? '-' }}</p>
++                <p><strong>No. WhatsApp:</strong> {{ $pesanan->pelanggan?->no_wa ?? '-' }}</p>
++                <p><strong>Alamat:</strong> {{ $pesanan->pelanggan?->alamat ?? '-' }}</p>
+             </div>
+         </div>
+         <div class="col">
+@@ -63,9 +63,9 @@
+         <tbody>
+             @foreach($pesanan->details as $detail)
+                 <tr>
+-                    <td>{{ $detail->produk->nama }}</td>
++                    <td>{{ $detail->produk?->nama ?? 'Produk Terhapus' }}</td>
+                     <td>{{ $detail->merek }}</td>
+-                    <td>{{ $detail->produk->jenisApar?->nama ?? '-' }}</td>
++                    <td>{{ $detail->produk?->jenisApar?->nama ?? '-' }}</td>
+                     <td>{{ $detail->kapasitas }}</td>
+                     <td>{{ $detail->jumlah }} unit</td>
+                     <td>Rp {{ number_format($detail->harga, 0, ',', '.') }}</td>
+diff --git a/resources/views/admin/pesanan/show.blade.php b/resources/views/admin/pesanan/show.blade.php
+index 5c648a6..2b11df0 100644
+--- a/resources/views/admin/pesanan/show.blade.php
++++ b/resources/views/admin/pesanan/show.blade.php
+@@ -27,7 +27,7 @@
+         $approvedAdjustment = max(0, $initialTotal - (float) ($pricingSummary['totalPembayaran'] ?? 0));
+         $adminNote = $pesanan->purchasePriceAdminNote();
+         $customerWaUrl = \App\Support\WhatsApp::customerLink(
+-            $pesanan->pelanggan->no_wa ?? null,
++            $pesanan->pelanggan?->no_wa ?? null,
+             'Halo Bapak/Ibu, kami ingin mengonfirmasi ' . strtolower($pesanan->transactionDisplayName()) . ' APAR Anda.'
+         );
+     @endphp
+@@ -61,9 +61,9 @@
+                     </div>
+                     <div class="text-left md:text-right">
+                         <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Pelanggan</p>
+-                        <p class="text-xl font-black text-gray-900 mt-3">{{ $pesanan->pelanggan->nama }}</p>
+-                        <p class="text-sm font-semibold text-gray-500 mt-2">{{ $pesanan->pelanggan->no_wa }}</p>
+-                        <p class="text-sm font-medium text-gray-500 mt-2">{{ $pesanan->pelanggan->alamat }}</p>
++                        <p class="text-xl font-black text-gray-900 mt-3">{{ $pesanan->pelanggan?->nama ?? '-' }}</p>
++                        <p class="text-sm font-semibold text-gray-500 mt-2">{{ $pesanan->pelanggan?->no_wa ?? '-' }}</p>
++                        <p class="text-sm font-medium text-gray-500 mt-2">{{ $pesanan->pelanggan?->alamat ?? '-' }}</p>
+                         @if($customerWaUrl)
+                             <a href="{{ $customerWaUrl }}" target="_blank" rel="noopener noreferrer" class="inline-block mt-3 px-4 py-2 bg-green-500 text-white rounded-xl text-xs font-bold hover:bg-green-600 transition">
+                                 <i class="fa-brands fa-whatsapp"></i> Chat WhatsApp
+@@ -99,8 +99,8 @@
+                             @foreach($pesanan->details as $detail)
+                                 <tr class="border-b border-gray-100">
+                                     <td class="px-6 py-6 border-b border-gray-50">
+-                                        <p class="text-sm font-black text-gray-900">{{ $detail->produk->nama ?? 'Produk Terhapus' }}</p>
+-                                        <p class="text-xs font-semibold text-gray-500 mt-1">{{ optional($detail->produk)->jenisApar->nama ?? '' }} - {{ $detail->kapasitas }}</p>
++                                        <p class="text-sm font-black text-gray-900">{{ $detail->produk?->nama ?? 'Produk Terhapus' }}</p>
++                                        <p class="text-xs font-semibold text-gray-500 mt-1">{{ $detail->produk?->jenisApar?->nama ?? '' }} - {{ $detail->kapasitas }}</p>
+                                     </td>
+                                     <td class="px-6 py-6 border-b border-gray-50 text-sm font-semibold text-gray-600">{{ $detail->jumlah }} unit</td>
+                                     <td class="px-6 py-6 border-b border-gray-50 text-sm font-semibold text-gray-600">Rp {{ number_format($detail->harga, 0, ',', '.') }}</td>
+diff --git a/resources/views/admin/produk/index.blade.php b/resources/views/admin/produk/index.blade.php
+index 3b6f770..02bc8c2 100644
+--- a/resources/views/admin/produk/index.blade.php
++++ b/resources/views/admin/produk/index.blade.php
+@@ -81,7 +81,7 @@ class="px-5 py-3 bg-white rounded-2xl border border-gray-200 text-sm font-semibo
+                                 </td>
+                                 <td class="px-8 py-6">
+                                     <span class="px-4 py-1.5 bg-gray-100 text-gray-700 text-[11px] font-black uppercase tracking-widest rounded-full group-hover:bg-red-50 group-hover:text-red-700 transition-colors">
+-                                        {{ $p->jenisApar->nama }}
++                                        {{ $p->jenisApar?->nama ?? '-' }}
+                                     </span>
+                                 </td>
+                                 <td class="px-8 py-6">
+diff --git a/resources/views/admin/refill/create.blade.php b/resources/views/admin/refill/create.blade.php
+index 4b88c22..f5e7b25 100644
+--- a/resources/views/admin/refill/create.blade.php
++++ b/resources/views/admin/refill/create.blade.php
+@@ -22,7 +22,7 @@
+                             <option value="">Pilih unit</option>
+                             @foreach($units as $unit)
+                                 <option value="{{ $unit->id }}" @selected(old('unit_apar_id') == $unit->id)>
+-                                    {{ $unit->no_seri }} - {{ $unit->pelanggan->nama }} - {{ $unit->produk->nama }}
++                                    {{ $unit->no_seri }} - {{ $unit->pelanggan?->nama ?? '-' }} - {{ $unit->produk?->nama ?? 'Produk Terhapus' }}
+                                 </option>
+                             @endforeach
+                         </select>
+diff --git a/resources/views/admin/refill/edit.blade.php b/resources/views/admin/refill/edit.blade.php
+index 3c8cef9..c4d899e 100644
+--- a/resources/views/admin/refill/edit.blade.php
++++ b/resources/views/admin/refill/edit.blade.php
+@@ -17,8 +17,8 @@
+         units: @js($units->map(fn ($unit) => [
+             'id' => $unit->id,
+             'seri' => $unit->no_seri,
+-            'pelanggan' => $unit->pelanggan->nama,
+-            'produk' => $unit->produk->nama ?? 'Unit APAR',
++            'pelanggan' => $unit->pelanggan?->nama ?? '-',
++            'produk' => $unit->produk?->nama ?? 'Unit APAR',
+             'expired' => optional($unit->tgl_expired)->format('d M Y'),
+         ])->values()),
+         refillMap: @js($jenisRefills->mapWithKeys(fn ($jenis) => [$jenis->id => ['nama' => $jenis->nama, 'harga' => $refillPackages[$jenis->nama] ?? 0]])),
+@@ -43,7 +43,7 @@
+                             <option value="">Pilih unit</option>
+                             @foreach($units as $unit)
+                                 <option value="{{ $unit->id }}" @selected(old('unit_apar_id', $refill->unit_apar_id) == $unit->id)>
+-                                    {{ $unit->no_seri }} - {{ $unit->pelanggan->nama }} - {{ $unit->produk->nama }}
++                                    {{ $unit->no_seri }} - {{ $unit->pelanggan?->nama ?? '-' }} - {{ $unit->produk?->nama ?? 'Produk Terhapus' }}
+                                 </option>
+                             @endforeach
+                         </select>
+diff --git a/resources/views/admin/service/create.blade.php b/resources/views/admin/service/create.blade.php
+index af87123..ff898d6 100644
+--- a/resources/views/admin/service/create.blade.php
++++ b/resources/views/admin/service/create.blade.php
+@@ -45,7 +45,7 @@ class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ri
+                                 <option value="">Pilih Unit</option>
+                                 @foreach($units as $u)
+                                     <option value="{{ $u->id }}" {{ old('unit_apar_id') == $u->id ? 'selected' : '' }}>
+-                                        {{ $u->no_seri }} - {{ $u->pelanggan->nama }}
++                                        {{ $u->no_seri }} - {{ $u->pelanggan?->nama ?? '-' }}
+                                     </option>
+                                 @endforeach
+                             </select>
+diff --git a/resources/views/admin/service/edit.blade.php b/resources/views/admin/service/edit.blade.php
+index c504674..b27a47b 100644
+--- a/resources/views/admin/service/edit.blade.php
++++ b/resources/views/admin/service/edit.blade.php
+@@ -12,15 +12,15 @@
+     </x-slot>
+ 
+     @php
+-        $pelanggansEdit = $units->groupBy(fn($u) => $u->pelanggan->id ?? 0)->map(fn($units, $pelangganId) => [
++        $pelanggansEdit = $units->groupBy(fn($u) => $u->pelanggan?->id ?? 0)->map(fn($units, $pelangganId) => [
+             'pelangganId' => $pelangganId,
+-            'pelangganNama' => $units->first()->pelanggan->nama ?? '-',
++            'pelangganNama' => $units->first()->pelanggan?->nama ?? '-',
+             'units' => $units->map(fn($u) => [
+                 'id' => $u->id,
+                 'seri' => $u->no_seri,
+-                'merek' => $u->produk->merek ?? '-',
+-                'kapasitas' => $u->produk->kapasitas ?? '-',
+-                'jenis' => $u->produk->jenisApar->nama ?? '-',
++                'merek' => $u->produk?->merek ?? '-',
++                'kapasitas' => $u->produk?->kapasitas ?? '-',
++                'jenis' => $u->produk?->jenisApar?->nama ?? '-',
+                 'expired' => $u->tgl_expired ? $u->tgl_expired->format('d M Y') : '-',
+             ])->values(),
+         ])->values();
+diff --git a/resources/views/public/keranjang/index.blade.php b/resources/views/public/keranjang/index.blade.php
+index 8c5071f..1ac57a7 100644
+--- a/resources/views/public/keranjang/index.blade.php
++++ b/resources/views/public/keranjang/index.blade.php
+@@ -68,11 +68,11 @@
+                     {{-- Left Column: Cart Items --}}
+                     <div class="space-y-4 lg:col-span-2">
+                         @foreach($keranjangs as $item)
+-                            <div class="cart-item flex flex-col sm:flex-row gap-5 items-center justify-between" id="cart-item-{{ $item->id }}" data-id="{{ $item->id }}" data-price="{{ $item->harga }}" data-stock="{{ $item->produk->catalog_ready_stock }}">
++                            <div class="cart-item flex flex-col sm:flex-row gap-5 items-center justify-between" id="cart-item-{{ $item->id }}" data-id="{{ $item->id }}" data-price="{{ $item->harga }}" data-stock="{{ $item->produk?->catalog_ready_stock ?? 0 }}">
+                                 {{-- Left Group: Thumbnail and details --}}
+                                 <div class="flex items-center gap-4 w-full sm:flex-1 min-w-0">
+                                     <div class="cart-thumb">
+-                                        @if($item->produk->resolved_image_url)
++                                        @if($item->produk?->resolved_image_url)
+                                             <img src="{{ $item->produk->resolved_image_url }}" alt="{{ $item->produk->nama }}">
+                                         @else
+                                             <div class="flex h-full w-full items-center justify-center text-slate-300">
+@@ -81,10 +81,10 @@
+                                         @endif
+                                     </div>
+                                     <div class="min-w-0 flex-1">
+-                                        <span class="inline-flex items-center px-2 py-0.5 rounded bg-red-50 text-[10px] font-black text-red-600 uppercase tracking-widest">{{ $item->produk->jenisApar?->nama ?? 'APAR' }}</span>
+-                                        <h3 class="text-base font-black text-slate-900 truncate mt-1">{{ $item->produk->nama }}</h3>
++                                        <span class="inline-flex items-center px-2 py-0.5 rounded bg-red-50 text-[10px] font-black text-red-600 uppercase tracking-widest">{{ $item->produk?->jenisApar?->nama ?? 'APAR' }}</span>
++                                        <h3 class="text-base font-black text-slate-900 truncate mt-1">{{ $item->produk?->nama ?? 'Produk Terhapus' }}</h3>
+                                         <p class="text-xs font-semibold text-slate-500 mt-0.5">
+-                                            Merek: {{ $item->produk->merek ?? 'FIREFIX' }} @if($item->produk->kapasitas) • {{ $item->produk->kapasitas }} @endif
++                                            Merek: {{ $item->produk?->merek ?? 'FIREFIX' }} @if($item->produk?->kapasitas) • {{ $item->produk->kapasitas }} @endif
+                                         </p>
+                                         <p class="text-xs font-bold text-slate-400 mt-1">Harga Satuan: Rp {{ number_format($item->harga, 0, ',', '.') }}</p>
+                                     </div>
+diff --git a/resources/views/teknisi/refill/index.blade.php b/resources/views/teknisi/refill/index.blade.php
+index 22110dd..8a7cff9 100644
+--- a/resources/views/teknisi/refill/index.blade.php
++++ b/resources/views/teknisi/refill/index.blade.php
+@@ -21,8 +21,8 @@
+                         @endif
+                     </div>
+ 
+-                    <h3 class="font-black text-slate-900 text-lg leading-tight">{{ $tugas->produk->nama }}</h3>
+-                    <p class="text-sm font-bold text-slate-500 mt-1">{{ $tugas->produk->merek }} - {{ $tugas->produk->kapasitas }}</p>
++                    <h3 class="font-black text-slate-900 text-lg leading-tight">{{ $tugas->produk?->nama ?? 'Produk Terhapus' }}</h3>
++                    <p class="text-sm font-bold text-slate-500 mt-1">{{ $tugas->produk?->merek ?? '-' }} - {{ $tugas->produk?->kapasitas ?? '-' }}</p>
+ 
+                     <div class="mt-5 space-y-3 flex-1">
+                         <div class="flex items-start gap-3 bg-slate-50 p-3 rounded-2xl">
+diff --git a/resources/views/welcome.blade.php b/resources/views/welcome.blade.php
+index 725e732..5fdc397 100644
+--- a/resources/views/welcome.blade.php
++++ b/resources/views/welcome.blade.php
+@@ -1794,7 +1794,7 @@ class="absolute top-0 left-0 w-full h-full"
+                     <div class="testi-author">
+                         @php
+                             $isAnonymous = $testimoni->is_anonymous ?? false;
+-                            $authorName = $isAnonymous ? 'Pelanggan Anonim' : ($testimoni->pelanggan->nama ?? 'Pelanggan');
++                            $authorName = $isAnonymous ? 'Pelanggan Anonim' : ($testimoni->pelanggan?->nama ?? 'Pelanggan');
+                             $authorInitial = \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($authorName, 0, 1));
+                         @endphp
+                         <div class="testi-avatar">
