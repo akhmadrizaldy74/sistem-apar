@@ -30,14 +30,16 @@ class ProfileController extends Controller
     /**
      * Display the user's profile form.
      */
-    public function edit(Request $request): View
+    public function edit(Request $request)
     {
-        $user = $request->user()->load('pelanggan');
-        $view = ($user->isAdmin() || $user->isTeknisi())
-            ? 'profile.edit'
-            : 'profile.customer-edit';
+        $user = $request->user();
+        if ($user->isAdmin() || $user->isTeknisi()) {
+            $route = $user->isTeknisi() ? 'teknisi.dashboard' : 'dashboard';
+            return redirect()->route($route)->with('error', 'Akses ditolak. Profil admin dan teknisi dikelola melalui Manajemen Akun.');
+        }
 
-        return view($view, [
+        $user->load('pelanggan');
+        return view('profile.customer-edit', [
             'user' => $user,
             'pelanggan' => $user->pelanggan,
         ]);

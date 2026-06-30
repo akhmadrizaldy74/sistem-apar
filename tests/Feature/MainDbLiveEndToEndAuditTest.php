@@ -84,6 +84,10 @@ class MainDbLiveEndToEndAuditTest extends TestCase
         $this->startedAt = now('Asia/Jakarta')->toDateTimeString();
         $this->initialLogBytes = $this->laravelLogSize();
 
+        if (User::query()->where('role', 'admin')->count() === 0) {
+            $this->seed(\Database\Seeders\DatabaseSeeder::class);
+        }
+
         $this->admin = User::query()->where('role', 'admin')->firstOrFail();
         $this->teknisi = User::query()->where('role', 'teknisi')->firstOrFail();
 

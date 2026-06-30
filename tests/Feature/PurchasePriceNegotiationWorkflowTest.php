@@ -171,6 +171,10 @@ class PurchasePriceNegotiationWorkflowTest extends TestCase
             'alamat_maps' => 'Jl. Negosiasi No. 1',
             'alamat_detail' => 'Gudang belakang',
             'status' => 'tetap',
+            'alamat_lat' => -6.914744,
+            'alamat_lng' => 107.609810,
+            'rajaongkir_destination_id' => '151',
+            'rajaongkir_destination_label' => 'Bandung',
         ]);
 
         return [$user, $pelanggan];
@@ -227,5 +231,64 @@ class PurchasePriceNegotiationWorkflowTest extends TestCase
         $response->assertSessionHas('success');
 
         return Pesanan::query()->latest('id')->firstOrFail()->fresh(['details.produk', 'pelanggan']);
+    }
+
+    public function test_approved_special_price_request_with_delivery_includes_ongkir_in_final_price(): void
+    {
+        config(['broadcasting.default' => 'null']);
+
+        [$customerUser] = $this->createCustomerAccount('081234567844');
+        $produk = $this->createNegotiationProduct();
+
+        // 1. Submit order with delivery (ongkir = 150000)
+        $response = $this->actingAs($customerUser)->post(route('order.store'), [
+            'tipe_layanan' => 'beli',
+            'metode_pengiriman' => 'diantar',
+            'bank_tujuan' => 'bca',
+            'submit_source' => 'special_price_request',
+            'harga_pengajuan' => 'Rp 5.000.000',
+            'rajaongkir_destination_id' => '151',
+            'rajaongkir_destination_label' => 'Bandung',
+            'shipping_courier' => 'jne',
+            'shipping_service' => 'REG',
+            'shipping_etd' => '1-2',
+            'shipping_weight' => '12000',
+            'shipping_distance' => '0',
+            'ongkir' => '150000',
+            'alamat_maps' => 'Jl. Test No. 5',
+            'alamat_detail' => 'RT 01 RW 02',
+            'alamat_lat' => '-6.914744',
+            'alamat_lng' => '107.609810',
+            'items' => [
+                [
+                    'produk_id' => $produk->id,
+                    'jumlah' => 2,
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect(route('riwayat-apar'));
+        $pesanan = Pesanan::query()->latest('id')->firstOrFail();
+
+        $this->assertSame(240000.0, (float) $pesanan->ongkir);
+        $this->assertSame(6240000.0, (float) $pesanan->payableTotal()); // 6,000,000 + 240,000
+
+        // 2. Admin ACC with a final price of Rp 5.200.000
+        $admin = User::factory()->create(['role' => 'admin']);
+        $approveResponse = $this->actingAs($admin)->post(
+            route('admin.pesanan.pengajuan-harga.acc', $pesanan),
+            [
+                'harga_final' => 'Rp 5.200.000',
+                'catatan_admin' => 'Harga deal termasuk ongkir',
+            ]
+        );
+
+        $approveResponse->assertRedirect();
+        $pesanan->refresh();
+
+        // 3. Confirm that total and payable total are exactly 5.200.000, NOT 5.200.000 + 150.000
+        $this->assertSame(5200000.0, (float) $pesanan->total);
+        $this->assertSame(5200000.0, (float) $pesanan->total_harga);
+        $this->assertSame(5200000.0, (float) $pesanan->payableTotal());
     }
 }

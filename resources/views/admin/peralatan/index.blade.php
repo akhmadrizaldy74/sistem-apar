@@ -172,9 +172,19 @@
                                             <p class="text-sm font-black text-slate-900">Rp {{ number_format((float) $peralatan->harga_standar, 0, ',', '.') }}</p>
                                         </td>
                                         <td class="px-5 py-5">
-                                            <span class="inline-flex rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-widest {{ $peralatan->is_stok_rendah ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700' }}">
-                                                {{ $peralatan->is_stok_rendah ? 'Stok Rendah' : 'Aktif' }}
-                                            </span>
+                                            @if($peralatan->stok == 0)
+                                                <span class="inline-flex rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-widest bg-red-50 text-red-700">
+                                                    Kosong
+                                                </span>
+                                            @elseif($peralatan->is_stok_rendah)
+                                                <span class="inline-flex rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-widest bg-amber-50 text-amber-700">
+                                                    Stok Rendah
+                                                </span>
+                                            @else
+                                                <span class="inline-flex rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-700">
+                                                    Aktif
+                                                </span>
+                                            @endif
                                         </td>
                                         <td class="px-5 py-5">
                                             <div class="flex flex-wrap gap-2">

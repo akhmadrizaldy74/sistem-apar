@@ -70,8 +70,8 @@
     .shipping-status-note.success{border-color:#fecaca;background:#fff5f5}
     .shipping-status-note.error{border-color:#fecaca;background:#fef2f2}
     .shipping-status-label{display:block;font-size:.62rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8}
-    .shipping-status-value{display:block;margin-top:.18rem;font-size:1rem;font-weight:900;line-height:1.2;color:#0f172a}
-    .shipping-status-meta{display:block;margin-top:.2rem;font-size:.74rem;font-weight:700;line-height:1.4;color:#64748b}
+    .shipping-status-value{display:block;margin-top:.18rem;font-size:1.25rem;font-weight:900;line-height:1.2;color:#0f172a}
+    .shipping-status-meta{display:block;margin-top:.25rem;font-size:.8rem;font-weight:700;line-height:1.4;color:#64748b}
     .shipping-status-detail{display:block;margin-top:.2rem;font-size:.74rem;font-weight:700;line-height:1.4;color:#64748b}
     .shipping-status-note.success .shipping-status-label,.shipping-status-note.success .shipping-status-value{color:#991b1b}
     .shipping-status-note.success .shipping-status-meta,.shipping-status-note.success .shipping-status-detail{color:#7f1d1d}
@@ -524,7 +524,7 @@
                 </div>
                 <div>
                     <p class="font-black text-slate-900 text-sm">Beli Produk APAR</p>
-                    <p class="text-[11px] text-slate-500 font-semibold mt-0.5">Beli APAR baru + aksesoris</p>
+                    <p class="text-xs text-slate-600 font-semibold mt-0.5">Beli APAR baru + aksesoris</p>
                 </div>
             </button>
             <button type="button" id="card-service" onclick="switchTab('service')" class="layanan-card">
@@ -533,7 +533,7 @@
                 </div>
                 <div>
                     <p class="font-black text-slate-900 text-sm">Layanan APAR</p>
-                    <p class="text-[11px] text-slate-500 font-semibold mt-0.5">Perawatan, perbaikan, &amp; isi ulang APAR</p>
+                    <p class="text-xs text-slate-600 font-semibold mt-0.5">Perawatan, perbaikan, &amp; isi ulang APAR</p>
                 </div>
             </button>
         </div>
@@ -587,7 +587,6 @@
                         <a href="{{ route('produk.index') }}" class="flow-cta secondary flex-1">
                             Kembali ke Katalog
                         </a>
-                        <a href="#bank-options" class="flow-cta primary flex-1">Lanjut Checkout</a>
                     </div>
                 @elseif($prefilledOrderItems->isNotEmpty())
                     <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
@@ -601,8 +600,8 @@
 
                             <div class="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                                 <div class="cart-preview-thumb">
-                                    @if(!empty($item['gambar']))
-                                        <img src="{{ $item['gambar_url'] ?? asset('storage/' . $item['gambar']) }}" alt="{{ $item['nama'] ?? 'Produk' }}">
+                                    @if(!empty($item['gambar_url']))
+                                        <img src="{{ $item['gambar_url'] }}" alt="{{ $item['nama'] ?? 'Produk' }}">
                                     @else
                                         <div class="flex h-full w-full items-center justify-center text-slate-300">
                                             <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2z"/></svg>
@@ -626,7 +625,6 @@
                         <a href="{{ !empty($selectedOrderProduct) ? route('produk.show', $selectedOrderProduct) : route('produk.index') }}" class="flow-cta secondary flex-1">
                             Ubah Jumlah
                         </a>
-                        <a href="#bank-options" class="flow-cta primary flex-1">Lanjut Checkout</a>
                     </div>
                 @elseif(!empty($canUseCartCheckout))
                     <div class="text-center">
@@ -720,7 +718,7 @@
                         </div>
                         <p class="text-sm font-black text-slate-800">Pilih Bank Tujuan</p>
                     </div>
-                    <p class="text-[11px] font-semibold text-slate-500 mb-4">Pilih bank tujuan pembayaran.</p>
+                    <p class="text-xs font-semibold text-slate-600 mb-4">Pilih bank tujuan pembayaran.</p>
                     <div id="bank-options" class="choice-grid bank">
                         <label for="bank-bca" class="cursor-pointer">
                             <input id="bank-bca" type="radio" name="bank_tujuan" value="bca" class="sr-only" {{ $selectedBank === 'bca' ? 'checked' : '' }}>
@@ -769,7 +767,7 @@
                         </div>
                         <div>
                             <p class="text-sm font-black text-slate-800">Promo Pembelian Banyak</p>
-                            <p class="text-[11px] font-semibold text-slate-500">Diskon otomatis diterapkan berdasarkan total unit APAR.</p>
+                            <p class="text-xs font-semibold text-slate-600">Diskon otomatis diterapkan berdasarkan total unit APAR.</p>
                         </div>
                     </div>
 
@@ -812,15 +810,23 @@
                                     <div class="summary-card request-summary-card">
                                         <div class="summary-row">
                                             <span class="text-slate-500 font-semibold">Subtotal Harga Dasar</span>
-                                            <span id="request-base-subtotal" class="font-black text-slate-800">Rp {{ number_format((float) ($orderSummary['subtotalProduk'] ?? 0), 0, ',', '.') }}</span>
+                                            <span id="request-base-subtotal" class="font-bold text-slate-700">Rp {{ number_format((float) ($orderSummary['subtotalProduk'] ?? 0), 0, ',', '.') }}</span>
                                         </div>
                                         <div class="summary-row text-emerald-700">
                                             <span class="font-semibold">Diskon Promo Otomatis</span>
-                                            <span id="request-promo-discount" class="font-black">- Rp {{ number_format((float) ($orderSummary['nominalDiskon'] ?? 0), 0, ',', '.') }}</span>
+                                            <span id="request-promo-discount" class="font-bold">- Rp {{ number_format((float) ($orderSummary['nominalDiskon'] ?? 0), 0, ',', '.') }}</span>
+                                        </div>
+                                        <div class="summary-row">
+                                            <span class="text-slate-500 font-semibold">Total Setelah Promo</span>
+                                            <span id="request-after-promo" class="font-bold text-slate-700">Rp {{ number_format((float) ($orderSummary['totalSetelahPromo'] ?? 0), 0, ',', '.') }}</span>
+                                        </div>
+                                        <div class="summary-row" id="request-ongkir-row">
+                                            <span class="text-slate-500 font-semibold">Biaya Pengiriman</span>
+                                            <span id="request-ongkir" class="font-bold text-slate-700">Rp {{ number_format((float) ($orderSummary['ongkir'] ?? 0), 0, ',', '.') }}</span>
                                         </div>
                                         <div class="summary-row total">
-                                            <span class="text-slate-500 font-semibold">Total Setelah Promo</span>
-                                            <span id="request-after-promo" class="summary-value-total text-xl font-black text-red-600">Rp {{ number_format((float) ($orderSummary['totalSetelahPromo'] ?? ($orderSummary['totalPembayaran'] ?? 0)), 0, ',', '.') }}</span>
+                                            <span class="text-xs font-black text-slate-800 uppercase tracking-wider">Total Pembayaran</span>
+                                            <span id="request-total" class="summary-value-total text-xl font-black text-red-600">Rp {{ number_format((float) ($orderSummary['totalPembayaran'] ?? 0), 0, ',', '.') }}</span>
                                         </div>
                                     </div>
 
@@ -836,7 +842,7 @@
                                                 inputmode="numeric"
                                                 class="order-input"
                                             >
-                                            <p id="request-price-hint" class="mt-2 text-[11px] font-semibold text-slate-500">Harga Pengajuan tidak boleh lebih besar dari subtotal harga dasar.</p>
+                                            <p id="request-price-hint" class="mt-2 text-xs font-semibold text-slate-600">Harga Pengajuan tidak boleh lebih besar dari subtotal harga dasar.</p>
                                             @error('harga_pengajuan')
                                                 <p class="error-msg">{{ $message }}</p>
                                             @enderror
@@ -1038,6 +1044,9 @@
     const requestBaseSubtotal = document.getElementById('request-base-subtotal');
     const requestPromoDiscount = document.getElementById('request-promo-discount');
     const requestAfterPromo = document.getElementById('request-after-promo');
+    const requestOngkirRow = document.getElementById('request-ongkir-row');
+    const requestOngkir = document.getElementById('request-ongkir');
+    const requestTotal = document.getElementById('request-total');
     const requestPriceHint = document.getElementById('request-price-hint');
     const inpHargaPengajuan = document.getElementById('inp-harga-pengajuan');
     const btnSubmitPriceRequest = document.getElementById('btn-submit-price-request');
@@ -1363,11 +1372,11 @@
         } else if (type === 'success') {
             if (isProductCheckout) {
                 shippingStatusNote.className = 'shipping-status-note show success';
-            shippingStatusNote.innerHTML = `
-                <span class="shipping-status-label">Biaya Pengiriman</span>
-                <span class="shipping-status-value">${escapeHtml(shippingServiceLabel() || 'Layanan tersedia')}</span>
-                <span class="shipping-status-meta">Estimasi ${escapeHtml(shippingEtd || '-')} • ${fmt(shippingCost)}</span>
-            `;
+                shippingStatusNote.innerHTML = `
+                    <span class="shipping-status-label">Biaya Pengiriman</span>
+                    <span class="shipping-status-value">${fmt(shippingCost)}</span>
+                    <span class="shipping-status-meta">${escapeHtml(shippingServiceLabel() || 'Layanan tersedia')} • Estimasi ${escapeHtml(shippingEtd || '-')}</span>
+                `;
             } else {
                 shippingStatusNote.className = 'shipping-status-note show success';
                 shippingStatusNote.innerHTML = `
@@ -2079,9 +2088,20 @@
             return;
         }
 
+        const promoDiscount = promoDiscountNominal;
+        const totalAfterPromo = Math.max(0, normalTotal - promoDiscount);
+        const ongkir = shippingMethod === 'diantar' ? shippingCost : 0;
+        const finalTotal = totalAfterPromo + ongkir;
+
         if (requestBaseSubtotal) requestBaseSubtotal.textContent = fmt(normalTotal);
-        if (requestPromoDiscount) requestPromoDiscount.textContent = '- ' + fmt(promoDiscountNominal);
-        if (requestAfterPromo) requestAfterPromo.textContent = fmt(Math.max(0, normalTotal - promoDiscountNominal));
+        if (requestPromoDiscount) requestPromoDiscount.textContent = '- ' + fmt(promoDiscount);
+        if (requestAfterPromo) requestAfterPromo.textContent = fmt(totalAfterPromo);
+        
+        if (requestOngkirRow) {
+            requestOngkirRow.style.display = shippingMethod === 'diantar' ? 'flex' : 'none';
+        }
+        if (requestOngkir) requestOngkir.textContent = fmt(ongkir);
+        if (requestTotal) requestTotal.textContent = fmt(finalTotal);
         if (requestPriceHint) requestPriceHint.textContent = `Harga Pengajuan tidak boleh lebih besar dari ${fmt(normalTotal)}.`;
         purchasePriceRequestForm?.classList.toggle('hidden', !purchasePriceRequestOpen);
 
@@ -4210,6 +4230,22 @@
             if (hargaPengajuan > normalTotal) {
                 showAppAlert('Harga Pengajuan tidak boleh lebih besar dari subtotal harga dasar.', 'warning', 'Peringatan');
                 event.preventDefault();
+                return;
+            }
+
+            if (orderForm.dataset.specialPriceConfirmed !== 'true') {
+                event.preventDefault();
+                window.aparConfirm('Kirim pengajuan harga khusus untuk pesanan Anda?', {
+                    title: 'Konfirmasi Pengajuan',
+                    confirmButtonText: 'Ya, Kirim',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        orderForm.dataset.specialPriceConfirmed = 'true';
+                        inpSubmitSource.value = 'special_price_request';
+                        orderForm.submit();
+                    }
+                });
                 return;
             }
         }

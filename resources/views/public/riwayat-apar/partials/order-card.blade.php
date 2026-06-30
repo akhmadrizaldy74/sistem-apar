@@ -49,6 +49,9 @@
                 <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-slate-700">
                     {{ $pesanan->trackingTypeLabel() }}
                 </span>
+                <span class="rounded-full px-2.5 py-1 text-[11px] font-black {{ $pesanan->adminStatusBadgeClasses() }}">
+                    {{ $pesanan->adminStatusLabel() }}
+                </span>
                 @if($purchasePriceLabel)
                     <span class="rounded-full px-2.5 py-1 text-[11px] font-black {{ $pesanan->purchasePriceStatusClasses() }}">
                         {{ $purchasePriceLabel }}

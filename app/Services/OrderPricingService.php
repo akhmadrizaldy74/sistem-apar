@@ -113,7 +113,7 @@ class OrderPricingService
             $normalTotalPembayaran = (float) ($summary['totalPembayaran'] ?? 0);
 
             if ($specialPriceStatus === Pesanan::PRICE_REQUEST_APPROVED && !is_null($hargaFinal)) {
-                $summary['totalPembayaran'] = max(0, (float) round($hargaFinal + (float) ($summary['ongkir'] ?? 0), 0));
+                $summary['totalPembayaran'] = max(0, (float) round($hargaFinal, 0));
             }
 
             $summary['normalTotalProduk'] = $normalTotalProduk;

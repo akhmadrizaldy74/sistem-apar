@@ -260,7 +260,7 @@
                                     <div class="flex-1">
                                         <p class="text-sm font-black text-slate-900 leading-tight">{{ $pesanan->trackingTypeLabel() }}</p>
                                         <p class="text-[11px] font-semibold text-slate-400 mt-0.5">{{ $pesanan->trackingItemLabel() }}</p>
-                                        <div class="mt-3 grid grid-cols-2 gap-3 text-[11px] font-semibold text-slate-500">
+                                        <div class="mt-3 grid grid-cols-2 gap-3 text-xs font-semibold text-slate-600">
                                             <p>Ukuran: {{ $pesanan->service_ukuran_apar ?: '-' }}</p>
                                             <p>Jumlah: {{ (int) ($pesanan->service_jumlah_unit ?? 0) }} unit</p>
                                             <p>Metode: {{ $pesanan->trackingMethodLabel() }}</p>

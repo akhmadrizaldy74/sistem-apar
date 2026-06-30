@@ -5,7 +5,7 @@
         </div>
         <div>
             <p class="text-sm font-black text-slate-800">Ringkasan Pesanan</p>
-            <p class="text-[11px] font-semibold text-slate-500">Selalu ikut berubah saat item layanan ditambah atau diubah.</p>
+            <p class="text-xs font-semibold text-slate-600">Selalu ikut berubah saat item layanan ditambah atau diubah.</p>
         </div>
     </div>
 

@@ -565,7 +565,7 @@ class PesananController extends Controller
         }
         $catatanAdmin = trim((string) $request->input('catatan_admin')) ?: null;
         $pricingSummary = app(OrderPricingService::class)->summarizeProductItems($pesanan->details, (float) ($pesanan->ongkir ?? 0));
-        $maksimalHargaFinal = (float) ($pricingSummary['totalSetelahPromo'] ?? $pricingSummary['subtotalProduk'] ?? 0);
+        $totalPembayaran = (float) ($pricingSummary['totalPembayaran'] ?? 0);
 
         if (is_null($hargaFinal) || (float) $hargaFinal <= 0) {
             throw ValidationException::withMessages([
@@ -573,13 +573,13 @@ class PesananController extends Controller
             ]);
         }
 
-        if ((float) $hargaFinal > $maksimalHargaFinal) {
+        if ((float) $hargaFinal > $totalPembayaran) {
             throw ValidationException::withMessages([
-                'harga_final' => 'Harga Final tidak boleh lebih besar dari total setelah promo otomatis.',
+                'harga_final' => 'Harga Final tidak boleh lebih besar dari total pembayaran awal.',
             ]);
         }
 
-        $grandTotal = max(0, (float) round((float) $hargaFinal + (float) ($pesanan->ongkir ?? 0), 0));
+        $grandTotal = max(0, (float) round((float) $hargaFinal, 0));
 
         $pesanan->update(array_merge([
             'status' => Pesanan::STATUS_DISETUJUI,

@@ -393,7 +393,7 @@
             </div>
 
             <div class="mt-10 flex flex-col gap-3 border-t border-slate-800 pt-6 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
-                <p>&copy; {{ date('Y') }} PD. Anugrah Utama. Hak cipta dilindungi.</p>
+                <p>&copy; {{ date('Y') }} PD. Anugrah Utama</p>
                 <p>Operasional toko, layanan unit pelanggan.</p>
             </div>
         </div>

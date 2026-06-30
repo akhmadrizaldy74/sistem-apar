@@ -478,10 +478,6 @@
                                     <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{{ $isTeknisi ? 'Teknisi' : 'Admin' }}</p>
                                 </div>
                                 <div class="p-2 space-y-1">
-                                    <a href="{{ route('profile.edit') }}" class="flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-slate-600 hover:text-red-700 hover:bg-red-50 rounded-xl transition tracking-wide">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                                        Edit Profil
-                                    </a>
                                     @unless($isTeknisi)
                                         <a href="{{ route('home') }}" class="flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-slate-600 hover:text-red-700 hover:bg-red-50 rounded-xl transition tracking-wide">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4" /></svg>
@@ -526,7 +522,7 @@
                     <div class="flex flex-col md:flex-row justify-between items-center gap-4">
                         <div>
                             <p class="text-xl font-black uppercase text-slate-900 tracking-tight">PD. ANUGRAH UTAMA</p>
-                            <p class="text-sm text-slate-400 mt-1">&copy; {{ date('Y') }} PD. ANUGRAH UTAMA. Hak cipta dilindungi undang-undang.</p>
+                            <p class="text-sm text-slate-400 mt-1">&copy; {{ date('Y') }} PD. ANUGRAH UTAMA</p>
                         </div>
                     </div>
                 </footer>

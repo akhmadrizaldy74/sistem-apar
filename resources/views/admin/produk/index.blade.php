@@ -80,7 +80,7 @@
                                     </span>
                                 </td>
                                 <td class="px-8 py-6">
-                                    <span class="px-4 py-1.5 bg-gray-100 text-gray-700 text-[11px] font-black uppercase tracking-widest rounded-full group-hover:bg-red-50 group-hover:text-red-700 transition-colors">
+                                    <span class="px-4 py-1.5 bg-gray-100 text-gray-700 text-[11px] font-black uppercase tracking-widest rounded-full group-hover:bg-red-50 group-hover:text-red-700 transition-colors whitespace-nowrap">
                                         {{ $p->jenisApar?->nama ?? '-' }}
                                     </span>
                                 </td>

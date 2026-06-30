@@ -560,9 +560,16 @@
 </head>
 <body class="feedback-page">
     @php
+        $user = auth()->user();
         $orderEntryUrl = auth()->check() ? route('order.create') : route('login');
-        $authActionLabel = auth()->check() ? 'Profil Saya' : 'Masuk';
-        $authActionRoute = auth()->check() ? route('profile.edit') : route('login');
+        $authActionLabel = 'Masuk';
+        $authActionRoute = route('login');
+        if ($user) {
+            $authActionLabel = $user->isAdmin() || $user->isTeknisi() ? 'Dashboard' : 'Profil Saya';
+            $authActionRoute = $user->isTeknisi()
+                ? route('teknisi.dashboard')
+                : ($user->isAdmin() ? route('dashboard') : route('profile.edit'));
+        }
     @endphp
 
     <nav class="navbar navbar-expand-lg feedback-navbar sticky-top py-2">

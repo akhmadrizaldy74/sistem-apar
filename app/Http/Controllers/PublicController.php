@@ -2750,7 +2750,7 @@ class PublicController extends Controller
                 return redirect()->route('order.payment', $pesanan)->with('success', 'Pesanan berhasil dibuat. Silakan lanjutkan pembayaran.');
             }
 
-            return redirect()->route('riwayat-apar')->with('success', ($successMessage ?: 'Pesanan berhasil dikirim.') . ' ID: ' . $pesanan->id);
+            return redirect()->route('riwayat-apar')->with('success', ($successMessage ?: 'Pesanan berhasil dikirim.'));
         } catch (ValidationException $e) {
             DB::rollBack();
             throw $e;

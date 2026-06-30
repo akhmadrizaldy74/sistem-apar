@@ -47,6 +47,8 @@ class RegisteredUserController extends Controller
         ], [
             'no_telpon.unique' => 'Nomor WhatsApp sudah terdaftar.',
             'email.unique' => 'Email sudah digunakan akun lain.',
+            'password.required' => 'Password wajib diisi.',
+            'password.confirmed' => 'Konfirmasi password tidak cocok.',
         ]);
 
         $user = User::create([

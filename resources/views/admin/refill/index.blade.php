@@ -111,6 +111,8 @@
                 'no_wa' => $customer['wa'],
                 'wa_url' => \App\Support\WhatsApp::customerLink($customer['wa'], 'Halo Bapak/Ibu, kami ingin mengonfirmasi refill APAR Anda.'),
                 'alamat' => $refill->pelanggan?->alamat ?? '-',
+                'alamat_lat' => $refill->alamat_lat ?? $refill->pelanggan?->alamat_lat,
+                'alamat_lng' => $refill->alamat_lng ?? $refill->pelanggan?->alamat_lng,
                 'transaksi' => $refill->transactionDisplayName(),
                 'waktu' => $refill->displayTransactionDateTime(),
                 'jenis' => $refill->serviceJenisRefill?->nama_label ?? 'Refill APAR',
@@ -145,6 +147,8 @@
                     'Halo Bapak/Ibu, kami ingin mengonfirmasi ' . strtolower($pesanan ? $pesanan->transactionDisplayName() : $refill->transactionDisplayName()) . ' APAR Anda.'
                 ),
                 'alamat' => $pesanan?->pelanggan?->alamat ?? $refill?->unitApar?->pelanggan?->alamat ?? '-',
+                'alamat_lat' => $pesanan?->alamat_lat ?? $pesanan?->pelanggan?->alamat_lat ?? $refill?->alamat_lat ?? $refill?->unitApar?->pelanggan?->alamat_lat,
+                'alamat_lng' => $pesanan?->alamat_lng ?? $pesanan?->pelanggan?->alamat_lng ?? $refill?->alamat_lng ?? $refill?->unitApar?->pelanggan?->alamat_lng,
                 'transaksi' => $pesanan ? $pesanan->transactionDisplayName() : $refill->transactionDisplayName(),
                 'waktu' => $pesanan ? $pesanan->displayTransactionDateTime() : $refill->displayTransactionDateTime(),
                 'jenis' => $pesanan?->serviceJenisRefill?->nama_label ?? $refill?->jenisRefill?->nama_label ?? 'Refill APAR',
@@ -723,6 +727,15 @@
                     <div class="col-span-2">
                         <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Alamat</p>
                         <p class="font-semibold text-gray-700">${data.alamat}</p>
+                        ${(data.alamat_lat && data.alamat_lng) ? `
+                        <div class="mt-3 overflow-hidden rounded-xl border border-gray-200 bg-gray-100 shadow-sm">
+                            <div id="refill-detail-map" class="w-full bg-gray-100" style="height: 200px;"></div>
+                        </div>
+                        ` : `
+                        <div class="mt-2 rounded-xl border border-gray-200 bg-gray-100/50 px-4 py-2.5 text-xs font-bold text-gray-500 text-center">
+                            Titik lokasi map tidak diatur.
+                        </div>
+                        `}
                     </div>
                 </div>
                 <div class="bg-gray-50 rounded-xl p-4 grid grid-cols-2 gap-3 text-sm">
@@ -761,10 +774,41 @@
             `;
 
             document.getElementById('refill-detail-modal').classList.remove('hidden');
+
+            if (data.alamat_lat && data.alamat_lng) {
+                setTimeout(() => {
+                    const mapDiv = document.getElementById('refill-detail-map');
+                    if (mapDiv) {
+                        const lat = Number(data.alamat_lat);
+                        const lng = Number(data.alamat_lng);
+                        const map = L.map('refill-detail-map', {
+                            scrollWheelZoom: false,
+                            zoomControl: true
+                        }).setView([lat, lng], 16);
+
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                            attribution: '&copy; OpenStreetMap contributors'
+                        }).addTo(map);
+
+                        const markerIcon = L.divIcon({
+                            html: '<div class="flex items-center justify-center w-8 h-8 rounded-full bg-red-600 text-white shadow-lg border-2 border-white"><i class="fa-solid fa-location-dot"></i></div>',
+                            className: 'refill-map-marker',
+                            iconSize: [32, 32],
+                            iconAnchor: [16, 32]
+                        });
+                        L.marker([lat, lng], { icon: markerIcon }).addTo(map);
+
+                        setTimeout(() => {
+                            map.invalidateSize();
+                        }, 100);
+                    }
+                }, 50);
+            }
         }
 
         function closeRefillDetailModal() {
             document.getElementById('refill-detail-modal').classList.add('hidden');
+            document.getElementById('refill-detail-content').innerHTML = '';
         }
 
         function openRefillProofModal(url, meta = {}) {

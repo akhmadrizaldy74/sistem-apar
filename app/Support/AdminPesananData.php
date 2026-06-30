@@ -138,6 +138,8 @@ class AdminPesananData
             'pelanggan' => $pesanan->pelanggan?->nama ?? '-',
             'no_wa' => $pesanan->pelanggan?->no_wa ?? '-',
             'alamat' => $pesanan->pelanggan?->alamat ?? '-',
+            'alamat_lat' => $pesanan->alamat_lat ?? $pesanan->pelanggan?->alamat_lat,
+            'alamat_lng' => $pesanan->alamat_lng ?? $pesanan->pelanggan?->alamat_lng,
             'tanggal' => $pesanan->displayTransactionDateTime(),
             'status' => $pesanan->status,
             'status_label' => $pesanan->adminStatusLabel(),

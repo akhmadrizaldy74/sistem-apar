@@ -498,6 +498,15 @@
                                 <p class="text-[10px] font-black uppercase tracking-[0.16em] text-gray-400">Alamat</p>
                                 <p class="mt-1 text-sm font-medium leading-relaxed text-gray-700">${escapeHtml(data.alamat)}</p>
                             </div>
+                            ${(data.alamat_lat && data.alamat_lng) ? `
+                            <div class="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-gray-100 shadow-sm">
+                                <div id="order-detail-map" class="w-full bg-gray-100" style="height: 240px;"></div>
+                            </div>
+                            ` : `
+                            <div class="mt-4 rounded-2xl border border-gray-200 bg-gray-100/50 px-4 py-3 text-xs font-bold text-gray-500 text-center">
+                                Titik lokasi map tidak diatur.
+                            </div>
+                            `}
                         </div>
                         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">${metaCardsHtml}</div>
                     </div>
@@ -530,6 +539,36 @@
                 attachPurchasePriceInputMask();
                 document.getElementById('pesanan-detail-modal').classList.remove('hidden');
                 document.getElementById('pesanan-detail-modal').classList.add('flex');
+
+                if (data.alamat_lat && data.alamat_lng) {
+                    setTimeout(() => {
+                        const mapDiv = document.getElementById('order-detail-map');
+                        if (mapDiv) {
+                            const lat = Number(data.alamat_lat);
+                            const lng = Number(data.alamat_lng);
+                            const map = L.map('order-detail-map', {
+                                scrollWheelZoom: false,
+                                zoomControl: true
+                            }).setView([lat, lng], 16);
+
+                            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                                attribution: '&copy; OpenStreetMap contributors'
+                            }).addTo(map);
+
+                            const markerIcon = L.divIcon({
+                                html: '<div class="flex items-center justify-center w-8 h-8 rounded-full bg-red-600 text-white shadow-lg border-2 border-white"><i class="fa-solid fa-location-dot"></i></div>',
+                                className: 'order-map-marker',
+                                iconSize: [32, 32],
+                                iconAnchor: [16, 32]
+                            });
+                            L.marker([lat, lng], { icon: markerIcon }).addTo(map);
+
+                            setTimeout(() => {
+                                map.invalidateSize();
+                            }, 100);
+                        }
+                    }, 50);
+                }
             }
 
             function closePesananDetailModal() {

@@ -16,24 +16,9 @@
                     <label for="label" class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Label Ringkas</label>
                     <input type="text" id="label" name="label" value="{{ old('label', $servicePaket->label) }}" class="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-900 focus:border-red-500 focus:ring-red-500/20">
                 </div>
-                <div class="grid gap-5 sm:grid-cols-2">
-                    <div>
-                        <label for="harga" class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Harga Dasar</label>
-                        <input type="number" id="harga" name="harga" min="0" step="0.01" value="{{ old('harga', $servicePaket->harga) }}" required class="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-900 focus:border-red-500 focus:ring-red-500/20">
-                    </div>
-                    <div>
-                        <label for="refill_ratio" class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Refill Ratio</label>
-                        <input type="number" id="refill_ratio" name="refill_ratio" min="0" step="0.01" value="{{ old('refill_ratio', $servicePaket->refill_ratio) }}" class="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-900 focus:border-red-500 focus:ring-red-500/20">
-                    </div>
-                </div>
                 <div>
-                    <label for="jenis_refill_id" class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Jenis Refill Terkait</label>
-                    <select id="jenis_refill_id" name="jenis_refill_id" class="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-900 focus:border-red-500 focus:ring-red-500/20">
-                        <option value="">Tanpa relasi refill</option>
-                        @foreach($jenisRefills as $jenisRefill)
-                            <option value="{{ $jenisRefill->id }}" @selected((string) old('jenis_refill_id', $servicePaket->jenis_refill_id) === (string) $jenisRefill->id)>{{ $jenisRefill->nama }}</option>
-                        @endforeach
-                    </select>
+                    <label for="harga" class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Harga Dasar</label>
+                    <input type="number" id="harga" name="harga" min="0" step="0.01" value="{{ old('harga', $servicePaket->harga) }}" required class="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-900 focus:border-red-500 focus:ring-red-500/20">
                 </div>
                 <div>
                     <label for="rincian_layanan" class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Rincian Layanan</label>

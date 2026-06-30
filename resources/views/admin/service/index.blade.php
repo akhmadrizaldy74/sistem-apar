@@ -102,6 +102,8 @@
                 'no_wa' => $customer['wa'],
                 'wa_url' => \App\Support\WhatsApp::customerLink($customer['wa'], 'Halo Bapak/Ibu, kami ingin mengonfirmasi service APAR Anda.'),
                 'alamat' => $service->pelanggan?->alamat ?? '-',
+                'alamat_lat' => $service->alamat_lat ?? $service->pelanggan?->alamat_lat,
+                'alamat_lng' => $service->alamat_lng ?? $service->pelanggan?->alamat_lng,
                 'transaksi' => $service->transactionDisplayName(),
                 'waktu' => $service->displayTransactionDateTime(),
                 'jenis' => $service->servicePaket?->nama ?? 'Service APAR',
@@ -138,6 +140,8 @@
                     'Halo Bapak/Ibu, kami ingin mengonfirmasi ' . strtolower($pesanan ? $pesanan->transactionDisplayName() : $service->transactionDisplayName()) . ' APAR Anda.'
                 ),
                 'alamat' => $pesanan?->pelanggan?->alamat ?? $service?->unitApar?->pelanggan?->alamat ?? '-',
+                'alamat_lat' => $pesanan?->alamat_lat ?? $pesanan?->pelanggan?->alamat_lat ?? $service?->alamat_lat ?? $service?->unitApar?->pelanggan?->alamat_lat,
+                'alamat_lng' => $pesanan?->alamat_lng ?? $pesanan?->pelanggan?->alamat_lng ?? $service?->alamat_lng ?? $service?->unitApar?->pelanggan?->alamat_lng,
                 'transaksi' => $pesanan ? $pesanan->transactionDisplayName() : $service->transactionDisplayName(),
                 'waktu' => $pesanan ? $pesanan->displayTransactionDateTime() : $service->displayTransactionDateTime(),
                 'jenis' => $pesanan?->servicePaket?->nama ?? $service?->servicePaket?->nama ?? $service?->jenis_service ?? 'Service APAR',
@@ -738,6 +742,15 @@
                     <div class="col-span-2">
                         <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Alamat</p>
                         <p class="font-semibold text-gray-700">${data.alamat}</p>
+                        ${(data.alamat_lat && data.alamat_lng) ? `
+                        <div class="mt-3 overflow-hidden rounded-xl border border-gray-200 bg-gray-100 shadow-sm">
+                            <div id="service-detail-map" class="w-full bg-gray-100" style="height: 200px;"></div>
+                        </div>
+                        ` : `
+                        <div class="mt-2 rounded-xl border border-gray-200 bg-gray-100/50 px-4 py-2.5 text-xs font-bold text-gray-500 text-center">
+                            Titik lokasi map tidak diatur.
+                        </div>
+                        `}
                     </div>
                 </div>
                 <div class="bg-gray-50 rounded-xl p-4 grid grid-cols-2 gap-3 text-sm">
@@ -778,10 +791,41 @@
             `;
 
             document.getElementById('service-detail-modal').classList.remove('hidden');
+
+            if (data.alamat_lat && data.alamat_lng) {
+                setTimeout(() => {
+                    const mapDiv = document.getElementById('service-detail-map');
+                    if (mapDiv) {
+                        const lat = Number(data.alamat_lat);
+                        const lng = Number(data.alamat_lng);
+                        const map = L.map('service-detail-map', {
+                            scrollWheelZoom: false,
+                            zoomControl: true
+                        }).setView([lat, lng], 16);
+
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                            attribution: '&copy; OpenStreetMap contributors'
+                        }).addTo(map);
+
+                        const markerIcon = L.divIcon({
+                            html: '<div class="flex items-center justify-center w-8 h-8 rounded-full bg-red-600 text-white shadow-lg border-2 border-white"><i class="fa-solid fa-location-dot"></i></div>',
+                            className: 'service-map-marker',
+                            iconSize: [32, 32],
+                            iconAnchor: [16, 32]
+                        });
+                        L.marker([lat, lng], { icon: markerIcon }).addTo(map);
+
+                        setTimeout(() => {
+                            map.invalidateSize();
+                        }, 100);
+                    }
+                }, 50);
+            }
         }
 
         function closeServiceDetailModal() {
             document.getElementById('service-detail-modal').classList.add('hidden');
+            document.getElementById('service-detail-content').innerHTML = '';
         }
 
         function openServiceProofModal(url, meta = {}) {
