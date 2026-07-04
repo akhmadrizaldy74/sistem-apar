@@ -62,7 +62,7 @@ class PublicController extends Controller
         $profile = [
             'nama' => (string) ($pelanggan?->nama ?: $user->name ?: ''),
             'no_wa' => (string) ($pelanggan?->no_wa ?: $user->no_telpon ?: ''),
-            'perusahaan' => (string) ($pelanggan?->perusahaan ?: ''),
+            'perusahaan' => '',
             'alamat_maps' => (string) ($pelanggan?->alamat_maps ?: ''),
             'alamat_detail' => (string) ($pelanggan?->alamat_detail ?: ''),
             'alamat_provinsi' => (string) ($pelanggan?->alamat_provinsi ?: ''),
@@ -139,7 +139,7 @@ class PublicController extends Controller
             'rajaongkir_destination_label' => $profile['rajaongkir_destination_label'],
             'alamat_lat' => $profile['alamat_lat'],
             'alamat_lng' => $profile['alamat_lng'],
-            'perusahaan' => $profile['perusahaan'],
+            'perusahaan' => null,
         ]);
 
         return $profile;

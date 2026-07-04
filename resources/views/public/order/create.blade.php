@@ -389,7 +389,7 @@
 
             <input type="hidden" name="nama" id="inp-nama" value="{{ old('nama', $profile['nama']) }}">
             <input type="hidden" name="no_wa" id="inp-nowa" value="{{ old('no_wa', $profile['no_wa']) }}">
-            <input type="hidden" id="inp-perusahaan" value="{{ old('perusahaan', $profile['perusahaan']) }}">
+            <input type="hidden" id="inp-perusahaan" value="">
             <input type="hidden" name="alamat_provinsi" id="inp-provinsi" value="{{ old('alamat_provinsi', $profile['alamat_provinsi']) }}">
             <input type="hidden" name="alamat_kota" id="inp-kota" value="{{ old('alamat_kota', $profile['alamat_kota']) }}">
             <input type="hidden" name="alamat_kecamatan" id="inp-kecamatan" value="{{ old('alamat_kecamatan', $profile['alamat_kecamatan']) }}">
@@ -409,12 +409,7 @@
                         placeholder="Masukkan nama lengkap Anda"
                         class="order-input">
                 </div>
-                {{-- Perusahaan --}}
-                <div>
-                    <label class="order-label">Nama Perusahaan <span class="text-slate-300 font-normal normal-case tracking-normal">(Opsional)</span></label>
-                    <input type="text" id="inp-perusahaan" placeholder="PT / CV / Instansi / Sekolah"
-                        class="order-input">
-                </div>
+                <input type="hidden" id="inp-perusahaan" value="">
                 {{-- WhatsApp --}}
                 <div>
                     <label class="order-label">Nomor WhatsApp <span>*</span></label>
