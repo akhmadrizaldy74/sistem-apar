@@ -164,18 +164,18 @@ class PesananController extends Controller
         return [
             'bca' => [
                 'nama_bank' => 'Bank BCA',
-                'no_rekening' => '1234567890',
-                'pemilik' => 'PD. Anugrah Utama',
+                'no_rekening' => '6830861074',
+                'pemilik' => 'AKHMAD RIZALDY',
             ],
             'bri' => [
                 'nama_bank' => 'Bank BRI',
-                'no_rekening' => '0987654321',
-                'pemilik' => 'PD. Anugrah Utama',
+                'no_rekening' => '094901059995533',
+                'pemilik' => 'WIYANA',
             ],
             'mandiri' => [
                 'nama_bank' => 'Bank Mandiri',
-                'no_rekening' => '8877665544',
-                'pemilik' => 'PD. Anugrah Utama',
+                'no_rekening' => '1330026216028',
+                'pemilik' => 'WIYANA',
             ],
         ];
     }

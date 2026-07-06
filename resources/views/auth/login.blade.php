@@ -1,6 +1,6 @@
 <x-guest-layout variant="login-showcase">
     @php
-        $waContact = preg_replace('/\D+/', '', env('WHATSAPP_CONTACT', '6285128008030')) ?: '6285128008030';
+        $waContact = preg_replace('/\D+/', '', env('WHATSAPP_CONTACT', '6282124716109')) ?: '6282124716109';
         $waMessage = urlencode('Halo PD Anugrah Utama, saya mengalami kendala saat login.');
         $inputBase = 'block w-full min-w-0 rounded-2xl border bg-white px-4 py-4 pl-12 text-base font-semibold text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:bg-white';
         $loginInputClasses = $inputBase . ($errors->has('login')

@@ -6,7 +6,7 @@ class WhatsApp
 {
     public static function companyNumber(): ?string
     {
-        return self::normalize(env('WHATSAPP_CONTACT', '6285128008030'));
+        return self::normalize(env('WHATSAPP_CONTACT', '6282124716109'));
     }
 
     public static function normalize(?string $value): ?string

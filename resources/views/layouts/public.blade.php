@@ -440,8 +440,8 @@
             if (!mapEl) return;
 
             // Koordinat PD. Anugrah Utama area Bogor
-            var lat  = -6.5971;
-            var lng  = 106.8060;
+            var lat  = -6.457609300694872;
+            var lng  = 106.84732392751418;
 
             var map = L.map('location-map', { zoomControl: true, scrollWheelZoom: false }).setView([lat, lng], 15);
 
@@ -459,7 +459,7 @@
 
             L.marker([lat, lng], { icon: icon })
                 .addTo(map)
-                .bindPopup('<strong style="font-size:13px;">PD. Anugrah Utama</strong><br><span style="font-size:12px;color:#555;">Jl. Raya Bogor, Kota Bogor</span><br><a href="https://maps.google.com/?q=' + lat + ',' + lng + '" target="_blank" style="font-size:11px;color:#b91c1c;font-weight:600;">Buka di Google Maps →</a>')
+                .bindPopup('<strong style="font-size:13px;">PD. Anugrah Utama</strong><br><span style="font-size:12px;color:#555;">Jl. Pabuaran, Cibinong, Kabupaten Bogor</span><br><a href="https://maps.google.com/?q=' + lat + ',' + lng + '" target="_blank" style="font-size:11px;color:#b91c1c;font-weight:600;">Buka di Google Maps →</a>')
                 .openPopup();
         });
     </script>

@@ -43,7 +43,7 @@ class NotifyExpiredApar extends Command
                 $phone = '62' . ltrim($phone, '0');
             }
 
-            $waNumber = config('app.whatsapp_contact', env('WHATSAPP_CONTACT', '6285128008030'));
+            $waNumber = config('app.whatsapp_contact', env('WHATSAPP_CONTACT', '6282124716109'));
 
             try {
                 Http::timeout(10)->get(
