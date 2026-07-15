@@ -286,7 +286,7 @@
     }
 
     .service-grid {
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 
     .service-card {
@@ -1207,9 +1207,7 @@
             font-size: 52px;
         }
 
-        .service-grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
+
 
         .steps-grid {
             grid-template-columns: repeat(3, minmax(0, 1fr));

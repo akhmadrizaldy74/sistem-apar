@@ -67,9 +67,8 @@ class ProdukController extends Controller
     public function edit(Produk $produk, StockPurchaseReferenceService $purchaseReferences)
     {
         $jenisApars = JenisApar::all();
-        $productPurchaseReferencePrice = (float) (
-            $purchaseReferences->latestProductPurchasePrices([$produk->id])->get($produk->id, (float) ($produk->harga ?? 0))
-        );
+        $latestPrices = $purchaseReferences->latestProductPurchasePrices([$produk->id]);
+        $productPurchaseReferencePrice = $latestPrices->has($produk->id) ? (float) $latestPrices->get($produk->id) : null;
 
         return view('admin.produk.edit', compact('produk', 'jenisApars', 'productPurchaseReferencePrice'));
     }

@@ -68,8 +68,22 @@
                             <input type="text" name="harga" id="harga" value="{{ $formatRupiahInput(old('harga', $produk->harga)) }}" required inputmode="numeric"
                                 class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-black text-gray-900 transition"
                                 placeholder="Rp 0">
+                            @php
+                                $profit = $productPurchaseReferencePrice !== null ? ($produk->harga - $productPurchaseReferencePrice) : null;
+                            @endphp
                             <p class="mt-2 text-xs font-bold leading-6 text-gray-700">
-                                Acuan beli terakhir dari menu Pengeluaran: Rp {{ number_format((float) ($productPurchaseReferencePrice ?? $produk->harga ?? 0), 0, ',', '.') }}.
+                                @if($productPurchaseReferencePrice !== null)
+                                    Acuan beli terakhir dari menu Pengeluaran: Rp {{ number_format($productPurchaseReferencePrice, 0, ',', '.') }}.
+                                    @if($profit > 0)
+                                        <span class="text-emerald-600 font-extrabold">(Estimasi untung: +Rp {{ number_format($profit, 0, ',', '.') }}/unit)</span>
+                                    @elseif($profit < 0)
+                                        <span class="text-red-600 font-extrabold">(Estimasi rugi: Rp {{ number_format(abs($profit), 0, ',', '.') }}/unit)</span>
+                                    @else
+                                        <span class="text-gray-500 font-extrabold">(Estimasi impas: Rp 0/unit)</span>
+                                    @endif
+                                @else
+                                    Acuan beli terakhir dari menu Pengeluaran: Belum ada riwayat pembelian.
+                                @endif
                             </p>
                             <x-input-error :messages="$errors->get('harga')" class="mt-2" />
                         </div>

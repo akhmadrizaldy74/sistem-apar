@@ -11,6 +11,19 @@
         </div>
     </x-slot>
 
+    @php
+        $formatRupiahInput = static function ($value): string {
+            if (is_null($value) || $value === '') {
+                return '';
+            }
+            if (is_numeric($value)) {
+                return 'Rp ' . number_format(floor((float) $value), 0, ',', '.');
+            }
+            $digits = preg_replace('/\D+/', '', (string) $value) ?? '';
+            return $digits !== '' ? 'Rp ' . number_format((float) $digits, 0, ',', '.') : '';
+        };
+    @endphp
+
     <div class="max-w-3xl">
         <div class="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
             <form action="{{ route('admin.jenis-refill.update', $jenisRefill) }}" method="POST" class="p-12 space-y-8">
@@ -38,9 +51,9 @@
                     <div>
                         <label for="harga" class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Harga Standar per Satuan</label>
                         <div class="relative">
-                            <span class="absolute left-6 top-1/2 -translate-y-1/2 font-bold text-gray-400">Rp</span>
-                            <input type="number" name="harga" id="harga" value="{{ old('harga', $jenisRefill->harga) }}" required
-                                class="w-full pl-14 pr-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 transition">
+                            <input type="text" name="harga" id="harga" value="{{ $formatRupiahInput(old('harga', $jenisRefill->harga)) }}" required inputmode="numeric"
+                                class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-red-600/20 font-bold text-gray-900 transition"
+                                placeholder="Rp 0">
                         </div>
                         <x-input-error :messages="$errors->get('harga')" class="mt-2" />
                     </div>
@@ -65,4 +78,21 @@
             </form>
         </div>
     </div>
+
+    <script>
+        const hargaInput = document.getElementById('harga');
+
+        if (hargaInput) {
+            const formatRupiahInput = (value) => {
+                const digits = String(value || '').replace(/\D+/g, '');
+                return digits ? `Rp ${new Intl.NumberFormat('id-ID').format(Number(digits))}` : '';
+            };
+
+            hargaInput.addEventListener('input', () => {
+                hargaInput.value = formatRupiahInput(hargaInput.value);
+            });
+
+            hargaInput.value = formatRupiahInput(hargaInput.value);
+        }
+    </script>
 </x-app-layout>

@@ -5,9 +5,16 @@
     $isHabis = $stokSiapJual <= 0;
     $formatRupiah = static fn ($amount) => 'Rp ' . number_format((float) $amount, 0, ',', '.');
     $jenisNama = trim((string) ($produk->jenisApar?->nama ?? 'APAR'));
-    $jenisBadge = str_contains(strtolower($jenisNama), 'carbon') || str_contains(strtolower($jenisNama), 'co2')
-        ? 'CO2'
-        : (str_contains(strtolower($jenisNama), 'foam') || str_contains(strtolower($jenisNama), 'busa') ? 'FOAM' : 'DRY CHEMICAL POWDER');
+    $lowerJenis = strtolower($jenisNama);
+    if (str_contains($lowerJenis, 'carbon') || str_contains($lowerJenis, 'co2')) {
+        $jenisBadge = 'CO2';
+    } elseif (str_contains($lowerJenis, 'foam') || str_contains($lowerJenis, 'busa')) {
+        $jenisBadge = 'FOAM';
+    } elseif (str_contains($lowerJenis, 'powder') || str_contains($lowerJenis, 'kering') || str_contains($lowerJenis, 'kimia')) {
+        $jenisBadge = 'DRY CHEMICAL POWDER';
+    } else {
+        $jenisBadge = strtoupper($jenisNama);
+    }
     $stockBadge = $isHabis ? 'HABIS' : 'TERSEDIA';
     $stockDetail = $isHabis ? 'Habis' : $stokSiapJual . ' unit tersedia';
     $displayBatch = $produk->catalogDisplayBatch();

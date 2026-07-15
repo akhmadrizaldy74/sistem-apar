@@ -24,6 +24,10 @@ class JenisRefillController extends Controller
 
     public function store(Request $request)
     {
+        $request->merge([
+            'harga' => $this->sanitizeCurrencyInput($request->input('harga')),
+        ]);
+
         $request->validate([
             'nama' => 'required|string|max:255|unique:jenis_refills,nama',
             'satuan' => 'required|string|max:20',
@@ -52,6 +56,10 @@ class JenisRefillController extends Controller
 
     public function update(Request $request, JenisRefill $jenisRefill)
     {
+        $request->merge([
+            'harga' => $this->sanitizeCurrencyInput($request->input('harga')),
+        ]);
+
         $request->validate([
             'nama' => 'required|string|max:255|unique:jenis_refills,nama,'.$jenisRefill->id,
             'satuan' => 'required|string|max:20',
@@ -72,5 +80,20 @@ class JenisRefillController extends Controller
         $jenisRefill->delete();
 
         return redirect()->route('admin.jenis-refill.index')->with('success', 'Jenis Refill berhasil dihapus.');
+    }
+
+    private function sanitizeCurrencyInput(mixed $value): mixed
+    {
+        if ($value === null || $value === '') {
+            return $value;
+        }
+
+        if (is_numeric($value)) {
+            return $value;
+        }
+
+        $digits = preg_replace('/\D+/', '', (string) $value) ?? '';
+
+        return $digits === '' ? null : $digits;
     }
 }

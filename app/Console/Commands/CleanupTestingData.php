@@ -15,9 +15,9 @@ class CleanupTestingData extends Command
 {
     protected $signature = 'apar:cleanup-testing-data {--dry-run : Tampilkan ringkasan cleanup tanpa menghapus data}';
 
-    protected $description = 'Bersihkan data operasional/testing tanpa menyentuh master data dan kembalikan stok transaksi.';
+    protected $description = 'Bersihkan data operasional/testing, reset semua stok ke 0, dan hapus riwayat pelanggan serta laporan keuangan.';
 
-    public function __construct(private readonly PaidOrderStockService $paidOrderStockService)
+    public function __construct()
     {
         parent::__construct();
     }
@@ -35,16 +35,11 @@ class CleanupTestingData extends Command
             ->pluck('email')
             ->filter(fn (?string $email) => filled($email))
             ->values();
-        $ordersToRollback = Pesanan::query()
-            ->where('stok_dikurangi', true)
-            ->orderBy('id')
-            ->get();
         $publicFilePaths = $this->collectPublicFilePaths();
 
         $this->info('Snapshot sebelum cleanup:');
         $this->renderSnapshot($snapshotBefore);
         $this->newLine();
-        $this->line('Pesanan dengan stok terpotong: ' . $ordersToRollback->count());
         $this->line('Akun pelanggan yang akan dibersihkan: ' . $customerUserIds->count());
         $this->line('File publik terkait transaksi/testing: ' . $publicFilePaths->count());
 
@@ -54,11 +49,7 @@ class CleanupTestingData extends Command
             return self::SUCCESS;
         }
 
-        DB::transaction(function () use ($ordersToRollback, $customerUserIds, $customerEmails) {
-            foreach ($ordersToRollback as $pesanan) {
-                $this->paidOrderStockService->rollback($pesanan);
-            }
-
+        DB::transaction(function () use ($customerUserIds, $customerEmails) {
             DB::table('tugas_refills')->delete();
             DB::table('refills')->delete();
             DB::table('complains')->delete();
@@ -72,6 +63,13 @@ class CleanupTestingData extends Command
             DB::table('jobs')->delete();
             DB::table('failed_jobs')->delete();
             DB::table('job_batches')->delete();
+            DB::table('stok_batches')->delete();
+            DB::table('pengeluarans')->delete();
+
+            // Reset all stocks to 0
+            DB::table('produks')->update(['stok' => 0]);
+            DB::table('jenis_refills')->update(['stok' => 0]);
+            DB::table('peralatans')->update(['stok' => 0]);
 
             if ($customerUserIds->isNotEmpty()) {
                 DB::table('sessions')
@@ -102,8 +100,7 @@ class CleanupTestingData extends Command
         $this->info('Snapshot sesudah cleanup:');
         $this->renderSnapshot($snapshotAfter);
         $this->newLine();
-        $this->info('Cleanup testing selesai.');
-        $this->line('Pesanan yang rollback stoknya: ' . $ordersToRollback->count());
+        $this->info('Cleanup testing dan reset data selesai.');
         $this->line('File publik yang dibersihkan: ' . $deletedFileCount);
         $this->line('File session yang dibersihkan: ' . $deletedSessionFileCount);
         $this->line('Akun pelanggan yang dibersihkan: ' . $customerUserIds->count());

@@ -102,10 +102,24 @@
                                 </td>
                                 <td class="px-8 py-6">
                                     @php
-                                        $hargaAcuanBeli = (float) ($productPurchaseReferencePrices->get($p->id, (float) ($p->harga ?? 0)));
+                                        $hasAcuanBeli = $productPurchaseReferencePrices->has($p->id);
+                                        $hargaAcuanBeli = $hasAcuanBeli ? (float) $productPurchaseReferencePrices->get($p->id) : null;
+                                        $profit = $hargaAcuanBeli !== null ? ($p->harga - $hargaAcuanBeli) : null;
                                     @endphp
                                     <p class="text-base font-black text-gray-900">Rp {{ number_format($p->harga, 0, ',', '.') }}</p>
-                                    <p class="mt-1 text-xs font-bold leading-5 text-gray-700">Acuan beli terakhir: Rp {{ number_format($hargaAcuanBeli, 0, ',', '.') }}</p>
+                                    @if($hargaAcuanBeli !== null)
+                                        <p class="mt-1 text-xs font-bold leading-5 text-gray-500">Beli Terakhir: Rp {{ number_format($hargaAcuanBeli, 0, ',', '.') }}</p>
+                                        @if($profit > 0)
+                                            <p class="mt-1 text-[11px] font-extrabold leading-5 text-emerald-600">Untung: +Rp {{ number_format($profit, 0, ',', '.') }}/unit</p>
+                                        @elseif($profit < 0)
+                                            <p class="mt-1 text-[11px] font-extrabold leading-5 text-red-600">Rugi: Rp {{ number_format(abs($profit), 0, ',', '.') }}/unit</p>
+                                        @else
+                                            <p class="mt-1 text-[11px] font-extrabold leading-5 text-gray-500">Impas: Rp 0/unit</p>
+                                        @endif
+                                    @else
+                                        <p class="mt-1 text-xs font-medium leading-5 text-gray-400">Beli Terakhir: Belum ada</p>
+                                        <p class="mt-1 text-[11px] font-semibold leading-5 text-gray-400">Untung: -</p>
+                                    @endif
                                 </td>
                                 <td class="px-8 py-6 text-right">
                                     <div class="flex justify-end gap-2">
