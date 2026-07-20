@@ -1645,10 +1645,10 @@
         <div class="text-center max-w-2xl mx-auto mb-12" data-reveal>
             <p class="text-red-600 font-bold text-sm tracking-widest uppercase mb-3">Keunggulan</p>
             <h2 class="text-3xl md:text-4xl font-black text-slate-900 mb-4 tracking-tight">Kenapa Memilih PD. Anugrah Utama?</h2>
-            <p class="text-slate-500 text-base">Layanan APAR lebih mudah, jelas, dan tercatat dalam satu sistem.</p>
+            <p class="text-slate-500 text-base">Layanan APAR lebih mudah dan jelas.</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
             <article class="flex flex-col items-center text-center group" data-reveal>
                 <div class="w-16 h-16 rounded-full bg-white border border-slate-200 text-red-600 flex items-center justify-center text-2xl mb-5 shadow-sm group-hover:scale-110 group-hover:border-red-200 group-hover:bg-red-50 transition-all duration-300">
                     <i class="fa-solid fa-bolt"></i>
@@ -1663,14 +1663,6 @@
                 </div>
                 <h3 class="text-lg font-bold text-slate-900 mb-2">Harga Jelas</h3>
                 <p class="text-sm text-slate-500 leading-relaxed px-4">Produk dan layanan ditampilkan dengan harga yang transparan.</p>
-            </article>
-
-            <article class="flex flex-col items-center text-center group" data-reveal>
-                <div class="w-16 h-16 rounded-full bg-white border border-slate-200 text-red-600 flex items-center justify-center text-2xl mb-5 shadow-sm group-hover:scale-110 group-hover:border-red-200 group-hover:bg-red-50 transition-all duration-300">
-                    <i class="fa-solid fa-clipboard-list"></i>
-                </div>
-                <h3 class="text-lg font-bold text-slate-900 mb-2">Riwayat Tercatat</h3>
-                <p class="text-sm text-slate-500 leading-relaxed px-4">Pelanggan dapat melihat riwayat pembelian, refill, dan service.</p>
             </article>
         </div>
     </div>
