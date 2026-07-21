@@ -10,8 +10,25 @@ use Illuminate\Http\Request;
 
 class KeranjangController extends Controller
 {
+    private function guardCustomerOnly()
+    {
+        /** @var \App\Models\User|null $user */
+        $user = auth()->user();
+        if ($user && ($user->isAdmin() || $user->isTeknisi())) {
+            $targetRoute = $user->isTeknisi() ? 'teknisi.dashboard' : 'dashboard';
+
+            return redirect()->route($targetRoute);
+        }
+
+        return null;
+    }
+
     public function index(OrderPricingService $orderPricingService)
     {
+        if ($redirect = $this->guardCustomerOnly()) {
+            return $redirect;
+        }
+
         $keranjangs = SessionCart::items();
         $summary = $orderPricingService->summarizeCart($keranjangs);
         $totalUnit = (int) $summary['totalUnit'];
@@ -25,6 +42,10 @@ class KeranjangController extends Controller
 
     public function store(Request $request)
     {
+        if ($redirect = $this->guardCustomerOnly()) {
+            return $redirect;
+        }
+
         $request->validate([
             'produk_id' => 'required|exists:produks,id',
             'qty' => 'nullable|integer|min:1|max:999',
@@ -52,6 +73,10 @@ class KeranjangController extends Controller
 
     public function update(Request $request, string $item, OrderPricingService $orderPricingService)
     {
+        if ($redirect = $this->guardCustomerOnly()) {
+            return $redirect;
+        }
+
         $request->validate([
             'qty' => 'required|integer|min:1|max:999',
         ]);
@@ -115,6 +140,10 @@ class KeranjangController extends Controller
 
     public function destroy(string $item)
     {
+        if ($redirect = $this->guardCustomerOnly()) {
+            return $redirect;
+        }
+
         if (! SessionCart::remove((int) $item)) {
             return back()->with('error', 'Item keranjang tidak ditemukan.');
         }

@@ -156,19 +156,15 @@ class AdminAnalyticsService
 
         $hasRealData = collect($monthlyTotals)->contains(fn (float $total) => $total > 0);
 
-        if (! $hasRealData) {
-            $monthlyTotals = self::PURCHASE_FALLBACK;
-        }
-
         return [
             'labels' => array_values(self::MONTH_LABELS),
             'shortLabels' => array_values(self::MONTH_SHORT_LABELS),
             'series' => array_values($monthlyTotals),
             'year' => $year,
-            'isFallback' => ! $hasRealData,
+            'isFallback' => false,
             'sourceLabel' => $hasRealData
-                ? 'Menggunakan total nominal pengeluaran pembelian stok yang sudah tersimpan pada tahun berjalan.'
-                : 'Menggunakan data visual sementara karena belum ada pengeluaran pembelian stok pada tahun berjalan.',
+                ? 'Menampilkan data real-time pengeluaran pembelian stok yang tersimpan pada tahun berjalan.'
+                : 'Belum ada pengeluaran pembelian stok yang tersimpan pada tahun berjalan.',
             'valueLabel' => 'Total Pembelian',
             'lineColor' => '#dc2626',
             'lineFill' => '#fecaca',

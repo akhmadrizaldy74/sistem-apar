@@ -38,7 +38,7 @@ class PelangganController extends Controller
         $summaryQuery = $this->pelangganDirectoryQuery();
         $query = $this->pelangganDirectoryQuery()
             ->with('user')
-            ->withCount('productOrders');
+            ->withCount(['validOrders as product_orders_count', 'validOrders as valid_orders_count']);
 
         if ($search !== '') {
             $this->applyDirectorySearch($query, $search);
@@ -48,10 +48,9 @@ class PelangganController extends Controller
         $summary = [
             'totalPelanggan' => (clone $summaryQuery)->count(),
             'pelangganAktif' => (clone $summaryQuery)
-                ->whereHas('productOrders')
+                ->whereHas('validOrders')
                 ->count(),
             'totalTransaksiPelanggan' => Pesanan::query()
-                ->where('tipe', 'produk')
                 ->whereNotIn('status', Pelanggan::excludedPurchaseStatuses())
                 ->whereIn('pelanggan_id', (clone $summaryQuery)->select('pelanggans.id'))
                 ->count(),
@@ -66,8 +65,8 @@ class PelangganController extends Controller
 
         $pelanggan->load('user');
 
-        $riwayatPembelian = $pelanggan->productOrders()
-            ->with(['details.produk'])
+        $riwayatPembelian = $pelanggan->validOrders()
+            ->with(['details.produk', 'servicePaket', 'serviceJenisRefill'])
             ->orderByDesc('tanggal')
             ->orderByDesc('created_at')
             ->get();

@@ -34,7 +34,7 @@
 
     $allOrders = $pelanggan->pesanan->sortByDesc(fn ($pesanan) => $pesanan->created_at);
     $activeOrderList = $allOrders->filter(fn ($pesanan) => $pesanan->isActiveOrder());
-    $serviceOrders = $allOrders->filter(fn ($pesanan) => $pesanan->tipe === 'service');
+    $serviceOrders = $allOrders->filter(fn ($pesanan) => in_array($pesanan->tipe, ['service', 'refill'], true) || $pesanan->isServiceOrder() || $pesanan->isRefillOrder());
     $productOrders = $allOrders->filter(fn ($pesanan) => $pesanan->tipe === 'produk');
     $unitRefillLocks = $unitRefillLocks ?? [];
     $initialActiveTab = request('tab') === 'unit' ? 'unit' : 'riwayat';
@@ -173,7 +173,7 @@
                     <div class="flex flex-wrap gap-2">
                         <button type="button" @click="filterType = 'all'" :class="filterType === 'all' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'" class="rounded-lg border px-3 py-2 text-xs font-black transition">Semua {{ $allOrders->count() }}</button>
                         <button type="button" @click="filterType = 'produk'" :class="filterType === 'produk' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'" class="rounded-lg border px-3 py-2 text-xs font-black transition">Pembelian {{ $productOrders->count() }}</button>
-                        <button type="button" @click="filterType = 'service'" :class="filterType === 'service' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'" class="rounded-lg border px-3 py-2 text-xs font-black transition">Service {{ $serviceOrders->count() }}</button>
+                        <button type="button" @click="filterType = 'service'" :class="filterType === 'service' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'" class="rounded-lg border px-3 py-2 text-xs font-black transition">Layanan {{ $serviceOrders->count() }}</button>
                     </div>
                 </div>
 
@@ -204,7 +204,7 @@
                         @include('public.riwayat-apar.partials.order-card')
                     @empty
                         <div class="rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-                            <h3 class="text-base font-black text-slate-950">Belum ada riwayat service</h3>
+                            <h3 class="text-base font-black text-slate-950">Belum ada riwayat layanan</h3>
                             <p class="mt-1 text-sm text-slate-500">Layanan refill atau service akan tampil di sini.</p>
                         </div>
                     @endforelse

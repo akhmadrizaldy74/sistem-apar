@@ -138,11 +138,6 @@
                                             </button>
                                         </div>
                                     </form>
-                                @else
-                                    <div class="rounded-[1.5rem] border border-amber-200 bg-amber-50/70 p-5">
-                                        <p class="text-sm font-black text-amber-900">Pemesanan pelanggan hanya tersedia untuk akun pelanggan.</p>
-                                        <p class="mt-2 text-xs font-semibold leading-6 text-amber-800">Admin dan teknisi tetap dapat melihat katalog, tetapi tidak dapat membuat pesanan pelanggan dari halaman ini.</p>
-                                    </div>
                                 @endif
                             @else
                                 <div class="space-y-4">

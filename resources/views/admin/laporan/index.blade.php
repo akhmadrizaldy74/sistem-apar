@@ -185,7 +185,7 @@
                             Tahun {{ $monthlyPurchases['year'] ?? now()->year }}
                         </span>
                         <span class="rounded-full px-3 py-1 text-xs font-bold {{ !empty($monthlyPurchases['isFallback']) ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700' }}">
-                            {{ !empty($monthlyPurchases['isFallback']) ? 'Data visual sementara' : 'Data pengeluaran tersimpan' }}
+                            {{ !empty($monthlyPurchases['isFallback']) ? 'Data visual sementara' : 'Data real-time' }}
                         </span>
                     </div>
                 </div>

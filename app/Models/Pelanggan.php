@@ -70,6 +70,12 @@ class Pelanggan extends Model
             ->whereNotIn('status', self::excludedPurchaseStatuses());
     }
 
+    public function validOrders()
+    {
+        return $this->hasMany(Pesanan::class)
+            ->whereNotIn('status', self::excludedPurchaseStatuses());
+    }
+
     public function testimonis()
     {
         return $this->hasMany(Testimoni::class);

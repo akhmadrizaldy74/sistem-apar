@@ -25,7 +25,7 @@
                 </svg>
             </div>
         </div>
-        <p class="mt-4 text-xs font-semibold leading-relaxed text-slate-500">Pelanggan aktif dihitung dari pelanggan yang sudah memiliki riwayat pembelian produk.</p>
+        <p class="mt-4 text-xs font-semibold leading-relaxed text-slate-500">Pelanggan aktif dihitung dari pelanggan yang sudah memiliki riwayat transaksi.</p>
     </div>
 
     <div class="rounded-3xl border border-white/60 bg-white/80 p-8 shadow-xl shadow-slate-200/50 backdrop-blur-md">
@@ -40,6 +40,6 @@
                 </svg>
             </div>
         </div>
-        <p class="mt-4 text-xs font-semibold leading-relaxed text-slate-500">Total transaksi hanya menghitung riwayat pembelian produk pelanggan.</p>
+        <p class="mt-4 text-xs font-semibold leading-relaxed text-slate-500">Total transaksi menghitung seluruh riwayat transaksi (produk, refill, dan service) pelanggan.</p>
     </div>
 </div>

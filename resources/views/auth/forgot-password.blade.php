@@ -76,7 +76,7 @@
                             Lupa Password
                         </h1>
                         <p class="mt-3 max-w-sm text-sm leading-7 text-slate-500">
-                            Masukkan email yang terdaftar untuk menerima link reset password.
+                            Masukkan email atau nomor WhatsApp yang terdaftar untuk menerima link reset password.
                         </p>
                     </div>
 
@@ -85,9 +85,9 @@
                         :status="session('status')"
                     />
 
-                    @if ($errors->has('email'))
+                    @if ($errors->has('login') || $errors->has('email'))
                         <div class="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-                            {{ $errors->first('email') }}
+                            {{ $errors->first('login') ?: $errors->first('email') }}
                         </div>
                     @endif
 
@@ -95,8 +95,8 @@
                         @csrf
 
                         <div>
-                            <label for="email" class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-slate-500">
-                                Email
+                            <label for="login" class="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                                Email atau Nomor WhatsApp
                             </label>
                             <div class="relative">
                                 <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400" aria-hidden="true">
@@ -105,18 +105,18 @@
                                     </svg>
                                 </div>
                                 <input
-                                    id="email"
+                                    id="login"
                                     class="{{ $inputBase }}"
-                                    type="email"
-                                    name="email"
-                                    value="{{ old('email') }}"
+                                    type="text"
+                                    name="login"
+                                    value="{{ old('login') ?: old('email') }}"
                                     required
                                     autofocus
-                                    autocomplete="email"
-                                    placeholder="Masukkan email Anda"
+                                    autocomplete="username"
+                                    placeholder="Masukkan email atau nomor WhatsApp"
                                 />
                             </div>
-                            <x-input-error :messages="$errors->get('email')" class="mt-1.5 text-sm font-medium text-rose-600" />
+                            <x-input-error :messages="$errors->get('login') ?: $errors->get('email')" class="mt-1.5 text-sm font-medium text-rose-600" />
                         </div>
 
                         {{-- Submit --}}

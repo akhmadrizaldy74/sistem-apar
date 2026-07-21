@@ -61,7 +61,7 @@ class AdminRealtimeController extends Controller
 
         $kpis = [
             'totalProduk' => Produk::count(),
-            'totalPelanggan' => Pelanggan::count(),
+            'totalPelanggan' => Pelanggan::query()->visibleInDirectory()->count(),
             'pendapatanKeseluruhan' => array_sum(array_map('floatval', $overallRevenue['series'] ?? [])),
             'totalPesanan' => Pesanan::count(),
             'totalKomplain' => Complain::count(),

@@ -94,15 +94,17 @@
                     </button>
                 @else
                     @auth
-                        <form action="{{ route('keranjang.store') }}" method="POST" class="w-full">
-                            @csrf
-                            <input type="hidden" name="produk_id" value="{{ $produk->id }}">
-                            <input type="hidden" name="qty" value="1">
-                            <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-red-700 px-4 py-3.5 text-[11px] font-black uppercase tracking-widest text-white transition hover:bg-red-800 hover:shadow-lg hover:shadow-red-700/20">
-                                <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                                Keranjang
-                            </button>
-                        </form>
+                        @if(!auth()->user()->isAdmin() && !auth()->user()->isTeknisi())
+                            <form action="{{ route('keranjang.store') }}" method="POST" class="w-full">
+                                @csrf
+                                <input type="hidden" name="produk_id" value="{{ $produk->id }}">
+                                <input type="hidden" name="qty" value="1">
+                                <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-red-700 px-4 py-3.5 text-[11px] font-black uppercase tracking-widest text-white transition hover:bg-red-800 hover:shadow-lg hover:shadow-red-700/20">
+                                    <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                                    Keranjang
+                                </button>
+                            </form>
+                        @endif
                     @else
                         <a href="{{ route('login') }}" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-red-700 px-4 py-3.5 text-[11px] font-black uppercase tracking-widest text-white transition hover:bg-red-800 hover:shadow-lg hover:shadow-red-700/20">
                             <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>

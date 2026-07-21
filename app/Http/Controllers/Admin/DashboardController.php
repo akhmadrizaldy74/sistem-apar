@@ -153,7 +153,7 @@ class DashboardController extends Controller
         return view('dashboard', [
             'kpis' => [
                 'totalProduk' => Produk::count(),
-                'totalPelanggan' => Pelanggan::count(),
+                'totalPelanggan' => Pelanggan::query()->visibleInDirectory()->count(),
                 'pendapatanKeseluruhan' => array_sum(array_map('floatval', $revenueComposition['series'] ?? [])),
                 'totalPesanan' => Pesanan::count(),
                 'totalKomplain' => Complain::count(),

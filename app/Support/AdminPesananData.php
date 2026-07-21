@@ -214,7 +214,7 @@ class AdminPesananData
                         'meta' => collect([
                             $item['ukuran'] ?? null,
                             isset($item['unit_price']) ? 'Rp ' . number_format((float) $item['unit_price'], 0, ',', '.') . '/unit' : null,
-                        ])->filter()->implode(' â€¢ '),
+                        ])->filter()->implode(' • '),
                         'qty_label' => max(1, (int) ($item['qty'] ?? 1)) . ' unit',
                         'subtotal' => 'Rp ' . number_format((float) ($item['total'] ?? 0), 0, ',', '.'),
                     ];

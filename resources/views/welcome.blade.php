@@ -1455,10 +1455,6 @@
     <div class="container">
         <div class="hero-inner">
             <div data-reveal>
-                <div class="hero-badge">
-                    <span class="hero-badge-dot"></span>
-                    <span>Layanan APAR Profesional</span>
-                </div>
                 <h1 class="hero-title">
                     Solusi <span>Penjualan dan Layanan APAR</span> yang Lebih Meyakinkan untuk Operasional Anda
                 </h1>

@@ -2639,6 +2639,16 @@ class PublicController extends Controller
                             $servicePackagePricingService,
                             $serviceUkuranOptions,
                         );
+
+                        // Validasi stok peralatan service
+                        $insufficientPeralatan = collect($manualServiceSummary['peralatan_items'] ?? [])
+                            ->first(fn (array $item) => (float) ($item['stok'] ?? 0) < (float) ($item['jumlah'] ?? 0));
+                        if ($insufficientPeralatan) {
+                            throw ValidationException::withMessages([
+                                'service_service_items' => 'Stok peralatan ' . ($insufficientPeralatan['nama'] ?? 'service') . ' sedang kosong/habis. Silakan hubungi admin untuk informasi lebih lanjut.',
+                            ]);
+                        }
+
                         $serviceJumlahUnit = (int) ($manualServiceSummary['total_units'] ?? 0);
                         $serviceUkuranApar = (string) ($manualServiceSummary['ukuran_summary'] ?? '');
                         $serviceJenisAparLabel = (string) ($manualServiceSummary['display_summary'] ?? '');
@@ -2703,6 +2713,16 @@ class PublicController extends Controller
                         if ($estimasiBiaya <= 0) {
                             throw ValidationException::withMessages([
                                 'service_paket_id' => 'Harga standar service untuk jenis service yang dipilih belum tersedia.',
+                            ]);
+                        }
+
+                        // Validasi stok peralatan service
+                        $stockIssues = $packageSummary['stock_issues'] ?? [];
+                        if (!empty($stockIssues)) {
+                            $insufficientItem = $stockIssues[0] ?? [];
+                            $errorKey = $selectedUnitApars->isNotEmpty() ? 'service_unit_apar_ids' : 'service_paket_id';
+                            throw ValidationException::withMessages([
+                                $errorKey => 'Stok peralatan ' . ($insufficientItem['nama'] ?? 'service') . ' sedang kosong/habis. Silakan hubungi admin untuk informasi lebih lanjut.',
                             ]);
                         }
 

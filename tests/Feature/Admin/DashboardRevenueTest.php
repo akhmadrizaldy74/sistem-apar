@@ -387,12 +387,12 @@ class DashboardRevenueTest extends TestCase
 
         $monthlyPurchases = $response->viewData('charts')['monthlyPurchases'];
 
-        $this->assertTrue((bool) $monthlyPurchases['isFallback']);
+        $this->assertFalse((bool) $monthlyPurchases['isFallback']);
         $this->assertSame(12, count($monthlyPurchases['labels']));
         $this->assertSame(12, count($monthlyPurchases['shortLabels']));
         $this->assertSame('Des', $monthlyPurchases['shortLabels'][11]);
-        $this->assertSame(500000.0, (float) $monthlyPurchases['series'][0]);
-        $this->assertSame(1800000.0, (float) $monthlyPurchases['series'][11]);
+        $this->assertSame(0.0, (float) $monthlyPurchases['series'][0]);
+        $this->assertSame(0.0, (float) $monthlyPurchases['series'][11]);
     }
 
     public function test_dashboard_monthly_purchase_chart_uses_saved_purchase_expense_data(): void

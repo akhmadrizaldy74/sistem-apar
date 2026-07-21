@@ -249,13 +249,15 @@
                         }
                     @endphp
 
-                    {{-- Cart Icon with Badge (Always Visible) --}}
-                    <a href="{{ auth()->check() ? route('keranjang.index') : route('login') }}" class="relative p-2.5 text-gray-600 hover:text-red-700 rounded-xl hover:bg-red-50 transition public-nav-pill {{ $isKeranjangRoute ? 'public-nav-active' : '' }}" title="Keranjang">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                        @if($cartCount > 0)
-                            <span class="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-600 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-md">{{ $cartCount > 99 ? '99+' : $cartCount }}</span>
-                        @endif
-                    </a>
+                    @if(!auth()->check() || (!auth()->user()->isAdmin() && !auth()->user()->isTeknisi()))
+                        {{-- Cart Icon with Badge --}}
+                        <a href="{{ auth()->check() ? route('keranjang.index') : route('login') }}" class="relative p-2.5 text-gray-600 hover:text-red-700 rounded-xl hover:bg-red-50 transition public-nav-pill {{ $isKeranjangRoute ? 'public-nav-active' : '' }}" title="Keranjang">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                            @if($cartCount > 0)
+                                <span class="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-600 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-md">{{ $cartCount > 99 ? '99+' : $cartCount }}</span>
+                            @endif
+                        </a>
+                    @endif
 
                     @auth
                         <a href="{{ $dashRoute }}" class="px-4 py-2 text-sm font-bold text-gray-700 hover:text-red-700 rounded-xl border border-gray-200 hover:border-red-200 transition public-nav-pill {{ $isProfileRoute ? 'public-nav-active' : '' }}">
@@ -294,17 +296,19 @@
             <a href="{{ route('produk.index') }}" class="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:text-red-700 hover:bg-red-50 rounded-xl transition {{ $isProdukRoute ? 'public-nav-active' : '' }}">Produk</a>
             <a href="{{ route('riwayat-apar') }}" class="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:text-red-700 hover:bg-red-50 rounded-xl transition {{ $isRiwayatRoute ? 'public-nav-active' : '' }}">Riwayat & Status APAR</a>
             <div class="pt-2 flex flex-col gap-2">
-                {{-- Mobile Cart Menu (Always Visible) --}}
-                <a href="{{ auth()->check() ? route('keranjang.index') : route('login') }}" class="w-full text-center px-4 py-2.5 text-sm font-bold text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition flex items-center justify-center gap-2 public-nav-pill {{ $isKeranjangRoute ? 'public-nav-active' : '' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                    Keranjang
-                    @auth
-                        @php $mCartCount = \App\Support\SessionCart::count(); @endphp
-                        @if($mCartCount > 0)
-                            <span class="w-5 h-5 bg-red-600 text-white text-[10px] font-black rounded-full flex items-center justify-center">{{ $mCartCount > 99 ? '99+' : $mCartCount }}</span>
-                        @endif
-                    @endauth
-                </a>
+                @if(!auth()->check() || (!auth()->user()->isAdmin() && !auth()->user()->isTeknisi()))
+                    {{-- Mobile Cart Menu --}}
+                    <a href="{{ auth()->check() ? route('keranjang.index') : route('login') }}" class="w-full text-center px-4 py-2.5 text-sm font-bold text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition flex items-center justify-center gap-2 public-nav-pill {{ $isKeranjangRoute ? 'public-nav-active' : '' }}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                        Keranjang
+                        @auth
+                            @php $mCartCount = \App\Support\SessionCart::count(); @endphp
+                            @if($mCartCount > 0)
+                                <span class="w-5 h-5 bg-red-600 text-white text-[10px] font-black rounded-full flex items-center justify-center">{{ $mCartCount > 99 ? '99+' : $mCartCount }}</span>
+                            @endif
+                        @endauth
+                    </a>
+                @endif
 
                 @auth
                     @php

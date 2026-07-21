@@ -9,7 +9,7 @@
                 </a>
                 <div>
                     <h2 class="text-3xl font-black tracking-tight text-gray-900">Detail Pelanggan</h2>
-                    <p class="text-sm font-medium text-gray-500">Ringkasan alamat dan riwayat pembelian produk pelanggan.</p>
+                    <p class="text-sm font-medium text-gray-500">Ringkasan alamat dan riwayat transaksi pelanggan.</p>
                 </div>
             </div>
             <a href="{{ route('admin.pelanggan.edit', $pelanggan) }}" class="inline-flex items-center justify-center rounded-2xl bg-red-700 px-6 py-3.5 text-xs font-black uppercase tracking-widest text-white shadow-xl shadow-red-700/20 transition hover:bg-red-800">
@@ -21,7 +21,7 @@
     @php
         $alamatLengkap = trim((string) ($pelanggan->alamat ?: $pelanggan->alamat_maps ?: $pelanggan->alamat_detail ?: '-'));
         $totalTransaksi = $riwayatPembelian->count();
-        $totalBelanja = $riwayatPembelian->sum(fn ($pesanan) => (float) ($pesanan->total_harga ?: $pesanan->total ?: 0));
+        $totalBelanja = $riwayatPembelian->sum(fn ($pesanan) => (float) ($pesanan->payableTotal() ?: $pesanan->total_harga ?: $pesanan->total ?: 0));
     @endphp
 
     <div class="space-y-8">
@@ -48,7 +48,7 @@
                     <p class="mt-2 text-lg font-black text-slate-900">{{ number_format($totalTransaksi) }}</p>
                 </div>
                 <div>
-                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Nilai Pembelian</p>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Nilai Transaksi</p>
                     <p class="mt-2 text-lg font-black text-emerald-700">Rp {{ number_format($totalBelanja, 0, ',', '.') }}</p>
                 </div>
             </div>
@@ -56,8 +56,8 @@
 
         <section class="overflow-hidden rounded-[2rem] border border-white/60 bg-white/80 shadow-xl shadow-slate-200/40 backdrop-blur-md">
             <div class="border-b border-gray-100/70 px-6 py-5 sm:px-8">
-                <h3 class="text-xl font-black text-slate-900">Riwayat Pembelian Produk</h3>
-                <p class="mt-1 text-sm font-medium text-slate-500">Pesanan produk yang tidak dibatalkan milik pelanggan ini.</p>
+                <h3 class="text-xl font-black text-slate-900">Riwayat Transaksi</h3>
+                <p class="mt-1 text-sm font-medium text-slate-500">Semua transaksi pesanan (produk, refill, dan service) milik pelanggan ini.</p>
             </div>
 
             @if($riwayatPembelian->isNotEmpty())
@@ -66,7 +66,7 @@
                         <thead class="border-b border-gray-100/70 bg-slate-50/80">
                             <tr>
                                 <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Tanggal</th>
-                                <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Produk</th>
+                                <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Rincian Transaksi</th>
                                 <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Jumlah</th>
                                 <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Total</th>
                                 <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
@@ -75,22 +75,39 @@
                         <tbody class="divide-y divide-gray-100/70">
                             @foreach($riwayatPembelian as $pesanan)
                                 @php
-                                    $totalJumlah = (int) $pesanan->details->sum('jumlah');
+                                    $totalJumlah = (int) ($pesanan->details->sum('jumlah') ?: ($pesanan->service_jumlah_unit ?: 1));
+                                    $orderTotal = (float) ($pesanan->payableTotal() ?: $pesanan->total_harga ?: $pesanan->total ?: 0);
+                                    $unitInfo = $pesanan->getUnitInfo();
+                                    $transactionType = $pesanan->trackingTypeLabel() ?: match($pesanan->tipe) {
+                                        'refill' => 'Refill APAR',
+                                        'service' => 'Service APAR',
+                                        default => 'Penjualan Produk',
+                                    };
                                 @endphp
                                 <tr>
-                                    <td class="px-8 py-6 text-sm font-semibold text-slate-600">{{ $pesanan->displayTransactionDateTime('d M Y') }}</td>
+                                    <td class="px-8 py-6 text-sm font-semibold text-slate-600">{{ $pesanan->displayTransactionDateTime('d M Y, H:i') ?: $pesanan->created_at?->format('d M Y, H:i') }}</td>
                                     <td class="px-8 py-6">
                                         <div class="space-y-2">
-                                            @foreach($pesanan->details as $detail)
+                                            <span class="inline-flex rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-700">
+                                                {{ $transactionType }}
+                                            </span>
+                                            @if($pesanan->tipe === 'produk' && $pesanan->details->isNotEmpty())
+                                                @foreach($pesanan->details as $detail)
+                                                    <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3">
+                                                        <p class="text-sm font-black text-slate-900">{{ $detail->produk?->nama ?: 'Produk APAR' }}</p>
+                                                        <p class="mt-1 text-xs font-semibold text-slate-500">{{ (int) $detail->jumlah }} unit</p>
+                                                    </div>
+                                                @endforeach
+                                            @else
                                                 <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3">
-                                                    <p class="text-sm font-black text-slate-900">{{ $detail->produk?->nama ?: 'Produk APAR' }}</p>
-                                                    <p class="mt-1 text-xs font-semibold text-slate-500">{{ (int) $detail->jumlah }} unit</p>
+                                                    <p class="text-sm font-black text-slate-900">{{ $unitInfo['nama'] ?? $pesanan->service_jenis_apar ?: $transactionType }}</p>
+                                                    <p class="mt-1 text-xs font-semibold text-slate-500">{{ $unitInfo['detail'] ?? ($pesanan->service_jumlah_unit ? $pesanan->service_jumlah_unit . ' unit' : '1 unit') }}</p>
                                                 </div>
-                                            @endforeach
+                                            @endif
                                         </div>
                                     </td>
                                     <td class="px-8 py-6 text-sm font-black text-slate-900">{{ number_format($totalJumlah) }}</td>
-                                    <td class="px-8 py-6 text-sm font-black text-emerald-700">Rp {{ number_format((float) ($pesanan->total_harga ?: $pesanan->total ?: 0), 0, ',', '.') }}</td>
+                                    <td class="px-8 py-6 text-sm font-black text-emerald-700">Rp {{ number_format($orderTotal, 0, ',', '.') }}</td>
                                     <td class="px-8 py-6">
                                         <span class="inline-flex rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-widest {{ $pesanan->publicStatusClasses() }}">
                                             {{ $pesanan->publicStatusLabel() }}
@@ -105,13 +122,20 @@
                 <div class="divide-y divide-gray-100/80 lg:hidden">
                     @foreach($riwayatPembelian as $pesanan)
                         @php
-                            $totalJumlah = (int) $pesanan->details->sum('jumlah');
+                            $totalJumlah = (int) ($pesanan->details->sum('jumlah') ?: ($pesanan->service_jumlah_unit ?: 1));
+                            $orderTotal = (float) ($pesanan->payableTotal() ?: $pesanan->total_harga ?: $pesanan->total ?: 0);
+                            $unitInfo = $pesanan->getUnitInfo();
+                            $transactionType = $pesanan->trackingTypeLabel() ?: match($pesanan->tipe) {
+                                'refill' => 'Refill APAR',
+                                'service' => 'Service APAR',
+                                default => 'Penjualan Produk',
+                            };
                         @endphp
                         <article class="space-y-4 p-5">
                             <div class="flex items-start justify-between gap-3">
                                 <div>
                                     <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Tanggal</p>
-                                    <p class="mt-1 text-sm font-black text-slate-900">{{ $pesanan->displayTransactionDateTime('d M Y') }}</p>
+                                    <p class="mt-1 text-sm font-black text-slate-900">{{ $pesanan->displayTransactionDateTime('d M Y, H:i') ?: $pesanan->created_at?->format('d M Y, H:i') }}</p>
                                 </div>
                                 <span class="inline-flex rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-widest {{ $pesanan->publicStatusClasses() }}">
                                     {{ $pesanan->publicStatusLabel() }}
@@ -119,12 +143,22 @@
                             </div>
 
                             <div class="space-y-2">
-                                @foreach($pesanan->details as $detail)
+                                <span class="inline-flex rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-700">
+                                    {{ $transactionType }}
+                                </span>
+                                @if($pesanan->tipe === 'produk' && $pesanan->details->isNotEmpty())
+                                    @foreach($pesanan->details as $detail)
+                                        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3">
+                                            <p class="text-sm font-black text-slate-900">{{ $detail->produk?->nama ?: 'Produk APAR' }}</p>
+                                            <p class="mt-1 text-xs font-semibold text-slate-500">{{ (int) $detail->jumlah }} unit</p>
+                                        </div>
+                                    @endforeach
+                                @else
                                     <div class="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3">
-                                        <p class="text-sm font-black text-slate-900">{{ $detail->produk?->nama ?: 'Produk APAR' }}</p>
-                                        <p class="mt-1 text-xs font-semibold text-slate-500">{{ (int) $detail->jumlah }} unit</p>
+                                        <p class="text-sm font-black text-slate-900">{{ $unitInfo['nama'] ?? $pesanan->service_jenis_apar ?: $transactionType }}</p>
+                                        <p class="mt-1 text-xs font-semibold text-slate-500">{{ $unitInfo['detail'] ?? ($pesanan->service_jumlah_unit ? $pesanan->service_jumlah_unit . ' unit' : '1 unit') }}</p>
                                     </div>
-                                @endforeach
+                                @endif
                             </div>
 
                             <div class="grid grid-cols-2 gap-3">
@@ -134,7 +168,7 @@
                                 </div>
                                 <div class="rounded-2xl border border-slate-100 bg-white px-4 py-3">
                                     <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Total</p>
-                                    <p class="mt-1 text-sm font-black text-emerald-700">Rp {{ number_format((float) ($pesanan->total_harga ?: $pesanan->total ?: 0), 0, ',', '.') }}</p>
+                                    <p class="mt-1 text-sm font-black text-emerald-700">Rp {{ number_format($orderTotal, 0, ',', '.') }}</p>
                                 </div>
                             </div>
                         </article>
@@ -147,8 +181,8 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                     </div>
-                    <h3 class="mt-5 text-lg font-black text-slate-900">Belum ada riwayat pembelian.</h3>
-                    <p class="mt-2 text-sm font-medium leading-relaxed text-slate-500">Pesanan produk pelanggan akan muncul di halaman ini setelah transaksi dibuat.</p>
+                    <h3 class="mt-5 text-lg font-black text-slate-900">Belum ada riwayat transaksi.</h3>
+                    <p class="mt-2 text-sm font-medium leading-relaxed text-slate-500">Transaksi pesanan pelanggan akan muncul di halaman ini setelah transaksi dibuat.</p>
                 </div>
             @endif
         </section>

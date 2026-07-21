@@ -757,34 +757,17 @@ class Pesanan extends Model
             return $this->details->count() . ' item • ' . $this->adminOrderUnitCount() . ' unit';
         }
 
-        if ($this->tipe === 'service') {
-            $serviceLines = collect($this->servicePricingBreakdown());
-            $parts = [];
-
-            if ($serviceLines->isNotEmpty()) {
-                $parts[] = $serviceLines->count() . ' item';
-            }
-
-            $parts[] = $this->adminOrderUnitCount() . ' unit';
-
-            if ($this->isRefillOrder() && (float) ($this->service_total_kg ?? 0) > 0) {
-                $parts[] = $this->formatCompactAdminNumber((float) $this->service_total_kg) . ' kg';
-            }
-
-            return implode(' â€¢ ', $parts);
+        $parts = [];
+        $unitCount = $this->adminOrderUnitCount();
+        if ($unitCount > 0) {
+            $parts[] = $unitCount . ' unit';
         }
 
-        if ($this->isRefillOrder()) {
-            $parts = [$this->adminOrderUnitCount() . ' unit'];
-
-            if ((float) ($this->service_total_kg ?? 0) > 0) {
-                $parts[] = $this->formatCompactAdminNumber((float) $this->service_total_kg) . ' kg';
-            }
-
-            return implode(' • ', $parts);
+        if ($this->isRefillOrder() && (float) ($this->service_total_kg ?? 0) > 0) {
+            $parts[] = $this->formatCompactAdminNumber((float) $this->service_total_kg) . ' kg';
         }
 
-        return $this->adminOrderUnitCount() . ' unit';
+        return implode(' • ', $parts ?: [$unitCount . ' unit']);
     }
 
     public function adminStatusLabel(): string

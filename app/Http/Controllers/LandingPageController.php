@@ -82,6 +82,7 @@ class LandingPageController extends Controller
         $produks = Produk::query()
             ->catalogVisible()
             ->with(['jenisApar', 'stokBatches'])
+            ->orderByRaw('CASE WHEN stok > 0 THEN 1 ELSE 0 END DESC')
             ->latest()
             ->get()
             ->filter(fn (Produk $produk) => $produk->hasResolvedImage())
@@ -110,6 +111,7 @@ class LandingPageController extends Controller
             ->when($filters['jenis_apar_id'], fn ($query, $jenisAparId) => $query->where('jenis_apar_id', $jenisAparId))
             ->when($filters['merek'], fn ($query, $merek) => $query->where('merek', $merek))
             ->when($filters['ukuran'], fn ($query, $ukuran) => $query->where('kapasitas', $ukuran))
+            ->orderByRaw('CASE WHEN stok > 0 THEN 1 ELSE 0 END DESC')
             ->latest()
             ->paginate(12)
             ->withQueryString();
