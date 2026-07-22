@@ -122,7 +122,7 @@ class AdminRealtimeController extends Controller
         $query = Pelanggan::query()
             ->visibleInDirectory()
             ->with('user')
-            ->withCount('productOrders');
+            ->withCount(['validOrders as product_orders_count', 'validOrders as valid_orders_count']);
 
         if ($search !== '') {
             $query->where(function (Builder $builder) use ($search) {
@@ -145,9 +145,8 @@ class AdminRealtimeController extends Controller
         $pelanggans = $query->latest()->paginate(15)->withQueryString();
         $summary = [
             'totalPelanggan' => (clone $summaryQuery)->count(),
-            'pelangganAktif' => (clone $summaryQuery)->whereHas('productOrders')->count(),
+            'pelangganAktif' => (clone $summaryQuery)->whereHas('validOrders')->count(),
             'totalTransaksiPelanggan' => Pesanan::query()
-                ->where('tipe', 'produk')
                 ->whereNotIn('status', Pelanggan::excludedPurchaseStatuses())
                 ->whereIn('pelanggan_id', (clone $summaryQuery)->select('pelanggans.id'))
                 ->count(),
