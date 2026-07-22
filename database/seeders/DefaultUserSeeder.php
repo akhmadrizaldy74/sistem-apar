@@ -49,7 +49,7 @@ class DefaultUserSeeder extends Seeder
         );
 
         // Create pelanggan profile linked to user
-        Pelanggan::updateOrCreate(
+        $pelanggan = Pelanggan::updateOrCreate(
             ['user_id' => $pelangganUser->id],
             [
                 'nama' => 'Akhmad Rizaldy',
@@ -61,6 +61,25 @@ class DefaultUserSeeder extends Seeder
             ],
         );
 
-        $this->command->info('✅ Default users seeded (admin, teknisi, pelanggan).');
+        $foamProduct = \App\Models\Produk::where('nama', 'like', '%GuardALL%Foam%6%')->first()
+            ?? \App\Models\Produk::first();
+
+        if ($foamProduct) {
+            \App\Models\UnitApar::updateOrCreate(
+                ['no_seri' => 'AKHMAD-21072026-02'],
+                [
+                    'pelanggan_id' => $pelanggan->id,
+                    'produk_id' => $foamProduct->id,
+                    'ukuran' => '6 kg',
+                    'bahan' => 'Liquid Foam (Busa)',
+                    'tgl_beli' => now()->subMonths(3)->toDateString(),
+                    'tgl_produksi' => now()->subMonths(3)->toDateString(),
+                    'tgl_expired' => now()->addDays(13)->toDateString(),
+                    'kondisi_awal' => 'layak',
+                ]
+            );
+        }
+
+        $this->command->info('✅ Default users & sample units seeded (admin, teknisi, pelanggan).');
     }
 }

@@ -169,6 +169,9 @@ class CustomerRefillFromHistoryTest extends TestCase
         $orderPage->assertOk();
         $orderPage->assertSee('"service_jenis_layanan":"service"', false);
         $orderPage->assertSee('SERVICE-001');
+        $orderPage->assertSee('Pengajuan Service Unit Terdaftar');
+        $orderPage->assertSee('value="Powder"', false);
+        $orderPage->assertSee('value="1 kg"', false);
     }
 
     public function test_history_refill_route_rejects_unit_that_is_still_in_active_refill_process(): void

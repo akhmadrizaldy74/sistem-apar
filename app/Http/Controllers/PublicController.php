@@ -1614,12 +1614,23 @@ class PublicController extends Controller
         return implode("\n", $lines);
     }
 
-    private function buildManualServiceOrderNote(array $summary, string $metode, string $customerNote): string
-    {
-        $lines = ['Rincian Service Manual'];
+    private function buildManualServiceOrderNote(
+        array $summary,
+        string $metode,
+        string $customerNote,
+        ?Collection $selectedUnitApars = null
+    ): string {
+        $isRegistered = $selectedUnitApars && $selectedUnitApars->isNotEmpty();
+        $lines = ['Rincian Service ' . ($isRegistered ? 'APAR Terdaftar' : 'Manual')];
 
         foreach (array_values($summary['line_items'] ?? []) as $index => $item) {
+            $unitCode = $isRegistered
+                ? ($selectedUnitApars->values()->get($index)?->no_seri ?: $selectedUnitApars->first()?->no_seri)
+                : null;
+            $unitPrefix = $unitCode ? "{$unitCode} - " : '';
+
             $lines[] = ($index + 1) . '. '
+                . $unitPrefix
                 . trim((string) ($item['label'] ?? 'Service'))
                 . ' | '
                 . trim((string) ($item['ukuran'] ?? '-'))
@@ -2660,6 +2671,7 @@ class PublicController extends Controller
                             $manualServiceSummary,
                             $serviceMetode,
                             $originalServiceKeluhan,
+                            $selectedUnitApars,
                         );
 
                         $pesanan->service_paket_id = $manualServiceSummary['single_paket_id'] ?? null;
@@ -2672,6 +2684,8 @@ class PublicController extends Controller
                         $serviceKeluhanForText = str_replace(["\r\n", "\r", "\n"], ' | ', $pesanan->service_keluhan ?: '-');
                         $serviceSummaryLabel = trim((string) ($manualServiceSummary['headline'] ?? ''));
                         $pesanan->keterangan = 'Permintaan SERVICE ' . ($serviceSummaryLabel !== '' ? $serviceSummaryLabel : 'APAR')
+                            . ' | Status Unit: ' . ($selectedUnitApars->isNotEmpty() ? 'APAR Terdaftar' : ($serviceUnitStatus === 'terdaftar' ? 'APAR Terdaftar' : 'APAR Belum Terdaftar'))
+                            . ($selectedUnitApars->isNotEmpty() ? " | Riwayat: {$servicePurchaseLabel}" : '')
                             . " | Item: {$serviceJenisAparLabel}"
                             . " | Jumlah: {$serviceJumlahUnit} unit"
                             . " | Metode: {$serviceMetode}"

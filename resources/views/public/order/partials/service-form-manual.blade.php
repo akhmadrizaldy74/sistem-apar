@@ -1,5 +1,8 @@
 @php
     $serviceKategoriOld = old('service_jenis_layanan', $prefillServiceOrder['service_jenis_layanan'] ?? 'refill');
+    $prefilledUnits = !empty($prefillServiceOrder['selected_units']) && is_array($prefillServiceOrder['selected_units']) ? $prefillServiceOrder['selected_units'] : [];
+    $isPrefilledService = !empty($prefilledUnits) && ($prefillServiceOrder['service_jenis_layanan'] ?? '') === 'service';
+
     $oldRefillItems = collect(old('service_refill_items', []))
         ->map(function ($item) {
             return [
@@ -17,6 +20,8 @@
                 'service_paket_id' => (string) ($item['service_paket_id'] ?? ''),
                 'ukuran_apar' => (string) ($item['ukuran_apar'] ?? ''),
                 'jumlah_unit' => max(1, (int) ($item['jumlah_unit'] ?? 1)),
+                'nomor_unit' => (string) ($item['nomor_unit'] ?? ''),
+                'nama_apar' => (string) ($item['nama_apar'] ?? ''),
             ];
         })
         ->filter(fn (array $item) => $item['service_paket_id'] !== '' || $item['ukuran_apar'] !== '' || $item['jenis_apar'] !== '')
@@ -31,12 +36,38 @@
     }
 
     if ($oldServiceItems->isEmpty()) {
-        $oldServiceItems = collect([[
-            'jenis_apar' => '',
-            'service_paket_id' => '',
-            'ukuran_apar' => '',
-            'jumlah_unit' => 1,
-        ]]);
+        if ($isPrefilledService) {
+            $oldServiceItems = collect($prefilledUnits)->map(function ($unit) {
+                $jenisRaw = strtolower((string) ($unit['jenis_apar'] ?? ''));
+                if (str_contains($jenisRaw, 'foam')) {
+                    $jenisVal = 'Foam';
+                } elseif (str_contains($jenisRaw, 'co2') || str_contains($jenisRaw, 'carbon')) {
+                    $jenisVal = 'CO2';
+                } elseif (str_contains($jenisRaw, 'powder') || str_contains($jenisRaw, 'dry chemical') || str_contains($jenisRaw, 'dcp') || str_contains($jenisRaw, 'kimia')) {
+                    $jenisVal = 'Powder';
+                } else {
+                    $jenisVal = '';
+                }
+
+                return [
+                    'jenis_apar' => $jenisVal,
+                    'service_paket_id' => '',
+                    'ukuran_apar' => (string) ($unit['ukuran'] ?? ''),
+                    'jumlah_unit' => 1,
+                    'nomor_unit' => (string) ($unit['nomor_unit'] ?? ''),
+                    'nama_apar' => (string) ($unit['nama_apar'] ?? ''),
+                ];
+            })->values();
+        } else {
+            $oldServiceItems = collect([[
+                'jenis_apar' => '',
+                'service_paket_id' => '',
+                'ukuran_apar' => '',
+                'jumlah_unit' => 1,
+                'nomor_unit' => '',
+                'nama_apar' => '',
+            ]]);
+        }
     }
 @endphp
 
@@ -118,6 +149,34 @@
         </div>
 
         <div id="service-service-fields" class="md:col-span-2 space-y-4 hidden">
+            @if($isPrefilledService)
+                <input type="hidden" name="service_unit_status" value="terdaftar">
+                <input type="hidden" name="service_purchase_group" value="{{ $prefillServiceOrder['group_key'] ?? \App\Support\RegisteredRefillUnitSupport::PREFILL_GROUP_KEY }}">
+                @foreach(($prefillServiceOrder['selected_unit_ids'] ?? []) as $uId)
+                    <input type="hidden" name="service_unit_apar_ids[]" class="service-unit-hidden-input" value="{{ $uId }}">
+                @endforeach
+
+                <div class="rounded-2xl border border-blue-200 bg-blue-50/80 p-4 shadow-sm">
+                    <div class="flex items-start gap-3">
+                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white font-bold text-sm shadow-sm">
+                            <i class="fa-solid fa-screwdriver-wrench"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-black uppercase tracking-wider text-blue-700">Pengajuan Service Unit Terdaftar</p>
+                            <p class="mt-1 text-sm font-semibold text-slate-800">
+                                Pengajuan service untuk unit: 
+                                <span class="font-black text-blue-900">
+                                    {{ collect($prefilledUnits)->map(fn($u) => ($u['nomor_unit'] ?? '') . ' (' . ($u['nama_apar'] ?? 'APAR') . ')')->filter()->implode(', ') }}
+                                </span>
+                            </p>
+                            <p class="mt-1 text-xs text-slate-600">
+                                Data <strong>Jenis APAR</strong> &amp; <strong>Ukuran APAR</strong> telah diisi otomatis dari data unit Anda. Silakan pilih <strong>Jenis / Paket Service</strong> yang Anda butuhkan.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             <div class="flex justify-end">
                 <button type="button" id="btn-add-service-item" class="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-black text-emerald-700 transition hover:bg-emerald-100 shadow-sm">
                     <i class="fa-solid fa-plus text-xs"></i>
@@ -128,6 +187,12 @@
             <div id="service-service-items" class="space-y-4">
                 @foreach($oldServiceItems as $index => $item)
                     <div class="service-service-item-row rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                        @if(!empty($item['nomor_unit']))
+                            <div class="mb-3 inline-flex items-center gap-2 rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 border border-blue-100">
+                                <i class="fa-solid fa-fire-extinguisher"></i>
+                                Unit: {{ $item['nomor_unit'] }} {{ !empty($item['nama_apar']) ? '('.$item['nama_apar'].')' : '' }}
+                            </div>
+                        @endif
                         <div class="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_120px_minmax(0,1.15fr)_auto] md:items-end">
                             <div>
                                 <label class="order-label">Jenis APAR <span>*</span></label>

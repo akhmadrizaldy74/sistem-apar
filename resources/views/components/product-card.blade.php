@@ -77,10 +77,6 @@
                 <span class="font-bold text-slate-900">Masa Berlaku:</span>
                 <span class="{{ $productExpiryTone }}">{{ ' ' }}{{ $hasExpiryInfo ? ($productExpiryMeta['expired_at_label'] ?? '-') : '-' }}</span>
             </p>
-            <p>
-                <span class="font-bold text-slate-900">Sisa:</span>
-                <span class="{{ $productExpiryTone }}">{{ ' ' }}{{ $hasExpiryInfo ? ($productExpiryMeta['remaining_label'] ?? '-') : '-' }}</span>
-            </p>
         </div>
 
         <div class="mt-auto pt-6">

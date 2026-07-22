@@ -146,17 +146,22 @@ class PaidOrderStockService
                 continue;
             }
 
+            $freshCalculatedExpiry = UnitApar::calculateExpiry(
+                $batch->tgl_produksi?->toDateString() ?: optional($pesanan->tanggal)->toDateString() ?: now()->toDateString(),
+                $produk->kapasitas ?? '-',
+                $produk->jenisApar?->nama ?? '-',
+            )->toDateString();
+
+            $batchExpiryStr = $batch->tgl_expired?->toDateString();
+            $saleDateStr = optional($pesanan->tanggal)->toDateString() ?: now()->toDateString();
+            $isNearExpiry = $batchExpiryStr && \Carbon\Carbon::parse($batchExpiryStr)->diffInDays(\Carbon\Carbon::parse($saleDateStr), false) < 90;
+
             $allocations[] = [
                 'qty' => $qtyDariBatch,
                 'tgl_produksi' => $batch->tgl_produksi?->toDateString()
                     ?: optional($pesanan->tanggal)->toDateString()
                     ?: now()->toDateString(),
-                'tgl_expired' => $batch->tgl_expired?->toDateString()
-                    ?: UnitApar::calculateExpiry(
-                        optional($pesanan->tanggal)->toDateString() ?: now()->toDateString(),
-                        $produk->kapasitas ?? '-',
-                        $produk->jenisApar?->nama ?? '-',
-                    )->toDateString(),
+                'tgl_expired' => ($batchExpiryStr && ! $isNearExpiry) ? $batchExpiryStr : $freshCalculatedExpiry,
             ];
 
             if ((int) $batch->sisa_qty === $qtyDariBatch) {
@@ -190,7 +195,16 @@ class PaidOrderStockService
 
         foreach ($allocations as $allocation) {
             $qty = max(0, (int) ($allocation['qty'] ?? 0));
-            $unitExpiryDate = $allocation['tgl_expired'];
+            $allocatedExpiry = $allocation['tgl_expired'] ?? null;
+            $saleDateStr = optional($pesanan->tanggal)->toDateString() ?: now()->toDateString();
+            $freshCalculatedExpiry = UnitApar::calculateExpiry(
+                $allocation['tgl_produksi'] ?? $saleDateStr,
+                $produk->kapasitas ?? '-',
+                $produk->jenisApar?->nama ?? '-',
+            )->toDateString();
+
+            $isNearExpiry = $allocatedExpiry && \Carbon\Carbon::parse($allocatedExpiry)->diffInDays(\Carbon\Carbon::parse($saleDateStr), false) < 90;
+            $unitExpiryDate = ($allocatedExpiry && ! $isNearExpiry) ? $allocatedExpiry : $freshCalculatedExpiry;
 
             for ($index = 0; $index < $qty && $missingCount > 0; $index++) {
                 UnitApar::create([

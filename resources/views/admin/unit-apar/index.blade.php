@@ -36,7 +36,6 @@
                 <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                         <h3 class="text-base font-black text-slate-900">Filter Unit APAR</h3>
-                        <p class="text-sm font-medium text-slate-500">Susunan filter dipadatkan supaya nyaman dipakai di Chrome laptop 14".</p>
                     </div>
 
                     <p class="text-sm font-semibold text-slate-500">

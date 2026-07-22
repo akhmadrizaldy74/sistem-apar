@@ -89,10 +89,6 @@
                                     <dd class="font-semibold {{ $productExpiryTone }}">{{ $productExpiryMeta['expired_at_label'] ?? '-' }}</dd>
                                 </div>
                                 <div class="flex flex-col gap-0.5 py-2 first:pt-0 last:pb-0 sm:flex-row sm:gap-3">
-                                    <dt class="font-bold text-slate-950 sm:w-20 sm:shrink-0">Sisa:</dt>
-                                    <dd class="font-semibold {{ $productExpiryTone }}">{{ $hasExpiryInfo ? ($productExpiryMeta['remaining_label'] ?? '-') : '-' }}</dd>
-                                </div>
-                                <div class="flex flex-col gap-0.5 py-2 first:pt-0 last:pb-0 sm:flex-row sm:gap-3">
                                     <dt class="font-bold text-slate-950 sm:w-20 sm:shrink-0">Status:</dt>
                                     <dd class="font-semibold {{ $productExpiryTone }}">{{ $productExpiryStatus }}</dd>
                                 </div>
