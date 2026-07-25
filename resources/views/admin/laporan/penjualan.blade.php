@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-                <h2 class="text-3xl font-black text-gray-900 tracking-tight">Laporan Penjualan Barang & Refill</h2>
+                <h2 class="text-3xl font-black text-gray-900 tracking-tight">Laporan Penjualan</h2>
                 <p class="text-sm text-gray-500 font-medium">{{ $periode }}</p>
             </div>
             <a href="{{ route('admin.laporan.penjualan.pdf', request()->query()) }}" class="inline-flex items-center justify-center px-6 py-3 bg-red-700 text-white rounded-2xl text-sm font-black hover:bg-red-800 transition shadow-xl shadow-red-700/20">
@@ -44,22 +44,26 @@
             </div>
         </form>
 
-        <div class="grid md:grid-cols-4 gap-6">
-            <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Transaksi Valid</p>
-                <p class="text-4xl font-black text-gray-900 mt-3">{{ $stats['total_transaksi'] }}</p>
+                <p class="text-3xl font-black text-gray-900 mt-2">{{ $stats['total_transaksi'] }}</p>
             </div>
-            <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Penjualan Produk</p>
-                <p class="text-4xl font-black text-blue-700 mt-3">{{ $stats['produk_transaksi'] }}</p>
+                <p class="text-3xl font-black text-blue-700 mt-2">{{ $stats['produk_transaksi'] }}</p>
             </div>
-            <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Refill</p>
-                <p class="text-4xl font-black text-amber-700 mt-3">{{ $stats['refill_transaksi'] }}</p>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Refill APAR</p>
+                <p class="text-3xl font-black text-amber-700 mt-2">{{ $stats['refill_transaksi'] }}</p>
             </div>
-            <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Service APAR</p>
+                <p class="text-3xl font-black text-purple-700 mt-2">{{ $stats['service_transaksi'] ?? 0 }}</p>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Pembayaran Valid</p>
-                <p class="text-3xl font-black text-red-700 mt-3">Rp {{ number_format($stats['total_nilai'], 0, ',', '.') }}</p>
+                <p class="text-2xl font-black text-red-700 mt-2">Rp {{ number_format($stats['total_nilai'], 0, ',', '.') }}</p>
             </div>
         </div>
 
@@ -89,12 +93,19 @@
                                     str_contains($statusKey, 'diproses') || str_contains($statusKey, 'teknisi') || str_contains($statusKey, 'ditugas') || str_contains($statusKey, 'dikonfirmasi') || str_contains($statusKey, 'siap') => 'bg-amber-50 text-amber-700',
                                     default => 'bg-slate-100 text-slate-700',
                                 };
+
+                                $jenisBadgeClass = match($transaction['jenis_transaksi']) {
+                                    'Penjualan Produk' => 'bg-blue-50 text-blue-700 border border-blue-200',
+                                    'Refill APAR' => 'bg-amber-50 text-amber-700 border border-amber-200',
+                                    'Service APAR' => 'bg-purple-50 text-purple-700 border border-purple-200',
+                                    default => 'bg-slate-100 text-slate-700 border border-slate-200',
+                                };
                             @endphp
                             <tr class="hover:bg-gray-50/40 transition">
                                 <td class="px-8 py-6 text-sm font-bold text-gray-900">{{ $transaction['tanggal_label'] }}</td>
                                 <td class="px-8 py-6 text-sm font-bold text-gray-900">{{ $transaction['pelanggan'] }}</td>
                                 <td class="px-8 py-6">
-                                    <span class="inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest {{ $transaction['jenis_transaksi'] === 'Penjualan Produk' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700' }}">
+                                    <span class="inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest {{ $jenisBadgeClass }}">
                                         {{ $transaction['jenis_transaksi'] }}
                                     </span>
                                 </td>

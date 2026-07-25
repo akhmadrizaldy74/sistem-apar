@@ -401,150 +401,262 @@ class PesananController extends Controller
 
     public function create()
     {
-        return redirect()
-            ->route('admin.pesanan.index')
-            ->with('error', 'Input manual pembelian unit sudah dinonaktifkan. Transaksi baru harus dibuat pelanggan melalui sistem.');
+        $pelanggans = Pelanggan::orderBy('nama')->get();
+        $produks = Produk::where('stok', '>', 0)->orderBy('nama')->get();
+        $unitApars = UnitApar::with('pelanggan')->whereNull('hidden_at')->orderBy('no_seri')->get();
+        $jasas = \App\Models\Jasa::where('status', 'aktif')->orderBy('nama_jasa')->get();
+        if ($jasas->isEmpty()) {
+            $jasas = ServicePaket::orderBy('nama')->get()->map(function ($sp) {
+                return (object) [
+                    'id' => $sp->id,
+                    'nama_jasa' => $sp->nama,
+                    'harga' => $sp->harga,
+                ];
+            });
+        }
+
+        return view('admin.pesanan.create', compact('pelanggans', 'produks', 'unitApars', 'jasas'));
     }
 
     public function store(Request $request)
     {
-        return redirect()
-            ->route('admin.pesanan.index')
-            ->with('error', 'Input manual pembelian unit sudah dinonaktifkan. Transaksi baru harus dibuat pelanggan melalui sistem.');
-
-        $request->merge([
-            'items' => collect($request->input('items', []))
-                ->filter(fn ($item) => collect($item)->filter(fn ($value) => $value !== null && $value !== '')->isNotEmpty())
-                ->values()
-                ->all(),
-            'pelanggan_id' => $request->input('pelanggan_id'),
-            'catatan_admin' => trim((string) $request->input('catatan_admin')) ?: null,
-        ]);
-
         $validated = $request->validate([
-            'tipe' => 'required|in:produk',
+            'tipe_pesanan' => 'required|in:jual_produk,refill,jasa',
             'pelanggan_id' => 'required|exists:pelanggans,id',
-            'tanggal' => 'required|date',
-            'catatan_admin' => 'nullable|string|max:1000',
-            'items' => 'required|array|min:1',
-            'items.*.produk_id' => 'required|exists:produks,id',
-            'items.*.kapasitas' => 'required|string|max:100',
-            'items.*.merek' => 'required|string|max:100',
-            'items.*.jumlah' => 'required|integer|min:1',
+            'tanggal'      => 'required|date',
+            'catatan_admin' => 'nullable|string',
         ], [
-            'items.required' => 'Tambahkan minimal satu produk sebelum menyimpan pesanan.',
-            'items.min' => 'Tambahkan minimal satu produk sebelum menyimpan pesanan.',
-            'items.*.produk_id.required' => 'Setiap item produk harus dipilih dengan lengkap.',
-            'items.*.kapasitas.required' => 'Kapasitas pada item produk belum dipilih.',
-            'items.*.merek.required' => 'Merek pada item produk belum dipilih.',
-            'items.*.jumlah.required' => 'Jumlah pada item produk belum diisi.',
-            'pelanggan_id.required' => 'Pilih pelanggan terlebih dahulu.',
-            'pelanggan_id.exists' => 'Pelanggan yang dipilih tidak valid.',
+            'tipe_pesanan.required' => 'Tipe pesanan wajib dipilih.',
+            'pelanggan_id.required' => 'Pelanggan wajib dipilih.',
+            'pelanggan_id.exists'   => 'Pelanggan tidak valid.',
+            'tanggal.required'      => 'Tanggal pesanan wajib diisi.',
         ]);
 
-        $pelanggan = Pelanggan::query()
-            ->visibleInDirectory()
-            ->with('user')
-            ->find((int) $validated['pelanggan_id']);
+        $pelanggan = Pelanggan::findOrFail($validated['pelanggan_id']);
 
-        if (! $pelanggan) {
-            throw ValidationException::withMessages([
-                'pelanggan_id' => 'Pelanggan belum memiliki akun. Silakan buat akun pelanggan terlebih dahulu melalui menu Manajemen Akun.',
+        if ($validated['tipe_pesanan'] === 'jual_produk') {
+            $request->validate([
+                'produk_id' => 'required|exists:produks,id',
+                'jumlah'    => 'required|integer|min:1',
+            ], [
+                'produk_id.required' => 'Produk APAR wajib dipilih.',
+                'jumlah.required'    => 'Jumlah produk wajib diisi.',
+            ]);
+
+            $produk = Produk::findOrFail($request->input('produk_id'));
+            $jumlah = (int) $request->input('jumlah');
+            $total = (float) $produk->harga * $jumlah;
+
+            $pesanan = Pesanan::create([
+                'tipe_pesanan'                => 'jual_produk',
+                'tipe'                        => 'produk',
+                'pelanggan_id'                => $pelanggan->id,
+                'user_id'                     => $pelanggan->user_id,
+                'nama_penerima'               => $pelanggan->nama,
+                'nomor_wa_penerima'           => $pelanggan->no_wa,
+                'alamat_pengiriman'           => $pelanggan->alamat,
+                'tanggal'                     => $validated['tanggal'],
+                'total'                       => $total,
+                'total_harga'                 => $total,
+                'status'                      => 'diproses',
+                'sumber_pesanan'              => 'input_admin',
+                'pembayaran_terkonfirmasi_at' => now(),
+                'catatan_admin'               => $validated['catatan_admin'] ?? null,
+            ]);
+
+            $pesanan->details()->create([
+                'produk_id' => $produk->id,
+                'merek'     => $produk->merek,
+                'kapasitas' => $produk->kapasitas ?? '-',
+                'jumlah'    => $jumlah,
+                'harga'     => $produk->harga,
+                'subtotal'  => $total,
+            ]);
+
+        } elseif ($validated['tipe_pesanan'] === 'refill') {
+            $request->validate([
+                'unit_apar_id' => 'required|exists:unit_apars,id',
+            ], [
+                'unit_apar_id.required' => 'Unit APAR milik pelanggan wajib dipilih.',
+            ]);
+
+            $unitApar = UnitApar::findOrFail($request->input('unit_apar_id'));
+            $hargaRefill = (float) ($unitApar->jenisRefill?->harga ?? 100000);
+
+            $pesanan = Pesanan::create([
+                'tipe_pesanan'                => 'refill',
+                'tipe'                        => 'refill',
+                'pelanggan_id'                => $pelanggan->id,
+                'user_id'                     => $pelanggan->user_id,
+                'unit_apar_id'                => $unitApar->id,
+                'nama_penerima'               => $pelanggan->nama,
+                'nomor_wa_penerima'           => $pelanggan->no_wa,
+                'alamat_pengiriman'           => $pelanggan->alamat,
+                'tanggal'                     => $validated['tanggal'],
+                'total'                       => $hargaRefill,
+                'total_harga'                 => $hargaRefill,
+                'status'                      => 'diproses',
+                'sumber_pesanan'              => 'input_admin',
+                'pembayaran_terkonfirmasi_at' => now(),
+                'catatan_admin'               => $validated['catatan_admin'] ?? null,
+            ]);
+
+        } else { // jasa
+            $request->validate([
+                'jasa_id' => 'required|exists:jasa,id',
+            ], [
+                'jasa_id.required' => 'Jasa layanan wajib dipilih.',
+            ]);
+
+            $jasa = \App\Models\Jasa::findOrFail($request->input('jasa_id'));
+
+            $pesanan = Pesanan::create([
+                'tipe_pesanan'                => 'jasa',
+                'tipe'                        => 'service',
+                'pelanggan_id'                => $pelanggan->id,
+                'user_id'                     => $pelanggan->user_id,
+                'jasa_id'                     => $jasa->id,
+                'nama_penerima'               => $pelanggan->nama,
+                'nomor_wa_penerima'           => $pelanggan->no_wa,
+                'alamat_pengiriman'           => $pelanggan->alamat,
+                'tanggal'                     => $validated['tanggal'],
+                'total'                       => $jasa->harga,
+                'total_harga'                 => $jasa->harga,
+                'status'                      => 'diproses',
+                'sumber_pesanan'              => 'input_admin',
+                'pembayaran_terkonfirmasi_at' => now(),
+                'catatan_admin'               => $validated['catatan_admin'] ?? null,
             ]);
         }
 
-        DB::transaction(function () use ($validated, $pelanggan) {
-            $pelangganId = (int) $pelanggan->id;
-
-            // --- Create pesanan with offline defaults ---
-            $pesanan = Pesanan::create([
-                'pelanggan_id' => $pelangganId,
-                'user_id' => $pelanggan->user_id,
-                'nama_penerima' => $pelanggan->nama,
-                'nomor_wa_penerima' => $pelanggan->no_wa,
-                'alamat_pengiriman' => $pelanggan->alamat,
-                'tipe' => 'produk',
-                'sumber_pesanan' => 'datang_langsung',
-                'is_pesanan_lama' => false,
-                'tanggal' => $validated['tanggal'],
-                'total' => 0,
-                'status' => 'diproses', // skip pending, langsung lunas & diproses
-                'tipe_harga' => 'normal',
-                'metode_pengiriman' => 'pickup',
-                'ongkir' => 0,
-                'metode_pembayaran' => 'cash',
-                'pembayaran_terkonfirmasi_at' => now(),
-                'catatan_admin' => $validated['catatan_admin'] ?? null,
-            ] + Pesanan::purchasePriceAttributes([
-                'status' => null,
-                'requested_price' => null,
-                'final_price' => null,
-                'customer_note' => null,
-                'admin_note' => null,
-                'used' => false,
-            ]));
-
-            $total = 0;
-
-            foreach ($validated['items'] as $item) {
-                $produk = Produk::with('jenisApar')->findOrFail($item['produk_id']);
-
-                if ($produk->kapasitas !== $item['kapasitas'] || $produk->merek !== $item['merek']) {
-                    throw ValidationException::withMessages([
-                        'items' => 'Pilihan produk, kapasitas, atau merek tidak valid.',
-                    ]);
-                }
-
-                $jumlah = (int) $item['jumlah'];
-                $stokTersedia = (int) $produk->stok_tersedia;
-
-                if ($stokTersedia < $jumlah) {
-                    throw ValidationException::withMessages([
-                        'items' => 'Stok siap jual untuk produk "' . $produk->nama . '" tidak mencukupi. Tersedia: ' . $stokTersedia,
-                    ]);
-                }
-
-                $harga = (int) $produk->harga;
-                $subtotal = $harga * $jumlah;
-
-                $pesanan->details()->create([
-                    'produk_id' => $produk->id,
-                    'merek' => $produk->merek,
-                    'kapasitas' => $produk->kapasitas ?? '-',
-                    'jumlah' => $jumlah,
-                    'harga' => $harga,
-                    'subtotal' => $subtotal,
-                ]);
-
-                $total += $subtotal;
-            }
-
-            $pesanan->update([
-                'total' => $total,
-                'total_harga' => $total,
-            ]);
-
-            app(PaidOrderStockService::class)->apply($pesanan->fresh(['details.produk.jenisApar', 'pelanggan', 'unitApars']));
-
-        });
-
-        return redirect()->route('admin.pesanan.index')->with('success', 'Pesanan offline berhasil disimpan. Status: Lunas & Diproses.');
+        return redirect()
+            ->route('admin.pesanan.index')
+            ->with('success', "Pesanan baru ({$pesanan->tipe_pesanan_label}) berhasil disimpan.");
     }
 
     public function show(Pesanan $pesanan)
     {
-        if ($pesanan->tipe !== 'produk') {
-            return redirect()
-                ->route('admin.service.index')
-                ->with('success', 'Data service dan refill sekarang dikelola dari menu terpisah.');
-        }
-
-        $pesanan->load(['pelanggan', 'details.produk.jenisApar', 'unitApars.produk']);
+        $pesanan->load(['pelanggan', 'details.produk.jenisApar', 'unitApars.produk', 'jasa', 'unitApar']);
         $showAssignAction = $this->canAssignTeknisi($pesanan);
         $showReadyToShipAction = $pesanan->canMarkReadyToShip();
         $showFinalizeAction = $pesanan->canFinalizeDirectlyByAdmin();
 
         return view('admin.pesanan.show', compact('pesanan', 'showAssignAction', 'showReadyToShipAction', 'showFinalizeAction'));
+    }
+
+    public function edit(Pesanan $pesanan)
+    {
+        $pesanan->load(['pelanggan', 'details', 'jasa', 'unitApar']);
+        $pelanggans = Pelanggan::orderBy('nama')->get();
+        $produks = Produk::orderBy('nama')->get();
+        $unitApars = UnitApar::with('pelanggan')->whereNull('hidden_at')->orderBy('no_seri')->get();
+        $jasas = \App\Models\Jasa::where('status', 'aktif')->orderBy('nama_jasa')->get();
+
+        return view('admin.pesanan.edit', compact('pesanan', 'pelanggans', 'produks', 'unitApars', 'jasas'));
+    }
+
+    public function update(Request $request, Pesanan $pesanan)
+    {
+        if ($request->has('status') && !$request->has('tipe_pesanan')) {
+            $validated = $request->validate([
+                'status' => 'required|in:menunggu,pending,diproses,selesai,ditolak,menunggu diproses admin,ditugaskan ke teknisi,dikerjakan teknisi,selesai oleh teknisi,dikonfirmasi admin,siap dikirim,selesai final,permintaan masuk,direview admin,menunggu penjadwalan,menunggu persetujuan biaya,disetujui',
+            ]);
+
+            $pesanan->status = $validated['status'];
+            $becameFinal = $pesanan->isDirty('status') && $pesanan->status === Pesanan::STATUS_SELESAI_FINAL;
+            $pesanan->save();
+
+            if ($becameFinal) {
+                app(FinalTransactionStockService::class)->apply($pesanan);
+            } elseif ($pesanan->isPaymentConfirmed() && !$pesanan->stok_dikurangi) {
+                app(PaidOrderStockService::class)->apply($pesanan);
+            }
+
+            $this->safelyBroadcast(new StatusPesananDiperbarui($pesanan));
+
+            if (in_array($pesanan->status, ['diproses', 'selesai', 'selesai final'], true)) {
+                $pesanan->pelanggan?->update(['status' => 'tetap']);
+            }
+
+            return redirect()->back()->with('success', 'Status pesanan berhasil diperbarui.');
+        }
+
+        $validated = $request->validate([
+            'tipe_pesanan' => 'required|in:jual_produk,refill,jasa',
+            'pelanggan_id' => 'required|exists:pelanggans,id',
+            'tanggal'      => 'required|date',
+            'catatan_admin' => 'nullable|string',
+        ]);
+
+        $pelanggan = Pelanggan::findOrFail($validated['pelanggan_id']);
+
+        if ($validated['tipe_pesanan'] === 'jual_produk') {
+            $request->validate(['produk_id' => 'required|exists:produks,id', 'jumlah' => 'required|integer|min:1']);
+            $produk = Produk::findOrFail($request->input('produk_id'));
+            $jumlah = (int) $request->input('jumlah');
+            $total = (float) $produk->harga * $jumlah;
+
+            $pesanan->update([
+                'tipe_pesanan' => 'jual_produk',
+                'tipe' => 'produk',
+                'pelanggan_id' => $pelanggan->id,
+                'tanggal' => $validated['tanggal'],
+                'total' => $total,
+                'total_harga' => $total,
+                'jasa_id' => null,
+                'unit_apar_id' => null,
+                'catatan_admin' => $validated['catatan_admin'] ?? null,
+            ]);
+
+            $pesanan->details()->delete();
+            $pesanan->details()->create([
+                'produk_id' => $produk->id,
+                'merek' => $produk->merek,
+                'kapasitas' => $produk->kapasitas ?? '-',
+                'jumlah' => $jumlah,
+                'harga' => $produk->harga,
+                'subtotal' => $total,
+            ]);
+
+        } elseif ($validated['tipe_pesanan'] === 'refill') {
+            $request->validate(['unit_apar_id' => 'required|exists:unit_apars,id']);
+            $unitApar = UnitApar::findOrFail($request->input('unit_apar_id'));
+            $hargaRefill = (float) ($unitApar->jenisRefill?->harga ?? 100000);
+
+            $pesanan->details()->delete();
+            $pesanan->update([
+                'tipe_pesanan' => 'refill',
+                'tipe' => 'refill',
+                'pelanggan_id' => $pelanggan->id,
+                'unit_apar_id' => $unitApar->id,
+                'jasa_id' => null,
+                'tanggal' => $validated['tanggal'],
+                'total' => $hargaRefill,
+                'total_harga' => $hargaRefill,
+                'catatan_admin' => $validated['catatan_admin'] ?? null,
+            ]);
+
+        } else { // jasa
+            $request->validate(['jasa_id' => 'required|exists:jasa,id']);
+            $jasa = \App\Models\Jasa::findOrFail($request->input('jasa_id'));
+
+            $pesanan->details()->delete();
+            $pesanan->update([
+                'tipe_pesanan' => 'jasa',
+                'tipe' => 'service',
+                'pelanggan_id' => $pelanggan->id,
+                'jasa_id' => $jasa->id,
+                'unit_apar_id' => null,
+                'tanggal' => $validated['tanggal'],
+                'total' => $jasa->harga,
+                'total_harga' => $jasa->harga,
+                'catatan_admin' => $validated['catatan_admin'] ?? null,
+            ]);
+        }
+
+        return redirect()
+            ->route('admin.pesanan.show', $pesanan->id)
+            ->with('success', "Pesanan berhasil diperbarui.");
     }
 
     public function approvePurchasePriceRequest(Request $request, Pesanan $pesanan)
@@ -644,33 +756,6 @@ class PesananController extends Controller
         $this->safelyBroadcast(new StatusPesananDiperbarui($pesanan->fresh()));
 
         return back()->with('success', 'Pengajuan Harga Pembelian berhasil ditolak. Pelanggan dapat melanjutkan transaksi dengan harga normal atau promo otomatis.');
-    }
-
-    public function update(Request $request, Pesanan $pesanan)
-    {
-        $validated = $request->validate([
-            'status'          => 'required|in:menunggu,pending,diproses,selesai,ditolak,menunggu diproses admin,ditugaskan ke teknisi,dikerjakan teknisi,selesai oleh teknisi,dikonfirmasi admin,siap dikirim,selesai final,permintaan masuk,direview admin,menunggu penjadwalan,menunggu persetujuan biaya,disetujui',
-        ]);
-
-        $pesanan->status = $validated['status'];
-
-        $becameFinal = $pesanan->isDirty('status') && $pesanan->status === Pesanan::STATUS_SELESAI_FINAL;
-        $pesanan->save();
-
-        if ($becameFinal) {
-            app(FinalTransactionStockService::class)->apply($pesanan);
-        } elseif ($pesanan->isPaymentConfirmed() && !$pesanan->stok_dikurangi) {
-            app(PaidOrderStockService::class)->apply($pesanan);
-        }
-
-        // Broadcast status terbaru ke admin dan teknisi
-        $this->safelyBroadcast(new StatusPesananDiperbarui($pesanan));
-
-        if (in_array($pesanan->status, ['diproses', 'selesai', 'selesai final'], true)) {
-            $pesanan->pelanggan?->update(['status' => 'tetap']);
-        }
-
-        return redirect()->back()->with('success', 'Status pesanan berhasil diperbarui.');
     }
 
     // negoAction removed

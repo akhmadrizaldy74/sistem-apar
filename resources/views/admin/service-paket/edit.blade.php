@@ -1,8 +1,8 @@
 <x-app-layout>
     <x-slot name="header">
         <div>
-            <h2 class="text-3xl font-black tracking-tight text-slate-900">Edit Jenis Service</h2>
-            <p class="mt-1 text-sm font-semibold text-slate-500">Perbarui harga, rincian, dan peralatan jenis service.</p>
+            <h2 class="text-3xl font-black tracking-tight text-slate-900">Edit Jasa / Service</h2>
+            <p class="mt-1 text-sm font-semibold text-slate-500">Perbarui harga, rincian, dan peralatan terhubung.</p>
         </div>
     </x-slot>
 

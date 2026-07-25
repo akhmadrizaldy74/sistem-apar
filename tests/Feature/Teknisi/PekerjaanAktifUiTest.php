@@ -254,6 +254,9 @@ class PekerjaanAktifUiTest extends TestCase
             'role' => 'teknisi',
         ]);
 
+        \App\Models\JenisRefill::query()->update(['stok' => 100]);
+        \App\Models\Peralatan::query()->update(['stok' => 100]);
+
         $response = $this->actingAs($teknisi)->get(route('teknisi.dashboard'));
 
         $response->assertOk();

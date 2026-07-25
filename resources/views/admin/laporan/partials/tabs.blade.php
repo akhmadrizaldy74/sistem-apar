@@ -6,14 +6,14 @@
             'active' => request()->routeIs('admin.laporan.index'),
         ],
         [
-            'label' => 'Penjualan Barang & Refill',
+            'label' => 'Laporan Penjualan',
             'route' => route('admin.laporan.penjualan', request()->query()),
-            'active' => request()->routeIs('admin.laporan.penjualan') || request()->routeIs('admin.laporan.pesanan'),
+            'active' => request()->routeIs('admin.laporan.penjualan') || request()->routeIs('admin.laporan.pesanan') || request()->routeIs('admin.laporan.service'),
         ],
         [
-            'label' => 'Laporan Service',
-            'route' => route('admin.laporan.service', request()->query()),
-            'active' => request()->routeIs('admin.laporan.service'),
+            'label' => 'Laporan Pembelian',
+            'route' => route('admin.laporan.pembelian', request()->query()),
+            'active' => request()->routeIs('admin.laporan.pembelian'),
         ],
         [
             'label' => 'Laporan Keuangan',

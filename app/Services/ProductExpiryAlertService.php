@@ -123,7 +123,7 @@ class ProductExpiryAlertService
         $warningLimit = $this->warningLimit($today);
 
         return Produk::query()
-            ->with(['jenisApar', 'stokBatches'])
+            ->with(['jenisApar', 'stokBatches.purchaseOrder.supplier'])
             ->orderBy('nama')
             ->get()
             ->map(fn (Produk $produk) => $this->mapProductRow($produk, $today, $warningLimit))
@@ -189,10 +189,20 @@ class ProductExpiryAlertService
             'remaining_label' => $remainingLabel,
             'status_detail' => $statusDetail,
             'primary_batch_id' => (int) ($referenceBatch?->id ?? 0),
+            'sumber' => (string) ($referenceBatch?->sumber ?? 'manual'),
+            'purchase_order_id' => $referenceBatch?->purchase_order_id,
+            'po_nomor' => (string) ($referenceBatch?->purchaseOrder?->nomor_po ?? ''),
+            'po_tanggal' => $referenceBatch?->purchaseOrder?->tanggal_po ? $referenceBatch->purchaseOrder->tanggal_po->format('d/m/Y') : '',
+            'po_supplier_nama' => (string) ($referenceBatch?->purchaseOrder?->supplier?->nama_supplier ?? ''),
             'can_add_stock' => $produk->canAddStockDirectly(),
             'blocked_add_stock_message' => $produk->blockedStockPurchaseMessage(),
             'modal' => [
                 'primary_batch_id' => (int) ($referenceBatch?->id ?? 0),
+                'sumber' => (string) ($referenceBatch?->sumber ?? 'manual'),
+                'purchase_order_id' => $referenceBatch?->purchase_order_id,
+                'po_nomor' => (string) ($referenceBatch?->purchaseOrder?->nomor_po ?? ''),
+                'po_tanggal' => $referenceBatch?->purchaseOrder?->tanggal_po ? $referenceBatch->purchaseOrder->tanggal_po->format('d/m/Y') : '',
+                'po_supplier_nama' => (string) ($referenceBatch?->purchaseOrder?->supplier?->nama_supplier ?? ''),
                 'product_name' => (string) ($produk->nama ?: 'Produk APAR'),
                 'brand' => (string) ($produk->merek ?: '-'),
                 'jenis_apar' => (string) ($produk->jenisApar?->nama ?: '-'),

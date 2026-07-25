@@ -1,10 +1,8 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex w-full flex-col justify-between gap-4 md:flex-row md:items-center">
-            <div>
-                <h2 class="text-3xl font-black tracking-tight text-gray-900 sm:text-[2rem]">Pesanan</h2>
-                <p class="mt-2 max-w-3xl text-[15px] font-medium leading-7 text-gray-500">Kelola pembelian unit, refill APAR, dan service APAR yang masuk dari pelanggan dengan tampilan ringkas yang lebih jelas dibaca.</p>
-            </div>
+        <div>
+            <h2 class="text-3xl font-black tracking-tight text-gray-900 sm:text-[2rem]">Pesanan</h2>
+            <p class="mt-2 max-w-3xl text-[15px] font-medium leading-7 text-gray-500">Kelola pembelian unit, refill APAR, dan service APAR yang masuk dari pelanggan dengan tampilan ringkas yang lebih jelas dibaca.</p>
         </div>
     </x-slot>
 
@@ -44,16 +42,16 @@
             </div>
             <div class="px-4 pb-4 pt-3">
                 <div class="responsive-table-wrap overflow-x-auto overflow-y-visible">
-                    <table class="w-full min-w-[980px] table-fixed text-left">
+                    <table class="w-full min-w-[1020px] table-auto text-left">
                         <thead class="bg-gray-50/70">
                             <tr>
-                                <th class="w-[148px] px-7 py-5 text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Tanggal</th>
-                                <th class="w-[190px] px-7 py-5 text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Pelanggan</th>
-                                <th class="w-[150px] px-7 py-5 text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Jenis Pesanan</th>
-                                <th class="px-7 py-5 text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Detail Pesanan</th>
-                                <th class="w-[142px] px-7 py-5 text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Total</th>
-                                <th class="w-[170px] px-7 py-5 text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Status</th>
-                                <th class="w-[228px] px-7 py-5 text-right text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Aksi</th>
+                                <th class="px-6 py-5 text-[11px] font-black uppercase tracking-[0.16em] text-gray-400 whitespace-nowrap">Tanggal</th>
+                                <th class="px-6 py-5 text-[11px] font-black uppercase tracking-[0.16em] text-gray-400 whitespace-nowrap">Pelanggan</th>
+                                <th class="px-6 py-5 text-[11px] font-black uppercase tracking-[0.16em] text-gray-400 whitespace-nowrap">Jenis Pesanan</th>
+                                <th class="px-6 py-5 text-[11px] font-black uppercase tracking-[0.16em] text-gray-400 whitespace-nowrap">Detail Pesanan</th>
+                                <th class="px-6 py-5 text-[11px] font-black uppercase tracking-[0.16em] text-gray-400 whitespace-nowrap">Total</th>
+                                <th class="px-6 py-5 text-[11px] font-black uppercase tracking-[0.16em] text-gray-400 whitespace-nowrap">Status</th>
+                                <th class="px-6 py-5 text-right text-[11px] font-black uppercase tracking-[0.16em] text-gray-400 whitespace-nowrap">Aksi</th>
                             </tr>
                         </thead>
                         <tbody id="pesanan-active-rows" class="divide-y divide-gray-100">
@@ -71,16 +69,16 @@
             </div>
             <div class="px-4 pb-4 pt-3">
                 <div class="responsive-table-wrap overflow-x-auto overflow-y-visible">
-                    <table class="w-full min-w-[980px] table-fixed text-left">
+                    <table class="w-full min-w-[1020px] table-auto text-left">
                         <thead class="bg-gray-50/70">
                             <tr>
-                                <th class="w-[148px] px-7 py-5 text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Tanggal</th>
-                                <th class="w-[190px] px-7 py-5 text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Pelanggan</th>
-                                <th class="w-[150px] px-7 py-5 text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Jenis Pesanan</th>
-                                <th class="px-7 py-5 text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Detail Pesanan</th>
-                                <th class="w-[142px] px-7 py-5 text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Total</th>
-                                <th class="w-[170px] px-7 py-5 text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Status</th>
-                                <th class="w-[228px] px-7 py-5 text-right text-[11px] font-black uppercase tracking-[0.18em] text-gray-400">Aksi</th>
+                                <th class="px-6 py-5 text-[11px] font-black uppercase tracking-[0.16em] text-gray-400 whitespace-nowrap">Tanggal</th>
+                                <th class="px-6 py-5 text-[11px] font-black uppercase tracking-[0.16em] text-gray-400 whitespace-nowrap">Pelanggan</th>
+                                <th class="px-6 py-5 text-[11px] font-black uppercase tracking-[0.16em] text-gray-400 whitespace-nowrap">Jenis Pesanan</th>
+                                <th class="px-6 py-5 text-[11px] font-black uppercase tracking-[0.16em] text-gray-400 whitespace-nowrap">Detail Pesanan</th>
+                                <th class="px-6 py-5 text-[11px] font-black uppercase tracking-[0.16em] text-gray-400 whitespace-nowrap">Total</th>
+                                <th class="px-6 py-5 text-[11px] font-black uppercase tracking-[0.16em] text-gray-400 whitespace-nowrap">Status</th>
+                                <th class="px-6 py-5 text-right text-[11px] font-black uppercase tracking-[0.16em] text-gray-400 whitespace-nowrap">Aksi</th>
                             </tr>
                         </thead>
                         <tbody id="pesanan-history-rows" class="divide-y divide-gray-100">

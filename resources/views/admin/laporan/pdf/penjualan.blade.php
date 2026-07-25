@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Laporan Penjualan Barang & Refill</title>
+    <title>Laporan Penjualan</title>
     <style>
         body { font-family: DejaVu Sans, sans-serif; font-size: 12px; color: #1f2937; }
         h1 { font-size: 20px; margin-bottom: 4px; }
@@ -15,17 +15,17 @@
 </head>
 <body>
     @include('pdf.partials.letterhead')
-    <h1>Laporan Penjualan Barang & Refill</h1>
+    <h1>Laporan Penjualan</h1>
     <p>Periode: {{ $periode }}</p>
-    <p>Total transaksi valid: {{ $stats['total_transaksi'] }}</p>
-    <p>Total pembayaran valid: Rp {{ number_format($stats['total_nilai'], 0, ',', '.') }}</p>
+    <p>Total Transaksi Valid: {{ $stats['total_transaksi'] }} (Produk: {{ $stats['produk_transaksi'] }}, Refill: {{ $stats['refill_transaksi'] }}, Service: {{ $stats['service_transaksi'] ?? 0 }})</p>
+    <p>Total Pembayaran Valid: Rp {{ number_format($stats['total_nilai'], 0, ',', '.') }}</p>
 
     <table>
         <thead>
             <tr>
                 <th>Tanggal</th>
                 <th>Pelanggan</th>
-                <th>Jenis</th>
+                <th>Jenis Transaksi</th>
                 <th>Item / Layanan</th>
                 <th>Jumlah</th>
                 <th>Status</th>

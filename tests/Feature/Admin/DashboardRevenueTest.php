@@ -103,7 +103,7 @@ class DashboardRevenueTest extends TestCase
         );
         $this->assertTrue($laporanCombinedData->contains(fn (array $row) => $row['jenis'] === 'Refill' && (float) $row['pemasukan'] === 400000.0));
         $this->assertTrue($laporanCombinedData->contains(fn (array $row) => $row['jenis'] === 'Refill' && (float) $row['pemasukan'] === 700000.0));
-        $this->assertCount(3, $penjualanTransactions);
+        $this->assertCount(5, $penjualanTransactions);
         $this->assertTrue($penjualanTransactions->contains(fn (array $row) => $row['jenis_transaksi'] === 'Penjualan Produk' && (float) $row['total'] === 1500000.0));
         $this->assertTrue($penjualanTransactions->contains(fn (array $row) => $row['jenis_transaksi'] === 'Refill APAR' && (float) $row['total'] === 400000.0));
         $this->assertTrue($penjualanTransactions->contains(fn (array $row) => $row['jenis_transaksi'] === 'Refill APAR' && (float) $row['total'] === 700000.0));
@@ -131,7 +131,7 @@ class DashboardRevenueTest extends TestCase
         $serviceReport = $this->actingAs($admin)->get(route('admin.laporan.service'));
 
         $response->assertOk();
-        $serviceReport->assertOk();
+        $serviceReport->assertRedirect(route('admin.laporan.penjualan', []));
 
         $kpis = $response->viewData('kpis');
         $charts = $response->viewData('charts');
@@ -402,40 +402,36 @@ class DashboardRevenueTest extends TestCase
             'no_telpon' => '081111111143',
         ]);
 
-        Pengeluaran::create([
-            'kategori' => 'lainnya',
-            'jenis_pengeluaran' => Pengeluaran::JENIS_PEMBELIAN_APAR,
-            'nama_item' => 'APAR 3 Kg',
-            'qty' => 1,
-            'satuan' => 'Unit',
-            'harga_beli' => 150000,
+        $supplier = \App\Models\Supplier::create(['nama_supplier' => 'Supplier Test', 'no_wa' => '081234567890', 'status' => 'aktif']);
+
+        $po1 = \App\Models\PurchaseOrder::create([
+            'supplier_id' => $supplier->id,
+            'tanggal_po' => now()->startOfYear()->addDays(4)->toDateString(),
             'total' => 150000,
-            'nominal' => 150000,
-            'tanggal' => now()->startOfYear()->addDays(4)->toDateString(),
+            'status' => 'diterima',
+        ]);
+        \App\Models\PurchaseOrderDetail::create([
+            'purchase_order_id' => $po1->id,
+            'nama_item' => 'APAR 3 Kg',
+            'kategori' => 'produk',
+            'jumlah' => 1,
+            'harga_satuan' => 150000,
+            'subtotal' => 150000,
         ]);
 
-        Pengeluaran::create([
-            'kategori' => 'refill',
-            'jenis_pengeluaran' => Pengeluaran::JENIS_PEMBELIAN_REFILL,
-            'nama_item' => 'Dry Powder',
-            'qty' => 2,
-            'satuan' => 'Kg',
-            'harga_beli' => 125000,
+        $po2 = \App\Models\PurchaseOrder::create([
+            'supplier_id' => $supplier->id,
+            'tanggal_po' => now()->startOfYear()->addMonths(5)->addDays(2)->toDateString(),
             'total' => 250000,
-            'nominal' => 0,
-            'tanggal' => now()->startOfYear()->addMonths(5)->addDays(2)->toDateString(),
+            'status' => 'diterima',
         ]);
-
-        Pengeluaran::create([
-            'kategori' => 'peralatan',
-            'jenis_pengeluaran' => Pengeluaran::JENIS_PEMBELIAN_PERALATAN,
-            'nama_item' => 'Selang',
-            'qty' => 1,
-            'satuan' => 'Unit',
-            'harga_beli' => 300000,
-            'total' => 300000,
-            'nominal' => 300000,
-            'tanggal' => now()->copy()->subYear()->startOfYear()->addMonths(9)->toDateString(),
+        \App\Models\PurchaseOrderDetail::create([
+            'purchase_order_id' => $po2->id,
+            'nama_item' => 'Dry Powder',
+            'kategori' => 'refill',
+            'jumlah' => 2,
+            'harga_satuan' => 125000,
+            'subtotal' => 250000,
         ]);
 
         $response = $this->actingAs($admin)->get(route('dashboard'));
@@ -555,7 +551,7 @@ class DashboardRevenueTest extends TestCase
         ]);
     }
 
-    private function createRefillOrder(Pelanggan $pelanggan, UnitApar $unit, JenisRefill $jenisRefill, string $status, int $biaya, Carbon $tanggal): Refill
+    private function createRefillOrder(Pelanggan $pelanggan, UnitApar $unit, JenisRefill $jenisRefill, string $status, int $biaya, Carbon $tanggal): Service
     {
         $pesanan = Pesanan::create([
             'pelanggan_id' => $pelanggan->id,
@@ -583,12 +579,6 @@ class DashboardRevenueTest extends TestCase
             'status_konfirmasi' => 'confirmed',
         ]);
 
-        return Refill::create([
-            'service_id' => $service->id,
-            'unit_apar_id' => $unit->id,
-            'jenis_refill_id' => $jenisRefill->id,
-            'tgl_refill' => $tanggal->toDateString(),
-            'biaya' => $biaya,
-        ]);
+        return $service;
     }
 }

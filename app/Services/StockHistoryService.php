@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\Pengeluaran;
 use App\Models\Pesanan;
+use App\Models\PurchaseOrderDetail;
 use App\Models\Service;
 use App\Models\StockMovement;
 use Illuminate\Support\Carbon;
@@ -29,36 +29,32 @@ class StockHistoryService
 
     private function appendPurchaseEntries(Collection $entries): void
     {
-        Pengeluaran::with(['produk', 'jenisRefill', 'peralatan'])
-            ->whereNotNull('jenis_pengeluaran')
-            ->latest('tanggal')
+        PurchaseOrderDetail::with(['purchaseOrder.supplier'])
             ->latest()
             ->get()
-            ->each(function (Pengeluaran $pengeluaran) use ($entries) {
-                $itemName = (string) ($pengeluaran->display_item_name ?: $pengeluaran->nama_item ?: 'Item stok');
-                $deskripsi = match ($pengeluaran->jenis_pengeluaran) {
-                    Pengeluaran::JENIS_PEMBELIAN_APAR => 'Pembelian stok APAR dicatat lewat menu Pengeluaran.',
-                    Pengeluaran::JENIS_PEMBELIAN_REFILL => 'Pembelian stok refill dicatat lewat menu Pengeluaran.',
-                    Pengeluaran::JENIS_PEMBELIAN_PERALATAN => 'Pembelian peralatan service dicatat lewat menu Pengeluaran.',
-                    default => 'Pengeluaran operasional stok dicatat admin.',
-                };
+            ->each(function (PurchaseOrderDetail $detail) use ($entries) {
+                $po = $detail->purchaseOrder;
+                if (! $po) {
+                    return;
+                }
 
                 $entries->push($this->makeEntry(
-                    tanggal: $pengeluaran->tanggal,
-                    itemTypeLabel: match ($pengeluaran->jenis_pengeluaran) {
-                        Pengeluaran::JENIS_PEMBELIAN_APAR => 'Pembelian Stok APAR',
-                        Pengeluaran::JENIS_PEMBELIAN_REFILL => 'Pembelian Stok Refill',
-                        Pengeluaran::JENIS_PEMBELIAN_PERALATAN => 'Pembelian Peralatan Service',
-                        default => 'Pengeluaran Stok',
+                    tanggal: $po->tanggal_po ?: $po->created_at,
+                    itemTypeLabel: match ($detail->kategori) {
+                        'produk' => 'Pembelian Stok APAR',
+                        'refill' => 'Pembelian Stok Refill',
+                        'peralatan' => 'Pembelian Peralatan Service',
+                        default => 'Pembelian Stok',
                     },
-                    itemName: $itemName,
-                    sourceLabel: 'Menu Pengeluaran',
-                    sourceDetail: 'Admin mencatat stok masuk',
+                    itemName: $detail->nama_item,
+                    sourceLabel: 'Purchase Order ('.$po->nomor_po.')',
+                    sourceDetail: 'Supplier: '.($po->supplier?->nama_supplier ?: '-'),
                     flowLabel: 'Stok masuk',
                     movementType: StockMovement::MOVE_IN,
-                    qty: (float) ($pengeluaran->qty ?? 0),
-                    satuan: (string) ($pengeluaran->satuan ?: 'Unit'),
-                    keterangan: $this->appendNote($deskripsi, $pengeluaran->keterangan, $itemName),
+                    qty: (float) ($detail->jumlah ?? 0),
+                    satuan: 'Item',
+                    deskripsi: 'Pembelian barang via PO '.$po->nomor_po,
+                    detailUrl: route('admin.purchase-orders.show', $po->id)
                 ));
             });
     }
@@ -67,25 +63,24 @@ class StockHistoryService
     {
         Pesanan::with(['pelanggan', 'details.produk'])
             ->where('tipe', 'produk')
-            ->where('stok_dikurangi', true)
+            ->whereNotIn('status', [Pesanan::STATUS_DITOLAK])
             ->latest('tanggal')
             ->latest()
             ->get()
             ->each(function (Pesanan $pesanan) use ($entries) {
                 foreach ($pesanan->details as $detail) {
-                    $itemName = (string) ($detail->produk?->nama ?: $detail->merek ?: 'Produk APAR');
-
                     $entries->push($this->makeEntry(
-                        tanggal: $pesanan->pembayaran_terkonfirmasi_at ?: $pesanan->updated_at ?: $pesanan->tanggal,
-                        itemTypeLabel: 'Penjualan Produk APAR',
-                        itemName: $itemName,
-                        sourceLabel: 'Pesanan Pelanggan',
-                        sourceDetail: 'Stok keluar setelah pembayaran valid',
+                        tanggal: $pesanan->displayTransactionDateTime() ? Carbon::parse($pesanan->tanggal) : $pesanan->created_at,
+                        itemTypeLabel: 'Penjualan APAR',
+                        itemName: (string) ($detail->produk?->nama ?: $detail->merek ?: 'Unit APAR'),
+                        sourceLabel: 'Transaksi Pesanan',
+                        sourceDetail: 'Pelanggan: '.($pesanan->pelanggan?->nama ?: 'Umum'),
                         flowLabel: 'Stok keluar',
                         movementType: StockMovement::MOVE_OUT,
                         qty: (float) ($detail->jumlah ?? 0),
                         satuan: 'Unit',
-                        keterangan: 'Stok keluar karena pembelian pelanggan ' . $this->customerName($pesanan) . '.',
+                        deskripsi: 'Penjualan produk APAR kepada pelanggan.',
+                        detailUrl: route('admin.pesanan.show', $pesanan)
                     ));
                 }
             });
@@ -96,107 +91,95 @@ class StockHistoryService
         Pesanan::with(['pelanggan', 'serviceJenisRefill'])
             ->where('tipe', 'service')
             ->where('service_jenis_layanan', 'refill')
-            ->whereNotNull('service_jenis_refill_id')
-            ->where('service_total_kg', '>', 0)
-            ->where('stok_dikurangi', true)
+            ->whereNotIn('status', [Pesanan::STATUS_DITOLAK])
             ->latest('tanggal')
-            ->latest()
             ->get()
             ->each(function (Pesanan $pesanan) use ($entries) {
+                $refillNama = $pesanan->serviceJenisRefill?->nama ?: 'Bahan Refill';
+                $unitCount = max(1, (int) ($pesanan->service_jumlah_unit ?? 1));
+
                 $entries->push($this->makeEntry(
-                    tanggal: $pesanan->pembayaran_terkonfirmasi_at ?: $pesanan->updated_at ?: $pesanan->tanggal,
-                    itemTypeLabel: 'Pemakaian Stok Refill',
-                    itemName: (string) ($pesanan->serviceJenisRefill?->nama_label ?: 'Refill APAR'),
-                    sourceLabel: 'Pesanan Refill',
-                    sourceDetail: 'Refill unit pelanggan selesai diproses',
-                    flowLabel: 'Stok keluar',
+                    tanggal: $pesanan->created_at,
+                    itemTypeLabel: 'Isi Ulang Refill APAR',
+                    itemName: $refillNama,
+                    sourceLabel: 'Layanan Refill',
+                    sourceDetail: 'Pelanggan: '.($pesanan->pelanggan?->nama ?: 'Umum'),
+                    flowLabel: 'Pengurangan stok refill',
                     movementType: StockMovement::MOVE_OUT,
-                    qty: (float) ($pesanan->service_total_kg ?? 0),
-                    satuan: (string) ($pesanan->serviceJenisRefill?->satuan_label ?: 'Kg'),
-                    keterangan: 'Stok refill berkurang untuk refill unit pelanggan ' . $this->customerName($pesanan) . '.',
+                    qty: (float) $unitCount,
+                    satuan: 'Kg',
+                    deskripsi: 'Penggunaan stok refill untuk pesanan pelanggan.',
+                    detailUrl: route('admin.pesanan.show', $pesanan)
                 ));
             });
     }
 
     private function appendServicePeralatanEntries(Collection $entries): void
     {
-        Service::query()
-            ->where('status_konfirmasi', 'confirmed')
-            ->whereHas('pesanan', fn ($query) => $query->where('stok_dikurangi', true))
-            ->where(function ($query) {
-                $query->whereNotNull('actual_peralatan_json')
-                    ->orWhereNotNull('estimasi_peralatan_json');
-            })
-            ->with(['pesanan.pelanggan', 'unitApar.pelanggan'])
-            ->latest('tgl_selesai_admin')
-            ->latest()
+        Service::with(['pesanan.pelanggan', 'servicePaket.peralatans'])
+            ->latest('tgl_service')
             ->get()
             ->each(function (Service $service) use ($entries) {
-                foreach ($service->effective_peralatan as $item) {
-                    $qty = (float) ($item['jumlah'] ?? 0);
-                    if ($qty <= 0) {
-                        continue;
-                    }
+                $peralatans = $service->servicePaket?->peralatans ?? collect();
+
+                foreach ($peralatans as $peralatan) {
+                    $qtyPerUnit = (int) ($peralatan->pivot?->jumlah ?? 1);
 
                     $entries->push($this->makeEntry(
-                        tanggal: $service->tgl_selesai_admin ?: $service->updated_at ?: $service->tgl_service,
+                        tanggal: $service->tgl_service ? Carbon::parse($service->tgl_service) : $service->created_at,
                         itemTypeLabel: 'Pemakaian Peralatan Service',
-                        itemName: (string) ($item['nama'] ?? 'Peralatan'),
-                        sourceLabel: 'Pesanan Service',
-                        sourceDetail: 'Peralatan dipakai saat service pelanggan',
+                        itemName: $peralatan->nama,
+                        sourceLabel: 'Pekerjaan Service',
+                        sourceDetail: 'Pelanggan: '.($service->pesanan?->pelanggan?->nama ?: 'Umum'),
                         flowLabel: 'Stok keluar',
                         movementType: StockMovement::MOVE_OUT,
-                        qty: $qty,
-                        satuan: 'Unit',
-                        keterangan: 'Stok peralatan berkurang untuk service pelanggan ' . $this->customerName($service) . '.',
+                        qty: (float) $qtyPerUnit,
+                        satuan: 'Pcs',
+                        deskripsi: 'Penggunaan peralatan service untuk unit pelanggan.',
+                        detailUrl: $service->pesanan ? route('admin.pesanan.show', $service->pesanan) : null
                     ));
                 }
             });
     }
 
     private function makeEntry(
-        Carbon|string|null $tanggal,
+        ?Carbon $tanggal,
         string $itemTypeLabel,
         string $itemName,
         string $sourceLabel,
-        ?string $sourceDetail,
-        ?string $flowLabel,
+        string $sourceDetail,
+        string $flowLabel,
         string $movementType,
         float $qty,
         string $satuan,
-        ?string $keterangan = null,
+        string $deskripsi,
+        ?string $detailUrl = null
     ): object {
+        $tanggalObj = $tanggal instanceof Carbon ? $tanggal : ($tanggal ? Carbon::parse($tanggal) : now());
+
         return (object) [
-            'tanggal' => $tanggal instanceof Carbon
-                ? $tanggal
-                : ($tanggal ? Carbon::parse($tanggal) : null),
+            'tanggal' => $tanggalObj,
+            'tanggalLabel' => $tanggalObj->translatedFormat('d M Y H:i'),
+            'itemTypeLabel' => $itemTypeLabel,
             'item_type_label' => $itemTypeLabel,
+            'itemName' => $itemName,
+            'item_name' => $itemName,
             'item_nama' => $itemName,
+            'sourceLabel' => $sourceLabel,
             'source_label' => $sourceLabel,
+            'sourceDetail' => $sourceDetail,
             'source_detail' => $sourceDetail,
+            'flowLabel' => $flowLabel,
             'flow_label' => $flowLabel,
+            'movementType' => $movementType,
             'movement_type' => $movementType,
             'qty' => $qty,
             'satuan' => $satuan,
-            'keterangan' => $keterangan,
+            'deskripsi' => $deskripsi,
+            'keterangan' => $deskripsi,
+            'detailUrl' => $detailUrl,
+            'detail_url' => $detailUrl,
         ];
-    }
-
-    private function appendNote(string $baseText, ?string $note, ?string $ignoreIfSame = null): string
-    {
-        $baseText = trim($baseText);
-        if ($baseText !== '' && !str_ends_with($baseText, '.')) {
-            $baseText .= '.';
-        }
-
-        $note = trim((string) $note);
-        $ignoreIfSame = trim((string) $ignoreIfSame);
-
-        if ($note === '' || strcasecmp($note, $ignoreIfSame) === 0) {
-            return $baseText;
-        }
-
-        return trim($baseText . ' Catatan: ' . $note);
     }
 
     private function withinDateRange(?Carbon $tanggal, ?string $tanggalDari, ?string $tanggalSampai): bool
@@ -205,25 +188,14 @@ class StockHistoryService
             return true;
         }
 
-        if ($tanggalDari && $tanggal->lt(Carbon::parse($tanggalDari)->startOfDay())) {
+        if ($tanggalDari && $tanggal->toDateString() < $tanggalDari) {
             return false;
         }
 
-        if ($tanggalSampai && $tanggal->gt(Carbon::parse($tanggalSampai)->endOfDay())) {
+        if ($tanggalSampai && $tanggal->toDateString() > $tanggalSampai) {
             return false;
         }
 
         return true;
-    }
-
-    private function customerName(Pesanan|Service $source): string
-    {
-        if ($source instanceof Pesanan) {
-            return (string) ($source->pelanggan?->nama ?: 'Pelanggan tidak diketahui');
-        }
-
-        return (string) ($source->pesanan?->pelanggan?->nama
-            ?: $source->unitApar?->pelanggan?->nama
-            ?: 'Pelanggan tidak diketahui');
     }
 }

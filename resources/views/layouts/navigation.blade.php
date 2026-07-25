@@ -62,11 +62,16 @@
                                               {{ request()->routeIs('admin.jenis-refill.*') ? 'text-red-700 bg-red-50 font-bold' : 'text-gray-700 hover:bg-gray-50' }}">
                                         Jenis Refill
                                     </a>
-                                    <a href="{{ route('admin.peralatan.index') }}"
-                                       class="block px-5 py-2.5 text-sm font-medium transition duration-150 ease-in-out
-                                              {{ request()->routeIs('admin.peralatan.*', 'admin.service-paket.*') ? 'text-red-700 bg-red-50 font-bold' : 'text-gray-700 hover:bg-gray-50' }}">
-                                        Service &amp; Peralatan
-                                    </a>
+                                     <a href="{{ route('admin.jasa.index') }}"
+                                        class="block px-5 py-2.5 text-sm font-medium transition duration-150 ease-in-out
+                                               {{ request()->routeIs('admin.jasa.*', 'admin.service-paket.*') ? 'text-red-700 bg-red-50 font-bold' : 'text-gray-700 hover:bg-gray-50' }}">
+                                         Manajemen Jasa
+                                     </a>
+                                     <a href="{{ route('admin.peralatan.index') }}"
+                                        class="block px-5 py-2.5 text-sm font-medium transition duration-150 ease-in-out
+                                               {{ request()->routeIs('admin.peralatan.*') ? 'text-red-700 bg-red-50 font-bold' : 'text-gray-700 hover:bg-gray-50' }}">
+                                         Peralatan
+                                     </a>
                                 </div>
                             </div>
                         </div>

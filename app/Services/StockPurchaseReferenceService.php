@@ -2,36 +2,12 @@
 
 namespace App\Services;
 
-use App\Models\Pengeluaran;
+use App\Models\Produk;
+use App\Models\PurchaseOrderDetail;
 use Illuminate\Support\Collection;
 
 class StockPurchaseReferenceService
 {
-    public function syncAfterExpense(Pengeluaran $pengeluaran): void
-    {
-        if (
-            $pengeluaran->jenis_pengeluaran === Pengeluaran::JENIS_PEMBELIAN_REFILL
-            && $pengeluaran->jenisRefill
-            && (float) ($pengeluaran->harga_beli ?? 0) > 0
-        ) {
-            $pengeluaran->jenisRefill->forceFill([
-                'harga' => (float) $pengeluaran->harga_beli,
-            ])->saveQuietly();
-
-            return;
-        }
-
-        if (
-            $pengeluaran->jenis_pengeluaran === Pengeluaran::JENIS_PEMBELIAN_PERALATAN
-            && $pengeluaran->peralatan
-            && (float) ($pengeluaran->harga_beli ?? 0) > 0
-        ) {
-            $pengeluaran->peralatan->forceFill([
-                'harga_standar' => (float) $pengeluaran->harga_beli,
-            ])->saveQuietly();
-        }
-    }
-
     public function latestProductPurchasePrices(iterable $productIds = []): Collection
     {
         $normalizedIds = collect($productIds)
@@ -39,21 +15,31 @@ class StockPurchaseReferenceService
             ->filter(fn (int $id) => $id > 0)
             ->values();
 
-        $rows = Pengeluaran::query()
-            ->where('jenis_pengeluaran', Pengeluaran::JENIS_PEMBELIAN_APAR)
-            ->whereNotNull('produk_id')
-            ->when(
-                $normalizedIds->isNotEmpty(),
-                fn ($query) => $query->whereIn('produk_id', $normalizedIds->all())
-            )
-            ->orderByDesc('tanggal')
-            ->orderByDesc('id')
-            ->get(['produk_id', 'harga_beli']);
+        $poDetails = PurchaseOrderDetail::query()
+            ->where('kategori', 'produk')
+            ->whereHas('purchaseOrder', function ($query) {
+                $query->whereIn('status', ['dikirim', 'diterima']);
+            })
+            ->latest('id')
+            ->get();
 
-        return $rows
-            ->unique(fn (Pengeluaran $pengeluaran) => (int) $pengeluaran->produk_id)
-            ->mapWithKeys(fn (Pengeluaran $pengeluaran) => [
-                (int) $pengeluaran->produk_id => (float) ($pengeluaran->harga_beli ?? 0),
-            ]);
+        $map = collect();
+        $produks = Produk::all();
+
+        foreach ($poDetails as $detail) {
+            $cleanNama = explode(' - ', $detail->nama_item)[0];
+            $matchedProduk = $produks->first(function (Produk $p) use ($cleanNama, $detail) {
+                return str_contains(strtolower($p->nama), strtolower($cleanNama))
+                    || str_contains(strtolower($detail->nama_item), strtolower($p->nama));
+            });
+
+            if ($matchedProduk && !$map->has($matchedProduk->id)) {
+                if ($normalizedIds->isEmpty() || $normalizedIds->contains($matchedProduk->id)) {
+                    $map->put($matchedProduk->id, (float) $detail->harga_satuan);
+                }
+            }
+        }
+
+        return $map;
     }
 }

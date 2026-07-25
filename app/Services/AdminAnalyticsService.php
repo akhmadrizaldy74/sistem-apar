@@ -2,38 +2,25 @@
 
 namespace App\Services;
 
-use App\Models\Pengeluaran;
-use App\Models\UnitApar;
+use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderDetail;
 use App\Support\RegisteredRefillUnitSupport;
+use App\Models\UnitApar;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
 class AdminAnalyticsService
 {
-    private const REVENUE_LABELS = [
-        'Penjualan Produk',
-        'Service APAR',
-        'Refill APAR',
-    ];
+    private const REVENUE_LABELS = ['Penjualan Produk', 'Layanan Service', 'Isi Ulang APAR'];
 
-    private const REVENUE_COLORS = [
-        '#ef4444',
-        '#2563eb',
-        '#f59e0b',
-    ];
+    private const REVENUE_COLORS = ['#2563eb', '#8b5cf6', '#d97706'];
 
-    private const UNIT_STATUS_LABELS = [
-        'Aman',
-        'Hampir Expired',
-        'Expired',
-    ];
+    private const UNIT_STATUS_LABELS = ['Stok Normal', 'Mendekati Expired', 'Sudah Expired'];
 
-    private const UNIT_STATUS_COLORS = [
-        '#10b981',
-        '#f59e0b',
-        '#dc2626',
-    ];
+    private const UNIT_STATUS_COLORS = ['#10b981', '#f59e0b', '#ef4444'];
+
+    private const EXPENSE_COLORS = ['#dc2626', '#d97706', '#2563eb', '#8b5cf6', '#64748b'];
 
     private const MONTH_LABELS = [
         1 => 'Januari',
@@ -63,29 +50,6 @@ class AdminAnalyticsService
         10 => 'Okt',
         11 => 'Nov',
         12 => 'Des',
-    ];
-
-    private const PURCHASE_FALLBACK = [
-        1 => 500000.0,
-        2 => 800000.0,
-        3 => 600000.0,
-        4 => 1000000.0,
-        5 => 700000.0,
-        6 => 1200000.0,
-        7 => 900000.0,
-        8 => 1400000.0,
-        9 => 1100000.0,
-        10 => 1600000.0,
-        11 => 1300000.0,
-        12 => 1800000.0,
-    ];
-
-    private const EXPENSE_COLORS = [
-        '#ef4444',
-        '#f97316',
-        '#f59e0b',
-        '#fb7185',
-        '#94a3b8',
     ];
 
     public function __construct(private readonly FinalRevenueService $finalRevenue)
@@ -136,22 +100,14 @@ class AdminAnalyticsService
         $year = (int) $referenceDate->year;
         $monthlyTotals = array_fill(1, 12, 0.0);
 
-        Pengeluaran::query()
-            ->whereIn('jenis_pengeluaran', [
-                Pengeluaran::JENIS_PEMBELIAN_APAR,
-                Pengeluaran::JENIS_PEMBELIAN_REFILL,
-                Pengeluaran::JENIS_PEMBELIAN_PERALATAN,
-            ])
-            ->whereYear('tanggal', $year)
-            ->get(['tanggal', 'nominal', 'total'])
-            ->each(function (Pengeluaran $pengeluaran) use (&$monthlyTotals): void {
-                $month = (int) optional($pengeluaran->tanggal)->format('n');
-
-                if ($month < 1 || $month > 12) {
-                    return;
+        PurchaseOrder::query()
+            ->whereYear('tanggal_po', $year)
+            ->get()
+            ->each(function (PurchaseOrder $po) use (&$monthlyTotals) {
+                $month = (int) Carbon::parse($po->tanggal_po ?: $po->created_at)->month;
+                if ($month >= 1 && $month <= 12) {
+                    $monthlyTotals[$month] += (float) $po->total;
                 }
-
-                $monthlyTotals[$month] += (float) $pengeluaran->effective_amount;
             });
 
         $hasRealData = collect($monthlyTotals)->contains(fn (float $total) => $total > 0);
@@ -171,16 +127,23 @@ class AdminAnalyticsService
         ];
     }
 
-    public function expenseBreakdown(Collection $pengeluarans): array
+    public function expenseBreakdown(Collection $purchaseOrders): array
     {
-        $amounts = $pengeluarans
-            ->groupBy(fn (Pengeluaran $pengeluaran) => $pengeluaran->jenis_pengeluaran_label)
-            ->map(fn (Collection $items) => (float) $items->sum('effective_amount'))
+        $amounts = PurchaseOrderDetail::query()
+            ->whereHas('purchaseOrder', function ($q) use ($purchaseOrders) {
+                if ($purchaseOrders->isNotEmpty()) {
+                    $q->whereIn('id', $purchaseOrders->pluck('id'));
+                }
+            })
+            ->get()
+            ->groupBy('kategori')
+            ->map(fn (Collection $items) => (float) $items->sum('subtotal'))
             ->sortDesc();
+
         $lastExpenseColor = self::EXPENSE_COLORS[count(self::EXPENSE_COLORS) - 1];
 
         return [
-            'labels' => $amounts->keys()->values()->all(),
+            'labels' => $amounts->keys()->map(fn ($k) => ucfirst($k))->values()->all(),
             'series' => $amounts->values()->all(),
             'colors' => collect(self::EXPENSE_COLORS)
                 ->pad(max($amounts->count(), count(self::EXPENSE_COLORS)), $lastExpenseColor)
@@ -206,11 +169,10 @@ class AdminAnalyticsService
             $end = $month->copy()->endOfMonth()->toDateString();
             $breakdown = $this->finalRevenue->breakdown($start, $end, $pelangganId);
 
-            $expense = (float) (Pengeluaran::query()
-                ->whereYear('tanggal', $month->year)
-                ->whereMonth('tanggal', $month->month)
-                ->selectRaw('COALESCE(SUM('.Pengeluaran::effectiveAmountSql().'), 0) as total_pengeluaran')
-                ->value('total_pengeluaran') ?? 0);
+            $expense = (float) (PurchaseOrder::query()
+                ->whereYear('tanggal_po', $month->year)
+                ->whereMonth('tanggal_po', $month->month)
+                ->sum('total') ?? 0);
 
             $labels[] = $month->translatedFormat('M Y');
             $incomeSeries[] = (float) ($breakdown['total'] ?? 0);

@@ -7,7 +7,6 @@ use App\Models\Complain;
 use App\Models\Pelanggan;
 use App\Models\Pesanan;
 use App\Models\Produk;
-use App\Models\Refill;
 use App\Models\Service;
 use App\Models\UnitApar;
 use App\Models\User;
@@ -203,9 +202,11 @@ class DashboardController extends Controller
                     ->latest('tgl_service')
                     ->take(5)
                     ->get(),
-                'refills' => Refill::query()
-                    ->with(['unitApar.pelanggan', 'jenisRefill', 'service.pesanan.pelanggan'])
-                    ->latest('tgl_refill')
+                'refills' => Pesanan::query()
+                    ->with(['pelanggan', 'serviceJenisRefill'])
+                    ->where('tipe', 'service')
+                    ->where('service_jenis_layanan', 'refill')
+                    ->latest('tanggal')
                     ->take(5)
                     ->get(),
                 'payments' => (clone $paidProductOrders)

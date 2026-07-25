@@ -34,31 +34,31 @@
 @endphp
 
 <tr class="transition-colors hover:bg-gray-50/50">
-    <td class="px-7 py-6 align-top whitespace-nowrap">
-        <p class="text-[15px] font-bold leading-6 text-gray-900">{{ $pesanan->displayTransactionDateTime() }}</p>
+    <td class="px-6 py-5 align-top whitespace-nowrap">
+        <p class="text-[14px] font-bold leading-6 text-gray-900">{{ $pesanan->displayTransactionDateTime() }}</p>
     </td>
-    <td class="px-7 py-6 align-top">
-        <p class="text-[15px] font-black leading-6 text-gray-900">{{ $pesanan->pelanggan?->nama ?? '-' }}</p>
-        <p class="mt-1 text-[13px] font-semibold leading-5 text-gray-500 break-all">{{ $pesanan->pelanggan?->no_wa ?? '-' }}</p>
+    <td class="px-6 py-5 align-top whitespace-nowrap">
+        <p class="text-[14px] font-black leading-6 text-gray-900">{{ $pesanan->pelanggan?->nama ?? '-' }}</p>
+        <p class="mt-1 text-[12px] font-semibold leading-5 text-gray-500">{{ $pesanan->pelanggan?->no_wa ?? '-' }}</p>
     </td>
-    <td class="px-7 py-6 align-top whitespace-nowrap">
+    <td class="px-6 py-5 align-top whitespace-nowrap">
         <span class="inline-flex rounded-full px-3 py-1.5 text-[11px] font-black leading-none {{ $pesanan->adminOrderTypeBadgeClasses() }}">
             {{ $pesanan->adminOrderTypeLabel() }}
         </span>
     </td>
-    <td class="px-7 py-6 align-top">
-        <p class="max-w-[320px] break-words text-[15px] font-black leading-6 text-gray-900">{{ $pesanan->adminOrderDetailTitle() }}</p>
-        <p class="mt-1 text-[13px] font-semibold leading-5 text-gray-500">{{ $pesanan->adminOrderDetailMeta() }}</p>
+    <td class="px-6 py-5 align-top min-w-[220px]">
+        <p class="text-[14px] font-black leading-6 text-gray-900 break-words">{{ $pesanan->adminOrderDetailTitle() }}</p>
+        <p class="mt-1 text-[12px] font-semibold leading-5 text-gray-500 break-words">{{ $pesanan->adminOrderDetailMeta() }}</p>
     </td>
-    <td class="px-7 py-6 align-top whitespace-nowrap">
-        <span class="text-[15px] font-black leading-6 text-gray-900">Rp {{ number_format((float) ($pricingSummary['totalPembayaran'] ?? 0), 0, ',', '.') }}</span>
+    <td class="px-6 py-5 align-top whitespace-nowrap">
+        <span class="text-[14px] font-black leading-6 text-gray-900">Rp {{ number_format((float) ($pricingSummary['totalPembayaran'] ?? 0), 0, ',', '.') }}</span>
     </td>
-    <td class="px-7 py-6 align-top">
+    <td class="px-6 py-5 align-top whitespace-nowrap">
         <span class="inline-flex rounded-full px-3 py-1.5 text-[11px] font-black leading-none {{ $pesanan->adminStatusBadgeClasses() }}">
             {{ $pesanan->adminStatusLabel() }}
         </span>
     </td>
-    <td class="w-[228px] min-w-[228px] px-7 py-6 align-top text-right overflow-visible">
+    <td class="px-6 py-5 align-top text-right whitespace-nowrap min-w-[200px]">
         <div class="ml-auto grid max-w-[196px] grid-cols-2 gap-2 overflow-visible">
             @if($proofUrl)
                 <button

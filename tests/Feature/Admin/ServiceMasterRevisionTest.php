@@ -43,10 +43,9 @@ class ServiceMasterRevisionTest extends TestCase
         $peralatanResponse = $this->actingAs($admin)->get(route('admin.peralatan.index'));
 
         $peralatanResponse->assertOk();
-        $peralatanResponse->assertSeeText('Service & Peralatan');
+        $peralatanResponse->assertSeeText('Peralatan');
         $peralatanResponse->assertSeeText('Data Layanan');
-        $peralatanResponse->assertSeeText('Jenis Service');
-        $peralatanResponse->assertSeeText('Peralatan Service');
+        $peralatanResponse->assertSeeText('Daftar Peralatan Service');
         $peralatanResponse->assertSeeText('Safety Pin APAR');
         $peralatanResponse->assertSeeText('Selang APAR Powder/Foam');
         $peralatanResponse->assertSeeText('Baut Bracket APAR');
@@ -60,13 +59,12 @@ class ServiceMasterRevisionTest extends TestCase
             'harga_standar' => 10000,
         ]);
 
-        $serviceResponse = $this->actingAs($admin)->get(route('admin.service-paket.index'));
+        $serviceResponse = $this->actingAs($admin)->get(route('admin.jasa.index', ['tab' => 'jenis-service']));
 
         $serviceResponse->assertOk();
-        $serviceResponse->assertSeeText('Service & Peralatan');
+        $serviceResponse->assertSeeText('Manajemen Jasa');
         $serviceResponse->assertSeeText('Data Layanan');
         $serviceResponse->assertSeeText('Jenis Service');
-        $serviceResponse->assertSeeText('Peralatan Service');
         $serviceResponse->assertSeeText('Service Ringan');
         $serviceResponse->assertSeeText('Ganti Selang Powder/Foam');
         $serviceResponse->assertSeeText('Ganti Selang CO2');

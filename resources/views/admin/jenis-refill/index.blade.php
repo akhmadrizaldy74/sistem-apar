@@ -48,7 +48,7 @@
                 <div class="mt-4 p-4 bg-gray-50 rounded-lg">
                     <p class="text-sm text-gray-500">
                         <strong>Catatan:</strong> Stok refill dikelola melalui menu <a href="{{ route('admin.stok.index', ['tab' => 'refill']) }}" class="text-blue-600 hover:underline">Stok</a>.
-                        Penambahan stok dilakukan saat mencatat <a href="{{ route('admin.pengeluaran.index') }}" class="text-blue-600 hover:underline">Pembelian Refill</a>, dan harga acuan master otomatis mengikuti harga beli terakhir yang disimpan.
+                        Penambahan stok dilakukan saat mencatat <a href="{{ route('admin.purchase-orders.create', ['kategori' => 'refill']) }}" class="text-blue-600 hover:underline">Pembelian Refill</a>, dan harga acuan master otomatis mengikuti harga beli terakhir yang disimpan.
                     </p>
                 </div>
             </div>

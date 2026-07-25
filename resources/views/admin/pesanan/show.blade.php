@@ -52,6 +52,9 @@
                             @endif">
                             {{ $pesanan->publicStatusLabel() }}
                         </span>
+                        <span class="inline-block mt-3 ml-2 px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider {{ $pesanan->adminOrderTypeBadgeClasses() }}">
+                            {{ $pesanan->adminOrderTypeLabel() }}
+                        </span>
                         @if($purchasePriceLabel)
                             <span class="inline-block mt-3 ml-2 px-3 py-1 text-xs font-bold rounded-full {{ $pesanan->purchasePriceStatusClasses() }}">
                                 {{ $purchasePriceLabel }}
@@ -84,33 +87,67 @@
                     @endif
                 </div>
 
-                @if($pesanan->tipe === 'produk')
-                <div class="mt-10 overflow-x-auto">
-                    <table class="w-full text-left">
-                        <thead class="bg-gray-50/70">
-                            <tr>
-                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Produk</th>
-                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Jumlah</th>
-                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Harga</th>
-                                <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($pesanan->details as $detail)
-                                <tr class="border-b border-gray-100">
-                                    <td class="px-6 py-6 border-b border-gray-50">
-                                        <p class="text-sm font-black text-gray-900">{{ $detail->produk?->nama ?? 'Produk Terhapus' }}</p>
-                                        <p class="text-xs font-semibold text-gray-500 mt-1">{{ $detail->produk?->jenisApar?->nama ?? '' }} - {{ $detail->kapasitas }}</p>
-                                    </td>
-                                    <td class="px-6 py-6 border-b border-gray-50 text-sm font-semibold text-gray-600">{{ $detail->jumlah }} unit</td>
-                                    <td class="px-6 py-6 border-b border-gray-50 text-sm font-semibold text-gray-600">Rp {{ number_format($detail->harga, 0, ',', '.') }}</td>
-                                    <td class="px-6 py-6 border-b border-gray-50 text-sm font-black text-red-700">Rp {{ number_format($detail->subtotal, 0, ',', '.') }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                <!-- Detail Item Pesanan (Per Tipe Pesanan) -->
+                <div class="mt-8 border-t border-gray-100 pt-6">
+                    <p class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Rincian {{ $pesanan->adminOrderTypeLabel() }}</p>
+
+                    @if($pesanan->tipe_pesanan_effective === 'jasa' && $pesanan->jasa)
+                        <div class="p-6 rounded-2xl border border-amber-200 bg-amber-50/50 space-y-2">
+                            <div class="flex items-center justify-between">
+                                <p class="text-lg font-black text-slate-900">{{ $pesanan->jasa->nama_jasa }}</p>
+                                <p class="text-lg font-black text-amber-700">Rp {{ number_format($pesanan->jasa->harga, 0, ',', '.') }}</p>
+                            </div>
+                            <p class="text-sm font-semibold text-slate-600">{{ $pesanan->jasa->deskripsi ?: 'Tidak ada deskripsi layanan jasa.' }}</p>
+                            <span class="inline-block px-3 py-1 bg-amber-100 text-amber-800 text-[10px] font-black uppercase tracking-wider rounded-full mt-2">
+                                Layanan Jasa Aktif
+                            </span>
+                        </div>
+                    @elseif($pesanan->tipe_pesanan_effective === 'refill' && $pesanan->unitApar)
+                        <div class="p-6 rounded-2xl border border-emerald-200 bg-emerald-50/50 space-y-2">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-base font-black text-slate-900">Unit APAR No Seri: {{ $pesanan->unitApar->no_seri }}</p>
+                                    <p class="text-xs font-bold text-slate-500 mt-1">Merek: {{ $pesanan->unitApar->merek }} | Ukuran: {{ $pesanan->unitApar->kapasitas }}</p>
+                                </div>
+                                <p class="text-lg font-black text-emerald-700">Rp {{ number_format($pesanan->total_harga ?: $pesanan->total, 0, ',', '.') }}</p>
+                            </div>
+                            <p class="text-xs font-semibold text-slate-600 mt-2">Lokasi Penempatan: {{ $pesanan->unitApar->lokasi ?: '-' }}</p>
+                            <span class="inline-block px-3 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase tracking-wider rounded-full mt-2">
+                                Refill Unit APAR Pelanggan
+                            </span>
+                        </div>
+                    @else
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left">
+                                <thead class="bg-gray-50/70">
+                                    <tr>
+                                        <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Produk</th>
+                                        <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Jumlah</th>
+                                        <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Harga</th>
+                                        <th class="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($pesanan->details as $detail)
+                                        <tr class="border-b border-gray-100">
+                                            <td class="px-6 py-6 border-b border-gray-50">
+                                                <p class="text-sm font-black text-gray-900">{{ $detail->produk?->nama ?? 'Produk Terhapus' }}</p>
+                                                <p class="text-xs font-semibold text-gray-500 mt-1">{{ $detail->produk?->jenisApar?->nama ?? '' }} - {{ $detail->kapasitas }}</p>
+                                            </td>
+                                            <td class="px-6 py-6 border-b border-gray-50 text-sm font-semibold text-gray-600">{{ $detail->jumlah }} unit</td>
+                                            <td class="px-6 py-6 border-b border-gray-50 text-sm font-semibold text-gray-600">Rp {{ number_format($detail->harga, 0, ',', '.') }}</td>
+                                            <td class="px-6 py-6 border-b border-gray-50 text-sm font-black text-red-700">Rp {{ number_format($detail->subtotal, 0, ',', '.') }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="4" class="px-6 py-4 text-sm font-semibold text-gray-500">Rincian produk tidak tersedia. Total: Rp {{ number_format($pesanan->total_harga ?: $pesanan->total, 0, ',', '.') }}</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
                 </div>
-                @endif
 
                 @if($pesanan->keterangan)
                 <div class="mt-6 p-4 bg-gray-50 rounded-2xl border border-gray-100 text-sm text-gray-700">

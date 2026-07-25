@@ -13,6 +13,8 @@ class StokBatch extends Model
         'tgl_produksi',
         'tgl_expired',
         'keterangan',
+        'sumber',
+        'purchase_order_id',
     ];
 
     protected $casts = [
@@ -23,6 +25,11 @@ class StokBatch extends Model
     public function produk()
     {
         return $this->belongsTo(Produk::class);
+    }
+
+    public function purchaseOrder()
+    {
+        return $this->belongsTo(PurchaseOrder::class);
     }
 
     public function tugasRefills()

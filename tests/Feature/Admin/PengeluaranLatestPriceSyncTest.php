@@ -137,7 +137,7 @@ class PengeluaranLatestPriceSyncTest extends TestCase
         $productPage = $this->actingAs($admin)->get(route('admin.produk.index'));
 
         $productPage->assertOk();
-        $productPage->assertSeeText('Acuan beli terakhir: Rp 1.250.000');
+        $productPage->assertSeeText('Beli Terakhir: Rp 1.250.000');
         $this->assertSame(
             1250000.0,
             (float) $productPage->viewData('productPurchaseReferencePrices')->get($produk->id)

@@ -134,7 +134,7 @@
                         <p class="text-xs font-semibold text-gray-500">Pantau semua stok APAR, fokuskan ke produk yang hampir expired atau sudah expired, lalu perbarui masa berlakunya tanpa menambah stok.</p>
                     </div>
                     <div class="flex items-center gap-3">
-                        <a href="{{ route('admin.pengeluaran.index', ['open' => 1, 'jenis_pengeluaran' => \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR]) }}" class="inline-flex items-center gap-2 rounded-xl bg-red-700 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-red-700/20 transition hover:bg-red-800">
+                        <a href="{{ route('admin.purchase-orders.create', ['kategori' => 'produk']) }}" class="inline-flex items-center gap-2 rounded-xl bg-red-700 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-red-700/20 transition hover:bg-red-800">
                             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" /></svg>
                             Catat Pembelian APAR
                         </a>
@@ -204,7 +204,7 @@
                                                 </button>
                                             @endif
                                             @if($row['can_add_stock'])
-                                                <a href="{{ route('admin.pengeluaran.index', ['open' => 1, 'jenis_pengeluaran' => \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR, 'produk_id' => $row['product_id']]) }}" class="rounded-xl bg-red-700 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-red-800">
+                                                <a href="{{ route('admin.purchase-orders.create', ['kategori' => 'produk', 'produk_id' => $row['product_id']]) }}" class="rounded-xl bg-red-700 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-red-800">
                                                     Tambah Stok
                                                 </a>
                                             @else
@@ -217,7 +217,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="8" class="px-8 py-12 text-center text-sm font-semibold text-gray-500">Tidak ada produk APAR yang cocok dengan filter saat ini.</td>
+                                    <td colspan="9" class="px-8 py-12 text-center text-sm font-semibold text-gray-500">Tidak ada produk APAR yang cocok dengan filter saat ini.</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -229,10 +229,10 @@
                 <div class="flex items-center justify-between border-b border-gray-100 px-8 py-5">
                     <div>
                         <h3 class="text-lg font-black text-gray-900">Stok Refill</h3>
-                        <p class="text-xs font-semibold text-gray-500">Pantau stok berdasarkan Jenis Refill. Penambahan stok dilakukan lewat transaksi pembelian di menu Pengeluaran.</p>
+                        <p class="text-xs font-semibold text-gray-500">Pantau stok berdasarkan Jenis Refill. Penambahan stok dilakukan lewat transaksi pembelian di menu Pembelian.</p>
                     </div>
                     <div class="flex items-center gap-4">
-                        <a href="{{ route('admin.pengeluaran.index', ['open' => 1, 'jenis_pengeluaran' => \App\Models\Pengeluaran::JENIS_PEMBELIAN_REFILL]) }}" class="text-xs font-black uppercase tracking-widest text-red-600 hover:text-red-700">Catat Pembelian</a>
+                        <a href="{{ route('admin.purchase-orders.create', ['kategori' => 'refill']) }}" class="text-xs font-black uppercase tracking-widest text-red-600 hover:text-red-700">Catat Pembelian</a>
                         <a href="{{ route('admin.refill.index') }}" class="text-xs font-black uppercase tracking-widest text-gray-500 hover:text-gray-700">Riwayat Refill</a>
                     </div>
                 </div>
@@ -286,7 +286,7 @@
                         <a href="{{ route('admin.peralatan.index') }}" class="rounded-xl bg-gray-100 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-gray-700 transition hover:bg-gray-200">
                             Kelola Peralatan
                         </a>
-                        <a href="{{ route('admin.pengeluaran.index', ['open' => 1, 'jenis_pengeluaran' => \App\Models\Pengeluaran::JENIS_PEMBELIAN_PERALATAN]) }}" class="rounded-xl bg-red-700 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-red-700/20 transition hover:bg-red-800">
+                        <a href="{{ route('admin.purchase-orders.create', ['kategori' => 'peralatan']) }}" class="rounded-xl bg-red-700 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-red-700/20 transition hover:bg-red-800">
                             Catat Pembelian
                         </a>
                     </div>
@@ -318,7 +318,7 @@
                                         </span>
                                     </td>
                                     <td class="px-8 py-5 text-sm font-semibold text-gray-500">
-                                        Stok peralatan dikelola lewat pembelian di menu Pengeluaran.
+                                        Stok peralatan dikelola lewat pembelian di menu Pembelian.
                                     </td>
                                 </tr>
                             @empty
@@ -437,6 +437,34 @@
                             <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Status Lama</p>
                             <p class="mt-1 text-sm font-black text-gray-900" x-text="selectedExpiryItem?.status_label || '-'"></p>
                         </div>
+                    </div>
+
+                    <!-- Informasi Sumber Stok -->
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 space-y-2">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Informasi Sumber Stok</p>
+                        <template x-if="selectedExpiryItem?.sumber === 'purchase_order' && selectedExpiryItem?.purchase_order_id">
+                            <div class="space-y-1.5 text-xs">
+                                <div class="flex items-center gap-2">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 font-black text-[10px] uppercase tracking-wider">
+                                        Purchase Order
+                                    </span>
+                                    <span class="font-bold text-slate-700">Ditambahkan dari Purchase Order</span>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-200/60 font-semibold text-slate-700">
+                                    <div>No. PO: <a :href="'/admin/purchase-orders/' + selectedExpiryItem.purchase_order_id" class="font-black text-blue-600 hover:underline" x-text="selectedExpiryItem.po_nomor || '-'"></a></div>
+                                    <div>Tanggal PO: <span class="font-bold text-slate-900" x-text="selectedExpiryItem.po_tanggal || '-'"></span></div>
+                                    <div class="sm:col-span-2">Supplier: <span class="font-bold text-slate-900" x-text="selectedExpiryItem.po_supplier_nama || '-'"></span></div>
+                                </div>
+                            </div>
+                        </template>
+                        <template x-if="!selectedExpiryItem?.sumber || selectedExpiryItem?.sumber === 'manual'">
+                            <div class="flex items-center gap-2">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700 font-black text-[10px] uppercase tracking-wider">
+                                    Manual
+                                </span>
+                                <span class="text-xs font-bold text-slate-700">Ditambahkan secara manual</span>
+                            </div>
+                        </template>
                     </div>
 
                     <div class="grid gap-4 sm:grid-cols-2">

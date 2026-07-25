@@ -18,6 +18,9 @@ use App\Http\Controllers\Admin\ComplainController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\AdminRealtimeController;
 use App\Http\Controllers\Admin\TestimoniController;
+use App\Http\Controllers\Admin\SupplierController;
+use App\Http\Controllers\Admin\PurchaseOrderController;
+use App\Http\Controllers\Admin\JasaController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\KeranjangController;
 use App\Http\Controllers\LandingPageController;
@@ -105,11 +108,13 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/laporan/pdf', [LaporanController::class, 'indexPdf'])->name('laporan.index.pdf');
     Route::get('/laporan/apar', [LaporanController::class, 'apar'])->name('laporan.apar');
     Route::get('/laporan/penjualan', [LaporanController::class, 'penjualan'])->name('laporan.penjualan');
+    Route::get('/laporan/pembelian', [LaporanController::class, 'pembelian'])->name('laporan.pembelian');
     Route::get('/laporan/pesanan', [LaporanController::class, 'pesanan'])->name('laporan.pesanan');
     Route::get('/laporan/service', [LaporanController::class, 'service'])->name('laporan.service');
     Route::get('/laporan/keuangan', [LaporanController::class, 'keuangan'])->name('laporan.keuangan');
     Route::get('/laporan/apar/pdf', [LaporanController::class, 'aparPdf'])->name('laporan.apar.pdf');
     Route::get('/laporan/penjualan/pdf', [LaporanController::class, 'penjualanPdf'])->name('laporan.penjualan.pdf');
+    Route::get('/laporan/pembelian/pdf', [LaporanController::class, 'pembelianPdf'])->name('laporan.pembelian.pdf');
     Route::get('/laporan/pesanan/pdf', [LaporanController::class, 'pesananPdf'])->name('laporan.pesanan.pdf');
     Route::get('/laporan/service/pdf', [LaporanController::class, 'servicePdf'])->name('laporan.service.pdf');
     Route::get('/laporan/keuangan/pdf', [LaporanController::class, 'keuanganPdf'])->name('laporan.keuangan.pdf');
@@ -162,6 +167,21 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::put('/testimoni/{testimoni}', [TestimoniController::class, 'update'])->name('testimoni.update');
     Route::delete('/testimoni/{testimoni}', [TestimoniController::class, 'destroy'])->name('testimoni.destroy');
 
+    // Supplier
+    Route::resource('suppliers', SupplierController::class);
+
+    // Purchase Order
+    Route::get('purchase-orders/get-items/{kategori}', [PurchaseOrderController::class, 'getItems'])->name('purchase-orders.get-items');
+    Route::resource('purchase-orders', PurchaseOrderController::class);
+    Route::match(['get', 'post'], 'purchase-orders/{id}/kirim', [PurchaseOrderController::class, 'kirim'])->name('purchase-orders.kirim');
+    Route::get('purchase-orders/{id}/surat-jalan', [PurchaseOrderController::class, 'inputSuratJalan'])->name('purchase-orders.surat-jalan');
+    Route::post('purchase-orders/{id}/surat-jalan', [PurchaseOrderController::class, 'simpanSuratJalan'])->name('purchase-orders.simpan-surat-jalan');
+    Route::match(['get', 'post'], 'purchase-orders/{id}/terima', [PurchaseOrderController::class, 'konfirmasiTerima'])->name('purchase-orders.terima');
+    Route::get('purchase-orders/{id}/pdf', [PurchaseOrderController::class, 'cetakPDF'])->name('purchase-orders.pdf');
+    Route::get('purchase-orders/{id}/wa', [PurchaseOrderController::class, 'kirimWA'])->name('purchase-orders.wa');
+
+    // Manajemen Jasa
+    Route::resource('jasa', JasaController::class);
 });
 
 Route::middleware('auth')->group(function () {

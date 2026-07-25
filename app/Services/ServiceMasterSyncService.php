@@ -36,13 +36,10 @@ class ServiceMasterSyncService
     {
         $this->sync();
 
-        $orderMap = ServiceMasterCatalog::servicePackageOrderMap();
-
         return ServicePaket::query()
             ->with($relations)
-            ->whereIn('nama', ServiceMasterCatalog::canonicalServicePackageNames())
             ->get()
-            ->sortBy(fn (ServicePaket $paket) => $orderMap[$paket->nama] ?? PHP_INT_MAX)
+            ->sortBy('id')
             ->values();
     }
 

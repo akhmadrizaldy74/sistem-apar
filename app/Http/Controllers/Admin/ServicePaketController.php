@@ -15,17 +15,9 @@ use Illuminate\Validation\Rule;
 
 class ServicePaketController extends Controller
 {
-    public function index(ServiceMasterSyncService $serviceMasterSyncService)
+    public function index()
     {
-        $servicePakets = $serviceMasterSyncService->visibleServicePakets(['jenisRefill', 'peralatans'])
-            ->loadCount('services');
-        $peralatans = $serviceMasterSyncService->visiblePeralatans();
-
-        return view('admin.peralatan.index', [
-            'servicePakets' => $servicePakets,
-            'peralatans' => $peralatans,
-            'activeTab' => 'jenis-service',
-        ]);
+        return redirect()->route('admin.jasa.index');
     }
 
     public function create(ServiceMasterSyncService $serviceMasterSyncService)
@@ -48,8 +40,8 @@ class ServicePaketController extends Controller
         });
 
         return redirect()
-            ->route('admin.service-paket.index')
-            ->with('success', 'Paket service berhasil ditambahkan.');
+            ->route('admin.jasa.index')
+            ->with('success', 'Jasa / Service berhasil ditambahkan.');
     }
 
     public function edit(ServicePaket $servicePaket, ServiceMasterSyncService $serviceMasterSyncService)
@@ -78,22 +70,22 @@ class ServicePaketController extends Controller
         });
 
         return redirect()
-            ->route('admin.service-paket.index')
-            ->with('success', 'Paket service berhasil diperbarui.');
+            ->route('admin.jasa.index')
+            ->with('success', 'Jasa / Service berhasil diperbarui.');
     }
 
     public function destroy(ServicePaket $servicePaket)
     {
         if ($servicePaket->services()->exists()) {
-            return back()->with('error', 'Paket service sudah dipakai transaksi dan tidak bisa dihapus.');
+            return back()->with('error', 'Layanan jasa / service ini sudah dipakai transaksi dan tidak bisa dihapus.');
         }
 
         $servicePaket->peralatans()->detach();
         $servicePaket->delete();
 
         return redirect()
-            ->route('admin.service-paket.index')
-            ->with('success', 'Paket service berhasil dihapus.');
+            ->route('admin.jasa.index')
+            ->with('success', 'Jasa / Service berhasil dihapus.');
     }
 
     private function validateRequest(Request $request, ?ServicePaket $servicePaket = null): array

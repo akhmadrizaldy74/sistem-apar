@@ -296,14 +296,6 @@ class UnitAparTest extends TestCase
             'tgl_selesai_admin' => '2026-06-21 10:30:00',
         ]);
 
-        Refill::create([
-            'service_id' => $refillService->id,
-            'unit_apar_id' => $unit->id,
-            'jenis_refill_id' => $jenisRefill->id,
-            'tgl_refill' => '2026-06-21',
-            'biaya' => 120000,
-        ]);
-
         $serviceOrder = Pesanan::create([
             'pelanggan_id' => $pelanggan->id,
             'user_id' => $pelanggan->user_id,

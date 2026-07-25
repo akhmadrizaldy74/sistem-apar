@@ -143,6 +143,9 @@ class Pesanan extends Model
         'teknisi_catatan',
         'stok_dikurangi',
         'hidden_from_pesanan_at',
+        'tipe_pesanan',
+        'jasa_id',
+        'unit_apar_id',
     ];
 
     protected $casts = [
@@ -548,6 +551,51 @@ class Pesanan extends Model
         return $this->belongsTo(JenisRefill::class, 'service_jenis_refill_id');
     }
 
+    public function jasa()
+    {
+        return $this->belongsTo(Jasa::class);
+    }
+
+    public function unitApar()
+    {
+        return $this->belongsTo(UnitApar::class);
+    }
+
+    public function getTipePesananEffectiveAttribute(): string
+    {
+        if (!empty($this->attributes['tipe_pesanan'])) {
+            return $this->attributes['tipe_pesanan'];
+        }
+
+        $rawTipe = strtolower((string) ($this->attributes['tipe'] ?? 'produk'));
+        if (in_array($rawTipe, ['refill', 'isi_ulang'], true)) {
+            return 'refill';
+        }
+        if (in_array($rawTipe, ['jasa', 'service', 'layanan'], true)) {
+            return 'jasa';
+        }
+
+        return 'jual_produk';
+    }
+
+    public function getTipePesananLabelAttribute(): string
+    {
+        return match ($this->tipe_pesanan_effective) {
+            'refill' => 'Refill',
+            'jasa' => 'Jasa Service',
+            default => 'Jual Produk',
+        };
+    }
+
+    public function getTipePesananBadgeClassAttribute(): string
+    {
+        return match ($this->tipe_pesanan_effective) {
+            'refill' => 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+            'jasa' => 'bg-amber-50 text-amber-700 border border-amber-200',
+            default => 'bg-blue-50 text-blue-700 border border-blue-200',
+        };
+    }
+
     public function unitApars()
     {
         return $this->hasMany(UnitApar::class);
@@ -657,28 +705,29 @@ class Pesanan extends Model
 
     public function adminOrderTypeLabel(): string
     {
-        if ($this->isRefillOrder()) {
-            return 'Refill APAR';
-        }
+        return match ($this->tipe_pesanan_effective) {
+            'refill' => 'Refill',
+            'jasa' => 'Jasa Service',
+            default => 'Jual Produk',
+        };
+    }
 
-        if ($this->isServiceOrder()) {
-            return 'Service APAR';
-        }
-
-        return 'Pembelian Unit';
+    public function adminOrderTypeBadgeClasses(): string
+    {
+        return match ($this->tipe_pesanan_effective) {
+            'refill' => 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+            'jasa' => 'bg-amber-50 text-amber-700 border border-amber-200',
+            default => 'bg-blue-50 text-blue-700 border border-blue-200',
+        };
     }
 
     public function adminDestroyTypeSlug(): string
     {
-        if ($this->isRefillOrder()) {
-            return 'refill-apar';
-        }
-
-        if ($this->isServiceOrder()) {
-            return 'service-apar';
-        }
-
-        return 'pembelian-unit';
+        return match ($this->tipe_pesanan_effective) {
+            'refill' => 'refill-apar',
+            'jasa' => 'service-apar',
+            default => 'pembelian-unit',
+        };
     }
 
     public function matchesAdminDestroyType(string $jenis): bool
@@ -686,37 +735,17 @@ class Pesanan extends Model
         return trim(mb_strtolower($jenis)) === $this->adminDestroyTypeSlug();
     }
 
-    public function adminOrderTypeBadgeClasses(): string
-    {
-        if ($this->isRefillOrder()) {
-            return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-        }
-
-        if ($this->isServiceOrder()) {
-            return 'bg-violet-50 text-violet-700 border border-violet-200';
-        }
-
-        return 'bg-red-50 text-red-700 border border-red-200';
-    }
-
-    public function adminOrderUnitCount(): int
-    {
-        if ($this->isProductOrder()) {
-            return (int) $this->details->sum('jumlah');
-        }
-
-        $serviceUnitCount = (int) ($this->service_jumlah_unit ?? 0);
-        if ($serviceUnitCount > 0) {
-            return $serviceUnitCount;
-        }
-
-        $display = $this->serviceUnitDisplay();
-        return max(1, (int) ($display['quantity'] ?? 1));
-    }
-
     public function adminOrderDetailTitle(): string
     {
-        if ($this->isProductOrder()) {
+        if ($this->tipe_pesanan_effective === 'jasa' && $this->jasa) {
+            return $this->jasa->nama_jasa;
+        }
+
+        if ($this->tipe_pesanan_effective === 'refill' && $this->unitApar) {
+            return 'Unit APAR No Seri: ' . $this->unitApar->no_seri;
+        }
+
+        if ($this->isProductOrder() || $this->details->isNotEmpty()) {
             $firstProduk = $this->details->first();
             $title = $firstProduk?->produk?->nama ?? 'Pembelian Unit';
             $remainingProducts = max(0, $this->details->count() - 1);
@@ -728,46 +757,34 @@ class Pesanan extends Model
             return $title;
         }
 
-        if ($this->tipe === 'service') {
-            $serviceLines = collect($this->servicePricingBreakdown());
-            if ($serviceLines->isNotEmpty()) {
-                $title = (string) ($serviceLines->first()['display_label'] ?? $serviceLines->first()['label'] ?? 'Layanan APAR');
-                $remainingLines = max(0, $serviceLines->count() - 1);
-
-                if ($remainingLines > 0) {
-                    $title .= ' + ' . $remainingLines . ' item';
-                }
-
-                return $title;
-            }
-
-            if ($this->isRefillOrder()) {
-                return $this->serviceJenisRefill?->nama_label ?: 'Refill APAR';
-            }
-
-            return $this->servicePaket?->nama ?: 'Service APAR';
-        }
-
         return 'Layanan APAR';
     }
 
     public function adminOrderDetailMeta(): string
     {
+        if ($this->tipe_pesanan_effective === 'jasa' && $this->jasa) {
+            return 'Harga: Rp ' . number_format((float) $this->jasa->harga, 0, ',', '.');
+        }
+
+        if ($this->tipe_pesanan_effective === 'refill' && $this->unitApar) {
+            return $this->unitApar->merek . ' ' . $this->unitApar->kapasitas . ' (' . ($this->unitApar->lokasi ?: 'Pemilik: ' . ($this->pelanggan?->nama ?? '-')) . ')';
+        }
+
         if ($this->isProductOrder()) {
             return $this->details->count() . ' item • ' . $this->adminOrderUnitCount() . ' unit';
         }
 
-        $parts = [];
-        $unitCount = $this->adminOrderUnitCount();
-        if ($unitCount > 0) {
-            $parts[] = $unitCount . ' unit';
+        return '1 unit';
+    }
+
+    public function adminOrderUnitCount(): int
+    {
+        if ($this->isProductOrder()) {
+            $total = (int) $this->details->sum('jumlah');
+            return max(1, $total);
         }
 
-        if ($this->isRefillOrder() && (float) ($this->service_total_kg ?? 0) > 0) {
-            $parts[] = $this->formatCompactAdminNumber((float) $this->service_total_kg) . ' kg';
-        }
-
-        return implode(' • ', $parts ?: [$unitCount . ' unit']);
+        return 1;
     }
 
     public function adminStatusLabel(): string

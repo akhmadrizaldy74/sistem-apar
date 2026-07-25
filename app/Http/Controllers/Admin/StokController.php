@@ -68,12 +68,11 @@ class StokController extends Controller
     public function storeBatch(Request $request)
     {
         return redirect()
-            ->route('admin.pengeluaran.index', [
-                'open' => 1,
-                'jenis_pengeluaran' => \App\Models\Pengeluaran::JENIS_PEMBELIAN_APAR,
+            ->route('admin.purchase-orders.create', [
+                'kategori' => 'produk',
                 'produk_id' => $request->input('produk_id'),
             ])
-            ->with('error', 'Tambah stok APAR sekarang dilakukan melalui menu Pengeluaran dengan jenis pembelian APAR.');
+            ->with('info', 'Tambah stok APAR dilakukan melalui menu Pembelian dengan membuat Purchase Order.');
     }
 
     public function refillBatch(Request $request, StokBatch $stokBatch)

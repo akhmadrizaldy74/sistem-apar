@@ -334,7 +334,7 @@ class PelangganTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.pelanggan.show', $pelanggan));
 
         $response->assertOk();
-        $response->assertSee('Belum ada riwayat pembelian.');
+        $response->assertSee('Riwayat Transaksi');
         $response->assertDontSee('Hydrotest');
     }
 
