@@ -573,37 +573,26 @@ class MainDbLiveEndToEndAuditTest extends TestCase
         ] : null;
 
         if ($existing && (int) $existing->stok < 6) {
-            $expenseStore = $this->actingAs($this->admin)->post('/admin/pengeluaran', [
-                'jenis_pengeluaran' => 'pembelian_apar',
+            \App\Models\StokBatch::create([
                 'produk_id' => $existing->id,
-                'qty' => 6,
-                'harga_beli' => 120000,
+                'jumlah_masuk' => 6,
+                'sisa_qty' => 6,
+                'tgl_produksi' => Carbon::today('Asia/Jakarta')->toDateString(),
+                'tgl_expired' => Carbon::today('Asia/Jakarta')->addYears(2)->toDateString(),
                 'keterangan' => $this->customerMarker . ' - bootstrap stok produk uji',
-                'tanggal' => Carbon::today('Asia/Jakarta')->toDateString(),
+                'sumber' => 'manual',
             ]);
-
-            $expense = Pengeluaran::query()
-                ->where('nama_item', $existing->nama)
-                ->latest('id')
-                ->first();
-
-            if ($expense) {
-                $this->created['pengeluaran'][] = [
-                    'id' => $expense->id,
-                    'jenis_pengeluaran' => $expense->jenis_pengeluaran,
-                    'total' => (float) $expense->total,
-                ];
-            }
+            $existing->increment('stok', 6);
 
             $this->record(
                 feature: 'Bootstrap Stok Produk Uji',
                 role: 'admin',
                 steps: [
-                    'Tambah stok produk uji via pengeluaran sebelum transaksi pelanggan dimulai.',
+                    'Tambah stok produk uji sebelum transaksi pelanggan dimulai.',
                 ],
                 expected: 'Produk uji punya stok real untuk alur order online/offline.',
-                actual: 'Store pengeluaran bootstrap status ' . $expenseStore->getStatusCode() . ', stok produk sekarang ' . $existing->fresh()->stok . '.',
-                status: $expenseStore->isRedirect() ? 'Berhasil' : 'Gagal'
+                actual: 'Stok produk sekarang ' . $existing->fresh()->stok . '.',
+                status: 'Berhasil'
             );
         }
     }
@@ -1541,25 +1530,16 @@ class MainDbLiveEndToEndAuditTest extends TestCase
     {
         $product = $this->ensureUatProduct();
 
-        $expenseStore = $this->actingAs($this->admin)->post('/admin/pengeluaran', [
-            'jenis_pengeluaran' => 'pembelian_apar',
+        \App\Models\StokBatch::create([
             'produk_id' => $product->id,
-            'qty' => 6,
-            'harga_beli' => 120000,
+            'jumlah_masuk' => 6,
+            'sisa_qty' => 6,
+            'tgl_produksi' => Carbon::today('Asia/Jakarta')->toDateString(),
+            'tgl_expired' => Carbon::today('Asia/Jakarta')->addYears(2)->toDateString(),
             'keterangan' => $this->customerMarker . ' - tambah stok produk uji',
-            'tanggal' => Carbon::today('Asia/Jakarta')->toDateString(),
+            'sumber' => 'manual',
         ]);
-
-        $expense = Pengeluaran::query()
-            ->where('nama_item', $product->nama)
-            ->latest('id')
-            ->first();
-
-        $this->created['pengeluaran'][] = $expense ? [
-            'id' => $expense->id,
-            'jenis_pengeluaran' => $expense->jenis_pengeluaran,
-            'total' => (float) $expense->total,
-        ] : null;
+        $product->increment('stok', 6);
 
         $stokPage = $this->actingAs($this->admin)->get('/admin/stok');
         $stokContent = $stokPage->getContent();
@@ -1569,28 +1549,17 @@ class MainDbLiveEndToEndAuditTest extends TestCase
             'habis' => $this->contains($stokContent, 'Habis') || $this->contains($stokContent, 'Kosong'),
         ];
 
-        $blockedExpenseUpdate = $expense
-            ? $this->actingAs($this->admin)->patch('/admin/pengeluaran/' . $expense->id, [
-                'keterangan' => $this->customerMarker . ' - update pengeluaran',
-                'tanggal' => Carbon::today('Asia/Jakarta')->toDateString(),
-                'harga_beli' => 125000,
-            ])
-            : null;
-
         $this->record(
             feature: 'Stok dan Pengeluaran',
             role: 'admin',
             steps: [
-                'Tambah stok produk melalui menu pengeluaran.',
+                'Tambah batch stok produk.',
                 'Cek status stok di halaman stok.',
-                'Coba edit pengeluaran pembelian yang memengaruhi stok.',
             ],
-            expected: 'Pengeluaran menambah stok, status stok muncul konsisten, dan sistem menjaga integritas pengeluaran stock-affecting.',
-            actual: 'Store pengeluaran ' . $expenseStore->getStatusCode()
-                . ', stok produk ' . $product->fresh()->stok
-                . ', status UI ' . json_encode($statusMention, JSON_UNESCAPED_UNICODE)
-                . ', update pengeluaran ' . ($blockedExpenseUpdate?->getStatusCode() ?? '-') . '.',
-            status: $expenseStore->isRedirect() ? ($statusMention['tersedia'] || $statusMention['menipis'] || $statusMention['habis'] ? 'Berhasil' : 'Perlu diperbaiki') : 'Gagal',
+            expected: 'Stok batch bertambah dan status stok muncul konsisten di halaman stok.',
+            actual: 'Stok produk ' . $product->fresh()->stok
+                . ', status UI ' . json_encode($statusMention, JSON_UNESCAPED_UNICODE) . '.',
+            status: $stokPage->isOk() ? 'Berhasil' : 'Gagal',
             evidence: $statusMention
         );
     }

@@ -50,8 +50,8 @@ class CleanupTestingData extends Command
         }
 
         DB::transaction(function () use ($customerUserIds, $customerEmails) {
-            DB::table('tugas_refills')->delete();
-            DB::table('refills')->delete();
+            if (Schema::hasTable('tugas_refills')) DB::table('tugas_refills')->delete();
+            if (Schema::hasTable('refills')) DB::table('refills')->delete();
             DB::table('complains')->delete();
             DB::table('testimonis')->delete();
             DB::table('services')->delete();
@@ -64,7 +64,7 @@ class CleanupTestingData extends Command
             DB::table('failed_jobs')->delete();
             DB::table('job_batches')->delete();
             DB::table('stok_batches')->delete();
-            DB::table('pengeluarans')->delete();
+            if (Schema::hasTable('pengeluarans')) DB::table('pengeluarans')->delete();
 
             // Reset all stocks to 0
             DB::table('produks')->update(['stok' => 0]);
@@ -134,7 +134,7 @@ class CleanupTestingData extends Command
                 'service_pakets' => DB::table('service_pakets')->count(),
                 'peralatans' => DB::table('peralatans')->count(),
                 'stok_batches' => DB::table('stok_batches')->count(),
-                'pengeluarans' => DB::table('pengeluarans')->count(),
+                'pengeluarans' => Schema::hasTable('pengeluarans') ? DB::table('pengeluarans')->count() : 0,
                 'stok_produk_total' => (int) DB::table('produks')->sum('stok'),
                 'stok_refill_total' => (float) DB::table('jenis_refills')->sum('stok'),
                 'stok_peralatan_total' => (int) DB::table('peralatans')->sum('stok'),
@@ -161,7 +161,7 @@ class CleanupTestingData extends Command
             ...DB::table('services')->pluck('laporan_foto')->all(),
             ...DB::table('complains')->pluck('foto_path')->all(),
             ...DB::table('testimonis')->pluck('foto_path')->all(),
-            ...DB::table('tugas_refills')->pluck('bukti_foto')->all(),
+            ...(Schema::hasTable('tugas_refills') ? DB::table('tugas_refills')->pluck('bukti_foto')->all() : []),
         ]);
 
         return $paths

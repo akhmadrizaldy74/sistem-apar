@@ -212,4 +212,21 @@ class ServiceMasterRevisionTest extends TestCase
             'stok' => 0,
         ]);
     }
+
+    public function test_admin_can_store_service_paket_without_optional_refill_keys(): void
+    {
+        $admin = $this->createAdmin();
+
+        $response = $this->actingAs($admin)->post(route('admin.service-paket.store'), [
+            'nama' => 'Pemasangan Unit Baru',
+            'harga' => 150000,
+        ]);
+
+        $response->assertRedirect(route('admin.jasa.index'));
+        $this->assertDatabaseHas('service_pakets', [
+            'nama' => 'Pemasangan Unit Baru',
+            'harga' => 150000,
+            'jenis_refill_id' => null,
+        ]);
+    }
 }

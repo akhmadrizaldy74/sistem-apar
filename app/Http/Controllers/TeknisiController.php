@@ -215,98 +215,17 @@ class TeknisiController extends Controller
 
     public function refillStock()
     {
-        $teknisiId = \Illuminate\Support\Facades\Auth::id();
-        $tugasRefill = \App\Models\TugasRefill::with(['produk.jenisApar', 'stokBatch'])
-            ->where(function($query) use ($teknisiId) {
-                $query->whereNull('teknisi_id')->orWhere('teknisi_id', $teknisiId);
-            })
-            ->whereIn('status', ['menunggu', 'diproses'])
-            ->latest()
-            ->get();
-
-        return view('teknisi.refill.index', compact('tugasRefill'));
+        return redirect()->route('teknisi.pekerjaan-aktif', ['filter' => 'service-refill']);
     }
 
-    public function mulaiRefill(Request $request, \App\Models\TugasRefill $tugasRefill)
+    public function mulaiRefill(Request $request, $id = null)
     {
-        if ($tugasRefill->status !== 'menunggu') {
-            return back()->with('error', 'Pekerjaan sudah dikerjakan atau selesai.');
-        }
-
-        $tugasRefill->update([
-            'teknisi_id' => \Illuminate\Support\Facades\Auth::id(),
-            'status' => 'diproses',
-        ]);
-
-        return back()->with('success', 'Pekerjaan refill mulai diproses.');
+        return redirect()->route('teknisi.pekerjaan-aktif', ['filter' => 'service-refill']);
     }
 
-    public function selesaiRefill(Request $request, \App\Models\TugasRefill $tugasRefill)
+    public function selesaiRefill(Request $request, $id = null)
     {
-        $request->validate([
-            'tanggal_refill' => 'required|date',
-            'catatan_teknisi' => 'nullable|string',
-            'bukti_foto' => 'nullable|image|max:2048',
-        ]);
-
-        if ($tugasRefill->teknisi_id !== \Illuminate\Support\Facades\Auth::id()) {
-            return back()->with('error', 'Anda tidak memiliki akses ke pekerjaan ini.');
-        }
-
-        $path = null;
-        if ($request->hasFile('bukti_foto')) {
-            $path = $request->file('bukti_foto')->store('refill_proofs', 'public');
-        }
-
-        $produk = $tugasRefill->produk;
-        if (!$produk) {
-            return back()->with('error', 'Produk tidak ditemukan untuk tugas refill ini.');
-        }
-
-        $tgl_expired = UnitApar::calculateExpiry(
-            $request->tanggal_refill,
-            $produk->kapasitas ?? '-',
-            $produk->jenisApar?->nama ?? '-',
-        );
-
-        DB::transaction(function() use ($tugasRefill, $request, $tgl_expired, $path, $produk) {
-            $inventoryService = app(InventoryService::class);
-            $stokSebelum = (float) $produk->fresh()->stok_tersedia;
-            $stokBatch = $tugasRefill->stokBatch;
-            $stokBatch->decrement('sisa_qty', $tugasRefill->jumlah_refill);
-
-            \App\Models\StokBatch::create([
-                'produk_id' => $produk->id,
-                'jumlah_masuk' => $tugasRefill->jumlah_refill,
-                'sisa_qty' => $tugasRefill->jumlah_refill,
-                'tgl_produksi' => $request->tanggal_refill,
-                'tgl_expired' => $tgl_expired,
-                'keterangan' => 'Hasil Refill oleh teknisi (ID Tugas: '.$tugasRefill->id.')',
-            ]);
-
-            $tugasRefill->update([
-                'tanggal_refill' => $request->tanggal_refill,
-                'catatan_teknisi' => $request->catatan_teknisi,
-                'bukti_foto' => $path,
-                'status' => 'selesai',
-            ]);
-
-            $produk->increment('stok', $tugasRefill->jumlah_refill);
-
-            $inventoryService->logProductMovement(
-                produk: $produk->fresh(),
-                qty: (float) $tugasRefill->jumlah_refill,
-                movementType: StockMovement::MOVE_IN,
-                sourceType: StockMovement::SOURCE_HASIL_REFILL_BATCH,
-                stokSebelum: $stokSebelum,
-                stokSesudah: (float) $produk->fresh('stokBatches')->stok_tersedia,
-                reference: $tugasRefill,
-                keterangan: 'Batch hasil refill teknisi untuk produk ' . $produk->nama,
-                tanggal: $request->tanggal_refill,
-            );
-        });
-
-        return back()->with('success', 'Refill selesai! Stok batch baru telah otomatis dibuat.');
+        return redirect()->route('teknisi.pekerjaan-aktif', ['filter' => 'service-refill']);
     }
 
     public function serviceLog()

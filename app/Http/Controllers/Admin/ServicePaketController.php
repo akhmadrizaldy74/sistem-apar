@@ -124,11 +124,11 @@ class ServicePaketController extends Controller
         return [
             'service_paket' => [
                 'nama' => $validated['nama'],
-                'label' => $validated['label'] ?: $validated['nama'],
+                'label' => ($validated['label'] ?? null) ?: $validated['nama'],
                 'harga' => (float) $validated['harga'],
-                'jenis_refill_id' => $validated['jenis_refill_id'] ?: null,
-                'refill_ratio' => filled($validated['refill_ratio'] ?? null) ? (float) $validated['refill_ratio'] : null,
-                'rincian_layanan' => $validated['rincian_layanan'] ?: null,
+                'jenis_refill_id' => !empty($validated['jenis_refill_id'] ?? null) ? (int) $validated['jenis_refill_id'] : null,
+                'refill_ratio' => filled($validated['refill_ratio'] ?? null) ? (float) $validated['refill_ratio'] : 0.0,
+                'rincian_layanan' => ($validated['rincian_layanan'] ?? null) ?: null,
             ],
             'peralatan_sync' => $peralatanSync,
         ];

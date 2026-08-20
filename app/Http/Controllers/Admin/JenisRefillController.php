@@ -12,7 +12,7 @@ class JenisRefillController extends Controller
 {
     public function index()
     {
-        $jenisRefills = JenisRefill::withCount('refills')->latest()->get();
+        $jenisRefills = JenisRefill::latest()->get();
 
         return view('admin.jenis-refill.index', compact('jenisRefills'));
     }

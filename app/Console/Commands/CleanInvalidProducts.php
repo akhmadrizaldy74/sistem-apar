@@ -68,7 +68,7 @@ class CleanInvalidProducts extends Command
                 $hasOrder = $produk->pesananDetails()->exists();
                 $hasUnit = $produk->units()->exists();
                 $hasBatch = $produk->stokBatches()->exists();
-                $hasTugas = DB::table('tugas_refills')->where('produk_id', $produk->id)->exists();
+                $hasTugas = Schema::hasTable('tugas_refills') ? DB::table('tugas_refills')->where('produk_id', $produk->id)->exists() : false;
 
                 $hasHistory = $hasOrder || $hasUnit || $hasBatch || $hasTugas;
 

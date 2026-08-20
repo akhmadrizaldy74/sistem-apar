@@ -29,7 +29,7 @@ class StokController extends Controller
         }
         $activeAparFilter = $productExpiryAlerts->normalizeFilter((string) request()->query('filter', ProductExpiryAlertService::FILTER_ALL));
 
-        $produks = Produk::with(['jenisApar', 'stokBatches.tugasRefills'])->latest()->get();
+        $produks = Produk::with(['jenisApar', 'stokBatches'])->latest()->get();
         $jenisRefills = JenisRefill::latest()->get();
         $peralatans = $serviceMasterSyncService->visiblePeralatans();
         $stockHistories = $stockHistoryService->recent();

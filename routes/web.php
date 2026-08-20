@@ -87,8 +87,8 @@ Route::middleware(['auth', 'teknisi'])->prefix('teknisi')->name('teknisi.')->gro
     Route::post('/tugas/{pesanan}/ajukan-tambahan', fn () => back()->with('error', 'Teknisi hanya mengerjakan dan melaporkan pekerjaan Service / Refill dari admin.'))->name('tugas.ajukan-tambahan');
     
     Route::get('/refill-stock', fn () => redirect()->route('teknisi.pekerjaan-aktif', ['filter' => 'service-refill']))->name('refill-stock.index');
-    Route::post('/refill-stock/{tugasRefill}/mulai', fn () => redirect()->route('teknisi.pekerjaan-aktif', ['filter' => 'service-refill']))->name('refill-stock.mulai');
-    Route::post('/refill-stock/{tugasRefill}/selesai', fn () => redirect()->route('teknisi.pekerjaan-aktif', ['filter' => 'service-refill']))->name('refill-stock.selesai');
+    Route::post('/refill-stock/{id}/mulai', fn () => redirect()->route('teknisi.pekerjaan-aktif', ['filter' => 'service-refill']))->name('refill-stock.mulai');
+    Route::post('/refill-stock/{id}/selesai', fn () => redirect()->route('teknisi.pekerjaan-aktif', ['filter' => 'service-refill']))->name('refill-stock.selesai');
 
     // Service Log — Teknisi Report
     Route::get('/service-log', fn () => redirect()->route('teknisi.pekerjaan-aktif', ['filter' => 'service-refill']))->name('service-log');

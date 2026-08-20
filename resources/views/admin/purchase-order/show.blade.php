@@ -36,8 +36,8 @@
                     Cetak PDF
                 </a>
 
-                <!-- Kirim via WA (Hanya Draft) -->
-                @if($purchaseOrder->status === 'draft')
+                <!-- Kirim via WA (Draft & Dikirim) -->
+                @if(in_array($purchaseOrder->status, ['draft', 'dikirim']))
                     <form action="{{ route('admin.purchase-orders.kirim', $purchaseOrder->id) }}" method="POST" class="inline">
                         @csrf
                         <button type="submit"
@@ -46,7 +46,9 @@
                             Kirim via WhatsApp
                         </button>
                     </form>
+                @endif
 
+                @if($purchaseOrder->status === 'draft')
                     <a href="{{ route('admin.purchase-orders.edit', $purchaseOrder->id) }}"
                         class="px-6 py-3.5 bg-amber-500 text-white font-black rounded-2xl hover:bg-amber-600 transition flex items-center gap-2 uppercase tracking-wider text-xs">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
@@ -249,7 +251,23 @@
     @if(session('wa_url'))
         <script>
             document.addEventListener('DOMContentLoaded', function () {
-                window.open(@js(session('wa_url')), '_blank');
+                const pdfUrl = @js(session('pdf_download_url'));
+                const waUrl = @js(session('wa_url'));
+
+                if (pdfUrl) {
+                    const link = document.createElement('a');
+                    link.href = pdfUrl;
+                    link.download = '';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }
+
+                if (waUrl) {
+                    setTimeout(function() {
+                        window.open(waUrl, '_blank');
+                    }, 500);
+                }
             });
         </script>
     @endif

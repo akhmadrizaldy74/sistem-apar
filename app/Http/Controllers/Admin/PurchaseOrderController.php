@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\JenisRefill;
 use App\Models\Peralatan;
 use App\Models\Produk;
 use App\Models\PurchaseOrder;
@@ -277,7 +278,7 @@ class PurchaseOrderController extends Controller
     }
 
     /**
-     * Ubah status PO ke dikirim & siapkan link WhatsApp supplier.
+     * Ubah status PO ke dikirim & siapkan link WhatsApp supplier dan download PDF.
      */
     public function kirim($id)
     {
@@ -294,14 +295,16 @@ class PurchaseOrderController extends Controller
         }
 
         $tanggalFormatted = $po->tanggal_po ? $po->tanggal_po->format('d/m/Y') : date('d/m/Y');
-        $pesan = "Halo {$po->supplier?->nama_supplier}, berikut Purchase Order dari PD Anugrah Utama dengan No. PO: {$po->nomor_po} tanggal {$tanggalFormatted}. Mohon segera diproses. Terima kasih.";
+        $pesan = "Halo {$po->supplier?->nama_supplier}, berikut Purchase Order dari PD Anugrah Utama dengan No. PO: {$po->nomor_po} tanggal {$tanggalFormatted}. (File PDF terlampir). Mohon segera diproses. Terima kasih.";
 
         $waUrl = $noWaClean !== '' ? "https://wa.me/{$noWaClean}?text=" . urlencode($pesan) : null;
+        $pdfDownloadUrl = route('admin.purchase-orders.pdf', ['id' => $po->id, 'download' => 1]);
 
         return redirect()
             ->route('admin.purchase-orders.show', $po->id)
-            ->with('success', "Status Purchase Order {$po->nomor_po} berhasil diubah ke Dikirim.")
-            ->with('wa_url', $waUrl);
+            ->with('success', "Status Purchase Order {$po->nomor_po} berhasil diset ke Dikirim.")
+            ->with('wa_url', $waUrl)
+            ->with('pdf_download_url', $pdfDownloadUrl);
     }
 
     /**
@@ -420,16 +423,22 @@ class PurchaseOrderController extends Controller
     }
 
     /**
-     * Cetak PDF Purchase Order.
+     * Cetak atau Unduh PDF Purchase Order.
      */
-    public function cetakPDF($id)
+    public function cetakPDF(Request $request, $id)
     {
         $po = PurchaseOrder::with(['supplier', 'details'])->findOrFail($id);
 
         $pdf = Pdf::loadView('pdf.purchase-order', compact('po'))
             ->setPaper('a4', 'portrait');
 
-        return $pdf->stream("PURCHASE_ORDER_{$po->nomor_po}.pdf");
+        $filename = "PURCHASE_ORDER_{$po->nomor_po}.pdf";
+
+        if ($request->query('download')) {
+            return $pdf->download($filename);
+        }
+
+        return $pdf->stream($filename);
     }
 
     /**

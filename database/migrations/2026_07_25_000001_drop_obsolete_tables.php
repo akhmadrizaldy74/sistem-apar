@@ -13,18 +13,7 @@ return new class extends Migration
     {
         Schema::disableForeignKeyConstraints();
 
-        if (Schema::hasTable('pesanans')) {
-            Schema::table('pesanans', function (Blueprint $table) {
-                try {
-                    $table->dropForeign(['jasa_id']);
-                } catch (\Throwable) {
-                    // Ignore if foreign key was already dropped or doesn't exist
-                }
-            });
-        }
-
         Schema::dropIfExists('pengeluarans');
-        Schema::dropIfExists('jasa');
         Schema::dropIfExists('pelanggangs');
         Schema::dropIfExists('refills');
         Schema::dropIfExists('tugas_refills');

@@ -31,9 +31,4 @@ class StokBatch extends Model
     {
         return $this->belongsTo(PurchaseOrder::class);
     }
-
-    public function tugasRefills()
-    {
-        return $this->hasMany(TugasRefill::class);
-    }
 }
