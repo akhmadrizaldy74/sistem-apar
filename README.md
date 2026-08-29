@@ -3,9 +3,51 @@ PANDUAN LENGKAP INSTALASI & PENGGUNAAN APLIKASI SISTEM APAR
 PD. ANUGRAH UTAMA
 =====================================================
 
+PILIHAN CARA INSTALASI:
+[METODE A] CARA INSTALASI PRAKTIS VIA DOCKER (Disarankan untuk Lab Kampus / PC Baru - Tanpa Repot Install PHP & MySQL)
+[METODE B] CARA INSTALASI MANUAL VIA LARAGON / XAMPP
+
+=====================================================
+[METODE A] CARA INSTALASI PRAKTIS VIA DOCKER (SERBA OTOMATIS)
+=====================================================
+Sangat cocok untuk Komputer Lab Kampus. Anda tidak perlu install PHP 8.2, Composer, atau MySQL secara manual.
+
+--- TAHAP 1: PERSIAPAN & JALANKAN DOCKER ---
+1. Pastikan aplikasi **Docker Desktop** sudah ter-install dan dalam posisi aktif/running di komputer.
+2. Buka Terminal / Command Prompt (CMD) di dalam folder `sistem-apar`.
+3. Jalankan perintah berikut:
+
+   ```bash
+   docker compose up -d --build
+   ```
+   *(Docker akan otomatis mendownload PHP 8.2, Web Server, serta membuatkan database dan mengimport file `sistem_apar.sql` secara otomatis).*
+
+--- TAHAP 2: LINK STORAGE (Cukup 1x Saja) ---
+Jalankan perintah ini di terminal agar file gambar/upload muncul:
+
+```bash
+docker compose exec app php artisan storage:link
+```
+
+--- TAHAP 3: AKSES APLIKASI ---
+- **Aplikasi Web:** Buka browser dan akses **http://localhost:8000**
+- **phpMyAdmin (Database):** Buka browser dan akses **http://localhost:8080**
+
+--- TAHAP 4: MEMATIKAN DOCKER (Jika Selesai) ---
+Untuk mematikan container setelah selesai praktikum/demo, jalankan:
+```bash
+docker compose down
+```
+
+
+=====================================================
+[METODE B] CARA INSTALASI MANUAL VIA LARAGON / XAMPP
+=====================================================
+
 --- TAHAP 1: PERSIAPAN DATABASE ---
 1. Buka Laragon / XAMPP, pastikan Apache & MySQL sudah START (berwarna hijau).
 2. Buka pengelola database (HeidiSQL/phpMyAdmin) lalu buat database baru dengan nama: **sistem_apar**
+3. Import file `sistem_apar.sql` ke dalam database `sistem_apar`.
 
 --- TAHAP 2: KONFIGURASI APLIKASI (.env) ---
 1. Copy file **.env.example** di folder root project, lalu rename menjadi **.env**
@@ -44,7 +86,9 @@ Pastikan Laragon/XAMPP tetap aktif, lalu buka browser dan akses URL:
 - Pengguna Laragon: **http://sistem-apar.test**
 - Pengguna XAMPP: **http://localhost/sistem-apar/public**
 
---- TAHAP 5: SETTING API RAJAONGKIR (Untuk Ongkir Otomatis) ---
+=====================================================
+SETTING API RAJAONGKIR (Untuk Ongkir Otomatis)
+=====================================================
 1. Login/Register di **https://rajaongkir.komerce.id/** lalu copy **API Key** dari dashboard Anda.
 2. Buka file **.env** Anda, temukan bagian RajaOngkir dan sesuaikan konfigurasinya:
 
