@@ -10,11 +10,12 @@ services:
     volumes:
       - .:/var/www/html
     environment:
-      - DB_HOST=db
-      - DB_PORT=3306
-      - DB_DATABASE=sistem_apar
-      - DB_USERNAME=root
-      - DB_PASSWORD=root
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: sistem_apar
+      DB_USERNAME: root
+      DB_PASSWORD: root
     depends_on:
       - db
 
@@ -39,7 +40,7 @@ services:
       - "8080:80"
     environment:
       PMA_HOST: db
-      PMA_PORT=3306
+      PMA_PORT: 3306
       PMA_USER: root
       PMA_PASSWORD: root
     depends_on:

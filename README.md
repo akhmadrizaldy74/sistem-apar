@@ -22,18 +22,14 @@ Sangat cocok untuk Komputer Lab Kampus. Anda tidak perlu install PHP 8.2, Compos
    ```
    *(Docker akan otomatis mendownload PHP 8.2, Web Server, serta membuatkan database dan mengimport file `sistem_apar.sql` secara otomatis).*
 
---- TAHAP 2: LINK STORAGE (Cukup 1x Saja) ---
-Jalankan perintah ini di terminal agar file gambar/upload muncul:
-
-```bash
-docker compose exec app php artisan storage:link
-```
-
---- TAHAP 3: AKSES APLIKASI ---
+--- TAHAP 2: AKSES APLIKASI ---
+Setelah container berjalan (tunggu ~15 detik untuk inisialisasi awal database & aplikasi otomatis):
 - **Aplikasi Web:** Buka browser dan akses **http://localhost:8000**
 - **phpMyAdmin (Database):** Buka browser dan akses **http://localhost:8080**
 
---- TAHAP 4: MEMATIKAN DOCKER (Jika Selesai) ---
+*(Catatan: Konfigurasi .env, APP_KEY, dan link storage sudah otomatis dibuatkan oleh Docker).*
+
+--- TAHAP 3: MEMATIKAN DOCKER (Jika Selesai) ---
 Untuk mematikan container setelah selesai praktikum/demo, jalankan:
 ```bash
 docker compose down
